@@ -1,18 +1,7 @@
-require './language.rb'
+source = './language/test.lang'
+require './token.rb'
+require './lexer.rb'
 
-filename = './language/test.lang'
-source_code = File.read(filename)
-
-lexer = Lexer.new(source_code)
-tokens = lexer.tokens
-
-puts "tokens: ", tokens
-
-# parser = Parser.new(tokens)
-
-# hint) abstract syntax tree
-# ast = parser.parse
-
-# puts ast.inspect
-
-
+source_code = File.open(source, 'r') do |code|
+  Lexer.new(code).start!
+end

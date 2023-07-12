@@ -1,2 +1,6 @@
-name: str = 'Hank'
-age: int = 35
+year: int = 2023
+buoyancy: float = 0.78
+dogs: num = 1
+description: string
+collection: array
+
