@@ -1,53 +1,63 @@
 require './frontend/language.rb'
 require './frontend/token.rb'
 
-@tokens                     = []
-@words                      = []
-@line_number                = 0
-@char_number                = 0
-@last_token                 = nil
-@number_of_whitespaces_seen = 0
+@tokens   = []
+@words    = []
+@language = Language.new
 
-File.open('./language/test.lang').read.each_line.with_index do |line_of_code, line_number|
-  puts "\n##############################"
-  # puts "line_of_code: #{line_of_code}\n"
+File.open('./language/test.lang').read.each_line.with_index do |code_on_this_line, line_number|
 
-  @line_number = line_number
-  @words       = line_of_code.split(' ')
-  puts "words: #{@words}"
+  @words = code_on_this_line.split ' '
 
-  line_of_code.split('') do |char, char_number|
-    @char_number = char_number
+  @words.each_with_index do |word, index|
+    # returns the index of the first char of the word within the line
+    index_start = code_on_this_line.index word
+    index_end   = index_start + word.length - 1
 
-    # hint) there's a whitespace between each word, so 0 whitespaces seen = first word, 1 whitespaces seen = second word, etc. each time char == ' ' this is virtually the loop when looping words. this if is the equivalent of the block passed to to words.each
-    if char == ' '
-      @number_of_whitespaces_seen += 1
-      next
+    token                  = Token.new
+    token.char_range       = index_start..index_end
+    token.start_char       = word[0]
+    token.end_char         = word[-1]
+    token.second_char      = word[1]
+    token.second_last_char = word[-2]
+    token.previous_word    = @words[index - 1]
+    token.next_word        = @words[index + 1]
+    token.original_word    = word
+    token.word             = word
+    token.line_code        = code_on_this_line
+    token.line_number      = line_number
+    token.line_length      = code_on_this_line.length - 1
+    token.word_number      = index
+    token.word_length      = word.length - 1
+    token.is_pre_type      = @language.pre_type.include? token.end_char
+    token.is_type          = @language.types.include? token.original_word
+    token.is_key_symbol    = @language.symbols.include? token.original_word
+    token.is_key_word      = @language.keywords.include? token.original_word
+    token.is_operator      = @language.operators.include? token.original_word
+
+    # check if is_literal using regex
+    token.is_literal = /^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$/ =~ token.original_word
+
+    # here we can determine the token type  based on the properties above
+    if token.is_pre_type
+      token.word       = token.original_word[0..-2]
+      token.token_type = TokenType.new(name: :identifier)
     end
 
-    last_word = @words[@number_of_whitespaces_seen - 1]
-    this_word = @words[@number_of_whitespaces_seen]
-    next_word = @words[@number_of_whitespaces_seen + 1]
+    if token.is_type
+      token.token_type = TokenType.new(name: :type)
+    end
 
-    # puts "char: #{char}"
-    # puts "this_word: #{this_word} -> #{this_word.class}"
+    if token.is_operator
+      token.token_type = TokenType.new(name: :operator)
+    end
 
-    token = Token.new
-
-    token.first_char       = this_word[0]
-    token.last_char        = this_word[-1]
-    token.second_char      = this_word[1]
-    token.second_last_char = this_word[-2]
-
-    token.raw_line       = line_of_code
-    token.raw_word       = this_word
-    token.formatted_word = this_word # todo) format for things like type
-
-    token.is_pre_type = Language::Keywords[:pre_type].include?(token.last_char) # todo) to method
-    token.is_type     = Language::Keywords[:types].include?(token.formatted_word) # todo) to method
+    if token.is_literal
+      token.token_type = TokenType.new(name: :literal)
+    end
 
     @tokens << token
   end
 end
 
-puts @tokens.inspect
+puts @tokens

@@ -1,6 +1,6 @@
 year: int = 2023
-buoyancy: float = 0.78
-dogs: num = 1
-description: string
-collection: array
-
+nothing: str
+fraction: float = 0.78
+fraction2: float = 12.78
+fraction3: float = .78
+fraction4: float = 78.
