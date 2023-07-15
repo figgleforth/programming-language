@@ -9,7 +9,7 @@ def is_literal?(word)
   /^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$/ =~ word
 end
 
-File.open('./language/test.lang').read.each_line.with_index do |code_on_this_line, line_number|
+File.open('./opal/example.op').read.each_line.with_index do |code_on_this_line, line_number|
 
   @words = code_on_this_line.split ' '
 
