@@ -3,14 +3,19 @@
 # If object name is omitted, the name of the object is generated from the filename. for example, a file named my_program.rb would generate an object named My_Program.
 
 self: Ideas
+# identifier, pre type, type
+
+
 self: Ideas(title: str)
+# identifier, pre type, type, open paren, identifier, pre type, type, close paren
 
 # self refers to the file, so we are setting the file to be Ideas
 
 ## constructors
 
+# identifier, open paren, identifier, pre type, type, close paren, pre return type, return type
 new(title: str) -> Idea
-end
+end # keyword
 
 new(title: str) # type implied
 end

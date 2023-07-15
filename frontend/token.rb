@@ -14,7 +14,9 @@ class TokenType
 end
 
 class Token
-  # hint) these are definitely set in the parser
+  attr_accessor :token_type # TokenType
+  attr_accessor :token_sub_type
+
   attr_accessor :char_range # eg) 0..3
 
   attr_accessor :line_code
@@ -36,23 +38,10 @@ class Token
 
   # hint) it's best to assume any of the following properties could be nil, because they may not be set yet
 
-  attr_accessor :token_type # TokenType
 
   attr_accessor :next_word
   attr_accessor :previous_word
 
-  attr_accessor :is_key_word
-  attr_accessor :is_key_symbol
-  attr_accessor :is_identifier
-  attr_accessor :is_pre_type
-  attr_accessor :is_type
-  attr_accessor :is_user_type
-  attr_accessor :is_operator
-  attr_accessor :is_logical_operator
-  attr_accessor :is_pre_block
-  attr_accessor :is_block_operator
-  attr_accessor :is_comment
-  attr_accessor :is_literal
 
   def initialize
     @tokens_ahead  = []

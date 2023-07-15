@@ -1,6 +1,5 @@
-year: int = 2023
-nothing: str
-fraction: float = 0.78
-fraction2: float = 12.78
-fraction3: float = .78
-fraction4: float = 78.
+blank_func(input_param: float) -> int
+  testing: bool = false
+  something if whatever
+  return 1
+end
