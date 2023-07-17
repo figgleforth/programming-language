@@ -1,5 +1,0 @@
-blank_func(input_param: float) -> int
-  testing: bool = false
-  something if whatever
-  return 1
-end

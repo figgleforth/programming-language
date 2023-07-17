@@ -1,7 +1,7 @@
 class TokenType
   attr_reader :name
 
-  # eg) TokenType.new(string: 'int', is_key_word: true)
+  # any keys and values, comma separated
   def initialize(**options)
     options.each do |key, value|
       instance_variable_set("@#{key}", value) if respond_to?(key)
@@ -9,47 +9,43 @@ class TokenType
   end
 
   def to_s
-    "#{name}"
+    "[#{name}]"
   end
 end
 
+
+
 class Token
   attr_accessor :token_type # TokenType
-  attr_accessor :token_sub_type
 
-  attr_accessor :char_range # eg) 0..3
-
+  attr_accessor :indent_in_spaces
   attr_accessor :line_code
   attr_accessor :line_number
   attr_accessor :line_length
+  attr_accessor :word
   attr_accessor :word_number
   attr_accessor :word_length
-  attr_accessor :original_word
-  attr_accessor :word # hint) this starts the same value as @original_word, but may differ by some chars based on the type of this token. eg) `variable:` would become `variable` when formatted because the
+  attr_accessor :value # hint) this starts the same value as @word, but may differ by some chars based on the type of this token. eg) `variable:` would become `variable` when formatted
 
   attr_accessor :start_char
   attr_accessor :end_char
-  attr_accessor :second_char
-  attr_accessor :second_last_char
+  attr_accessor :char_range # eg) 0..3
 
-  # use the index to determine the distance to the token. 0 is the current token, 1 is the next token, -1 is the previous token, so really just the index in the positive (forward) or negative (backward) direction
-  attr_accessor :tokens_ahead
-  attr_accessor :tokens_behind
-
-  # hint) it's best to assume any of the following properties could be nil, because they may not be set yet
-
-
-  attr_accessor :next_word
-  attr_accessor :previous_word
-
-
-  def initialize
-    @tokens_ahead  = []
-    @tokens_behind = []
+  # any keys and values, comma separated
+  def initialize(**options)
+    options.each do |key, value|
+      instance_variable_set("@#{key}", value) if respond_to?(key)
+    end
   end
 
   def to_s
-    " #{token_type}\n\t#{word}\n\n"
+    indent = "".tap do |str|
+      (@indent_in_spaces || 0).times do
+        str << " "
+      end
+    end
+
+    "#{indent}#{token_type} #{value}\n"
   end
 
   def inspect
