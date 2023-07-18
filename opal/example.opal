@@ -1,12 +1,14 @@
-struct: Example(name: str)
+obj: Example(name: str)
 
 filename: str
 
-new: Example(name: str)
-
+new(name: str)
+  filename # prints filename
 end
 
-class: InnerExample(favorite_number: int)
+obj: InnerExample(favorite_number: int)
+  is Runner
+
   favorite_number: int
 
   new(favorite_number: int)
@@ -14,4 +16,6 @@ class: InnerExample(favorite_number: int)
   end
 end
 
-
+api Runner
+  def run
+end
