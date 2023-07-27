@@ -63,3 +63,19 @@ Sandwich.functions # injects both public and private functions
 
 Sandwich # injects everything, effectively inheriting from it but not actually inheriting from it
 ##
+
+
+# maybe object is both a class and struct, and you choose how you want to pass it around. * is reference, otherwise always by value
+~~object self: Type~~
+
+! 'your log message'
+!! 'your warning message'
+!!! 'your error message'
+
+
+for some_collection_such_as_list
+  it # keyword referring to the current item
+  at # keyword referring to the current index
+  stop # keyword to break out of the loop
+  next # keyword to skip to the next iteration, maybe it should be called next?
+end

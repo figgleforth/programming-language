@@ -9,7 +9,7 @@ class TokenType
   end
 
   def to_s
-    "[#{name}]"
+    "(#{name || 'unknown'})"
   end
 end
 
@@ -17,13 +17,13 @@ end
 
 class Token
   attr_accessor :token_type # TokenType
+  attr_accessor :word
+  attr_accessor :word_index
 
   attr_accessor :indent_in_spaces
   attr_accessor :line_code
   attr_accessor :line_number
   attr_accessor :line_length
-  attr_accessor :word
-  attr_accessor :word_number
   attr_accessor :word_length
   attr_accessor :value # hint) this starts the same value as @word, but may differ by some chars based on the type of this token. eg) `variable:` would become `variable` when formatted
 
@@ -31,10 +31,14 @@ class Token
   attr_accessor :end_char
   attr_accessor :char_range # eg) 0..3
 
+  attr_accessor :contains_colon
+  attr_accessor :contains_open_paren
+  attr_accessor :contains_close_paren
+
   # any keys and values, comma separated
   def initialize(**options)
-    options.each do |key, value|
-      instance_variable_set("@#{key}", value) if respond_to?(key)
+    options.each do |key, val|
+      instance_variable_set("@#{key}", val) if respond_to?(key)
     end
   end
 
@@ -45,10 +49,14 @@ class Token
       end
     end
 
-    "#{indent}#{token_type} #{value}\n"
+    "#{indent}#{token_type} #{word}\n"
   end
 
   def inspect
     "\n#{super}\n"
+  end
+
+  def start_char_index
+    line_code.index value
   end
 end

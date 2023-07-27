@@ -1,0 +1,4 @@
+- prefer useful token names
+  - name > identifier
+  - declarator > keyword for obj, def, api, etc
+	- keyword is still fine for some

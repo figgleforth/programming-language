@@ -8,11 +8,13 @@ BINARY_OPERATORS   = %w(+ - * / %)
 EQUALITY_OPERATORS = %w(= == != < > <= >=)
 LOGICAL_OPERATORS  = %w(&& || ! and or not)
 
-SYMBOLS      = %w(@)
-TYPES        = %w(int float str bool dict array list class struct)
-WORDS        = %w(enum new it at iam obj api is)
-PRE_BLOCKS   = %w(while for loop def)
-FLOW_CONTROL = %w(stop next end if else while for return)
+SYMBOLS       = %w(@)
+TYPES         = %w(int float str bool dict array object obj)
+CLASSIC_TYPES = %w(class struct)
+WORDS         = %w(enum new it at iam obj api is)
+PRE_BLOCKS    = %w(while for loop def)
+FLOW_CONTROL  = %w(stop next end if else while for return)
+OBJECT        = %w(obj object)
 
 KEYWORDS = [
   SYMBOLS,
