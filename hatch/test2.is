@@ -1,0 +1,9 @@
+self: Test2 + FirstComposition, Second, Third, Fourth, Etc, Whatever
+
+
+#manual_assignment: int = 4
+#inferred_assignment := 8
+#
+#obj InnerTest
+#end
+#

@@ -1,16 +1,37 @@
-  # use the index to determine the distance to the token. 0 is the current token, 1 is the next token, -1 is the previous token, so really just the index in the positive (forward) or negative (backward) direction
-  attr_accessor :tokens_ahead
-  attr_accessor :tokens_behind
+class Program
+   attr_accessor :filename, :children
 
-    # hint) it's best to assume any of the following properties could be nil, because they may not be set yet
+   def initialize(filename, children = [])
+      @filename = filename
+      @children = children
+   end
+end
 
+class SelfDeclaration
+   attr_accessor :name, :compositions
 
-  attr_accessor :next_word
-  attr_accessor :previous_word
+   def initialize(name, compositions = [])
+      @name                    = name
+      @compositions = compositions
+   end
+end
 
+# Program.new(20,30)
 
-  def initialize
-    @tokens_ahead  = []
-    @tokens_behind = []
-  end
+class Node
+   attr_accessor :type, :name, :value, :child_nodes, :tokens, :compositions
 
+   # any keys and values, comma separated
+   def initialize(**options)
+      options.each do |key, val|
+         instance_variable_set("@#{key}", val) if respond_to?(key)
+      end
+   end
+
+   def inspect
+      str = "#{type} -> #{name}"
+      str += "\n\t" + child_nodes.map(&:inspect).join("\n") if child_nodes
+      str += "\n\tCompositions:\n\t\t#{compositions.map(&:inspect).join("\n\t\t")}" if compositions
+      str
+   end
+end

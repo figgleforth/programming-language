@@ -1,27 +1,24 @@
 COMMENTS         = %w(# ~ // ### ~~~ ///)
-LOGGING          = %w(::)
+LOGGING          = %w(@log @warn @error)
 NUMBER_LITERALS  = %w(0 1 2 3 4 5 6 7 8 9)
 BOOLEAN_LITERALS = %w(true false)
 DELIMITERS       = %w(( ) : [ ] { } , . ;)
 
 BINARY_OPERATORS   = %w(+ - * / %)
-EQUALITY_OPERATORS = %w(= == != < > <= >=)
+EQUALITY_OPERATORS = %w(= == != < > <= >= &&)
 LOGICAL_OPERATORS  = %w(&& || ! and or not)
 
-SYMBOLS       = %w(@)
-TYPES         = %w(int float str bool dict array object obj)
+BUILTIN_TYPES = %w(int float str bool dict array nil)
 CLASSIC_TYPES = %w(class struct)
-WORDS         = %w(enum new it at iam obj api is)
-PRE_BLOCKS    = %w(while for loop def)
-FLOW_CONTROL  = %w(stop next end if else while for return)
-OBJECT        = %w(obj object)
+
+SYMBOLS = %w(@ @@)
+WORDS   = %w(self enum new it at obj api is when while for loop def stop next end if else while for return obj)
 
 KEYWORDS = [
   SYMBOLS,
-  TYPES,
+  BUILTIN_TYPES,
   WORDS,
-  PRE_BLOCKS,
-  FLOW_CONTROL
+  LOGGING
 ].flatten
 
 OPERATORS = [
@@ -38,10 +35,3 @@ OTHERS = [
   DELIMITERS
 ].flatten
 
-def is_literal?(word)
-  /^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$/ =~ word
-end
-
-def is_identifier?(word)
-  /^[a-zA-Z_][a-zA-Z0-9_]*$/ =~ word
-end
