@@ -1,6 +1,6 @@
 require './frontend/token'
 
-PRINT_PADDING   = 35
+PRINT_PADDING   = 23
 NEWLINE_ESCAPED = "\\n" # this renders as the literal string '\n'
 NEWLINE         = "\n" # this renders as a newline
 

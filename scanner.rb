@@ -34,7 +34,6 @@ class Scanner
     end
 
     def debug_print
-        puts 'Tokens:'
         @tokens.each do |token|
             say "#{token.debug.ljust(PRINT_PADDING)}"
         end
@@ -209,9 +208,9 @@ class Scanner
                     token      = nil
                     if identifier == 'self'
                         # if peek == ':'
-                            token = tokenize :self_keyword, identifier
-                            add_token token
-                            end_position = @caret.current_index
+                        token = tokenize :self_keyword, identifier
+                        add_token token
+                        end_position = @caret.current_index
                         # else
                         #     token = tokenize :self_reference, identifier
                         # end
@@ -221,7 +220,7 @@ class Scanner
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'new'
-                        token = tokenize :object_initializer, identifier
+                        token = tokenize :new_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'if'
@@ -233,11 +232,11 @@ class Scanner
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'while'
-                        token = tokenize :while_loop_declaration, identifier
+                        token = tokenize :while_loop_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'for'
-                        token = tokenize :for_loop_declaration, identifier
+                        token = tokenize :for_loop_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'it'
@@ -249,15 +248,15 @@ class Scanner
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'obj'
-                        token = tokenize :object_declaration, identifier
+                        token = tokenize :object_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'api'
-                        token = tokenize :api_declaration, identifier
+                        token = tokenize :api_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'def'
-                        token = tokenize :method_definition, identifier
+                        token = tokenize :method_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'stop'
@@ -306,7 +305,7 @@ class Scanner
                 start_position = @caret.current_index
                 number         = accumulate_number
                 token          = tokenize type_of_number(number), number
-                token.type     = :number_literal
+                token.type     = :number
                 add_token token
                 end_position = @caret.current_index
                 token.span   = start_position..end_position
@@ -390,7 +389,7 @@ class Scanner
                     eat_until_newline
                 elsif char == ':' && peek == '='
                     start_position = @caret.current_index
-                    token          = tokenize :inferred_assignment, ":="
+                    token          = tokenize :inferred_assignment_operator, ":="
                     add_token token
                     eat 2
                     end_position = @caret.current_index
@@ -489,7 +488,7 @@ class Scanner
                     token.span   = start_position..end_position
                 elsif char == '+' || char == '-' || char == '*' || char == '/' || char == '%' || char == '^'
                     start_position = @caret.current_index
-                    token          = tokenize :operator, char
+                    token          = tokenize :binary_operator, char
                     add_token token
                     eat
                     end_position = @caret.current_index
@@ -556,6 +555,6 @@ class Scanner
     end
 end
 
-scanner = Scanner.new './hatch/test2.is'
-scanner.scan
-scanner.debug_print
+# scanner = Scanner.new './hatch/parse_test.is'
+# scanner.scan
+# scanner.debug_print

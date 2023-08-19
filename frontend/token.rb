@@ -12,9 +12,9 @@ class Token
     end
   end
 
-  # def inspect
-  #   "#{span} #{word.to_s} —  #{type}"
-  # end
+  def inspect
+    "#{type}(#{word.to_s})"
+  end
 
   def debug
     str = word.rjust(PRINT_PADDING) + ' • ' + type.to_s
