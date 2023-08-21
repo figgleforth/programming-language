@@ -1,2 +1,21 @@
-x: int = 1 + 2 * (3 - 4)
-y := 1 / (2 + 3) ^ 4
+self: obj Bwah + Bobby, Pegleg
+b: float = 8.00001
+
+
+def go: bool(here x: int, there y: float)
+  a: int = 4
+  b: float = 8.00001
+end
+
+hatch: bool = true
+#  do_something() # todo
+#def test3: (x: int)
+#end
+#def test2: float
+#end
+#def test4
+#end
+#x: int = 1 + 2 * (3 - 4)
+#y := 1 / 2
+#z := x * y # todo
+#y = 10 # todo

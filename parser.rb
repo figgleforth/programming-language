@@ -1,206 +1,230 @@
-require './frontend/node'
-require './scanner'
+require_relative 'frontend/node'
+require_relative 'scanner'
+require_relative 'parser_helper'
+require 'ostruct'
 
 class Parser
-    attr_reader :tokens, :program, :ast, :self_declaration_count
+    include ParserHelper
+    attr_reader :tokens, :hatch_object
 
     def initialize file_to_read = nil
         scanner = Scanner.new file_to_read
         scanner.scan
-        @self_declaration_count = 0
-        @ast                    = []
-        @tokens                 = scanner.tokens
-        @program                = Program.new(file_to_read)
+        @tokens       = scanner.tokens
+        @hatch_object = HatchObject.new(file_to_read)
+        @hatch_object.convert_file_name_to_name_of_object!
     end
 
-    # region Helpers
-    def already_defined_a_self_declaration?
-        @self_declaration_count > 0 || @ast.any? do |node|
-            node.a?(ObjectDeclaration) && node.type == :self
-        end
+    def start!
+        @tokens = parse tokens
     end
-
-    def reached_end?
-        @tokens.empty?
-    end
-
-    def curr_token
-        @tokens[0]
-    end
-
-    def assert_curr_token type
-        raise "Expected #{type} but found #{curr_token.type}" if curr_token.type != type
-    end
-
-    def peek number_of_tokens = 1, accumulate = false
-        return @tokens[1..number_of_tokens] if accumulate
-        @tokens[number_of_tokens]
-    end
-
-    def peek_until type
-        tokens = []
-
-        distance = 1
-        curr     = peek(distance)
-        while !reached_end? && curr.type != type
-            tokens << curr
-            distance += 1
-            curr     = peek(distance)
-        end
-
-        # If the loop ends due to reaching the end of input, and the last token is not :block_end, add the :block_end token to the tokens list.
-        tokens << curr if curr.type == :block_end && !reached_end? && curr.type != type
-
-        tokens
-    end
-
-    def node_for_object_declaration identifier, type
-        node = ObjectDeclaration.new(identifier, type)
-
-        if curr_token.type == :binary_operator && curr_token.word == '+'
-            compositions = eat_until_and_consume(:newline).reject { |token| token.type == :comma }
-
-            # todo) improve this error
-            raise "Compositions must be identifiers" unless compositions.all? { |token| token.type == :identifier }
-
-            node.compositions = compositions.map do |token|
-                # todo) make them into nodes?
-                token.word
-            end
-        end
-
-        node
-    end
-
-    # endregion
 
     # region Identifying
 
-    def assignment?
-        inferred_assignment? || explicit_assignment?
-    end
-
-    def inferred_assignment?
-        curr_token.type == :identifier &&
-          peek(1).type == :inferred_assignment_operator
+    def inferred_assignment? tokens
+        tokens[0].type == :identifier &&
+          tokens[1].type == :inferred_assignment_operator
     end
 
     # todo) too complex, simplify it
-    def explicit_assignment?
-        curr_token.type == :identifier &&
-          peek(1).type == :colon &&
-          (peek(2).type == :identifier || peek(2).type == :builtin_type)
+    def explicit_assignment? tokens
+        tokens[0].type == :identifier &&
+          tokens[1].type == :colon &&
+          (tokens[2].type == :identifier || tokens[2].type == :builtin_type)
     end
 
-    def object_declaration?
-        curr_token.type == :object_keyword && peek(1).type == :identifier
+    def object_declaration? tokens
+        tokens[0].type == :object_keyword && tokens[1].type == :identifier
     end
 
-    def self_declaration?
-        curr_token.type == :self_keyword && peek(1).type == :colon && peek(2).type == :object_keyword && peek(3).type == :identifier
+    def self_declaration? tokens
+        tokens[0].type == :self_keyword && tokens[1].type == :colon && tokens[2].type == :object_keyword && tokens[3].type == :identifier
     end
 
-    def operator?
+    def operator? tokens
         # todo) rest of the operators
-        %w().include?(curr_token.word) && curr_token.type == :binary_operator
+        %w().include?(tokens[0].word) && tokens[0].type == :binary_operator
     end
 
     # endregion
 
     # region Eating
-    def eat number_of_tokens = 1
-        tokens = @tokens[0..number_of_tokens - 1]
-        number_of_tokens.times { @tokens.shift }
-        tokens # in case I want to do something with them
-    end
 
-    def eat_until_and_stop_at type
-        tokens = []
-        while !reached_end? && curr_token.type != type
-            eat
-            tokens << curr_token if curr_token.type != type
+    def eat_object_declaration tokens
+        # eats `obj` `identifier`
+        identifier = eat(2).last
+        node       = make_compositions_object tokens, :self, identifier.word
+        if @scoped_statements
+            @scoped_statements << node
+        else
+            @hatch_object.objects << node
+            @hatch_object.statements << node
         end
         tokens
     end
 
-    def eat_until_and_consume type
-        tokens = eat_until_and_stop_at type
+    def eat_self_declaration tokens
+        raise "Only one self declaration is allowed per file" if @hatch_object.explicitly_declared
 
-        # puts "previous tokens: #{tokens.last(2)}"
-        # puts "curr_token.type: #{curr_token.type}"
-        # puts "expected type: #{type}"
-        assert_curr_token type
+        # self, :, obj, identifier
+        identifier = eat(tokens, 4).last
 
-        # fix) hopefully consuming all newlines doesn't cause issues
-        eat until curr_token.type != type if type == :newline
+        compositions       = make_compositions_object tokens, :self, identifier.word
+        @hatch_object.name = identifier.word
+        # @hatch_object.statements << compositions
+        # add to 0 index
+        @hatch_object.statements.unshift compositions
+        @hatch_object.explicitly_declared = true
+
         tokens
     end
 
-    def eat_object_declaration
-        # eats `obj` `identifier`
-        identifier = eat(2).last
-        node       = node_for_object_declaration :self, identifier.word
-        @program.statements << node
+    def eat_constructor_declaration tokens
+        node = MethodDeclaration.new(eat(tokens).last, :new)
+        if @scoped_statements
+            @scoped_statements << node
+        else
+            @hatch_object.functions << node
+            @hatch_object.statements << node
+        end
+        tokens
     end
 
-    def eat_self_declaration
-        raise "Only one self declaration is allowed per file" if already_defined_a_self_declaration?
+    def eat_method_declaration tokens
+        def eat_signature(method_declaration, tokens)
+            # possible upcoming tokens:
+            #  : return_type(params...)
+            #  : return_type
+            #  : (params...)
+            #  \n
 
-        # self, :, obj, identifier
-        identifier = eat(4).last
+            # if  : then signature exists
+            # if \n then no signature
 
-        node = node_for_object_declaration :self, identifier.word
+            if tokens[0].type == :newline
+                eat(tokens) and return method_declaration
+            end
 
-        @ast << node
-        @program.statements << node
-        @self_declaration_count += 1
+            eat(tokens) # :
+
+            if [:identifier, :builtin_type].include?(tokens[0].type)
+                method_declaration.returns = eat(tokens).last
+            end
+
+            # puts "method declaration so far: #{method_declaration.inspect}"
+            # puts "tokens: #{tokens.inspect}"
+
+            # possible upcoming tokens:
+            #  (params...)
+            #  \n
+
+            if tokens[0].type == :newline
+                eat(tokens) and return method_declaration
+            end
+
+            assert tokens[0], :open_paren
+            eat(tokens) # (
+
+            # these should now be the params
+            # Eat 2
+            # If first and last are identifier then first must be label
+            # If last is : then there is no label
+            #
+            # If label, eat 2 to get to type
+            # If not label, eat 1 to get to type
+
+            until reached_end? tokens
+                break if [:close_paren, :newline, :eof].include?(tokens[0].type)
+
+                parameter = Param.new.tap do |param|
+                    if tokens[0].type == :identifier && tokens[1].type == :identifier # label identifier: type (4 tokens)
+                        param.label = eat(tokens).last
+                        param.name  = eat(tokens).last
+                        param.type  = eat(tokens, 2).last
+                        eat(tokens) # :
+                    elsif tokens[0].type == :identifier && tokens[1].type == :colon # identifier: type (3 tokens)
+                        param.name = eat(tokens).last
+                        param.type = eat(tokens, 2).last
+                        eat(tokens) # :
+                    end
+                end
+
+                method_declaration.parameters << parameter
+                eat(tokens) if tokens[0].type == :comma
+            end
+            method_declaration
+        end
+
+        data        = eat(tokens, 2) # def, identifier
+        method_node = MethodDeclaration.new data.last, :def
+        method_node = eat_signature method_node, tokens
+
+        # at this point, the entire signature is consumed
+
+        eat(tokens) if tokens[0].type == :newline
+
+        # parse the body of the method
+        # this is where scope comes in? GPT, I need your help. I'm not sure how to do this. Basically at this point we are parsing the body of a method. How do I
+        @scoped_statements = []
+        parse tokens, :end_keyword # recurse through parse again, but this time when adding to statements, we check if a scoped_statement array exists and add to it instead of the regular statements.
+        method_node.statements = @scoped_statements
+        @scoped_statements     = nil
+        # have to set this to nil to prevent the next method from adding to the scoped statements. todo) abstract
+
+        assert tokens[0], :end_keyword
+        eat(tokens)
+
+        # puts "method node: #{method_node.inspect}"
+
+        if @scoped_statements
+            @scoped_statements << method_node
+        else
+            @hatch_object.functions << method_node
+            @hatch_object.statements << method_node
+        end
+        tokens
     end
 
-    def eat_constructor
-        # curr_token.type == :new_keyword
-        node = ProcedureDeclaration.new(eat.last.word, :new)
-        # puts "constructor", node.inspect
-        # eat
-        @program.statements << node
-    end
-
-    def eat_method
-        # curr_token.type == :new_keyword
-        node = ProcedureDeclaration.new(eat.last.word, :def)
-        # puts "method", node.inspect
-
-        @program.statements << node
+    def eat_method_call tokens
+        puts "function call"
+        eat tokens, 2 # identifier, (
     end
 
     # this is called precedent climbing. I basically copied https://eli.thegreenplace.net/2012/08/02/parsing-expressions-by-precedence-climbing
-    def eat_assignment
-        data = if explicit_assignment?
+    def eat_assignment tokens
+        data = if explicit_assignment?(tokens)
                    # identifier, :, identifier/type, =
-                   eat 4
-               elsif inferred_assignment?
+                   eat tokens, 4
+               elsif inferred_assignment?(tokens)
                    # identifier, :=
-                   eat 2
+                   eat tokens, 2
                end
 
-        def parse_atom
-            if curr_token.type == :open_paren
-                eat
-                value = parse_expression 1
-                assert_curr_token :close_paren
-                eat
+        def parse_atom tokens
+            if tokens[0].type == :open_paren
+                eat(tokens)
+                value = parse_expression tokens, 1
+                assert tokens[0], :close_paren
+                eat(tokens)
                 value
-            elsif curr_token.type == :binary_operator
-                assert_curr_token :binary_operator
-            elsif curr_token.type == :number
-                value = curr_token
-                eat
-                Literal.new(value.word.to_i)
-            elsif curr_token.type == :identifier
-                raise 'Implement identifier parsing within expression'
+            elsif tokens[0].type == :binary_operator
+                assert tokens[0], :binary_operator
+            elsif tokens[0].type == :number
+                value = tokens[0]
+                eat(tokens)
+                Value.new(value)
+            elsif tokens[0].type == :identifier
+                value = VariableReference.new(tokens[0].word)
+                if tokens[1].type == :open_paren
+                    method = tokens[0]
+                    eat 2 # identifier, (
+                    value = Value.new(method, :method)
+                end
+                value
             end
         end
 
-        def parse_expression(precedence = 0)
+        def parse_expression(tokens, precedence = 0)
             operator_precedences = {
               '+': 1,
               '-': 1,
@@ -210,22 +234,22 @@ class Parser
               '^': 3
             }
 
-            left = parse_atom
+            left = parse_atom tokens
 
             while true
-                curr_precedence = operator_precedences[curr_token.word.to_sym]
-                if curr_token.type != :binary_operator || curr_precedence < precedence
+                curr_precedence = operator_precedences[tokens[0].word.to_sym]
+                if tokens[0].type != :binary_operator || curr_precedence < precedence
                     break
                 end
 
-                assert_curr_token :binary_operator
-                operator            = curr_token
+                assert tokens[0], :binary_operator
+                operator            = tokens[0]
                 operator_precedence = curr_precedence
                 min_precedence      = operator_precedence
                 min_precedence      += 1 if operator.word == '^'
 
-                eat
-                right = parse_expression min_precedence
+                eat(tokens)
+                right = parse_expression tokens, min_precedence
                 left  = BinaryExpression.new operator.word, left, right
             end
 
@@ -236,36 +260,71 @@ class Parser
         node       = VariableDeclaration.new(identifier.word)
         node.type  = data[2].word unless data.last&.type == :inferred_assignment_operator
 
-        node.value = parse_expression
+        node.value = parse_expression tokens
 
-        @ast << node
-        @program.statements << node
+        if @scoped_statements
+            @scoped_statements << node
+        else
+            @hatch_object.variables << node
+            @hatch_object.statements << node
+        end
+        tokens
     end
+
+    def make_compositions_object tokens, identifier, type
+        node = Compositions.new(identifier)
+
+        if tokens[0].type == :binary_operator && tokens[0].word == '+'
+            eat tokens
+            # eat all the compositions, ignore commas and newlines
+            compositions = eat_past(tokens) { |token| token.type == :newline }.reject { |token| token.type == :comma || token.type == :newline }
+
+            raise "Compositions must be identifiers" unless compositions.all? { |token| token.type == :identifier }
+
+            node.compositions = compositions.map do |token|
+                # todo) make them into nodes?
+                Composition.new token.word
+            end
+        end
+
+        node
+    end
+
     # endregion
 
-    def parse
-        until reached_end?
-            if self_declaration?
-                eat_self_declaration
-            elsif object_declaration?
-                eat_object_declaration
-            elsif assignment?
-                eat_assignment
-            elsif curr_token.type == :new_keyword
-                eat_constructor
-            elsif curr_token.type == :def_keyword
-                eat_method
-            elsif [:newline, :eof].include?(curr_token.type)
-                eat
+    def parse tokens, stop_at_token = nil
+        until tokens.empty?
+            if stop_at_token && tokens[0].type == stop_at_token
+                return
+            end
+            if self_declaration? tokens
+                tokens = eat_self_declaration(tokens)
+            elsif object_declaration? tokens
+                tokens = eat_object_declaration(tokens)
+            elsif inferred_assignment?(tokens) || explicit_assignment?(tokens)
+                tokens = eat_assignment(tokens)
+            elsif tokens[0].type == :new_keyword
+                tokens = eat_constructor_declaration(tokens)
+            elsif tokens[0].type == :def_keyword && tokens[1].type == :identifier
+                tokens = eat_method_declaration tokens
+            elsif [:newline, :eof].include?(tokens[0].type)
+                eat(tokens)
+            elsif tokens[0].type == :identifier && tokens[1].type == :open_paren
+                tokens = eat_method_call(tokens)
+            elsif tokens[0].type == :identifier
+                eat(tokens)
+            elsif tokens[0].type == :end_keyword
+                return tokens
             else
-                puts 'Eating unrecognized token', curr_token.inspect
-                eat # eat here or?
+                puts "Not sure what this token is: #{tokens[0].inspect}"
+                # puts "Ate unknown token:\t #{eat(tokens).last.inspect}"
+                # eat # eat here or?
             end
         end
     end
 end
 
 parser = Parser.new './hatch/parse_test.is'
-
-parser.parse
-puts parser.program.inspect
+# parse parser.tokens
+parser.start!
+puts parser.hatch_object.inspect

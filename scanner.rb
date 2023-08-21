@@ -39,6 +39,15 @@ class Scanner
         end
     end
 
+    # https://stackoverflow.com/a/18533211/1426880
+    def string_to_float str
+        Float(str)
+        i, f = str.to_i, str.to_f
+        i == f ? i : f
+    rescue ArgumentError
+        str
+    end
+
     def reached_end?
         @caret.index >= @chars.count
     end
@@ -63,7 +72,7 @@ class Scanner
         characters = []
 
         distance = 0
-        while !reached_end?
+        until reached_end?
             characters << peek(distance)
             break if newline?(char)
             distance += 1
@@ -77,7 +86,7 @@ class Scanner
 
         distance  = 0
         next_char = ''
-        while !reached_end? ## && peek(distance) != ' ' && peek(distance) != "\t" && peek(distance) != NEWLINE_ESCAPED
+        until reached_end? ## && peek(distance) != ' ' && peek(distance) != "\t" && peek(distance) != NEWLINE_ESCAPED
             characters << next_char
             distance  += 1
             next_char = peek(distance)
@@ -128,12 +137,7 @@ class Scanner
             break if curr == NEWLINE
         end
 
-        # strip trailing 0s after decimal
-        if number.include?('.')
-            number = number.reverse.sub(/0+/, '').reverse
-        end
-
-        number
+        string_to_float(number).to_s
     end
 
     def accumulate_identifier
@@ -256,7 +260,7 @@ class Scanner
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'def'
-                        token = tokenize :method_keyword, identifier
+                        token = tokenize :def_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'stop'
@@ -268,7 +272,7 @@ class Scanner
                         add_token token
                         end_position = @caret.current_index
                     elsif identifier == 'end'
-                        token = tokenize :block_end, identifier
+                        token = tokenize :end_keyword, identifier
                         add_token token
                         end_position = @caret.current_index
                         # token.span = start_position..end_position

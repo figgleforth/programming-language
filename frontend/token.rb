@@ -13,7 +13,7 @@ class Token
   end
 
   def inspect
-    "#{type}(#{word.to_s})"
+    "#{type}{#{word.to_s}}"
   end
 
   def debug
