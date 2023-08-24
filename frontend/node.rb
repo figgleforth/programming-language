@@ -1,24 +1,47 @@
-class HatchObject
-    attr_accessor :filename, :statements, :variables, :functions, :objects, :name, :explicitly_declared
+class SelfDeclaration
+    attr_accessor :name, :compositions
 
-    # infers the name of the program from the filename. ex: file_name.rb => File_Name, the reason for the underscore is to prevent naming collisions and to not hog identifiers for automated things like this.
-    def initialize(filename, children = [])
-        @filename            = filename
-        @statements          = children
-        @variables           = []
-        @functions = []
-        @objects             = []
-        @name                = filename
-        @explicitly_declared = false
-    end
-
-    def convert_file_name_to_name_of_object!
-        @name = @name.split('/').last.split('.').first.gsub(/(?:^|_)([a-z])/) { |match| match.upcase } # eg) file_name to File_Name
+    def initialize(name, compositions = [])
+        @name = name
+        @compositions = compositions
     end
 
     def inspect
-        type = explicitly_declared ? 'Explicit' : 'Inferred'
-        str = "#{type}HatchObject(#{name})" + "\n\tVariables: #{variables.map(&:inspect).inspect}\n\tFunctions: #{functions.map(&:inspect).inspect}\n\tObjects: #{objects.map(&:inspect).inspect}\n\tStatements:\n\t\t#{statements.map(&:inspect).join("\n\t\t")}"
+        "Self{#{name} + #{compositions.compositions.join(',')}}"
+    end
+
+    def to_s
+    end
+end
+
+class ObjectDeclaration
+    attr_accessor :name, :filename, :statements, :variables, :functions, :objects, :name, :explicitly_declared, :compositions
+
+    # infers the name of the program from the filename. ex: file_name.rb => File_Name, the reason for the underscore is to prevent naming collisions and to not hog identifiers for automated things like this.
+    def initialize()
+        @name = 'Unnamed Object'
+        @statements = []
+        @variables = []
+        @functions = []
+        @objects = []
+        @compositions = []
+        @name = name
+        @explicitly_declared = true
+    end
+
+    def filename=(fn)
+        @filename = fn
+        convert_file_name_to_name_of_object!
+    end
+
+    def convert_file_name_to_name_of_object!
+        return unless @filename
+        @explicitly_declared = false
+        @name = @filename.split('/').last.split('.').first.gsub(/(?:^|_)([a-z])/) { |match| match.upcase } # eg) file_name to File_Name
+    end
+
+    def inspect
+        "Object{#{name}, statements[#{statements.map(&:inspect).join(" ;; ")}]}"
     end
 end
 
@@ -29,11 +52,11 @@ class Compositions
         @compositions = compositions
     end
 
-    def inspect
-        str   = ""
-        comps = compositions.map(&:inspect).join(', ').gsub('"', '')
-        str   += "Compositions[#{comps}]"
-    end
+    # def inspect
+    #     str = ""
+    #     comps = compositions.map(&:inspect).join(', ').gsub('"', '')
+    #     str += "[#{comps}]"
+    # end
 end
 
 class MethodDeclaration
@@ -41,13 +64,13 @@ class MethodDeclaration
     attr_accessor :parameters, :statements, :returns
 
     def initialize(token, keyword = :def, parameters = [])
-        @token      = token
-        @keyword    = keyword
+        @token = token
+        @keyword = keyword
         @parameters = parameters
     end
 
     def inspect
-        str = "MethodDeclaration(#{token.inspect} ;; Returns(#{returns&.inspect}) ;; Parameters[#{parameters.map(&:inspect).join(" +|+ ")}] ;; Statements[#{statements.map(&:inspect).join(" ;; ")}]"
+        "Method{#{token.inspect} ;; returns(#{returns&.inspect}) ;; params[#{parameters.map(&:inspect).join(',')}] ;; statements[#{statements.map(&:inspect).join(" ;; ")}]}"
     end
 end
 
@@ -55,30 +78,30 @@ class Call
     attr_accessor :name, :parameters
 
     def initialize(name, parameters = [])
-        @name       = name
+        @name = name
         @parameters = parameters
     end
 
     def inspect
         params = parameters.map(&:inspect).join(', ')
         return "Call(#{name} with Parameters[#{params})]" unless params.empty?
-        "Call(#{name})"
+        "Call::(#{name})"
     end
 end
 
 class VariableDeclaration
-    attr_accessor :name, :type, :value
+    attr_accessor :token, :type, :value
     attr_accessor :visibility
 
-    def initialize(name, type = nil, value = nil, visibility = :public)
-        @name       = name
-        @type       = type
-        @value      = value
+    def initialize(token, type = nil, value = nil, visibility = :public)
+        @token = token
+        @type = type
+        @value = value
         @visibility = visibility
     end
 
     def inspect
-        "Variable(#{name}: #{type} = #{value.inspect})"
+        "Variable{#{token.word}: #{type} = #{value.inspect}}"
     end
 
     def inferred?
@@ -87,14 +110,14 @@ class VariableDeclaration
 end
 
 class VariableReference
-    attr_accessor :name
+    attr_accessor :token
 
-    def initialize(name)
-        @name = name
+    def initialize(token)
+        @token = token
     end
 
     def inspect
-        "VariableRef(#{name})"
+        "VariableRef::(#{token.inspect})"
     end
 end
 
@@ -103,44 +126,44 @@ class BinaryExpression
 
     def initialize(operator, left, right)
         @binary_operator = operator
-        @left            = left
-        @right           = right
+        @left = left
+        @right = right
     end
 
     def inspect
-        "BinaryExpression(#{left.inspect} #{binary_operator} #{right.inspect})"
+        "BinaryExpr{#{left.inspect} #{binary_operator} #{right.inspect}}"
     end
 end
 
-class Value
+class Literal
     attr_accessor :token, :type # :variable, :method
 
     def initialize(token, type = :variable)
         @token = token
-        @type  = type
+        @type = type
     end
 
     def inspect
         if type == :variable
-            "Variable(#{token.word})"
+            "Literal(#{token.word})"
         else
-            "Method(#{token.word})"
+            "MethodLiteral(#{token.word})"
         end
     end
 end
 
 class Param
-    attr_accessor :name, :type, :label
+    attr_accessor :name_token, :type, :label, :default_value
 
-    def initialize(name: nil, type: nil, label: nil)
-        @name  = name
-        @type  = type
+    def initialize(name_token: nil, type: nil, label: nil)
+        @name_token = name_token
+        @type = type
         @label = label
     end
 
     def inspect
-        prefix = label.nil? ? '' : "#{label.inspect}"
-        "Param(label(#{prefix.inspect}), name(#{name.inspect}), type(#{type.inspect}))"
+        prefix = label.nil? ? '' : "#{label.word}"
+        "Param{label(#{prefix}), name(#{name_token.word}), type(#{type.word}), default(#{default_value&.inspect})}"
     end
 end
 
@@ -152,6 +175,6 @@ class Composition
     end
 
     def inspect
-        "Composition(#{name})"
+        "Comp(#{name})"
     end
 end

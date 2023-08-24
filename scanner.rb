@@ -22,12 +22,12 @@ class Caret
 end
 
 class Scanner
-    attr_accessor :chars, :caret, :tokens, :source_code_file
+    attr_accessor :chars, :caret, :tokens, :file_to_read
 
     def initialize file_to_read = nil
         raise 'Forgot to give the Scanner a file!' if file_to_read.nil?
 
-        @source_code_file = file_to_read
+        @file_to_read = file_to_read
         @chars            = chars_from_source_file file_to_read
         @caret            = Caret.new
         @tokens           = []
@@ -537,6 +537,8 @@ class Scanner
             elsif char == NEWLINE_ESCAPED || char == NEWLINE
                 start_position = @caret.current_index
                 token          = tokenize :newline, char unless peek(-1) == NEWLINE_ESCAPED
+
+                eat and next unless token
 
                 # todo) skip consequent newlines
                 # while peek == NEWLINE_ESCAPED

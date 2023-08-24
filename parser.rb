@@ -5,19 +5,25 @@ require 'ostruct'
 
 class Parser
     include ParserHelper
-    attr_reader :tokens, :hatch_object
 
-    def initialize file_to_read = nil
-        scanner = Scanner.new file_to_read
-        scanner.scan
-        @tokens       = scanner.tokens
-        @hatch_object = HatchObject.new(file_to_read)
-        @hatch_object.convert_file_name_to_name_of_object!
+    attr_reader :tokens, :statements, :variables, :methods, :objects
+
+    def initialize
+        @statements = []
+        @tokens = []
+        @variables = []
+        @methods = []
+        @objects = []
     end
 
-    def start!
-        @tokens = parse tokens
-    end
+    # def start! file_to_read = nil
+    #     @parsed_source          = ObjectDeclaration.new
+    #     @parsed_source.filename = file_to_read
+    #
+    #     scanner = Scanner.new file_to_read
+    #     scanner.scan
+    #     @tokens = parse scanner.tokens
+    # end
 
     # region Identifying
 
@@ -51,31 +57,36 @@ class Parser
     # region Eating
 
     def eat_object_declaration tokens
-        # eats `obj` `identifier`
-        identifier = eat(2).last
-        node       = make_compositions_object tokens, :self, identifier.word
+        identifier = eat(tokens, 2).last # obj, identifier
+        node = ObjectDeclaration.new
+        node.name = identifier.word
+        compositions = make_compositions_object tokens, identifier.word, :self
+        node.compositions = compositions
         if @scoped_statements
             @scoped_statements << node
         else
-            @hatch_object.objects << node
-            @hatch_object.statements << node
+            @objects << node
+            @statements << node
         end
+
+        # todo) since @statements, etc is shared within this parser, I have to instantiate a new one here. I could refactor it so that I also pass @statements to the parser, but that's more work than I feel like doing right now
+        parser = Parser.new
+        tokens = parser.parse(tokens, :end_keyword)
+        node.statements = parser.statements
+
+        eat tokens # end keyword
+
         tokens
     end
 
     def eat_self_declaration tokens
-        raise "Only one self declaration is allowed per file" if @hatch_object.explicitly_declared
-
+        # raise "Only one self declaration is allowed per file" if @parsed_source.explicitly_declared
         # self, :, obj, identifier
         identifier = eat(tokens, 4).last
+        self_declaration = SelfDeclaration.new identifier.word
+        self_declaration.compositions = make_compositions_object tokens, :self, identifier.word
 
-        compositions       = make_compositions_object tokens, :self, identifier.word
-        @hatch_object.name = identifier.word
-        # @hatch_object.statements << compositions
-        # add to 0 index
-        @hatch_object.statements.unshift compositions
-        @hatch_object.explicitly_declared = true
-
+        statements << self_declaration
         tokens
     end
 
@@ -84,8 +95,8 @@ class Parser
         if @scoped_statements
             @scoped_statements << node
         else
-            @hatch_object.functions << node
-            @hatch_object.statements << node
+            @methods << node
+            @statements << node
         end
         tokens
     end
@@ -139,14 +150,18 @@ class Parser
                 parameter = Param.new.tap do |param|
                     if tokens[0].type == :identifier && tokens[1].type == :identifier # label identifier: type (4 tokens)
                         param.label = eat(tokens).last
-                        param.name  = eat(tokens).last
-                        param.type  = eat(tokens, 2).last
-                        eat(tokens) # :
+                        param.name_token = eat(tokens).last
+                        param.type = eat(tokens, 2).last
                     elsif tokens[0].type == :identifier && tokens[1].type == :colon # identifier: type (3 tokens)
                         param.name = eat(tokens).last
                         param.type = eat(tokens, 2).last
-                        eat(tokens) # :
                     end
+
+                    if tokens[0].type == :assignment_operator
+                        param.default_value = eat(tokens, 2).last
+                    end
+
+                    eat(tokens) # ,
                 end
 
                 method_declaration.parameters << parameter
@@ -155,7 +170,7 @@ class Parser
             method_declaration
         end
 
-        data        = eat(tokens, 2) # def, identifier
+        data = eat(tokens, 2) # def, identifier
         method_node = MethodDeclaration.new data.last, :def
         method_node = eat_signature method_node, tokens
 
@@ -168,7 +183,7 @@ class Parser
         @scoped_statements = []
         parse tokens, :end_keyword # recurse through parse again, but this time when adding to statements, we check if a scoped_statement array exists and add to it instead of the regular statements.
         method_node.statements = @scoped_statements
-        @scoped_statements     = nil
+        @scoped_statements = nil
         # have to set this to nil to prevent the next method from adding to the scoped statements. todo) abstract
 
         assert tokens[0], :end_keyword
@@ -179,8 +194,8 @@ class Parser
         if @scoped_statements
             @scoped_statements << method_node
         else
-            @hatch_object.functions << method_node
-            @hatch_object.statements << method_node
+            @methods << method_node
+            @statements << method_node
         end
         tokens
     end
@@ -212,13 +227,13 @@ class Parser
             elsif tokens[0].type == :number
                 value = tokens[0]
                 eat(tokens)
-                Value.new(value)
+                Literal.new(value)
             elsif tokens[0].type == :identifier
-                value = VariableReference.new(tokens[0].word)
+                value = VariableReference.new(tokens[0])
                 if tokens[1].type == :open_paren
                     method = tokens[0]
                     eat 2 # identifier, (
-                    value = Value.new(method, :method)
+                    value = Literal.new(method, :method)
                 end
                 value
             end
@@ -243,36 +258,36 @@ class Parser
                 end
 
                 assert tokens[0], :binary_operator
-                operator            = tokens[0]
+                operator = tokens[0]
                 operator_precedence = curr_precedence
-                min_precedence      = operator_precedence
-                min_precedence      += 1 if operator.word == '^'
+                min_precedence = operator_precedence
+                min_precedence += 1 if operator.word == '^'
 
                 eat(tokens)
                 right = parse_expression tokens, min_precedence
-                left  = BinaryExpression.new operator.word, left, right
+                left = BinaryExpression.new operator.word, left, right
             end
 
             left
         end
 
         identifier = data[0]
-        node       = VariableDeclaration.new(identifier.word)
-        node.type  = data[2].word unless data.last&.type == :inferred_assignment_operator
+        node = VariableDeclaration.new(identifier)
+        node.type = data[2].word unless data.last&.type == :inferred_assignment_operator
 
         node.value = parse_expression tokens
 
         if @scoped_statements
             @scoped_statements << node
         else
-            @hatch_object.variables << node
-            @hatch_object.statements << node
+            @variables << node
+            @statements << node
         end
         tokens
     end
 
     def make_compositions_object tokens, identifier, type
-        node = Compositions.new(identifier)
+        node = Compositions.new
 
         if tokens[0].type == :binary_operator && tokens[0].word == '+'
             eat tokens
@@ -283,8 +298,9 @@ class Parser
 
             node.compositions = compositions.map do |token|
                 # todo) make them into nodes?
-                Composition.new token.word
-            end
+                # Composition.new token.word
+                token.word
+            end.to_a
         end
 
         node
@@ -295,7 +311,7 @@ class Parser
     def parse tokens, stop_at_token = nil
         until tokens.empty?
             if stop_at_token && tokens[0].type == stop_at_token
-                return
+                return tokens
             end
             if self_declaration? tokens
                 tokens = eat_self_declaration(tokens)
@@ -321,10 +337,32 @@ class Parser
                 # eat # eat here or?
             end
         end
+        tokens
     end
 end
 
-parser = Parser.new './hatch/parse_test.is'
-# parse parser.tokens
-parser.start!
-puts parser.hatch_object.inspect
+scanner = Scanner.new('./hatch/parse_test.is')
+scanner.scan
+tokens = scanner.tokens
+
+parsed_object = ObjectDeclaration.new
+parsed_object.filename = scanner.file_to_read
+
+parser = Parser.new
+tokens = parser.parse(tokens, :eof)
+parsed_object.statements = parser.statements
+
+puts parsed_object.statements.map(&:inspect).join("\n\n")
+
+#
+# parser.start! './hatch/parse_test.is'
+# puts parser.parsed_source.inspect
+
+# def start! file_to_read = nil
+#     @parsed_source          = ObjectDeclaration.new
+#     @parsed_source.filename = file_to_read
+#
+#     scanner = Scanner.new file_to_read
+#     scanner.scan
+#     @tokens = parse scanner.tokens
+# end

@@ -1,6 +1,6 @@
 Object: Island # parsed from ./hatch/parse_test.is
   Compositions: Others, Survivors
-  
+
   Object: Hatch
     Compositions: [Station]
     Constructor:
@@ -14,10 +14,10 @@ Object: Island # parsed from ./hatch/parse_test.is
           Name: size
           Type: int
     Declaration: entered_numbers -> str? # optional
-      Value: nil
+      Literal: nil
       Visibility: public
     Declaration: _actual_numbers -> str! # constant
-      Value: '4815162342'
+      Literal: '4815162342'
       Visibility: private
     Method: visit -> nil
       Parameters: []
@@ -28,11 +28,11 @@ Object: Island # parsed from ./hatch/parse_test.is
 
   Declaration: manual_assignment -> int # required, not optional and not constant
     Visibility: public
-    Value: IntLiteral(4)
+    Literal: IntLiteral(4)
 
   Declaration: inferred_assignment -> inferred # repurpose this property when inferred then update property in the Typer?
     Visibility: private
-    Value: IntLiteral(8)
+    Literal: IntLiteral(8)
 
   Method: square_and_some -> float
     Parameters:
