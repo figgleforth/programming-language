@@ -2,7 +2,7 @@ class Token
   attr_accessor :primary_type
   attr_accessor :secondary_type
   attr_accessor :type # :symbol
-  attr_accessor :word
+  attr_accessor :string
   attr_accessor :span
 
   # any keys and values, comma separated
@@ -13,12 +13,16 @@ class Token
   end
 
   def inspect
-    "#{type}{#{word.to_s}}"
+    "#{string.inspect}(#{type})"
   end
 
   def debug
-    str = word.rjust(PRINT_PADDING) + ' • ' + type.to_s
-    "#{word} ( #{type} / #{secondary_type} / #{primary_type} )"
+    str = string.rjust(PRINT_PADDING) + ' • ' + type.to_s
+    "#{string} ( #{type} / #{secondary_type} / #{primary_type} )"
     str
+  end
+
+  def ==(other_type)
+    type == other_type
   end
 end

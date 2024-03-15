@@ -12,7 +12,7 @@ BUILTIN_TYPES = %w(int float str bool dict array nil)
 CLASSIC_TYPES = %w(class struct)
 
 SYMBOLS = %w(@ @@)
-WORDS   = %w(self enum new it at obj api is when while for loop def stop next end if else while for return obj)
+WORDS   = %w(self enum new it at obj api is when while for loop def stop next end if else while for return obj iam)
 
 KEYWORDS = [
   SYMBOLS,

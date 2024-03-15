@@ -1,4 +1,4 @@
-Object: Island # parsed from ./hatch/parse_test.is
+Object: Island # parsed from ./tests/parse_test.is
   Compositions: Others, Survivors
 
   Object: Hatch
