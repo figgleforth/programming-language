@@ -1,4 +1,4 @@
-require_relative './frontend/token'
+require_relative './../frontend/token'
 
 PRINT_PADDING   = 23
 NEWLINE_ESCAPED = "\\n" # this renders as the literal string '\n'

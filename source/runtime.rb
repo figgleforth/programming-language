@@ -2,7 +2,6 @@ require_relative 'tokenizer'
 
 space = '  '
 scanner = Tokenizer.new
-scanner.include_eof_as_token = false
 command = 1
 
 while true

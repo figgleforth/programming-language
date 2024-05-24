@@ -1,6 +1,3 @@
-require_relative './tokenizer_helpers'
-require_relative './frontend/token_types'
-
 # Usage
 #
 # tokenizer = Tokenizer.new 'source code'
@@ -13,6 +10,9 @@ require_relative './frontend/token_types'
 # tokens = tokenizer.string_to_tokens 'source code'
 
 class Tokenizer
+  require_relative './helpers/tokenizer'
+  require_relative './frontend/tokens'
+
   class Caret
     attr_accessor :line_number, :char_number, :index, :character, :line
 
@@ -47,12 +47,12 @@ class Tokenizer
   end
 
   def puts_debug_info
-    puts "—— TOKENIZER ——"
+    puts "—— TOKENIZER ——\n"
     puts "string: #{@string.inspect}"
     puts "chars: #{@chars.inspect}"
     puts "eof_becomes_token: #{@eof_becomes_token}"
     puts "newlines_become_tokens: #{@newlines_become_tokens}"
-    puts "———————————————"
+    puts "\n———————————————"
   end
 
   def string_to_tokens string
@@ -218,6 +218,9 @@ class Tokenizer
   end
 
   ### scanner loop)
+
+  def identifier_to_token_type identifier
+  end
 
   def scan
     while true

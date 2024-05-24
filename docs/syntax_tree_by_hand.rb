@@ -42,7 +42,7 @@ Object: Island # parsed from ./tests/parse_test.is
         Type: int
     Body:
       BinaryExpression:
-        Operator: /
+        OperatorToken: /
         Left:
           BinaryExpression:
             Operator: *
