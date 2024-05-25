@@ -1,7 +1,4 @@
-require_relative 'frontend/construct'
-require_relative 'frontend/token'
-require_relative 'frontend/tokens'
-require_relative 'frontend/constructs'
+require_relative 'frontend/ast'
 require_relative 'tokenizer'
 require 'ostruct'
 
@@ -10,14 +7,13 @@ class Parser
    attr_reader :tokens, :statements
 
 
-   def put_statements
-      puts "\nDEBUG STATEMENTS\n"
-      statements.each do |s|
-         puts "\n-\t#{s}"
-      end
-      puts "\n///// STATEMENTS\n\n"
+   def initialize tokens
+      @tokens     = tokens
+      @statements = []
    end
 
+
+   ## region HELPERS
 
    def get_prec token
       [
@@ -37,9 +33,8 @@ class Parser
    end
 
 
-   def initialize tokens
-      @tokens     = tokens
-      @statements = []
+   def last_statement
+      statements.last
    end
 
 
@@ -56,11 +51,6 @@ class Parser
       end
    end
 
-
-   # def eat! * expected
-   #    expect *expected
-   #    eat
-   # end
 
    def expect * expected
       expected.each_with_index do |type, i|
@@ -104,6 +94,10 @@ class Parser
    end
 
 
+   ## endregion
+
+   ## region PARSING
+
    def parse_comment
       if curr == CommentToken or curr == BlockCommentToken
          Comment.new eat
@@ -111,6 +105,32 @@ class Parser
    end
 
 
+   def parse_expression precedence = -1000
+      left = parse_leaf
+
+      # basically if next is operator
+      until reached_end?
+         break unless curr == OperatorToken
+
+         curr_precedence = get_prec curr
+         break if curr_precedence < precedence
+
+         operator            = curr
+         operator_precedence = curr_precedence
+         min_precedence      = operator_precedence
+         min_precedence      += 1 if operator.value == '^'
+
+         eat # operator
+
+         right = parse_expression min_precedence
+         left  = BinaryExpr.new left, operator, right
+      end
+
+      left
+   end
+
+
+   # todo; infer type from expression
    def parse_variables
       if curr == IdentifierToken
          if peek === Token.equals.value
@@ -141,7 +161,7 @@ class Parser
                Assignment.new.tap do |var|
                   var.keypath = t[0]
                   var.value   = parse_expression
-                  # todo; infer type from expression
+                  # todo
                end
             else
                raise 'Expected identifier or :='
@@ -180,7 +200,14 @@ class Parser
 
    def parse_string
       if curr == StringToken
-         eat
+         StringLiteral.new eat
+      end
+   end
+
+
+   def parse_number
+      if curr == NumberToken
+         NumberLiteral.new eat
       end
    end
 
@@ -188,72 +215,70 @@ class Parser
    def parse_newlines
       while curr == NewlineToken
          eat
+         nil
       end
    end
 
 
+   def parse_methods
+      return unless curr == KeywordToken and curr.value === 'def'
+
+      eat # def
+
+      if peek == NewlineToken # no params and no return type
+         MethodDefinition.new.tap do |m|
+            m.identifier = eat 2 # ident, newline
+            m.body       = parse KeywordToken, 'end'
+            eat # end
+         end
+      elsif peek === Token.open_paren.value # params and no return type
+
+         Statement.new eat
+      elsif peek === Token.arrow.value # no params and return type
+         MethodDefinition.new.tap do |m|
+            m.identifier = eat 2 # ident, ->
+            m.return_type = eat
+            m.body       = parse KeywordToken, 'end'
+            eat # end
+         end
+      else
+         puts "CURR #{curr} PEEK #{peek}"
+         # params and return type
+         Statement.new eat
+      end
+
+   end
+
+
+   ## endregion
+
+   # this looks fancy but it just returns the first non-nil value
    def parse_leaf
-      # this looks fancy but it just returns the first non-nil value
       parse_newlines or
         parse_string or
+        parse_number or
         parse_comment or
+        parse_methods or
         parse_variables or
         parse_paren_expr or
-        eat
+        parse_newlines
    end
 
 
-   def parse_expression precedence = -1000
-      operator_precedences = {
-        '+': 1,
-        '-': 1,
-        '*': 2,
-        '/': 2,
-        '%': 2,
-        '^': 3
-      }
+   def parse stop_at = EOFToken, stop_at_value = nil
 
-      left = parse_leaf
-
-      # basically if next is operator
-      until reached_end?
-         break unless curr == OperatorToken
-         # curr_precedence = PRECEDENCES[curr.value.to_sym]
-         curr_precedence = get_prec(curr)
-         break if curr_precedence < precedence
-
-         operator            = curr
-         operator_precedence = curr_precedence
-         min_precedence      = operator_precedence
-         min_precedence      += 1 if operator.value == '^'
-
-         eat
-
-         right = parse_expression min_precedence
-         left  = BinaryExpr.new left, operator, right
-      end
-
-      left
-   end
-
-
-   def parse stop_at = EOFToken, value = nil
-      puts if stop_at == EOFToken
-
-      stmts = []
-      until reached_end?
-         if stop_at and (curr == stop_at or curr === value)
-            return stmts
+      parsed_statements = []
+      until reached_end? or (curr == stop_at or curr === stop_at_value)
+         if stop_at and (curr == stop_at or curr === stop_at_value)
+            return statements
          end
 
-         expr = parse_expression
-         stmts << expr
-         @statements << expr
-
-         # eat if curr == Newline
+         parsed_statements << parse_expression
+         statements << parsed_statements.last
       end
 
-      stmts.compact
+      statements.compact
+      parsed_statements.compact
    end
 
 

@@ -1,4 +1,4 @@
-class Construct
+class Ast
    attr_accessor :token
 
 
@@ -22,13 +22,13 @@ class Construct
    end
 end
 
-class Statement < Construct
+class Statement < Ast
    def debug
       token
    end
 end
 
-class NumberExpr < Construct
+class NumberExpr < Ast
    def decimal?
       token.value.include? '.'
    end
@@ -39,7 +39,7 @@ class NumberExpr < Construct
    end
 end
 
-class BinaryExpr < Construct
+class BinaryExpr < Ast
    attr_accessor :left, :operator, :right
 
 
@@ -55,13 +55,13 @@ class BinaryExpr < Construct
    end
 end
 
-class Comment < Construct
+class Comment < Ast
    def to_s
       "# #{token.value}"
    end
 end
 
-class Assignment < Construct
+class Assignment < Ast
    attr_accessor :keypath, :value, :type
 
 
@@ -83,21 +83,40 @@ class Assignment < Construct
    end
 end
 
-class MethodDefinition < Construct
-   attr_accessor :object, :body
+class MethodDefinition < Ast
+   attr_accessor :identifier, :body, :return_type
 
 
    def debug
-      "#{name.value}, body: #{body}"
+      "#{identifier}, body: #{body}"
+   end
+
+   def return_statement
+      body.last
    end
 end
 
-class MemberAccess < Construct
+class MemberAccess < Ast
    attr_accessor :object, :member
 
 
    def debug
       "object: #{object}, member: #{member}"
+   end
+end
+
+class Literal < Ast
+end
+
+class NumberLiteral < Ast
+   def debug
+      token
+   end
+end
+
+class StringLiteral < Ast
+   def debug
+      token
    end
 end
 

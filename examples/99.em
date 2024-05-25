@@ -15,7 +15,7 @@ end
 
 # all code outside of objects and code blocks is scoped to the file object
 
-# the Sapphire object is declared inside the Island object because of the self type assignment
+# the Emerald object is declared inside the Island object because of the self type assignment
 obj Hatch
   new(numbers: int)
   end
@@ -165,7 +165,7 @@ tuples: (int, int) = (4.8, 1.5) # this can never be confused with a method retur
 
 day: string = day_of_week() # method parens may not be omitted, it's one thing I find confusing sometimes in Ruby
 
-enabled?: bool = true # the ? is a valid character for variable and method names, but not object names (eg, Sapphire?) because the ? means the object can be optional whereas the ? in a variable or method name is just part of its name
+enabled?: bool = true # the ? is a valid character for variable and method names, but not object names (eg, Emerald?) because the ? means the object can be optional whereas the ? in a variable or method name is just part of its name
 
 # ways of calling constructor
 assorted1: Sandwich = new(1) # omit object literal when "new"-ing if the type is declared
@@ -382,7 +382,7 @@ whatever := get_something()
 obj Transform
   + Position
   + Rotation
-  + Sapphire/Scale # namespaces are filepath based, not needed here since all apis are here in this file
+  + Emerald/Scale # namespaces are filepath based, not needed here since all apis are here in this file
   # this object gets the rotation methods for free vis composition
   # its namespace is whatever folder it is in: eg$ project://components/transform.hh would make this Components/Transform
 end

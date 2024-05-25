@@ -1,17 +1,18 @@
 class Token
    SYMBOLS = {
-     triple_dot:          '...',
-     or_or_equals:        '||=',
+     triple_dot:   '...',
+     or_or_equals: '||=',
 
-     double_plus:         '++',
-     double_minus:        '--',
-     plus_equals:         '+=',
-     minus_equals:        '-=',
-     star_equals:         '*=',
-     slash_equals:        '/=',
-     equals_equals:       '==',
-     less_than_equals:    '<=',
-     greater_than_equals: '>=',
+     arrow:        '->',
+     # double_plus:         '++',
+     # double_minus:        '--',
+     # plus_equals:         '+=',
+     # minus_equals:        '-=',
+     # star_equals:         '*=',
+     # slash_equals:        '/=',
+     # equals_equals:       '==',
+     # less_than_equals:    '<=',
+     # greater_than_equals: '>=',
      double_less_than:    '<<',
      double_greater_than: '>>',
      not_equals:          '!=',
@@ -20,29 +21,29 @@ class Token
      double_and:          '&&',
 
      dot:                 '.',
-     plus:                '+',
-     minus:               '-',
-     star:                '*',
-     slash:               '/',
-     percent:             '%',
-     caret:               '^',
-     ampersand:           '&',
-     equals:              '=',
-     less_than:           '<',
-     greater_than:        '>',
-     exclamation:         '!',
-     question:            '?',
-     at:                  '@',
-     or:                  '|',
-     open_paren:          '(',
-     close_paren:         ')',
-     open_square:         '[',
-     close_square:        ']',
-     open_curly:          '{',
-     close_curly:         '}',
-     comma:               ',',
-     colon:               ':',
-     semicolon:           ';',
+     # plus:                '+',
+     # minus:               '-',
+     # star:                '*',
+     # slash:               '/',
+     # percent:             '%',
+     # caret:               '^',
+     # ampersand:           '&',
+     equals: '=',
+     # less_than:           '<',
+     # greater_than:        '>',
+     exclamation:  '!',
+     question:     '?',
+     at:           '@',
+     or:           '|',
+     open_paren:   '(',
+     close_paren:  ')',
+     open_square:  '[',
+     close_square: ']',
+     open_curly:   '{',
+     close_curly:  '}',
+     comma:        ',',
+     colon:        ':',
+     semicolon:    ';',
    }
 
    # usage: OperatorToken.plus, etc
@@ -88,6 +89,62 @@ class Token
    def === other
       value == other
    end
+
+
+   def self.is? value
+      SYMBOLS.values.include? value
+   end
+end
+
+class OperatorToken < Token
+   OPERATORS = {
+     less_than_equals:    '<=',
+     greater_than_equals: '>=',
+     double_equals:       '==',
+     plus_equals:         '+=',
+     minus_equals:        '-=',
+     star_equals:         '*=',
+     slash_equals:        '/=',
+     percent_equals:      '%=',
+     not_equals:          '!=',
+     double_ampersand:    '&&',
+     double_pipe:         '||',
+     double_plus:         '++',
+     double_minus:        '--',
+     shift_left:          '<<',
+     shift_right:         '>>',
+     double_colon:        '::',
+     dot:                 '.',
+     plus:                '+',
+     minus:               '-',
+     star:                '*',
+     slash:               '/',
+     percent:             '%',
+     ampersand:           '&',
+     pipe:                '|',
+     caret:               '^',
+     equals:              '=',
+     less_than:           '<',
+     greater_than:        '>',
+   }.freeze
+
+   # usage: OperatorToken.plus, etc
+   OPERATORS.each do |name, symbol|
+      define_singleton_method(name) do
+         @instances         ||= {}
+         @instances[symbol] ||= new(symbol)
+      end
+   end
+
+
+   def to_s
+      "Operator(#{@value})"
+   end
+
+
+   def self.is? value
+      OPERATORS.values.include? value
+   end
 end
 
 class EOFToken < Token
@@ -131,7 +188,7 @@ class IdentifierToken < Token
 end
 
 class KeywordToken < IdentifierToken
-   require_relative 'tokens'
+   require_relative 'reserved'
 
    KEYWORDS.each do |word|
       define_method("#{word}?") do
@@ -148,54 +205,6 @@ class KeywordToken < IdentifierToken
    def to_s
       return super unless keyword?
       "Keyword(#{@value})"
-   end
-end
-
-
-class OperatorToken < Token
-   OPERATORS = {
-     dot:                 '.',
-     plus:                '+',
-     minus:               '-',
-     star:                '*',
-     slash:               '/',
-     percent:             '%',
-     ampersand:           '&',
-     pipe:                '|',
-     caret:               '^',
-     equals:              '=',
-     not_equals:          '!=',
-     less_than:           '<',
-     greater_than:        '>',
-     less_than_equals:    '<=',
-     greater_than_equals: '>=',
-     double_equals:       '==',
-     plus_equals:         '+=',
-     minus_equals:        '-=',
-     star_equals:         '*=',
-     slash_equals:        '/=',
-     percent_equals:      '%=',
-     double_ampersand:    '&&',
-     double_pipe:         '||',
-     double_plus:         '++',
-     double_minus:        '--',
-     shift_left:          '<<',
-     shift_right:         '>>',
-     arrow:               '->',
-     double_colon:        '::'
-   }.freeze
-
-   # usage: OperatorToken.plus, etc
-   OPERATORS.each do |name, symbol|
-      define_singleton_method(name) do
-         @instances         ||= {}
-         @instances[symbol] ||= new(symbol)
-      end
-   end
-
-
-   def to_s
-      "Operator(#{@value})"
    end
 end
 

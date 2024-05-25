@@ -103,9 +103,13 @@ class Lexer
 
 
    def eat_special_character
-      if Token::SYMBOLS.values.include? peek(0, 3)
+      if Token.is? peek(0, 3)
          eat_many(3) # triple symbols like ||=
-      elsif Token::SYMBOLS.values.include? peek(0, 2)
+      elsif OperatorToken.is? peek(0, 3)
+         eat_many(3) # triple symbols like ||=
+      elsif Token.is? peek(0, 2)
+         eat_many(2) # double symbols like +=
+      elsif OperatorToken.is? peek(0, 2)
          eat_many(2) # double symbols like +=
       else
          eat
@@ -174,20 +178,33 @@ class Lexer
          elsif identifier?(char) or (char == '_' and alphanumeric?(peek))
             tokens << IdentifierToken.create(eat_identifier)
 
-         elsif OperatorToken::OPERATORS.values.include?(char)
-            tokens << OperatorToken.new(eat)
+         elsif Token.is?(peek(0, 3))
+            tokens << Token.new(eat_many(3))
 
-         elsif Token::SYMBOLS.values.include?(char)
-            tokens << Token.new(eat_special_character)
+         elsif OperatorToken.is?(peek(0, 3))
+            tokens << OperatorToken.new(eat_many(3))
+
+         elsif Token.is?(peek(0, 2))
+            tokens << Token.new(eat_many(2))
+
+         elsif OperatorToken.is?(peek(0, 2))
+            tokens << OperatorToken.new(eat_many(2))
+
+         elsif Token.is?(char)
+            tokens << Token.new(eat)
+
+         elsif OperatorToken.is?(char)
+            tokens << OperatorToken.new(eat)
 
          elsif peek(0, 3) == '```' # multi line comment
             tokens << BlockCommentToken.new(eat_multiline_comment)
 
          elsif char == '#' # single line comment
             tokens << CommentToken.new(eat_single_comment)
+
          elsif newline?(char)
             tokens << NewlineToken.new(eat)
-            # eat
+
          else
             raise "\n\nUnexpected #{char} at line #{y} col #{x}\n\n\t#{source[i, 3]}"
          end

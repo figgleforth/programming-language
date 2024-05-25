@@ -1,6 +1,6 @@
 require_relative './../source/lexer'
 
-source = File.read('examples/03.sp').to_s
+source = File.read('examples/03.em').to_s
 lexer = Lexer.new source
 tokens = lexer.make_tokens
 

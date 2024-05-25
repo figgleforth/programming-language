@@ -11,7 +11,6 @@
 
 class Tokenizer
   require_relative './helpers/tokenizer'
-  require_relative './frontend/tokens'
 
   class Caret
     attr_accessor :line_number, :char_number, :index, :character, :line
