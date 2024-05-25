@@ -1,7 +1,8 @@
 require_relative './../source/lexer'
 
-lexer = Lexer.new '1 + 2 * 3 - 4 / 2'
+source = File.read('examples/03.sp').to_s
+lexer = Lexer.new source
 tokens = lexer.make_tokens
 
-puts "\n`#{lexer.source}` to tokens:\n\n"
+puts "\n```\n#{lexer.source}\n```\n\n"
 puts tokens

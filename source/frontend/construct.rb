@@ -1,29 +1,47 @@
-class Node
-   def to_s
-      "#{self.class}[ #{debug} ]"
+class Construct
+   attr_accessor :token
+
+
+   def initialize token = nil
+      @token = token
    end
+
+
+   def to_s
+      "#{self.class}(#{debug})"
+   end
+
 
    def debug
       ""
    end
+
 
    def inspect
       to_s
    end
 end
 
-class NumberExpr < Node
+class Statement < Construct
+   def debug
+      token
+   end
+end
+
+class NumberExpr < Construct
    def decimal?
       token.value.include? '.'
    end
+
 
    def value
       decimal? ? @number.to_f : @number.to_i
    end
 end
 
-class BinaryExpr < Node
+class BinaryExpr < Construct
    attr_accessor :left, :operator, :right
+
 
    def initialize left, operator, right
       @left     = left
@@ -31,40 +49,55 @@ class BinaryExpr < Node
       @right    = right
    end
 
+
    def debug
       "#{left} #{operator.value} #{right}"
    end
 end
 
-class CommentNode < Node
-   attr_accessor :token
-
-   def debug
-      token.value
+class Comment < Construct
+   def to_s
+      "# #{token.value}"
    end
 end
 
-class VariableAssignment < Node
-   attr_accessor :left, :right
+class Assignment < Construct
+   attr_accessor :keypath, :value, :type
+
 
    def debug
-      "#{left} = #{right}"
+      if type
+         "#{keypath} as #{type.value} = #{value ? value : value.inspect}"
+      else
+         if keypath?
+            "#{keypath.map(&:to_s).join('.')} as keypath = #{value ? value : value.inspect}"
+         else
+            "#{keypath} = #{value ? value : value.inspect}"
+         end
+      end
+   end
+
+
+   def keypath?
+      keypath.is_a? Array
    end
 end
 
-class MethodDeclaration < Node
-   attr_accessor :left, :body
+class MethodDefinition < Construct
+   attr_accessor :object, :body
+
 
    def debug
       "#{name.value}, body: #{body}"
    end
 end
 
-class MemberCall < Node
-   attr_accessor :left, :right
+class MemberAccess < Construct
+   attr_accessor :object, :member
+
 
    def debug
-      "#{left}.#{right}"
+      "object: #{object}, member: #{member}"
    end
 end
 

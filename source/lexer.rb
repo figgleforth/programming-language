@@ -5,6 +5,7 @@ class Lexer
 
    attr_accessor :i, :x, :y, :source, :char, :tokens
 
+
    def initialize source
       @source = source
       @char   = @source[0]
@@ -14,13 +15,16 @@ class Lexer
       @y      = 1 # short for line
    end
 
+
    def reached_end?
       i >= @source.length
    end
 
+
    def current_char
       @char = @source[i]
    end
+
 
    def eat
       if newline?(char)
@@ -34,6 +38,7 @@ class Lexer
       @source[i - 1]
    end
 
+
    def eat_many distance = 1
       str = ''
       distance.times do
@@ -43,9 +48,11 @@ class Lexer
       str
    end
 
+
    def peek distance = 1, length = 1
       @source[i + distance, length]
    end
+
 
    def eat_number
       valid  = %w(. _ ,)
@@ -59,6 +66,7 @@ class Lexer
 
       number
    end
+
 
    def eat_identifier
       valid      = %w(! ?)
@@ -80,27 +88,30 @@ class Lexer
       identifier
    end
 
+
    def eat_number_or_identifier
       number = eat_number
 
       # support 1st, 2nd, 3rd?, 4th!, etc identifier syntax
       if alpha?(char)
          word = number + eat_identifier
-         Identifier.create(word)
+         IdentifierToken.create(word)
       else
-         Number.new(number)
+         NumberToken.new(number)
       end
    end
 
+
    def eat_special_character
-      if Special::SPECIAL_CHARACTERS.values.include? peek(0, 3)
+      if Token::SYMBOLS.values.include? peek(0, 3)
          eat_many(3) # triple symbols like ||=
-      elsif Special::SPECIAL_CHARACTERS.values.include? peek(0, 2)
+      elsif Token::SYMBOLS.values.include? peek(0, 2)
          eat_many(2) # double symbols like +=
       else
          eat
       end
    end
+
 
    def eat_multiline_comment
       eat_many(3) # eat triple backtick
@@ -118,6 +129,7 @@ class Lexer
       comment
    end
 
+
    def eat_single_comment
       eat # eat the hash
 
@@ -133,51 +145,59 @@ class Lexer
       comment
    end
 
+
    def eat_string
       starting_quote = eat
 
       str = ''
 
-      str += eat until char == starting_quote
+      until reached_end? or char == starting_quote
+         str += eat
+      end
+
+      raise 'Expected ending quote' unless char == starting_quote
+
       eat # eat the ending quote
 
       str
    end
 
+
    def make_tokens
       until reached_end?
-         # strings
          if %W(' ").include? char
-            tokens << Str.new(eat_string)
+            tokens << StringToken.new(eat_string)
 
          elsif numeric?(char) or (char == '.' and numeric?(peek))
             tokens << eat_number_or_identifier
 
          elsif identifier?(char) or (char == '_' and alphanumeric?(peek))
-            tokens << Identifier.create(eat_identifier)
+            tokens << IdentifierToken.create(eat_identifier)
 
          elsif OperatorToken::OPERATORS.values.include?(char)
             tokens << OperatorToken.new(eat)
 
-         elsif Special::SPECIAL_CHARACTERS.values.include?(char)
-            tokens << Special.new(eat_special_character)
+         elsif Token::SYMBOLS.values.include?(char)
+            tokens << Token.new(eat_special_character)
 
          elsif peek(0, 3) == '```' # multi line comment
-            tokens << MultilineComment.new(eat_multiline_comment)
+            tokens << BlockCommentToken.new(eat_multiline_comment)
 
          elsif char == '#' # single line comment
-            tokens << Comment.new(eat_single_comment)
+            tokens << CommentToken.new(eat_single_comment)
          elsif newline?(char)
-            tokens << Newline.new(eat)
+            tokens << NewlineToken.new(eat)
+            # eat
          else
             raise "\n\nUnexpected #{char} at line #{y} col #{x}\n\n\t#{source[i, 3]}"
          end
 
-         eat while whitespace?(char) or newline?(char)
+         eat while whitespace?(char) # or newline?(char)
       end
 
       tokens
    end
+
 
    alias_method :char, :current_char
 end

@@ -1,8 +1,5 @@
-
-
-# nice
-#bro.var = 1 + (2 * 3) / 4
-#def hello
-#  yo = 42 # sweet 1+1
-#  yo + bro
-#end
+lang
+boo = 1 * 3 - (3 / 4)
+name: string = 'cooper'
+dog: Dog
+dog.breed.name = 'golden'

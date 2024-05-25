@@ -1,105 +1,5 @@
 class Token
-   attr_accessor :value, :x, :y
-
-   def initialize value
-      @value = value
-   end
-
-   def position
-      [@x, @y]
-   end
-
-   def type
-      self.class
-   end
-
-   def to_s
-      "#{type}(#{@value})"
-   end
-
-   def == other
-      self.class == other
-   end
-
-   def === other
-      value == other
-   end
-end
-
-# class TokenReader
-#    attr_accessor :tokens
-#    def initialize tokens
-#       @tokens = tokens
-#    end
-#
-#    def variable_assignment?
-#       tokens[0] == Identifier and tokens[1]&.value == '='
-#    end
-#
-#    def comment?
-#       tokens[0] == Comment
-#    end
-# end
-
-class EOF < Token
-   def initialize
-      super 'eof'
-   end
-end
-
-class Str < Token
-   def to_s
-      "String(#{value})"
-   end
-end
-
-class Newline < Token
-end
-
-class Comment < Token
-   def to_s
-      "Comment(#{@value})"
-   end
-end
-
-class MultilineComment < Comment
-   def to_s
-      "MultilineComment(#{@value.inspect})"
-   end
-end
-
-class Number < Token
-end
-
-class Identifier < Token
-   def self.create word
-      return Keyword.new(word) if KEYWORDS.include? word
-      Identifier.new word
-   end
-end
-
-class Keyword < Identifier
-   require_relative 'tokens'
-
-   KEYWORDS.each do |word|
-      define_method("#{word}?") do
-         @value == word
-      end
-   end
-
-   def keyword?
-      KEYWORDS.include? value
-   end
-
-   def to_s
-      return super unless keyword?
-      "Keyword(#{@value})"
-   end
-end
-
-# comment hash # and string quotes are not special characters
-class Special < Token
-   SPECIAL_CHARACTERS = {
+   SYMBOLS = {
      triple_dot:          '...',
      or_or_equals:        '||=',
 
@@ -144,25 +44,117 @@ class Special < Token
      colon:               ':',
      semicolon:           ';',
    }
-   SPECIAL_CHARACTERS.each do |name, symbol|
+
+   # usage: OperatorToken.plus, etc
+   SYMBOLS.each do |name, symbol|
+      define_singleton_method(name) do
+         @instances         ||= {}
+         @instances[symbol] ||= new(symbol)
+      end
+
       define_method("#{name}?") do
          @value == symbol
       end
-
-      define_singleton_method(name) do
-         new(symbol)
-      end
    end
 
+   attr_accessor :value, :x, :y
+
+
+   def initialize value
+      @value = value
+   end
+
+
+   def position
+      [@x, @y]
+   end
+
+
+   def type
+      self.class
+   end
+
+
    def to_s
-      "Symbol(#{@value})"
+      "#{type}(#{value.inspect})"
+   end
+
+
+   def == other
+      self.class == other
+   end
+
+
+   def === other
+      value == other
    end
 end
 
-# frozen_string_literal: true
+class EOFToken < Token
+   def initialize
+      super 'eof'
+   end
+end
+
+class StringToken < Token
+   def to_s
+      "String(#{value})"
+   end
+end
+
+class NewlineToken < Token
+   def to_s
+      "Newline()"
+   end
+end
+
+class CommentToken < Token
+   def to_s
+      "Comment(#{@value})"
+   end
+end
+
+class BlockCommentToken < CommentToken
+   def to_s
+      "MultilineComment(#{@value.inspect})"
+   end
+end
+
+class NumberToken < Token
+end
+
+class IdentifierToken < Token
+   def self.create word
+      return KeywordToken.new(word) if KEYWORDS.include? word
+      IdentifierToken.new word
+   end
+end
+
+class KeywordToken < IdentifierToken
+   require_relative 'tokens'
+
+   KEYWORDS.each do |word|
+      define_method("#{word}?") do
+         @value == word
+      end
+   end
+
+
+   def keyword?
+      KEYWORDS.include? value
+   end
+
+
+   def to_s
+      return super unless keyword?
+      "Keyword(#{@value})"
+   end
+end
+
 
 class OperatorToken < Token
    OPERATORS = {
+     dot:                 '.',
      plus:                '+',
      minus:               '-',
      star:                '*',
@@ -201,12 +193,13 @@ class OperatorToken < Token
       end
    end
 
+
    def to_s
       "Operator(#{@value})"
    end
 end
 
-class BinaryOperator < OperatorToken
+class BinaryOperatorToken < OperatorToken
    Operators = {
      plus:         '+',
      minus:        '-',
@@ -218,6 +211,7 @@ class BinaryOperator < OperatorToken
      greater_than: '>',
      double_or:    '||',
      or:           '|',
+     dot:          '.',
    }
 
    Operators.each do |name, symbol|
@@ -230,12 +224,13 @@ class BinaryOperator < OperatorToken
       end
    end
 
+
    def to_s
       "BinaryOperator(#{@value})"
    end
 end
 
-class UnaryOperator < OperatorToken
+class UnaryOperatorToken < OperatorToken
    Operators = {
      plus_plus:   '++',
      minus_minus: '--',
@@ -254,6 +249,7 @@ class UnaryOperator < OperatorToken
          new(symbol)
       end
    end
+
 
    def to_s
       "BinaryOperator(#{@value})"

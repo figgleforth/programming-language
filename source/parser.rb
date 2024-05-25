@@ -1,12 +1,23 @@
-require_relative './frontend/node'
-require_relative './frontend/token'
-require_relative './frontend/tokens'
+require_relative 'frontend/construct'
+require_relative 'frontend/token'
+require_relative 'frontend/tokens'
+require_relative 'frontend/constructs'
 require_relative 'tokenizer'
 require 'ostruct'
 
 # Parses tokens into statements, it doesn't care about order, duplication, but it should care about syntax.
 class Parser
-   attr_reader :tokens
+   attr_reader :tokens, :statements
+
+
+   def put_statements
+      puts "\nDEBUG STATEMENTS\n"
+      statements.each do |s|
+         puts "\n-\t#{s}"
+      end
+      puts "\n///// STATEMENTS\n\n"
+   end
+
 
    def get_prec token
       [
@@ -25,98 +36,172 @@ class Parser
       end&.at(1)
    end
 
+
    def initialize tokens
-      @tokens = tokens
+      @tokens     = tokens
+      @statements = []
    end
+
 
    def eat token_count = 1
       tokens.shift(token_count)[0]
    end
 
+
+   def eat_many token_count = 1
+      [].tap do |a|
+         token_count.times do
+            a << eat
+         end
+      end
+   end
+
+
+   # def eat! * expected
+   #    expect *expected
+   #    eat
+   # end
+
+   def expect * expected
+      expected.each_with_index do |type, i|
+         raise "Expected #{type} got #{peek(i)}" unless peek(i) == type
+      end
+   end
+
+
    def eat_until & block
       eat tokens.slice_before(&block).to_a.first.count
    end
+
 
    def eat_past & block
       eat tokens.slice_after(&block).to_a.first.count
    end
 
+
    def curr
       tokens[0]
    end
 
-   def peek ahead = 1
-      tokens[ahead]
+
+   def peek distance = 1
+      tokens[distance]
    end
+
+
+   def peek_many distance = 1, length = 1
+      tokens[distance, length]
+   end
+
 
    def peek_until & block
       tokens.dup.slice_before(&block).to_a.first
    end
 
+
    def reached_end?
       tokens.empty? or tokens[0].type == :eof
    end
 
-   def parse_leaf
-      if curr == Identifier and peek(1) === '='
-         node       = VariableAssignment.new
-         node.left  = eat 2 # ident, =
-         node.right = parse_expression
-         node
-      elsif curr == Identifier and peek(1) === '.' and peek(2) == Identifier
-         node      = MemberCall.new
-         node.left = eat # foo
 
-         # foo.bar.baz.etc =
-         while curr === '.' and peek(1) == Identifier
-            eat # .
-            node.right     = eat # identifier
-            new_node       = MemberCall.new
-            new_node.left  = node
-            new_node.right = node.right
-            node           = new_node
-         end
+   def parse_comment
+      if curr == CommentToken or curr == BlockCommentToken
+         Comment.new eat
+      end
+   end
 
-         if curr === '='
-            eat # =
-            assignment       = VariableAssignment.new
-            assignment.left  = node
-            assignment.right = parse_expression
-            assignment
+
+   def parse_variables
+      if curr == IdentifierToken
+         if peek === Token.equals.value
+            # identifier =
+            Assignment.new.tap do |var|
+               var.keypath = eat
+               eat # =
+               var.value = parse_expression
+            end
+         elsif peek === Token.colon.value
+            if peek(2) == IdentifierToken or peek(2) == KeywordToken
+               # identifier, :, identifier
+               t = eat_many 3
+
+               Assignment.new.tap do |var|
+                  var.keypath = t[0]
+                  var.type    = t[2]
+
+                  if curr === Token.equals.value
+                     eat # =
+                     var.value = parse_expression
+                  end
+               end
+            elsif peek(2) === Token.equals.value
+               t = eat_many 3
+               # identifier :=
+
+               Assignment.new.tap do |var|
+                  var.keypath = t[0]
+                  var.value   = parse_expression
+                  # todo; infer type from expression
+               end
+            else
+               raise 'Expected identifier or :='
+            end
+         elsif peek == NewlineToken
+            # identifier \n
+            Statement.new eat
          else
-            node
+            Assignment.new.tap do |ass|
+               ass.keypath = []
+
+               while curr == IdentifierToken and peek === Token.dot.value
+                  # identifier, .
+                  ass.keypath << eat
+                  eat # .
+               end
+
+               ass.keypath << eat
+               eat # =
+               ass.value = parse_expression
+            end
          end
-      elsif curr == Keyword and curr === 'def'
-         eat # def
-         node      = MethodDeclaration.new
-         node.name = eat # ident
-         node.body = parse_block Keyword, 'end'
+      end
+   end
 
-         eat # end
 
-         # if ( then params present
-         # if -> then return type present
-
-         node
-      elsif curr === '('
+   def parse_paren_expr
+      if curr === Token.open_paren.value
          eat # (
          node = parse_expression 1
          eat # )
          node
-      elsif curr == OperatorToken
-         eat
-      elsif curr == Number
-         # todo; NumberLiteralNode
-         eat
-      elsif curr == Comment or curr == MultilineComment
-         # todo; generate documentation
-         node       = CommentNode.new
-         node.token = eat
-         node
-      else
+      end
+   end
+
+
+   def parse_string
+      if curr == StringToken
          eat
       end
    end
+
+
+   def parse_newlines
+      while curr == NewlineToken
+         eat
+      end
+   end
+
+
+   def parse_leaf
+      # this looks fancy but it just returns the first non-nil value
+      parse_newlines or
+        parse_string or
+        parse_comment or
+        parse_variables or
+        parse_paren_expr or
+        eat
+   end
+
 
    def parse_expression precedence = -1000
       operator_precedences = {
@@ -151,8 +236,9 @@ class Parser
       left
    end
 
-   def parse stop_at = EOF, value = nil
-      puts if stop_at == EOF
+
+   def parse stop_at = EOFToken, value = nil
+      puts if stop_at == EOFToken
 
       stmts = []
       until reached_end?
@@ -160,11 +246,16 @@ class Parser
             return stmts
          end
 
-         stmts << parse_expression
+         expr = parse_expression
+         stmts << expr
+         @statements << expr
+
+         # eat if curr == Newline
       end
 
-      stmts
+      stmts.compact
    end
+
 
    alias_method :parse_block, :parse
 end

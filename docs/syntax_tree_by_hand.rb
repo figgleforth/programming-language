@@ -24,7 +24,7 @@ Object: Island # parsed from ./tests/parse_test.is
       Body:
         BuiltinMethodCall: @log
           Arguments:
-            Identifier(coordinates)
+            IdentifierToken(coordinates)
 
   Declaration: manual_assignment -> int # required, not optional and not constant
     Visibility: public
