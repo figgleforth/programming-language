@@ -132,7 +132,9 @@ class Parser
 
    # todo; infer type from expression
    def parse_variables
-      if curr == IdentifierToken
+      if curr == KeywordToken
+         Literal.new eat
+      elsif curr == IdentifierToken
          if peek === Token.equals.value
             # identifier =
             Assignment.new.tap do |var|
@@ -180,8 +182,13 @@ class Parser
                end
 
                ass.keypath << eat
-               eat # =
-               ass.value = parse_expression
+
+               raise "Expected = or newline" unless curr === Token.equals.value or curr == NewlineToken
+
+               if curr === Token.equals.value
+                  eat # =
+                  ass.value = parse_expression
+               end
             end
          end
       end
@@ -232,13 +239,12 @@ class Parser
             eat # end
          end
       elsif peek === Token.open_paren.value # params and no return type
-
          Statement.new eat
       elsif peek === Token.arrow.value # no params and return type
          MethodDefinition.new.tap do |m|
-            m.identifier = eat 2 # ident, ->
+            m.identifier  = eat 2 # ident, ->
             m.return_type = eat
-            m.body       = parse KeywordToken, 'end'
+            m.body        = parse KeywordToken, 'end'
             eat # end
          end
       else

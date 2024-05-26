@@ -12,6 +12,6 @@ statements = parser.parse
 
 puts "\n\nSTATEMENTS:\n\n"
 statements.each do |stmt|
-   puts '- ' + stmt.to_s
+   puts stmt.to_s
    puts
 end

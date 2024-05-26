@@ -91,6 +91,7 @@ class MethodDefinition < Ast
       "#{identifier}, body: #{body}"
    end
 
+
    def return_statement
       body.last
    end
@@ -106,18 +107,15 @@ class MemberAccess < Ast
 end
 
 class Literal < Ast
+   def debug
+      token
+   end
 end
 
 class NumberLiteral < Ast
-   def debug
-      token
-   end
 end
 
 class StringLiteral < Ast
-   def debug
-      token
-   end
 end
 
 # def eat tokens, times = 1
