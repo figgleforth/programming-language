@@ -34,7 +34,7 @@ KEYWORDS = %w(
 
 TRIPLE_SYMBOLS = %w(=== ||=)
 DOUBLE_SYMBOLS = %w(== != <= >= += -= *= /= |= && || @@ ++ -- ->)
-SINGLE_SYMBOLS = %w(! ~ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
+SINGLE_SYMBOLS = %w(! ? ~ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
 SYMBOLS = [
   TRIPLE_SYMBOLS,

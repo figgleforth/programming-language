@@ -24,7 +24,7 @@ yay_
 def square(a: int) -> int
   x = 10
   y = 20
-end
+}
 
 ++;;;-=@#$;
 ||=
@@ -38,3 +38,4 @@ this is cool
 ##
 
 square 10
+1st = 'Cooper'?

@@ -25,15 +25,20 @@ end
 
 
 class EOFToken < Token
+   def to_s
+      '[ eof ]'
+   end
 end
 
 
 class DelimiterToken < Token
    def to_s
       if string == ';'
-         "( ; )"
+         "[ ; ]"
+      elsif string == "\s"
+         "[ ' ' ]"
       else
-         "( \\n )"
+         "[ \\n ]"
       end
    end
 end
@@ -81,7 +86,7 @@ end
 
 class SymbolToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
    def to_s
-      "Sym( #{string} )"
+      "[ #{string} ]"
    end
 end
 

@@ -276,5 +276,5 @@ def to_tokens
          raise_unknown_char # displays some source code with a caret pointing to the unknown character
       end
    end
-   @tokens
+   @tokens << EOFToken.new
 end

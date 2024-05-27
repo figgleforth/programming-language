@@ -11,4 +11,4 @@ tokens = lexer.to_tokens
 
 puts
 puts "TOKENS\n\n"
-puts tokens.reject { |token| token == DelimiterToken }
+puts tokens #.reject { |token| token == DelimiterToken }
