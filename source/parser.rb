@@ -4,7 +4,7 @@ require 'ostruct'
 
 # Parses tokens into statements, it doesn't care about order, duplication, but it should care about syntax.
 class Parser
-   attr_reader :tokens, :statements
+   attr_reader :tokens, :statements, :last
 
 
    def initialize tokens
@@ -14,6 +14,30 @@ class Parser
 
 
    ## region HELPERS
+
+   def assert_tok token
+      raise "EXPECTED #{token} got #{curr}" unless curr == token
+   end
+
+
+   def assert_val value
+      raise "EXPECTED #{value} got #{curr}" unless curr === value
+   end
+
+
+   def debug lookahead = 2
+      str = "LAST #{last.inspect}"
+      (lookahead + 1).times do |i|
+         if i == 0
+            str += "\n\tCURR    #{peek(i)}"
+         else
+            str += "\n\t\tPEEK_#{i}  #{peek(i)}"
+         end
+      end
+      puts
+      puts str
+   end
+
 
    def get_prec token
       [
@@ -30,11 +54,6 @@ class Parser
       ].find do |chars, _|
          chars.include?(token.value)
       end&.at(1)
-   end
-
-
-   def last_statement
-      statements.last
    end
 
 
@@ -99,7 +118,7 @@ class Parser
    ## region PARSING
 
    def parse_comment
-      if curr == CommentToken or curr == BlockCommentToken
+      if curr == CommentTok or curr == BlockCommentToken
          Comment.new eat
       end
    end
@@ -129,65 +148,72 @@ class Parser
       left
    end
 
-
-   # todo; infer type from expression
    def parse_variables
-      if curr == KeywordToken
-         Literal.new eat
-      elsif curr == IdentifierToken
-         if peek === Token.equals.value
+      if curr == IdentifierTok
+         if peek === LexerToken.equals.value
             # identifier =
-            Assignment.new.tap do |var|
-               var.keypath = eat
+            Ast_Assignment.new.tap do |var|
+               assert_tok IdentifierTok
+               var.left = eat
+
+               assert_val '='
                eat # =
                var.value = parse_expression
+
+               assert_tok DelimiterToken
             end
-         elsif peek === Token.colon.value
-            if peek(2) == IdentifierToken or peek(2) == KeywordToken
+         elsif peek === LexerToken.colon.value
+            if peek(2) == IdentifierTok or peek(2) == KeywordToken
                # identifier, :, identifier
                t = eat_many 3
 
-               Assignment.new.tap do |var|
-                  var.keypath = t[0]
+               Ast_Assignment.new.tap do |var|
+                  var.left = t[0]
                   var.type    = t[2]
 
-                  if curr === Token.equals.value
+                  if curr === LexerToken.equals.value
+                     assert_val '='
                      eat # =
                      var.value = parse_expression
+                     puts "(identifier : identifier) value = #{var.value}"
                   end
                end
-            elsif peek(2) === Token.equals.value
+            elsif peek(2) === LexerToken.equals.value
                t = eat_many 3
                # identifier :=
 
-               Assignment.new.tap do |var|
-                  var.keypath = t[0]
+               Ast_Assignment.new.tap do |var|
+                  var.left = t[0]
                   var.value   = parse_expression
+                  puts "(identifier :=) value = #{var.value}"
                   # todo
                end
             else
                raise 'Expected identifier or :='
             end
-         elsif peek == NewlineToken
-            # identifier \n
-            Statement.new eat
+            # elsif peek == NewlineToken
+            #    # identifier \n
+            #    Statement.new eat
          else
-            Assignment.new.tap do |ass|
-               ass.keypath = []
+            Ast_Assignment.new.tap do |ass|
+               ass.left = []
 
-               while curr == IdentifierToken and peek === Token.dot.value
+               while curr == IdentifierTok and peek === LexerToken.dot.value
                   # identifier, .
-                  ass.keypath << eat
+                  ass.left << eat
+                  assert_val '.'
                   eat # .
                end
 
                ass.keypath << eat
 
-               raise "Expected = or newline" unless curr === Token.equals.value or curr == NewlineToken
+               raise "Expected = or newline" unless curr === LexerToken.equals.value or curr == DelimiterToken
 
-               if curr === Token.equals.value
+               if curr === LexerToken.equals.value
                   eat # =
+                  assert_val '='
                   ass.value = parse_expression
+                  puts "(identifier.identifier...) value = #{var.value}"
                end
             end
          end
@@ -196,9 +222,12 @@ class Parser
 
 
    def parse_paren_expr
-      if curr === Token.open_paren.value
+      if curr === LexerToken.open_paren.value
+         assert_val '('
          eat # (
          node = parse_expression 1
+
+         assert_val ')'
          eat # )
          node
       end
@@ -220,39 +249,50 @@ class Parser
 
 
    def parse_newlines
-      while curr == NewlineToken
+      while curr == DelimiterToken
          eat
          nil
       end
    end
 
 
-   def parse_methods
+   def parse_method
       return unless curr == KeywordToken and curr.value === 'def'
 
+      assert_val 'def'
       eat # def
 
-      if peek == NewlineToken # no params and no return type
+      if peek == DelimiterToken # no params and no return type
          MethodDefinition.new.tap do |m|
-            m.identifier = eat 2 # ident, newline
-            m.body       = parse KeywordToken, 'end'
+            assert_tok IdentifierTok
+            m.identifier = eat # ident
+            m.body       = parse 'end'
+            assert_val 'end'
             eat # end
          end
-      elsif peek === Token.open_paren.value # params and no return type
+      elsif peek === LexerToken.open_paren.value # params and no return type
          Statement.new eat
-      elsif peek === Token.arrow.value # no params and return type
+      elsif peek === LexerToken.arrow.value # no params and return type
          MethodDefinition.new.tap do |m|
             m.identifier  = eat 2 # ident, ->
             m.return_type = eat
-            m.body        = parse KeywordToken, 'end'
+            m.body        = parse 'end'
             eat # end
          end
       else
-         puts "CURR #{curr} PEEK #{peek}"
+         debug
          # params and return type
          Statement.new eat
       end
 
+   end
+
+
+   def parse_literal
+      if curr == IdentifierTok
+         assert_tok IdentifierTok
+         Ast_Literal.new eat
+      end
    end
 
 
@@ -261,32 +301,31 @@ class Parser
    # this looks fancy but it just returns the first non-nil value
    def parse_leaf
       parse_newlines or
+        parse_comment or
         parse_string or
         parse_number or
-        parse_comment or
-        parse_methods or
         parse_variables or
-        parse_paren_expr or
-        parse_newlines
+        parse_literal or
+        parse_method or
+        parse_paren_expr # or
+      # parse_newlines
    end
 
 
-   def parse stop_at = EOFToken, stop_at_value = nil
-
+   # def parse stop_at = EOFToken, stop_at_value = nil
+   def parse stop_at = nil
       parsed_statements = []
-      until reached_end? or (curr == stop_at or curr === stop_at_value)
-         if stop_at and (curr == stop_at or curr === stop_at_value)
-            return statements
+      until reached_end? # or curr === stop_at
+         if curr === stop_at
+            return parsed_statements.compact
          end
 
          parsed_statements << parse_expression
          statements << parsed_statements.last
+         last = parsed_statements.last
       end
 
       statements.compact
       parsed_statements.compact
    end
-
-
-   alias_method :parse_block, :parse
 end

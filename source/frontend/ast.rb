@@ -13,7 +13,7 @@ class Ast
 
 
    def debug
-      ""
+      token
    end
 
 
@@ -50,8 +50,8 @@ class BinaryExpr < Ast
    end
 
 
-   def debug
-      "#{left} #{operator.value} #{right}"
+   def to_s
+      " BinExp(#{left}#{operator.value}#{right}) "
    end
 end
 
@@ -61,25 +61,21 @@ class Comment < Ast
    end
 end
 
-class Assignment < Ast
-   attr_accessor :keypath, :value, :type
+class Ast_Assignment < Ast
+   attr_accessor :left, :value, :type
 
 
    def debug
       if type
-         "#{keypath} as #{type.value} = #{value ? value : value.inspect}"
+         "#{left}: #{type.value} = #{value ? value : value.inspect}"
       else
-         if keypath?
-            "#{keypath.map(&:to_s).join('.')} as keypath = #{value ? value : value.inspect}"
-         else
-            "#{keypath} = #{value ? value : value.inspect}"
-         end
+         "#{left} = #{value ? value : value.inspect}"
       end
    end
 
 
    def keypath?
-      keypath.is_a? Array
+      keypath.is_a? Ast_Keypath_Literal
    end
 end
 
@@ -106,16 +102,30 @@ class MemberAccess < Ast
    end
 end
 
-class Literal < Ast
-   def debug
-      token
+class Ast_Literal < Ast
+   def to_s
+      token&.value
    end
 end
 
 class NumberLiteral < Ast
+   def to_s
+      token&.value
+   end
 end
 
 class StringLiteral < Ast
+   def to_s
+      token&.value
+   end
+end
+
+class Ast_Keypath_Literal < Ast_Literal
+   attr_accessor :keypath # [Literal]
+
+   def to_s
+      keypath.map(&:value)&.join('.') || '[]'
+   end
 end
 
 # def eat tokens, times = 1

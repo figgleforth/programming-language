@@ -33,12 +33,12 @@ class Tokenizer
   end
 
 
-  attr_accessor :chars, :caret, :tokens, :string
+  attr_accessor :string, :caret, :tokens, :string
   attr_accessor :eof_becomes_token, :newlines_become_tokens
 
   def initialize string = nil
     @string          = string
-    @chars           = string&.chars || ''
+    @chars           = string&.string || ''
     @caret           = Caret.new
     @tokens          = []
     @eof_becomes_token      = false
@@ -55,7 +55,7 @@ class Tokenizer
   end
 
   def string_to_tokens string
-    @chars = string.chars
+    @chars = string.string
     scan
     @tokens
   end
@@ -213,7 +213,7 @@ class Tokenizer
   end
 
   def tokenize type, word = ''
-    Token.new(type: type, string: word)
+    LexerToken.new(type: type, string: word)
   end
 
   ### scanner loop)

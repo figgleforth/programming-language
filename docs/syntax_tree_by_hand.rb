@@ -14,25 +14,25 @@ Object: Island # parsed from ./tests/parse_test.is
           Name: size
           Type: int
     Declaration: entered_numbers -> str? # optional
-      Literal: nil
+      Ast_Literal: nil
       Visibility: public
     Declaration: _actual_numbers -> str! # constant
-      Literal: '4815162342'
+      Ast_Literal: '4815162342'
       Visibility: private
     Method: visit -> nil
       Parameters: []
       Body:
         BuiltinMethodCall: @log
           Arguments:
-            IdentifierToken(coordinates)
+            IdentifierTok(coordinates)
 
   Declaration: manual_assignment -> int # required, not optional and not constant
     Visibility: public
-    Literal: IntLiteral(4)
+    Ast_Literal: IntLiteral(4)
 
   Declaration: inferred_assignment -> inferred # repurpose this property when inferred then update property in the Typer?
     Visibility: private
-    Literal: IntLiteral(8)
+    Ast_Literal: IntLiteral(8)
 
   Method: square_and_some -> float
     Parameters:
