@@ -1,9 +1,11 @@
 class Token
    attr_accessor :string
 
+
    def initialize string = nil
       @string = string
    end
+
 
    # token == CommentToken
    # token == '#'
@@ -14,6 +16,7 @@ class Token
          other == string
       end
    end
+
 
    def to_s
       string || super
@@ -61,6 +64,11 @@ class StringToken < Token
    def to_s
       "String(#{string})"
    end
+
+
+   def interpolated?
+      string.include? '`'
+   end
 end
 
 
@@ -71,8 +79,7 @@ class NumberToken < Token
 end
 
 
-# special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
-class SymbolToken < Token
+class SymbolToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
    def to_s
       "Sym( #{string} )"
    end
@@ -86,6 +93,7 @@ class CommentToken < Token
       super string
       @multiline = multiline
    end
+
 
    def to_s
       "Comment(#{string})"
