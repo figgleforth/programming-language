@@ -26,20 +26,21 @@ end
 
 class EOFToken < Token
    def to_s
-      '[ eof ]'
+      'EOF'
    end
 end
 
 
 class DelimiterToken < Token
    def to_s
-      if string == ';'
-         "[ ; ]"
-      elsif string == "\s"
-         "[ ' ' ]"
-      else
-         "[ \\n ]"
-      end
+      # if string == ';'
+      #    "   (;)"
+      # elsif string == "\s"
+      #    "   (whitespace)"
+      # else
+      #    "   (newline)"
+      # end
+      "\t\s#{string.inspect}"
    end
 end
 
@@ -52,22 +53,29 @@ end
 
 
 class IdentifierToken < Token
+   attr_accessor :symbol_literal
+
+
    def to_s
-      "Ident(#{string})"
+      if symbol_literal
+         "Ident: :#{string}"
+      else
+         "Ident: #{string}"
+      end
    end
 end
 
 
 class KeywordToken < Token
    def to_s
-      "Keyword(#{string})"
+      "Keyword: #{string}"
    end
 end
 
 
 class StringToken < Token
    def to_s
-      "String(#{string})"
+      "String: #{string}"
    end
 
 
@@ -79,14 +87,14 @@ end
 
 class NumberToken < Token
    def to_s
-      "Num(#{string})"
+      "Num: #{string}"
    end
 end
 
 
 class SymbolToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
    def to_s
-      "[ #{string} ]"
+      "Symbol: #{string}"
    end
 end
 
@@ -101,7 +109,7 @@ class CommentToken < Token
 
 
    def to_s
-      "Comment(#{string})"
+      "Comment: #{string}"
    end
 end
 

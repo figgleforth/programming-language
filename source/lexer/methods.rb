@@ -13,26 +13,26 @@ end
 
 
 class Char
-   attr_accessor :str
+   attr_accessor :string
 
 
    def initialize str
-      @str = str
+      @string = str
    end
 
 
    def whitespace?
-      @str == ' ' or @str == "\t"
+      @string == ' ' or @string == "\t"
    end
 
 
    def newline?
-      @str == "\n"
+      @string == "\n"
    end
 
 
    def colon?
-      @str == ';'
+      @string == ';'
    end
 
 
@@ -42,43 +42,43 @@ class Char
 
 
    def numeric?
-      !!(@str =~ /\A[0-9]+\z/)
+      !!(@string =~ /\A[0-9]+\z/)
    end
 
 
    def alpha?
-      !!(@str =~ /\A[a-zA-Z]+\z/)
+      !!(@string =~ /\A[a-zA-Z]+\z/)
    end
 
 
    def alphanumeric?
-      !!(@str =~ /\A[a-zA-Z0-9]+\z/)
+      !!(@string =~ /\A[a-zA-Z0-9]+\z/)
    end
 
 
    def symbol?
-      !!(@str =~ /\A[^a-zA-Z0-9\s]+\z/)
+      !!(@string =~ /\A[^a-zA-Z0-9\s]+\z/)
    end
 
 
    def identifier?
-      alphanumeric? or @str == '_'
+      alphanumeric? or @string == '_'
    end
 
 
    def == other
-      @str == other
+      @string == other
    end
 end
 
 
 def raise_unknown_char
-   exception = UnknownChar.new char.str
+   exception = UnknownChar.new char.string
    padding   = 4
 
-   context       = peek(-padding, padding).str
+   context       = peek(-padding, padding).string
    context_space = ' ' * context.size
-   message       = "#{context}#{peek(0, 5).str}\n#{context_space}^"
+   message       = "#{context}#{peek(0, 5).string}\n#{context_space}^"
 
    puts
    puts exception
@@ -140,7 +140,7 @@ def eat_number
    ''.tap do |number|
       valid = %w(. _)
 
-      while have_tokens? and (char.numeric? or valid.include?(char.str))
+      while have_tokens? and (char.numeric? or valid.include?(char.string))
          number << eat
          break if char.newline? or char.whitespace?
       end
@@ -151,13 +151,20 @@ end
 def eat_identifier
    ''.tap do |ident|
       valid = %w(! ?)
-      while char.identifier? or valid.include?(char.str)
+      while char.identifier? or valid.include?(char.string)
          ident << eat
 
          break if valid.include? ident.chars.last # prevent consecutive !! or ??
          break unless have_tokens?
       end
    end
+end
+
+
+def eat_colon_symbol
+   # eat :
+   # eat_number_or_numeric_identifier
+
 end
 
 
@@ -191,16 +198,16 @@ end
 # todo;
 def eat_multiline_comment
    ''.tap do |comment|
-      marker = '##'
-      eat_many 2, marker
+      marker = '###'
+      eat_many 3, marker
       eat while char.whitespace? or char.newline?
 
-      while have_tokens? and peek(0, 2) != marker
+      while have_tokens? and peek(0, 3) != marker
          comment << eat
          eat while char.newline?
       end
 
-      eat_many 2, marker
+      eat_many 3, marker
       eat "\n" while char.newline? # don't care to know if there's a newline after a comment
    end
 end
@@ -221,9 +228,9 @@ end
 
 def eat_symbol
    ''.tap do |symbol|
-      if TRIPLE_SYMBOLS.include? peek(0, 3)&.str
+      if TRIPLE_SYMBOLS.include? peek(0, 3)&.string
          symbol << eat_many(3)
-      elsif DOUBLE_SYMBOLS.include? peek(0, 2)&.str
+      elsif DOUBLE_SYMBOLS.include? peek(0, 2)&.string
          symbol << eat_many(2)
       else
          symbol << eat
@@ -240,7 +247,7 @@ def to_tokens
          eat while char.delimiter? # don't care about consecutive delimiters
 
       elsif char == '#'
-         if peek(0, 2) == '##'
+         if peek(0, 3) == '###'
             @tokens << CommentToken.new(eat_multiline_comment, true)
          else
             @tokens << CommentToken.new(eat_oneline_comment)
@@ -267,10 +274,20 @@ def to_tokens
             @tokens << IdentifierToken.new(ident)
          end
 
-      elsif SYMBOLS.include? char.str
-         symbol = eat_symbol
-         @tokens << SymbolToken.new(symbol)
-         eat "\n" while char.newline? and symbol == ';' # don't care about newlines after `end` because it's basically a delimiter
+      elsif SYMBOLS.include? char.string
+         if char == ':' and not peek&.delimiter? # :style symbols
+            eat ':'
+
+            ident = eat_identifier
+            token =  IdentifierToken.new(ident)
+            token.symbol_literal = true
+
+            @tokens << token
+         else
+            symbol = eat_symbol
+            @tokens << SymbolToken.new(symbol)
+            eat "\n" while char.newline? and symbol == ';' # don't care about newlines after `end` because it's basically a delimiter
+         end
 
       else
          raise_unknown_char # displays some source code with a caret pointing to the unknown character

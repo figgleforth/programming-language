@@ -22,7 +22,8 @@ TYPES = %w(
  nil
 )
 
-# NEW
+######
+## NEW
 
 KEYWORDS = %w(
  api obj def new end
@@ -33,7 +34,7 @@ KEYWORDS = %w(
 # in this specific order so multi character operators are matched first
 
 TRIPLE_SYMBOLS = %w(=== ||=)
-DOUBLE_SYMBOLS = %w(== != <= >= += -= *= /= |= && || @@ ++ -- ->)
+DOUBLE_SYMBOLS = %w(== != <= >= += -= *= /= |= := && || @@ ++ -- ->)
 SINGLE_SYMBOLS = %w(! ? ~ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
 SYMBOLS = [

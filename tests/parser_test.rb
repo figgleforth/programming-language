@@ -2,7 +2,7 @@ require_relative '../source/lexer'
 require_relative '../source/parser'
 
 # source = '1 + 2 * 3 - 4 / 2'
-file = 'language/expressions.ek'
+file = 'language/expressions.e'
 source = File.read(file).to_s
 
 puts "\n\n:: #{file} ::\n\n"

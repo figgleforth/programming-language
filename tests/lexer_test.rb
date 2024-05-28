@@ -1,7 +1,7 @@
 require_relative '../source/lexer'
 require_relative '../source/lexer/tokens.rb'
 
-source = File.read('language/01.ek').to_s
+source = File.read('language/01.e').to_s
 lexer  = Lexer.new source
 tokens = lexer.to_tokens
 
