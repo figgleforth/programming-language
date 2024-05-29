@@ -1,11 +1,7 @@
-###
-file is named spec.e so code here is scoped to an object named _Spec, inferred from the file name. the leading underscore is used to prevent name collisions with user-defined objects. I don't like indenting so this supports top level code
-###
-
 self: Island # set type of self for explicit naming of the object that owns the top level scope of this file. there is no global scope right now, and I don't know if I'll add that. 5/2024
 
-self: Island > LandMass imp Hatch, Others ###
-	this file is of type Island extending LandMass, and implementing Hatch and Others
+self: Island > Land_Mass imp Hatch, Others ###
+	this file is of type Island extending Land_Mass, and implementing Hatch and Others
 
 	note; setting type of `self` is only allowed top level and will fail anywhere else
 
@@ -13,12 +9,13 @@ self: Island > LandMass imp Hatch, Others ###
 	imp   means next identifiers are apis to implement
 ###
 
-smaller_island: LandMass, Hatch, Others = Island() # smaller_island must be an instance that extends LandMass and implements at least Hatch and Others
+smaller_island: Land_Mass, Hatch, Others = Island() # smaller_island must be an instance that extends Land_Mass and implements at least Hatch and Others
 
 
-obj Entity; # use ; in place of an empty body {}
+obj Entity; # equivalent empty body {}
 obj Player > Entity imp Transform;
-obj NPC > Entity imp Transform;
+obj NPC > Entity imp Transform # equivalent to empty body {} but you can omit { for all blocks
+}
 
 # both of these are valid
 movable: Transform ### movable can be assigned any object that implements Authenticatable api so you aren't limited to type of object
@@ -42,7 +39,7 @@ new(year: float) # top level constructor
 obj Shelter; # equivalent to an empty object
 
 obj Hatch > Shelter
-	imp SecuritySystem # implements SecuritySystem api
+	imp Security_System # implements Security_System api
 
 	new
 		super # call parent constructor
@@ -50,16 +47,19 @@ obj Hatch > Shelter
 	}
 
 	def respond_to_intruder # must implement any stubbed methods in the implemented api
+		@.type # 'respond_to_intruder() -> nil'
+		self.@.type # 'Hatch'
+		door.@.type # 'Door'
 	}
 }
 
-obj Hatch > Shelter imp SecuritySystem; # this is also valid
+obj Hatch > Shelter imp Security_System; # this is also valid
 
 api Door
 	door: Door
 }
 
-api SecuritySystem > Door # implements door api, so has access to door variable
+api Security_System > Door # implements door api, so has access to door variable
 	def enter_numbers(numbers: int) -> bool as open # aliasing methods internally so that method ident can be verbose externally but simple internally
 		# ...
 	}
@@ -99,9 +99,9 @@ obj Others
 	evil: bool => false # => can be used in place of a block expression, only when the block is a single line of code. multiline expressions using => are not valid
 }
 
-# Context object may have useful info, but also acts as scratch object. can be accessed using @ symbol
+# Context object may have useful info, but also acts as scratch object. can be accessed using @ symbol and exists once for the global scope, once for each obj object, and once for each method. I haven't yet decided if it should exist per block of code, it probably should to be consistent. This is cool because an object won't be cluttered with methods irrelevant to everyday programming.
 obj Context
-	args: []
+	args: [] # if applicable, like inside of a method scope
 	scopes: [] ###
 		@.scopes[0] # current scope
 		@.scopes[1] # the scope before this one
@@ -109,7 +109,7 @@ obj Context
 	###
 
 	# function literal represents any type of method signature
-	type: function # returns like (int) -> int or () -> float or () -> nil, etc
+	type: string # '(int) -> int' or '() -> float' or '() -> nil', 'Context' or 'Basic_Object', and so on
 
 	def log; # use ; to stub a method
 }
@@ -267,7 +267,7 @@ monday: string = 'Monday'
 weekday: string = 'Friday'
 dates: Date = .today
 times: Time
-datetime: DateTime
+datetime: DateTime # exception to _ in identifier names
 
 # variable type here is the signature of a method
 takes_string_returns_nothing: (string) -> nil # writing `nil` is not optional as it needs to be explicit to avoid confusion with tuples
@@ -421,10 +421,10 @@ api Stone
 	def secretly_do_nothing;
 }
 
-obj Opal
+obj Emerald
 }
 
-obj Opal > Gem
+obj Emerald > Gem
 	imp Stone # first one is the ancestor, the rest are api compositions
 
 	# must implement stubbed methods, but get variables and implemented methods for free
@@ -439,19 +439,19 @@ obj Opal > Gem
 }
 
 # type comparisons
-Opal >== Gem # is Gem a immediate or extended ancestor? true in this case
-Gem >== Opal # false
-Opal === Gem # is Opal the same as Gem? false in this case
+Emerald >== Gem # is Gem a immediate or extended ancestor? true in this case
+Gem >== Emerald # false
+Emerald === Gem # is Emerald the same as Gem? false in this case
 
 # also works on instances
-opal = Opal()
+emerald = Emerald()
 gem = Gem()
 
-opal >== gem # true
-gem >== opal # false
-gem === opal # false
+emerald >== gem # true
+gem >== emerald # false
+gem === emerald # false
 
-if opal is Opal # equivalent to using ===
+if emerald is Emerald # equivalent to using ===
 }
 
 
@@ -466,12 +466,12 @@ api Error # compose with this to make custom errors
 	}
 }
 
-obj NotImplemented > Error # you may add anything to the body so long as the stubbed method is implemented, whether with a full block or a single line expression
+obj Not_Implemented > Error # you may add anything to the body so long as the stubbed method is implemented, whether with a full block or a single line expression
 	def message -> string => 'You did not implement this or whatever'
 }
 
 def fail_with_error
-	NotImplemented.raise # you can raise an error here
+	Not_Implemented.raise # you can raise an error here
 }
 
 ###
@@ -507,8 +507,8 @@ obj Transform
 }
 
 # override namespace
-obj CoolNamespace/Planet
-	# file can be anywhere in the project and it's namespace will be set to CoolNamespace instead of being inferred from the directory structure and filename
+obj Cool_Namespace/Planet
+	# file can be anywhere in the project and it's namespace will be set to Cool_Namespace instead of being inferred from the directory structure and filename
 }
 
 obj /Star
