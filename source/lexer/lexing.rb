@@ -89,7 +89,7 @@ def raise_unknown_char
 end
 
 
-def have_tokens?
+def chars?
    @i < source.length
 end
 
@@ -104,7 +104,12 @@ def peek distance = 1, length = 1
 end
 
 
-def eat expected_char = nil
+def last
+   source[@i - 1]
+end
+
+
+def eat expected = nil
    if char.newline?
       @row += 1
       @col = 0
@@ -112,14 +117,13 @@ def eat expected_char = nil
       @col += 1
    end
 
-   @i    += 1
-   eaten = source[@i - 1]
+   @i += 1
 
-   if expected_char and expected_char != eaten
-      raise "Expected '#{expected_char}' but got '#{eaten}'"
+   if expected and expected != last
+      raise "Expected '#{expected}' but got '#{last}'"
    end
 
-   eaten
+   last
 end
 
 
@@ -140,7 +144,7 @@ def eat_number
    ''.tap do |number|
       valid = %w(. _)
 
-      while have_tokens? and (char.numeric? or valid.include?(char.string))
+      while chars? and (char.numeric? or valid.include?(char.string))
          number << eat
          break if char.newline? or char.whitespace?
       end
@@ -155,7 +159,7 @@ def eat_identifier
          ident << eat
 
          break if valid.include? ident.chars.last # prevent consecutive !! or ??
-         break unless have_tokens?
+         break unless chars?
       end
    end
 end
@@ -185,7 +189,7 @@ def eat_oneline_comment
       eat '#' # eat the hash
       eat while char.whitespace? # skip whitespace or tab before body
 
-      while have_tokens? and not char.newline?
+      while chars? and not char.newline?
          comment << eat
       end
 
@@ -202,7 +206,7 @@ def eat_multiline_comment
       eat_many 3, marker
       eat while char.whitespace? or char.newline?
 
-      while have_tokens? and peek(0, 3) != marker
+      while chars? and peek(0, 3) != marker
          comment << eat
          eat while char.newline?
       end
@@ -217,7 +221,7 @@ def eat_string
    ''.tap do |str|
       quote = eat
 
-      while have_tokens? and char != quote
+      while chars? and char != quote
          str << eat
       end
 
@@ -239,9 +243,9 @@ def eat_symbol
 end
 
 
-def to_tokens
+def tokenize
    @tokens = []
-   while have_tokens?
+   while chars?
       if char.delimiter?
          @tokens << DelimiterToken.new(eat) # \n or ;, but not space
          eat while char.delimiter? # don't care about consecutive delimiters
@@ -278,8 +282,8 @@ def to_tokens
          if char == ':' and not peek&.delimiter? # :style symbols
             eat ':'
 
-            ident = eat_identifier
-            token =  IdentifierToken.new(ident)
+            ident                = eat_identifier
+            token                = IdentifierToken.new(ident)
             token.symbol_literal = true
 
             @tokens << token

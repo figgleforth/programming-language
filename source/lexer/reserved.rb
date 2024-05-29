@@ -8,14 +8,6 @@ CLASSIC_TYPES = %w(class struct)
 
 WORDS = %w(self enum new it at obj api is when while for loop def stop next end if else while for return obj iam)
 
-OTHERS = [
-  COMMENTS,
-  LOGGING,
-  NUMBER_LITERALS,
-  BOOLEAN_LITERALS,
-# DELIMITERS
-].flatten
-
 TYPES = %w(
  int float array dictionary bool string
  yes no true false
@@ -26,9 +18,9 @@ TYPES = %w(
 ## NEW
 
 KEYWORDS = %w(
- api obj def new end
- enum const private public static
- do if else for next stop at it is self when while
+ api obj def new end arg
+ enum const private pri public pub static
+ do if else for skip stop at it is self when while
 )
 
 # in this specific order so multi character operators are matched first

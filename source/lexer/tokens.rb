@@ -47,6 +47,7 @@ end
 
 class WhitespaceToken < Token
    def to_s
+      self.object_id
       "\\s"
    end
 end

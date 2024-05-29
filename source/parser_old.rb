@@ -3,7 +3,7 @@ require_relative 'tokenizer'
 require 'ostruct'
 
 # Parses tokens into statements, it doesn't care about order, duplication, but it should care about syntax.
-class Parser
+class ParserOld
    attr_reader :tokens, :statements, :last
 
 
@@ -21,7 +21,11 @@ class Parser
 
 
    def assert_val value
-      raise "EXPECTED #{value} got #{curr}" unless curr === value
+      raise "EXPECTED #{value} got #{curr}" unless curr == value
+   end
+
+   def assert expected
+      raise "EXPECTED #{expected} got #{curr}" unless cur == expected
    end
 
 
@@ -98,10 +102,6 @@ class Parser
    end
 
 
-   def peek_many distance = 1, length = 1
-      tokens[distance, length]
-   end
-
 
    def peek_until & block
       tokens.dup.slice_before(&block).to_a.first
@@ -150,7 +150,7 @@ class Parser
 
    def parse_variables
       if curr == IdentifierTok
-         if peek === LexerToken.equals.value
+         if peek == LexerToken.equals.value
             # identifier =
             Ast_Assignment.new.tap do |var|
                assert_tok IdentifierTok
@@ -162,7 +162,7 @@ class Parser
 
                assert_tok DelimiterToken
             end
-         elsif peek === LexerToken.colon.value
+         elsif peek == LexerToken.colon.value
             if peek(2) == IdentifierTok or peek(2) == KeywordToken
                # identifier, :, identifier
                t = eat_many 3
@@ -171,14 +171,14 @@ class Parser
                   var.left = t[0]
                   var.type    = t[2]
 
-                  if curr === LexerToken.equals.value
+                  if curr == LexerToken.equals.value
                      assert_val '='
                      eat # =
                      var.value = parse_expression
                      puts "(identifier : identifier) value = #{var.value}"
                   end
                end
-            elsif peek(2) === LexerToken.equals.value
+            elsif peek(2) == LexerToken.equals.value
                t = eat_many 3
                # identifier :=
 
@@ -198,7 +198,7 @@ class Parser
             Ast_Assignment.new.tap do |ass|
                ass.left = []
 
-               while curr == IdentifierTok and peek === LexerToken.dot.value
+               while curr == IdentifierTok and peek == LexerToken.dot.value
                   # identifier, .
                   ass.left << eat
                   assert_val '.'
@@ -207,9 +207,9 @@ class Parser
 
                ass.keypath << eat
 
-               raise "Expected = or newline" unless curr === LexerToken.equals.value or curr == DelimiterToken
+               raise "Expected = or newline" unless curr == LexerToken.equals.value or curr == DelimiterToken
 
-               if curr === LexerToken.equals.value
+               if curr == LexerToken.equals.value
                   eat # =
                   assert_val '='
                   ass.value = parse_expression
@@ -222,7 +222,7 @@ class Parser
 
 
    def parse_paren_expr
-      if curr === LexerToken.open_paren.value
+      if curr == LexerToken.open_paren.value
          assert_val '('
          eat # (
          node = parse_expression 1
@@ -257,7 +257,7 @@ class Parser
 
 
    def parse_method
-      return unless curr == KeywordToken and curr.value === 'def'
+      return unless curr == KeywordToken and curr.value == 'def'
 
       assert_val 'def'
       eat # def
@@ -270,9 +270,9 @@ class Parser
             assert_val 'end'
             eat # end
          end
-      elsif peek === LexerToken.open_paren.value # params and no return type
+      elsif peek == LexerToken.open_paren.value # params and no return type
          Statement.new eat
-      elsif peek === LexerToken.arrow.value # no params and return type
+      elsif peek == LexerToken.arrow.value # no params and return type
          MethodDefinition.new.tap do |m|
             m.identifier  = eat 2 # ident, ->
             m.return_type = eat
@@ -315,10 +315,8 @@ class Parser
    # def parse stop_at = EOFToken, stop_at_value = nil
    def parse stop_at = nil
       parsed_statements = []
-      until reached_end? # or curr === stop_at
-         if curr === stop_at
-            return parsed_statements.compact
-         end
+      until reached_end? # or curr == stop_at
+         break if curr == stop_at
 
          parsed_statements << parse_expression
          statements << parsed_statements.last

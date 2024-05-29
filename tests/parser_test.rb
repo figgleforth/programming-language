@@ -1,21 +1,19 @@
-require_relative '../source/lexer'
-require_relative '../source/parser'
+require_relative '../source/parser/parser'
 
-# source = '1 + 2 * 3 - 4 / 2'
-file = 'language/expressions.e'
-source = File.read(file).to_s
+require_relative '../source/lexer/lexer'
 
-puts "\n\n:: #{file} ::\n\n"
+source = File.read('language/01.e').to_s
+lexer  = Lexer.new source
+tokens = lexer.tokenize
 
-lexer = Lexer.new source
-tokens = lexer.make_tokens
+# tokens = lexer.make_tokens
+#
+# puts "\n```\n#{lexer.source}\n```\n\n"
+
+# puts
+# puts "TOKENS\n\n"
+# puts tokens #.reject { |token| token == DelimiterToken }
+
 
 parser = Parser.new tokens
 statements = parser.parse
-
-puts "\n:: #{file} ::"
-
-statements.each do |stmt|
-   puts
-   puts stmt.to_s
-end
