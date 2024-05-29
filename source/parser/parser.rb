@@ -3,6 +3,13 @@ class Parser
    attr_accessor :i, :tokens
 
 
+   class UnexpectedToken < RuntimeError
+      def initialize token
+         super "Unexpected token `#{token}`"
+      end
+   end
+
+
    def initialize tokens = nil
       @tokens = tokens
       @i      = 0 # index of current token
@@ -49,54 +56,28 @@ class Parser
    end
 
 
-   def peek distance = 1, length = 1
-      @tokens[@i + distance, length]
-   end
+   # def peek distance = 1, length = 1
+   #    @tokens[@i + distance, length]
+   # end
 
+   def peek? * expected
+      ahead = @tokens&.reject do |token|
+         # ignore \s \t \n but not ;
+         token == DelimiterToken and token != ';'
+      end[..expected.length - 1]
 
-   def expect * expected
-      expected.each_with_index do |expect, i|
-         raise "\n\nEXPECTED \n\t#{expected}\n\nGOT\n\t#{curr}" unless peek(i) == expected
+      ahead.each_with_index.all? do |token, index|
+         token == expected[index]
       end
    end
 
 
-   # Usage
-   #
-   # eat CommentToken
-   # eat '#'
-   def eat expected = nil
-      # puts 'EATING  ', curr.inspect
-      # puts "tokens? #{@tokens}"
-      if expected and expected != peek
-         raise "\n\nEXPECTED \n\t#{expected}\n\nGOT\n\t#{peek.inspect}"
-      end
-
-      @i += 1
-      last
-   end
-
-
-   # Usage
-   #
-   # eat_many 2, [IdentifierToken, SymbolToken]
-   # eat_many 2, IdentifierToken, SymbolToken
-   #
-   # or
-   #
-   # eat_many 2, ['test', ':']
-   # eat_many 2, 'test', ':'
-   def eat_many distance = 1, *expected
-      expected = [] if expected.nil? or expected.empty?
-
-      expect *expected
-      [].tap do |arr|
-         distance.times do |i|
-            if peek(i) != expected[i]
-               raise "EXPECTED #{expected} GOT #{arr.join}"
-            end
-
-            arr << eat(expected)
+   def eat! * expected
+      [].tap do |result|
+         expected.each do |expect|
+            eat while curr == DelimiterToken and curr != ';'
+            raise UnexpectedToken unless curr == expect
+            result << eat
          end
       end
    end
@@ -133,9 +114,10 @@ class Parser
 
 
    def parse until_token = nil
-      # puts "PARSE! #{tokens}"
-      statements = []
-      statements << eat_expression while tokens? and curr != until_token
-      statements
+      # statements = []
+      # statements << eat_expression while tokens? and curr != until_token
+      # statements
+      puts "peek? IdentifierToken ", peek?(IdentifierToken)
+      puts "peek? SymbolToken ", peek?(SymbolToken)
    end
 end

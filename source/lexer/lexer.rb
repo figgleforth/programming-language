@@ -307,7 +307,7 @@ class Lexer
       while chars?
          if char.delimiter? # \n, \s, \t, or ;
             @tokens << DelimiterToken.new(eat) # useful for some AST nodes, useless for others. the parser can just skip them
-            eat while char.delimiter? # reduce consecutive delimiters
+            eat while char.delimiter? and last == char # reduce consecutive delimiters
 
          elsif char == '#'
             if peek(0, 3) == '###'
@@ -338,19 +338,20 @@ class Lexer
             end
 
          elsif SYMBOLS.include? char.string
-            if char == ':' and not peek&.delimiter? # :style symbols
-               eat ':'
-
-               ident                = eat_identifier
-               token                = IdentifierToken.new(ident)
-               token.symbol_literal = true
-
-               @tokens << token
-            else
+            # fix: :style_symbols is including the inferred assignment operator := as well, but := should be a separate symbol
+            # if char == ':' and not peek&.delimiter? # :style symbols
+            #    eat ':'
+            #
+            #    ident                = eat_identifier
+            #    token                = IdentifierToken.new(ident)
+            #    token.symbol_literal = true
+            #
+            #    @tokens << token
+            # else
                symbol = eat_symbol
                @tokens << SymbolToken.new(symbol)
                eat "\n" while char.newline? and symbol == ';' # reduce newlines after `end` because it's basically a delimiter
-            end
+            # end
 
          else
             raise_unknown_char # displays some source code with a caret pointing to the unknown character

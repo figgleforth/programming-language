@@ -1,7 +1,3 @@
-require_relative 'frontend/t'
-require_relative 'tokenizer'
-require 'ostruct'
-
 # Parses tokens into statements, it doesn't care about order, duplication, but it should care about syntax.
 class ParserOld
    attr_reader :tokens, :statements, :last
