@@ -1,6 +1,14 @@
+
+
+
+
 ###
 This class is something something
 ###
+
+
+
+
 self: Example
 
 "double quotes"
@@ -35,3 +43,5 @@ square 10
 def square(val: int) -> int
   val * val
 }
+
+def multiply;

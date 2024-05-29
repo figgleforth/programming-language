@@ -126,8 +126,16 @@ class Lexer
       end
 
 
+      # def == other
+      #    @string == other
+      # end
+
       def == other
-         @string == other
+         if other.is_a? String
+            other == @string
+         else
+            other == self.class
+         end
       end
    end
 
@@ -303,7 +311,11 @@ class Lexer
    end
 
 
-   # todo: write method to reduce consecutive delimiters
+   def reduce_delimiters
+      eat while char.delimiter?
+   end
+
+
    def lex input = nil
       @source = input if input
 
@@ -312,7 +324,7 @@ class Lexer
       while chars?
          if char.delimiter? # \n, \s, \t, or ;
             @tokens << DelimiterToken.new(eat) # useful for some AST nodes, useless for others. the parser can just skip them
-            eat while char.delimiter? and last != char # reduce consecutive delimiters
+            reduce_delimiters
 
          elsif char == '#'
             if peek(0, 3) == '###'
@@ -333,7 +345,6 @@ class Lexer
          elsif char.identifier? or (char == '_' and peek&.alphanumeric?)
             ident = eat_identifier
 
-            # todo check for keywords
             if KEYWORDS.include? ident
                @tokens << KeywordToken.new(ident)
 
@@ -343,7 +354,7 @@ class Lexer
             end
 
          elsif SYMBOLS.include? char.string
-            # fix: :style_symbols is including the inferred assignment operator := as well, but := should be a separate symbol
+            # fix: :style_symbols is including the inferred assignment operator := as well, but := should be a separate symbol. probably use SYMBOLS array
             # if char == ':' and not peek&.delimiter? # :style symbols
             #    eat ':'
             #
