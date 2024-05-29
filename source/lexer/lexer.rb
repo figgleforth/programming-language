@@ -86,13 +86,18 @@ class Lexer
       end
 
 
+      def carriage_return?
+         @string == "\r"
+      end
+
+
       def colon?
          @string == ';'
       end
 
 
       def delimiter?
-         colon? or newline? or whitespace?
+         colon? or newline? or whitespace? or carriage_return?
       end
 
 
@@ -307,7 +312,7 @@ class Lexer
       while chars?
          if char.delimiter? # \n, \s, \t, or ;
             @tokens << DelimiterToken.new(eat) # useful for some AST nodes, useless for others. the parser can just skip them
-            eat while char.delimiter? and last == char # reduce consecutive delimiters
+            eat while char.delimiter? and last != char # reduce consecutive delimiters
 
          elsif char == '#'
             if peek(0, 3) == '###'
@@ -348,9 +353,9 @@ class Lexer
             #
             #    @tokens << token
             # else
-               symbol = eat_symbol
-               @tokens << SymbolToken.new(symbol)
-               eat "\n" while char.newline? and symbol == ';' # reduce newlines after `end` because it's basically a delimiter
+            symbol = eat_symbol
+            @tokens << SymbolToken.new(symbol)
+            eat "\n" while char.newline? and symbol == ';' # reduce newlines after `end` because it's basically a delimiter
             # end
 
          else

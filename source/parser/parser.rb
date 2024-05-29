@@ -56,9 +56,10 @@ class Parser
    end
 
 
-   # def peek distance = 1, length = 1
-   #    @tokens[@i + distance, length]
-   # end
+   def peek at = 1, length = 1
+      @tokens[@i + at, length]
+   end
+
 
    def peek? * expected
       ahead = @tokens&.reject do |token|
@@ -113,11 +114,16 @@ class Parser
    end
 
 
+   # todo: skip comment tokens because those should be handled by Documenter
    def parse until_token = nil
       # statements = []
       # statements << eat_expression while tokens? and curr != until_token
       # statements
+      puts
+      puts @tokens
+      puts
       puts "peek? IdentifierToken ", peek?(IdentifierToken)
+      puts "peek? IdentifierToken, SymbolToken ", peek?(IdentifierToken, SymbolToken)
       puts "peek? SymbolToken ", peek?(SymbolToken)
    end
 end
