@@ -1,4 +1,4 @@
-require_relative 'frontend/ast'
+require_relative 'frontend/t'
 require_relative 'tokenizer'
 require 'ostruct'
 

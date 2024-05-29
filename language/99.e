@@ -2,19 +2,39 @@
 file is named spec.e so code here is scoped to an object named _Spec, inferred from the file name. the leading underscore is used to prevent name collisions with user-defined objects. I don't like indenting so this supports top level code
 ###
 
-
 self: Island # set type of self for explicit naming of the object that owns the top level scope of this file. there is no global scope right now, and I don't know if I'll add that. 5/2024
 
-self: Island > LandMass
-imp Hatch, Others
+self: Island > LandMass imp Hatch, Others ###
+	this file is of type Island extending LandMass, and implementing Hatch and Others
 
+	note; setting type of `self` is only allowed top level and will fail anywhere else
+
+	>     means next identifier is the object to extend
+	imp   means next identifiers are apis to implement
 ###
-	this file is of type Island, extending LandMass, and implementing Hatch and Others api
 
-	note; setting type of `self` is only allowed top level
+smaller_island: LandMass, Hatch, Others = Island() # smaller_island must be an instance that extends LandMass and implements at least Hatch and Others
 
-	> keyword inside object declaration means the next identifiers are either one object to inherit from, or one or more apis to implement. neither are required
+
+obj Entity; # use ; in place of an empty body {}
+obj Player > Entity imp Transform;
+obj NPC > Entity imp Transform;
+
+# both of these are valid
+movable: Transform ### movable can be assigned any object that implements Authenticatable api so you aren't limited to type of object
+	both of these are valid
+
+	movable = Player()
+	movable = NPC()
 ###
+
+entity: Entity ###
+	both of these are valid
+
+	entity = Player()
+	entity = NPC()
+###
+
 
 new(year: float) # top level constructor
 }
@@ -32,6 +52,8 @@ obj Hatch > Shelter
 	def respond_to_intruder # must implement any stubbed methods in the implemented api
 	}
 }
+
+obj Hatch > Shelter imp SecuritySystem; # this is also valid
 
 api Door
 	door: Door
@@ -77,7 +99,7 @@ obj Others
 	evil: bool => false # => can be used in place of a block expression, only when the block is a single line of code. multiline expressions using => are not valid
 }
 
-# Context object may have useful info, but also acts as scratch object. can be accessed using _ symbol
+# Context object may have useful info, but also acts as scratch object. can be accessed using @ symbol
 obj Context
 	args: []
 	scopes: [] ###
@@ -92,11 +114,22 @@ obj Context
 	def log; # use ; to stub a method
 }
 
-def square(value: int) -> int
-	@.args # [value: int]
-	@.type # (int) -> int
+def haunted_castle -> Castle
+	@.args # []
+	@.type # (Time) -> Castle
+
+	@.whatever # define any temporary variable that lives until the current scope is exited. any code executed after this line, until the scope is exited, will have access to @.whatever. you cannot override existing vars like @.args or @.type
+	@.boo = def foo(bar: int) -> int
+	} # works for methods as well
+
+	@.boo(4) if self.?square # .? returns bool if receiver responds to `boo`, equivalent to Ruby's responds_to?('boo'). I kinda like `self?.` but since identifiers can end in question marks, this will be too ambiguous for the parser.
+
 	_ = not_needed_method_call_result
 	not_needed_method_call_result # or just don't store the result
+}
+
+def square(value: int) -> int
+	value * value
 }
 
 def square value: int -> int
@@ -119,6 +152,10 @@ def no_args_and_no_return # method signature is () -> nil
 }
 
 def no_return(name: string) # method signature is (str) -> nil
+}
+
+def no_parens name: string -> string
+	"Hello, `name`!"
 }
 
 # argument labels

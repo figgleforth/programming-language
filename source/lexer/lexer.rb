@@ -1,13 +1,58 @@
 # Turns string of code into tokens
 class Lexer
    require_relative 'tokens'
-   require_relative 'reserved'
+
+   COMMENTS         = %w(# ~ // ### ~~~ ///)
+   LOGGING          = %w(@log @warn @error)
+   NUMBER_LITERALS  = %w(0 1 2 3 4 5 6 7 8 9)
+   BOOLEAN_LITERALS = %w(true false)
+
+   BUILTIN_TYPES = %w(int float str bool dict array nil)
+   CLASSIC_TYPES = %w(class struct)
+
+   WORDS = %w(self enum new it at obj api is when while for loop def stop next end if else while for return obj iam)
+
+   TYPES = %w(
+    int float array dictionary bool string
+    yes no true false
+    nil
+   )
+
+   ######
+   ## NEW
+
+   KEYWORDS = %w(
+    api obj def new end arg
+    enum const private pri public pub static
+    do if else for skip stop at it is self when while
+   )
+
+   # in this specific order so multi character operators are matched first
+
+   TRIPLE_SYMBOLS = %w(=== ||=)
+   DOUBLE_SYMBOLS = %w(== != <= >= += -= *= /= |= := && || @@ ++ -- ->)
+   SINGLE_SYMBOLS = %w(! ? ~ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
+
+   SYMBOLS = [
+      TRIPLE_SYMBOLS,
+      DOUBLE_SYMBOLS,
+      SINGLE_SYMBOLS
+   ].flatten
 
    attr_accessor :i, :col, :row, :source, :tokens
 
 
-   def initialize source
+   def initialize source = nil
       @source = source
+      @tokens = []
+      @i      = 0 # index of current char in source string
+      @col    = 0 # short for column
+      @row    = 1 # short for line
+   end
+
+
+   def source= str
+      @source = str
       @tokens = []
       @i      = 0 # index of current char in source string
       @col    = 0 # short for column
@@ -32,7 +77,7 @@ class Lexer
 
 
       def whitespace?
-         @string == ' ' or @string == "\t"
+         @string == ' ' or @string == "\t" or @string == "\s"
       end
 
 
@@ -253,12 +298,16 @@ class Lexer
    end
 
 
-   def tokenize
-      @tokens = []
+   # todo: write method to reduce consecutive delimiters
+   def lex input = nil
+      @source = input if input
+
+      raise 'Lexer.source is nil' unless source
+
       while chars?
-         if char.delimiter?
-            @tokens << DelimiterToken.new(eat) # \n or ;, but not space
-            eat while char.delimiter? # don't care about consecutive delimiters
+         if char.delimiter? # \n, \s, \t, or ;
+            @tokens << DelimiterToken.new(eat) # useful for some AST nodes, useless for others. the parser can just skip them
+            eat while char.delimiter? # reduce consecutive delimiters
 
          elsif char == '#'
             if peek(0, 3) == '###'
@@ -283,7 +332,7 @@ class Lexer
             if KEYWORDS.include? ident
                @tokens << KeywordToken.new(ident)
 
-               eat "\n" while char.newline? and ident == 'end' # don't care about newlines after `end` because it's basically a delimiter
+               eat "\n" while char.newline? and ident == 'end' # reduce newlines after `end` because it's basically a delimiter
             else
                @tokens << IdentifierToken.new(ident)
             end
@@ -300,7 +349,7 @@ class Lexer
             else
                symbol = eat_symbol
                @tokens << SymbolToken.new(symbol)
-               eat "\n" while char.newline? and symbol == ';' # don't care about newlines after `end` because it's basically a delimiter
+               eat "\n" while char.newline? and symbol == ';' # reduce newlines after `end` because it's basically a delimiter
             end
 
          else

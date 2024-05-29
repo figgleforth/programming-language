@@ -33,14 +33,13 @@ end
 
 class DelimiterToken < Token
    def to_s
-      # if string == ';'
-      #    "   (;)"
-      # elsif string == "\s"
-      #    "   (whitespace)"
-      # else
-      #    "   (newline)"
-      # end
-      "\t\s#{string.inspect}"
+      if string == ';'
+         "   [;]"
+      elsif string == "\s"
+         "   [s]"
+      else
+         "   [n]"
+      end
    end
 end
 
@@ -89,6 +88,29 @@ end
 class NumberToken < Token
    def to_s
       "Num: #{string}"
+   end
+
+
+   def type_of_number
+      if string[0] == '.'
+         :float_decimal_beg
+      elsif string[-1] == '.'
+         :float_decimal_end
+      elsif string&.include? '.'
+         :float_decimal_mid
+      else
+         :integer
+      end
+   end
+
+
+   # https://stackoverflow.com/a/18533211/1426880
+   def string_to_float
+      Float(string)
+      i, f = string.to_i, string.to_f
+      i == f ? i : f
+   rescue ArgumentError
+      self
    end
 end
 

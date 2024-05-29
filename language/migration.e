@@ -5,7 +5,3 @@ mig AnotherMigration < Migration
   def down: Error?
   end
 end
-
-def @@update
-  @@delta_time # float
-end

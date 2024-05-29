@@ -28,7 +28,7 @@ def square(a: int) -> int
 test += 1 / 2 * crap
 
 square 10
-1st = 'Cooper'?
+1st = 'Cooper'
 
 test = :symbol
 

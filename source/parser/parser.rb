@@ -1,11 +1,9 @@
 # Turns string of code into tokens
 class Parser
-   # require_relative 'parsing'
-
    attr_accessor :i, :tokens
 
 
-   def initialize tokens
+   def initialize tokens = nil
       @tokens = tokens
       @i      = 0 # index of current token
    end
@@ -36,6 +34,7 @@ class Parser
 
 
    def curr
+      raise 'Parser.tokens is nil' unless tokens
       @tokens[@i]
    end
 
@@ -67,8 +66,8 @@ class Parser
    # eat CommentToken
    # eat '#'
    def eat expected = nil
-      puts 'EATING  ', curr.inspect
-      puts "tokens? #{@tokens}"
+      # puts 'EATING  ', curr.inspect
+      # puts "tokens? #{@tokens}"
       if expected and expected != peek
          raise "\n\nEXPECTED \n\t#{expected}\n\nGOT\n\t#{peek.inspect}"
       end
@@ -112,10 +111,10 @@ class Parser
       left = eat_leaf
 
       # basically if next is operator
-      while tokens?
+      while tokens? and curr
+         # fix: make sure curr is an operator and not just any symbol because precedences only exist for specific operators. when curr is not an operator, curr_precedence is nil so it crashes
          break unless curr == SymbolToken # OperatorToken
 
-         # todo; make sure curr is an operator and not just any symbol
          curr_precedence = precedence_for curr
          break if curr_precedence < precedence
 
@@ -134,10 +133,9 @@ class Parser
 
 
    def parse until_token = nil
-      puts "PARSE! #{tokens}"
+      # puts "PARSE! #{tokens}"
       statements = []
       statements << eat_expression while tokens? and curr != until_token
       statements
    end
-
 end
