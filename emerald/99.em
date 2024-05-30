@@ -11,7 +11,6 @@ self: Island > Land_Mass imp Hatch, Others ###
 
 smaller_island: Land_Mass, Hatch, Others = Island() # smaller_island must be an instance that extends Land_Mass and implements at least Hatch and Others
 
-
 obj Entity; # equivalent empty body {}
 obj Player > Entity imp Transform;
 obj NPC > Entity imp Transform # equivalent to empty body {} but you can omit { for all blocks
@@ -31,7 +30,6 @@ entity: Entity ###
 	entity = Player()
 	entity = NPC()
 ###
-
 
 new(year: float) # top level constructor
 }
@@ -378,23 +376,13 @@ squared := [1, 2, 3].map
 	# at, stop, skip are also available. stop would bail on the map and could cause the mapped object to have less elements due to early bail.
 }
 
+square := Square.new.tap
+	it # instance
+}
+
 only := collection.where
 	it == 1
 }
-
-# and so on for filter, etc. though the names of these methods may change
-
-#@.log result # arrow is shorthand for debug printing to console
-#@.log 'nice' if enabled? # print 'nice' if enabled?
-#@.log result + 4, "the result is `result`" # takes an array of expressions, prints each on a new line
-#@.warn 'some warning' # debug print warning
-#@.error 'some error' # debug print error
-
-###
-favorite_thing := @.input
-
-idea; reading from console. when the line with @.input is executed, the program waits for input from the console. when the user presses enter, the input is stored in the variable on the left side of the @.input operator
-###
 
 ###
 	interfaces
@@ -434,8 +422,7 @@ api Stone
 	def secretly_do_nothing;
 }
 
-obj Emerald
-}
+obj Emerald;
 
 obj Emerald > Gem
 	imp Stone # first one is the ancestor, the rest are api compositions
@@ -464,9 +451,8 @@ emerald >== gem # true
 gem >== emerald # false
 gem === emerald # false
 
-if emerald is Emerald # equivalent to using ===
+if emerald is Emerald # equivalent to ===
 }
-
 
 # hint) built-in error api
 # Errors are not automatically raised, instead they are passed by value and you are able to choose whether you want to raise or print the error

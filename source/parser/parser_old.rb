@@ -232,14 +232,14 @@ class ParserOld
 
    def parse_string
       if curr == StringToken
-         StringLiteral.new eat
+         StringLiteralNode.new eat
       end
    end
 
 
    def parse_number
       if curr == NumberToken
-         NumberLiteral.new eat
+         NumberLiteralNode.new eat
       end
    end
 

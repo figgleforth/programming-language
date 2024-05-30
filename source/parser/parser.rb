@@ -3,9 +3,6 @@ class Parser
    require_relative '../lexer/token'
    require_relative 'ast_nodes'
 
-   SELF_DECLARATION          = ['self', ':', IdentifierToken]
-   INHERITANCE               = ['>', IdentifierToken]
-   API_COMPOSITION           = [INHERITANCE, ','].flatten
    VAR_EXPLICIT_TYPE         = [IdentifierToken, ':', IdentifierToken]
    VAR_IMPLICIT_TYPE         = [IdentifierToken, ':=']
    VAR_UNTYPED_OR_ASSIGNMENT = [IdentifierToken, '=']
@@ -16,8 +13,8 @@ class Parser
 
 
    class UnexpectedToken < RuntimeError
-      def initialize token
-         super "Unexpected token `#{token}`"
+      def initialize message, token
+         super(message || "Unexpected token `#{token.string}`")
       end
    end
 
@@ -34,7 +31,7 @@ class Parser
    end
 
 
-   # todo; find the real precedence values. I'm not sure these are correct. Like why does eat_expression += 1 to precedence for the ^ operator?
+   # todo; find the real precedence values. I'm not sure these are correct. Like why does parse_expression += 1 to precedence for the ^ operator?
    def precedence_for token
       [
          [%w(( )), 10],
@@ -65,12 +62,12 @@ class Parser
 
 
    def tokens?
-      @i < @tokens.length
+      @i < (@tokens&.length || 0)
    end
 
 
-   def assert condition
-      raise UnexpectedToken.new(curr) if condition == false
+   def assert condition, message = nil
+      raise UnexpectedToken.new(message, curr) if condition == false
    end
 
 
@@ -85,13 +82,18 @@ class Parser
       remainder = @tokens[@i..]
 
       check = remainder&.reject do |token|
-         # ignore \s \t \n but not ;
-         token == DelimiterToken and token != ';'
+         token == DelimiterToken and token != ';' and token != "\n"
       end[..expected.length - 1]
 
       return false unless check and not check.empty? # all? returns true for an empty array [].all? so this early return is required
 
       check.each_with_index.all? do |token, index|
+         # idea: support multiple checks, like `peek? Identifier, [':=', '=']`
+         # if expected[index].is_a? Array
+         #    expected[index].any? { |exp| token == exp }
+         # else
+         #    token == expected[index]
+         # end
          token == expected[index]
       end
    end
@@ -119,6 +121,8 @@ class Parser
 
    # note: does the parser care if the compositions are using correct identifiers? what if I use float? I think this is that type checking phase Jon was talking about
    def parse_self_declaration
+      # return nil unless peek? 'self', ':', IdentifierToken
+
       SelfDeclNode.new.tap do |node|
          tokens    = eat 'self', ':', IdentifierToken
          node.type = tokens.last
@@ -130,32 +134,98 @@ class Parser
                node.compositions << eat(',', IdentifierToken).last
             end
 
+            # todo: useful error message for users
             assert curr != ',' # we should not have a comma without an identifier following it
          end
       end
    end
 
 
-   def eat_leaf
-      if peek? 'self', ':', IdentifierToken
+   def parse_typed_var_declaration
+      VarAssignmentNode.new.tap do |node|
+         tokens    = eat IdentifierToken, ':', IdentifierToken
+         node.name = tokens[0]
+         node.type = tokens[2]
+
+         if peek? '='
+            eat '='
+            node.value = parse_expression
+         end
+      end
+   end
+
+
+   def parse_untyped_var_declaration_or_reassignment
+      VarAssignmentNode.new.tap do |node|
+         tokens     = eat IdentifierToken, '='
+         node.name  = tokens[0]
+         node.value = parse_expression
+      end
+   end
+
+
+   def parse_inferred_var_declaration
+      VarAssignmentNode.new.tap do |node|
+         tokens    = eat IdentifierToken, ':='
+         node.name = tokens[0]
+
+         # todo: ensure that an expression is actually here
+
+         # ( expression )
+         # ""
+         # number
+         # identifier
+         node.value = parse_expression
+         # node.type = tokens[2]
+      end
+   end
+
+
+   def parse_string_or_number_literal
+      if curr == StringToken
+         StringLiteralNode.new
+      else
+         NumberLiteralNode.new
+      end.tap do |literal|
+         literal.token = eat
+      end
+   end
+
+
+   def parse_leaf
+      if peek? '('
+         eat '('
+         expr = parse_expression
+         eat ')'
+
+         expr
+      elsif peek? 'self', ':', IdentifierToken
          parse_self_declaration
-      elsif peek? *VAR_EXPLICIT_TYPE
-         eat *VAR_EXPLICIT_TYPE
-      elsif peek? *VAR_IMPLICIT_TYPE
-         eat *VAR_IMPLICIT_TYPE
-      elsif peek? *VAR_UNTYPED_OR_ASSIGNMENT
-         eat *VAR_UNTYPED_OR_ASSIGNMENT
+
+      elsif peek? IdentifierToken, ':', IdentifierToken
+         parse_typed_var_declaration
+
+      elsif peek? IdentifierToken, ':='
+         parse_inferred_var_declaration
+
+      elsif peek? IdentifierToken, '='
+         parse_untyped_var_declaration_or_reassignment
+
+      elsif peek? StringToken or peek? NumberToken
+         parse_string_or_number_literal
+
       elsif curr == DelimiterToken
-         eat
+         eat # don't care about delimiters that weren't already handled by the other cases
          nil
+
       else
          eat
       end
    end
 
 
-   def eat_expression precedence = -100
-      left = eat_leaf
+   def parse_expression precedence = -100
+      left = parse_leaf
 
       # basically if next is operator
       while tokens? and curr
@@ -171,7 +241,7 @@ class Parser
 
          eat SymbolToken # operator
 
-         right = eat_expression min_precedence
+         right = parse_expression min_precedence
          left  = BinaryExpr.new left, operator, right
       end
 
@@ -180,8 +250,8 @@ class Parser
 
 
    def parse until_token = EOFToken
-      statements = []
-      statements << eat_expression while tokens? and curr != until_token and curr != EOFToken
-      statements.compact
+      [].tap do |stmts|
+         stmts << parse_expression while tokens? and curr != until_token and curr != EOFToken
+      end.compact
    end
 end

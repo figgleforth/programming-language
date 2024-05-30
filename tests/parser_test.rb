@@ -10,7 +10,11 @@ tokens = lexer.lex
 parser     = Parser.new tokens
 statements = parser.parse
 
-puts "\nSTATEMENTS\n\n"
+# puts
+# puts "\n== TOKENS ==\n"
+# puts tokens
+
+puts "\n== PARSED STATEMENTS ==\n"
 statements.each do |s|
-   puts "- #{s}"
+   puts "\n#{s}"
 end

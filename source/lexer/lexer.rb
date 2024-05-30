@@ -322,10 +322,14 @@ class Lexer
       raise 'Lexer.source is nil' unless source
 
       while chars?
-         if char.delimiter? # \n, \s, \t, or ;
-            # @tokens << DelimiterToken.new(eat) # useful for some AST nodes, useless for others. the parser can just skip them
+         if char.delimiter?
+            if char == ';' or char == "\n"
+               @tokens << DelimiterToken.new(eat)
+               while last == char
+                  reduce_delimiters
+               end
+            end
             reduce_delimiters
-
          elsif char == '#'
             if peek(0, 3) == '###'
                @tokens << CommentToken.new(eat_multiline_comment, true)

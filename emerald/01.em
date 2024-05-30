@@ -45,3 +45,4 @@ def square(val: int) -> int
 }
 
 def multiply;
+x = 10;

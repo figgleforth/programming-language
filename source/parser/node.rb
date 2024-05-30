@@ -108,13 +108,13 @@ class Ast_Literal < Node
    end
 end
 
-class NumberLiteral < Node
+class NumberLiteralNode < Node
    def to_s
       token&.value
    end
 end
 
-class StringLiteral < Node
+class StringLiteralNode < Node
    def to_s
       token&.value
    end

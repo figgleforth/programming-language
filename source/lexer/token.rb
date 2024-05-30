@@ -132,7 +132,8 @@ class CommentToken < Token
 
 
    def to_s
-      "Comment: #{string}"
+      # "Comment: #{string}"
+      "Comment()"
    end
 end
 
