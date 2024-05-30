@@ -1,5 +1,17 @@
 # Turns string of code into tokens
 class Parser
+   require_relative '../lexer/token'
+   require_relative 'ast_nodes'
+
+   SELF_DECLARATION          = ['self', ':', IdentifierToken]
+   INHERITANCE               = ['>', IdentifierToken]
+   API_COMPOSITION           = [INHERITANCE, ','].flatten
+   VAR_EXPLICIT_TYPE         = [IdentifierToken, ':', IdentifierToken]
+   VAR_IMPLICIT_TYPE         = [IdentifierToken, ':=']
+   VAR_UNTYPED_OR_ASSIGNMENT = [IdentifierToken, '=']
+   METHOD_DECLARATION        = ['def', IdentifierToken]
+   METHOD_CALL               = ['.', IdentifierToken]
+
    attr_accessor :i, :tokens
 
 
@@ -57,8 +69,8 @@ class Parser
    end
 
 
-   def assert expected
-      raise UnexpectedToken unless curr == expected
+   def assert condition
+      raise UnexpectedToken.new(curr) if condition == false
    end
 
 
@@ -68,14 +80,18 @@ class Parser
    end
 
 
-   # todo: make sure that skipping delimiters won't be problematic
+   # note: make sure that skipping delimiters won't be problematic
    def peek? * expected
-      ahead = @tokens&.reject do |token|
+      remainder = @tokens[@i..]
+
+      check = remainder&.reject do |token|
          # ignore \s \t \n but not ;
          token == DelimiterToken and token != ';'
       end[..expected.length - 1]
 
-      ahead.each_with_index.all? do |token, index|
+      return false unless check and not check.empty? # all? returns true for an empty array [].all? so this early return is required
+
+      check.each_with_index.all? do |token, index|
          token == expected[index]
       end
    end
@@ -89,7 +105,10 @@ class Parser
 
       [].tap do |result|
          expected.each do |expect|
-            @i += 1 while curr == DelimiterToken and curr != ';'
+            # eg: 'self', ':', IdentifierToken
+
+            @i += 1 while curr == DelimiterToken and curr != ';' # skip delimiters except ;
+
             assert expect
             result << curr
             @i += 1
@@ -98,8 +117,40 @@ class Parser
    end
 
 
+   # note: does the parser care if the compositions are using correct identifiers? what if I use float? I think this is that type checking phase Jon was talking about
+   def parse_self_declaration
+      SelfDeclNode.new.tap do |node|
+         tokens    = eat 'self', ':', IdentifierToken
+         node.type = tokens.last
+
+         if peek? '>', IdentifierToken
+            node.compositions << eat('>', IdentifierToken).last
+
+            while curr == ',' and peek[0] == IdentifierToken
+               node.compositions << eat(',', IdentifierToken).last
+            end
+
+            assert curr != ',' # we should not have a comma without an identifier following it
+         end
+      end
+   end
+
+
    def eat_leaf
-      eat
+      if peek? 'self', ':', IdentifierToken
+         parse_self_declaration
+      elsif peek? *VAR_EXPLICIT_TYPE
+         eat *VAR_EXPLICIT_TYPE
+      elsif peek? *VAR_IMPLICIT_TYPE
+         eat *VAR_IMPLICIT_TYPE
+      elsif peek? *VAR_UNTYPED_OR_ASSIGNMENT
+         eat *VAR_UNTYPED_OR_ASSIGNMENT
+      elsif curr == DelimiterToken
+         eat
+         nil
+      else
+         eat
+      end
    end
 
 
@@ -108,7 +159,7 @@ class Parser
 
       # basically if next is operator
       while tokens? and curr
-         # fix: make sure curr is a binary operator and not just any symbol because precedences only exist for binary operators. also, when curr_precedence is nil when curr is not an operator so it crashes.
+         break # fix: make sure curr is a binary operator and not just any symbol because precedences only exist for binary operators. also, when curr_precedence is nil when curr is not an operator so it crashes.
          break unless curr == SymbolToken # OperatorToken
 
          curr_precedence = precedence_for curr
@@ -128,9 +179,9 @@ class Parser
    end
 
 
-   def parse until_token = nil
+   def parse until_token = EOFToken
       statements = []
-      statements << eat_expression while tokens? and curr != until_token
-      statements
+      statements << eat_expression while tokens? and curr != until_token and curr != EOFToken
+      statements.compact
    end
 end

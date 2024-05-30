@@ -1,6 +1,6 @@
 # Turns string of code into tokens
 class Lexer
-   require_relative 'tokens'
+   require_relative 'token'
 
    COMMENTS         = %w(# ~ // ### ~~~ ///)
    LOGGING          = %w(@log @warn @error)
@@ -323,7 +323,7 @@ class Lexer
 
       while chars?
          if char.delimiter? # \n, \s, \t, or ;
-            @tokens << DelimiterToken.new(eat) # useful for some AST nodes, useless for others. the parser can just skip them
+            # @tokens << DelimiterToken.new(eat) # useful for some AST nodes, useless for others. the parser can just skip them
             reduce_delimiters
 
          elsif char == '#'

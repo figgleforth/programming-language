@@ -1,7 +1,7 @@
 # todo: use a real testing framework
 require_relative '../source/lexer/lexer'
 
-source = File.read('emerald/01.e').to_s
+source = File.read('emerald/01.em').to_s
 lexer  = Lexer.new source
 tokens = lexer.lex
 

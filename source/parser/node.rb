@@ -1,4 +1,4 @@
-class Ast
+class Node
    attr_accessor :token
 
 
@@ -22,13 +22,13 @@ class Ast
    end
 end
 
-class Statement < Ast
+class Statement < Node
    def debug
       token
    end
 end
 
-class NumberExpr < Ast
+class NumberExpr < Node
    def decimal?
       token.value.include? '.'
    end
@@ -39,7 +39,7 @@ class NumberExpr < Ast
    end
 end
 
-class BinaryExpr < Ast
+class BinaryExpr < Node
    attr_accessor :left, :operator, :right
 
 
@@ -55,13 +55,13 @@ class BinaryExpr < Ast
    end
 end
 
-class Comment < Ast
+class Comment < Node
    def to_s
       "# #{token.value}"
    end
 end
 
-class Ast_Assignment < Ast
+class Ast_Assignment < Node
    attr_accessor :left, :value, :type
 
 
@@ -79,7 +79,7 @@ class Ast_Assignment < Ast
    end
 end
 
-class MethodDefinition < Ast
+class MethodDefinition < Node
    attr_accessor :identifier, :body, :return_type
 
 
@@ -93,7 +93,7 @@ class MethodDefinition < Ast
    end
 end
 
-class MemberAccess < Ast
+class MemberAccess < Node
    attr_accessor :object, :member
 
 
@@ -102,19 +102,19 @@ class MemberAccess < Ast
    end
 end
 
-class Ast_Literal < Ast
+class Ast_Literal < Node
    def to_s
       token&.value
    end
 end
 
-class NumberLiteral < Ast
+class NumberLiteral < Node
    def to_s
       token&.value
    end
 end
 
-class StringLiteral < Ast
+class StringLiteral < Node
    def to_s
       token&.value
    end
