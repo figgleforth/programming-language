@@ -181,9 +181,13 @@ enum TokenType: int
 enum Another: string
 	brain = 'brain'
 
-	# methods here are stateless because enums cannot store data like objects can
-	greet(name: int)
-		"hi `name`" # must return string to satisfy enum type
+	# enum methods are stateless because enums cannot store data like objects can. and they must return a value satisfying the type of the enum
+	greet(name: string)
+		"hi `name`"
+	}
+
+	yeet name: string
+		"bye `name`"
 	}
 }
 
@@ -202,8 +206,8 @@ static some_static_var: int = 1
 
 first: TokenType = TokenType.literal
 second: TokenType = .identifier
-third: Another = .smooth(4)
-third.value # "smoothing 4"
+greeting: Another = .greet('Cooper')
+greeting.value # "hi Cooper!"
 
 some_number: int = 42
 pri one_number: int = 2
@@ -234,7 +238,7 @@ k: range = 0..10
 what: (int) -> float # func references look like (input_types, ...) -> return_type
 what2: () -> (float, float) # tuple return type
 
-value: float => factor * weight # getter
+value: float => factor * weight
 
 some_float: float = 16.23
 some_inferred_num := 1987 #  := infers the type. placement of the whitespace for the inference colon doesn't matter but this one is preferred as this more closely follows the syntax
@@ -242,6 +246,13 @@ some_inferred_num := 1987 #  := infers the type. placement of the whitespace for
 # dictionary literal specifying the type of the key as str, and type of value as int. any type can be used in either, except I guess nested dictionary as a key? but maybe that should be allowed to as long as the object can be hashed to a string
 my_dict: {string: int} =
 	some_key: some_integer # keys auto converted to string if they can be
+}
+
+another_dict: {string: any} = {
+	a: 'hi',
+	b: 1234,
+	c: Hatch.new,
+	d: Hatch()
 }
 
 ### idea) generic type alias constructor for any dictionary, regardless of key/val types
@@ -267,7 +278,7 @@ monday: string = 'Monday'
 weekday: string = 'Friday'
 dates: Date = .today
 times: Time
-datetime: DateTime # exception to _ in identifier names
+datetime: Date_Time
 
 # variable type here is the signature of a method
 takes_string_returns_nothing: (string) -> nil # writing `nil` is not optional as it needs to be explicit to avoid confusion with tuples
@@ -305,6 +316,9 @@ while locked?
 	stop # works here too
 }
 
+until locked?
+}
+
 if condition
 }
 
@@ -327,12 +341,11 @@ if locked? and not enabled?
 when some_enum
 	is .brain
 		calculate()
+	}
 	# when another `is` encountered, signifies } of implied block
 	is .identifier # no block required
-	is .literal: whatever(it) # inline
+	is .literal whatever(it) # inline
 	is .smooth(4)
-		# blocks may be explicit
-	}
 else
 	# this is optional, and acts as the default case
 }

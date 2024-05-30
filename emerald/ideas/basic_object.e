@@ -26,12 +26,7 @@ def !== other
 	not self === other
 }
 
+# printing an instance of this yields string 'Basic_Object(`id`)' unless you override the `to_s` method
 def to_s -> string
 	'`?`(`self.@.id`)'
 }
-
-###
-
-printing this yields string 'Basic_Object(`id`)' unless you override the `to_s` method
-
-###

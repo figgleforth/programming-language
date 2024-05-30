@@ -16,6 +16,12 @@ class Parser
    end
 
 
+   def tokens= t
+      @tokens = t.select { |token| token != CommentToken }
+      @i      = 0
+   end
+
+
    # todo; find the real precedence values. I'm not sure these are correct. Like why does eat_expression += 1 to precedence for the ^ operator?
    def precedence_for token
       [
@@ -52,15 +58,17 @@ class Parser
 
 
    def assert expected
-      raise "EXPECTED \n\t#{expected}\n\nGOT\n\t#{curr}" unless curr == expected
+      raise UnexpectedToken unless curr == expected
    end
 
 
+   # original version of peek, I don't think it'll be useful now that #peek? exists
    def peek at = 1, length = 1
       @tokens[@i + at, length]
    end
 
 
+   # todo: make sure that skipping delimiters won't be problematic
    def peek? * expected
       ahead = @tokens&.reject do |token|
          # ignore \s \t \n but not ;
@@ -73,12 +81,18 @@ class Parser
    end
 
 
-   def eat! * expected
+   def eat * expected
+      if expected.empty? or expected.one?
+         @i += 1
+         return last
+      end
+
       [].tap do |result|
          expected.each do |expect|
-            eat while curr == DelimiterToken and curr != ';'
-            raise UnexpectedToken unless curr == expect
-            result << eat
+            @i += 1 while curr == DelimiterToken and curr != ';'
+            assert expect
+            result << curr
+            @i += 1
          end
       end
    end
@@ -94,7 +108,7 @@ class Parser
 
       # basically if next is operator
       while tokens? and curr
-         # fix: make sure curr is an operator and not just any symbol because precedences only exist for specific operators. when curr is not an operator, curr_precedence is nil so it crashes
+         # fix: make sure curr is a binary operator and not just any symbol because precedences only exist for binary operators. also, when curr_precedence is nil when curr is not an operator so it crashes.
          break unless curr == SymbolToken # OperatorToken
 
          curr_precedence = precedence_for curr
@@ -106,7 +120,7 @@ class Parser
 
          eat SymbolToken # operator
 
-         right = parse_expression min_precedence
+         right = eat_expression min_precedence
          left  = BinaryExpr.new left, operator, right
       end
 
@@ -114,16 +128,9 @@ class Parser
    end
 
 
-   # todo: skip comment tokens because those should be handled by Documenter
    def parse until_token = nil
-      # statements = []
-      # statements << eat_expression while tokens? and curr != until_token
-      # statements
-      puts
-      puts @tokens
-      puts
-      puts "peek? IdentifierToken ", peek?(IdentifierToken)
-      puts "peek? IdentifierToken, SymbolToken ", peek?(IdentifierToken, SymbolToken)
-      puts "peek? SymbolToken ", peek?(SymbolToken)
+      statements = []
+      statements << eat_expression while tokens? and curr != until_token
+      statements
    end
 end
