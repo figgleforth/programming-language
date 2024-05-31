@@ -7,31 +7,39 @@ class AstNode
    end
 end
 
+
 class LiteralNode < AstNode
 end
 
+
 class StringLiteralNode < LiteralNode
    attr_accessor :token
+
 
    def string
       token
    end
 
+
    def to_s
-      "StringLit(#{token.string})"
+      "STR(#{token.string})"
    end
 end
 
+
 class NumberLiteralNode < LiteralNode
    attr_accessor :token
+
 
    def number
       # todo: convert to number
       token&.string
    end
 
+
    def to_s
-      "NumberLit(#{token.string.inspect})"
+      # "NUM(#{token.string})"
+      token.string
    end
 end
 
@@ -47,7 +55,7 @@ class SelfDeclNode < AstNode
 
 
    def to_s
-      "SelfDecl(#{type.string}, comps: #{compositions.map(&:string)})"
+      "SELF(#{type.string}, comps: #{compositions.map(&:string)})"
    end
 end
 
@@ -57,7 +65,7 @@ class VarAssignmentNode < AstNode
 
 
    def to_s
-      "VarAssign(#{name.string}".tap do |str|
+      "VAR(#{name.string}".tap do |str|
          if type
             str << ": #{type.string}"
          end
@@ -68,5 +76,30 @@ class VarAssignmentNode < AstNode
 
          str << ")"
       end
+   end
+end
+
+
+class UnaryExprNode < AstNode
+   attr_accessor :operator, :operand
+
+   def to_s
+      "(#{operator.string} #{operand})"
+   end
+end
+
+class BinaryExprNode < AstNode
+   attr_accessor :operator, :left, :right
+
+   def to_s
+      "(#{left} #{operator.string} #{right})"
+   end
+end
+
+class ExprNode < AstNode
+   attr_accessor :token
+
+   def to_s
+      "Expr(#{token.string})"
    end
 end

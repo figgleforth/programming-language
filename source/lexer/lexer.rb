@@ -29,7 +29,7 @@ class Lexer
 
    # in this specific order so multi character operators are matched first
 
-   TRIPLE_SYMBOLS = %w(=== ||=)
+   TRIPLE_SYMBOLS = %w(<<= >>= !== === >== ||=)
    DOUBLE_SYMBOLS = %w(== != <= >= += -= *= /= |= := && || @@ ++ -- ->)
    SINGLE_SYMBOLS = %w(! ? ~ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 

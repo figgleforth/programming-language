@@ -31,20 +31,24 @@ class Parser
    end
 
 
-   # todo; find the real precedence values. I'm not sure these are correct. Like why does parse_expression += 1 to precedence for the ^ operator?
+   # https://doc.comsol.com/5.5/doc/com.comsol.help.comsol/comsol_ref_definitions.12.022.html
+   PRECEDENCES = [
+      [%w(( ) { } .), 1],
+      [%w(^), 2],
+      [%w(! - +), 3],
+      [%w([ ]), 4],
+      [%w(* /), 5],
+      [%w(+ -), 6],
+      [%w(< <= > >=), 7],
+      [%w(>== === !=== == !-), 8],
+      [%w(&&), 9],
+      [%w(||), 10],
+      [%w(,), 11],
+   ]
+
+
    def precedence_for token
-      [
-         [%w(( )), 10],
-         [%w(.), 9],
-         [%w(^), 8],
-         [%w(* / %), 7],
-         [%w(+ -), 6],
-         [%w(> >= < <=), 5],
-         [%w(==), 4],
-         [%w(&&), 3],
-         [%w(||), 2],
-         [%w(=), 1]
-      ].find do |chars, _|
+      PRECEDENCES.find do |chars, _|
          chars.include?(token.string)
       end&.at(1)
    end
@@ -77,8 +81,7 @@ class Parser
    end
 
 
-   # note: make sure that skipping delimiters won't be problematic
-   def peek? * expected
+   def match? * expected
       remainder = @tokens[@i..]
 
       check = remainder&.reject do |token|
@@ -119,7 +122,7 @@ class Parser
    end
 
 
-   # note: does the parser care if the compositions are using correct identifiers? what if I use float? I think this is that type checking phase Jon was talking about
+   # note: does the parser care if the compositions are using correct identifiers? what if I use float? I think that could be the type checking phase Jon was talking about
    def parse_self_declaration
       # return nil unless peek? 'self', ':', IdentifierToken
 
@@ -127,7 +130,7 @@ class Parser
          tokens    = eat 'self', ':', IdentifierToken
          node.type = tokens.last
 
-         if peek? '>', IdentifierToken
+         if match? '>', IdentifierToken
             node.compositions << eat('>', IdentifierToken).last
 
             while curr == ',' and peek[0] == IdentifierToken
@@ -147,7 +150,7 @@ class Parser
          node.name = tokens[0]
          node.type = tokens[2]
 
-         if peek? '='
+         if match? '='
             eat '='
             node.value = parse_expression
          end
@@ -192,26 +195,32 @@ class Parser
    end
 
 
+   # todo: dot access
    def parse_leaf
-      if peek? '('
+      if match? '('
          eat '('
-         expr = parse_expression
-         eat ')'
-
-         expr
-      elsif peek? 'self', ':', IdentifierToken
+         parse_expression.tap do
+            eat ')'
+         end
+      elsif match? SymbolToken and curr.unary? # %w(- + ~ !)
+         UnaryExprNode.new.tap do |node|
+            node.operator = eat SymbolToken
+            prec          = precedence_for node.operator
+            node.operand  = parse_expression prec
+         end
+      elsif match? 'self', ':', IdentifierToken
          parse_self_declaration
 
-      elsif peek? IdentifierToken, ':', IdentifierToken
+      elsif match? IdentifierToken, ':', IdentifierToken
          parse_typed_var_declaration
 
-      elsif peek? IdentifierToken, ':='
+      elsif match? IdentifierToken, ':='
          parse_inferred_var_declaration
 
-      elsif peek? IdentifierToken, '='
+      elsif match? IdentifierToken, '='
          parse_untyped_var_declaration_or_reassignment
 
-      elsif peek? StringToken or peek? NumberToken
+      elsif match? StringToken or match? NumberToken
          parse_string_or_number_literal
 
       elsif curr == DelimiterToken
@@ -219,30 +228,27 @@ class Parser
          nil
 
       else
-         eat
+         ExprNode.new.tap do |node|
+            node.token = eat
+         end
       end
    end
 
 
-   def parse_expression precedence = -100
+   def parse_expression precedence = 0
       left = parse_leaf
 
-      # basically if next is operator
       while tokens? and curr
-         break # fix: make sure curr is a binary operator and not just any symbol because precedences only exist for binary operators. also, when curr_precedence is nil when curr is not an operator so it crashes.
-         break unless curr == SymbolToken # OperatorToken
+         break unless curr == SymbolToken and curr.binary?
 
-         curr_precedence = precedence_for curr
-         break if curr_precedence < precedence
+         curr_prec = precedence_for curr
+         break if curr_prec <= precedence
 
-         operator            = curr
-         operator_precedence = curr_precedence
-         min_precedence      = operator_precedence
-
-         eat SymbolToken # operator
-
-         right = parse_expression min_precedence
-         left  = BinaryExpr.new left, operator, right
+         left = BinaryExprNode.new.tap do |node|
+            node.left     = left
+            node.operator = eat SymbolToken
+            node.right    = parse_expression curr_prec
+         end
       end
 
       left
