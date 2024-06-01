@@ -1,4 +1,4 @@
-self: Account < Record # database record corresponding to a specific table, like in Rails but built into the language
+obj Account > Record # database record corresponding to a specific table, like in Rails but built into the language
 
 # these are optional, by default they're inferred from the obj like in Rails
 @.primary_key = 'id'

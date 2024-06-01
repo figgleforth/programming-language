@@ -3,7 +3,7 @@
 require_relative '../source/parser/parser'
 require_relative '../source/lexer/lexer'
 
-source = File.read('emerald/02.em').to_s
+source = File.read('emerald/tests/02.em').to_s
 lexer  = Lexer.new source
 tokens = lexer.lex
 
@@ -14,7 +14,5 @@ statements = parser.parse
 # puts "\n== TOKENS ==\n"
 # puts tokens
 
-puts "\n== PARSED STATEMENTS ==\n"
-statements.each do |s|
-   puts "\n#{s}"
-end
+puts "\n== PARSED STATEMENTS ==\n\n"
+puts statements

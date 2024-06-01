@@ -5,6 +5,11 @@ class AstNode
    def initialize
       @tokens = []
    end
+
+
+   def == other
+      other == self.class
+   end
 end
 
 
@@ -44,18 +49,37 @@ class NumberLiteralNode < LiteralNode
 end
 
 
-class SelfDeclNode < AstNode
-   attr_accessor :type, :compositions
+class ObjectDeclNode < AstNode
+   attr_accessor :type, :base_type, :compositions, :statements, :is_top_level
 
 
    def initialize
       super
-      @compositions = []
+      @compositions          = []
+      @statements            = []
+      @is_top_level = false
    end
 
 
    def to_s
-      "SELF(#{type.string}, comps: #{compositions.map(&:string)})"
+      "Obj(#{type.string}, base: #{base_type&.string}, comps: #{compositions.map(&:string)}, stmts(#{statements.count}): #{statements.map(&:to_s)})"
+   end
+end
+
+
+class MethodDeclNode < AstNode
+   attr_accessor :name, :return_type, :parameters, :statements
+
+
+   def initialize
+      super
+      @parameters = []
+      @statements = []
+   end
+
+
+   def to_s
+      "Method(#{name}, return_type: #{return_type}, params(#{parameters.count}): #{parameters.map(&:string)}), stmts(#{statements.count}): #{statements.map(&:to_s)})"
    end
 end
 
@@ -83,23 +107,28 @@ end
 class UnaryExprNode < AstNode
    attr_accessor :operator, :operand
 
+
    def to_s
       "(#{operator.string} #{operand})"
    end
 end
 
+
 class BinaryExprNode < AstNode
    attr_accessor :operator, :left, :right
+
 
    def to_s
       "(#{left} #{operator.string} #{right})"
    end
 end
 
+
 class ExprNode < AstNode
    attr_accessor :token
 
+
    def to_s
-      "Expr(#{token.string})"
+      "UNKNOWN(#{token.string.inspect})"
    end
 end

@@ -131,7 +131,6 @@ class SymbolToken < Token # special symbols of one or more characters. they are 
 
 
    def unary?
-      puts "unary? #{string}"
       UNARY_OPERATORS.include? string
    end
 end

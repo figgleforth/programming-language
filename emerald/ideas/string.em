@@ -1,4 +1,4 @@
-self: String
+obj String > Basic_Object
 
 def - other
 	# remove instances of other from self. eg: 'hello world' - 'o' yields 'hell wrld'

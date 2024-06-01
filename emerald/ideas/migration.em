@@ -1,7 +1,5 @@
-self: Some_Migration < Migration
+obj Some_Migration > Migration
 
-def up: Error?
-}
+def up;
 
-def down: Error?
-}
+def down;
