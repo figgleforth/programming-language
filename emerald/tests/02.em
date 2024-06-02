@@ -18,4 +18,8 @@ obj Stone > Rock imp GemStone
 	id = 1
 
 	obj SpaceRock;
+
+	def value >> float
+		1_000
+	}
 }

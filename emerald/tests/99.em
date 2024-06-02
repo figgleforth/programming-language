@@ -208,7 +208,7 @@ def no_parens name: string -> string
 def email(name: string, on day: string) -> string
   # external argument label, allows for greater clarity for the caller. email(person, day) is fine, but email(person, on: day) is explicitly clear
 
-  "`name`, you must enter the numbers on `day`!" # interpolation using backticks ``
+  "`name`, you must enter \n the numbers on `day`!" # interpolation using backticks ``
 }
 
 email(locke, on: 'Tuesday')

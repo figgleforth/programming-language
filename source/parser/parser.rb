@@ -14,18 +14,39 @@ class Parser
 
 
    # https://doc.comsol.com/5.5/doc/com.comsol.help.comsol/comsol_ref_definitions.12.022.html
+   # PRECEDENCES = [
+   #    [%w(( ) { } .), 1],
+   #    [%w(^), 2],
+   #    [%w(! - +), 3],
+   #    [%w([ ]), 4],
+   #    [%w(* /), 5],
+   #    [%w(+ -), 6],
+   #    [%w(< <= > >=), 7],
+   #    [%w(>== === !=== == !-), 8],
+   #    [%w(&&), 9],
+   #    [%w(||), 10],
+   #    [%w(,), 11],
+   # ]
    PRECEDENCES = [
-      [%w(( ) { } .), 1],
-      [%w(^), 2],
-      [%w(! - +), 3],
-      [%w([ ]), 4],
-      [%w(* /), 5],
-      [%w(+ -), 6],
-      [%w(< <= > >=), 7],
-      [%w(>== === !=== == !-), 8],
-      [%w(&&), 9],
-      [%w(||), 10],
-      [%w(,), 11],
+      [%w(.), 1],
+      [%w(( )), 2],
+      [%w([ ]), 3],
+      [%w(!), 4],
+      [%w(- +), 5], # Unary minus and plus
+      [%w(**), 6], # Exponentiation
+      [%w(* / %), 7], # Multiplicative
+      [%w(+ -), 8], # Additive
+      [%w(<< >>), 9], # Shift
+      [%w(< <= > >=), 10], # Relational
+      [%w(== != === !==), 11], # Equality
+      [%w(&), 12], # Bitwise AND
+      [%w(^), 13], # Bitwise XOR
+      [%w(|), 14], # Bitwise OR
+      [%w(&&), 15], # Logical AND
+      [%w(||), 16], # Logical OR
+      [%w(?:), 17], # Ternary
+      [%w(= += -= *= /= %= &= |= ^= <<= >>=), 18], # Assignment
+      [%w(,), 19], # Comma
    ]
 
 
@@ -63,7 +84,7 @@ class Parser
 
 
    def assert_condition token, condition
-      raise "Unexpected #{token}" unless condition
+      raise "Unexpected #{token}" if condition == false
    end
 
 
@@ -225,13 +246,13 @@ class Parser
          else
             eat while curr == DelimiterToken # { or \n or both
             node.statements = parse_block
-            eat if peek? '}'
+            eat if peek? %w(} end)
          end
       end
    end
 
 
-   def parse_block until_token = '}'
+   def parse_block until_token = %w(} end)
       parser = Parser.new remainder
       stmts  = parser.parse until_token
       @i     += parser.i
@@ -240,8 +261,44 @@ class Parser
 
 
    def parse_method_declaration
-      def parse_method_params until_token = ')'
-         parse_block until_token
+      def parse_params
+         [].tap do |params|
+            # Ident : Ident (,)
+            # Ident Ident : Ident ... first ident here is a label
+            while peek? IdentifierToken
+               params << MethodParamNode.new.tap do |param|
+                  if peek? IdentifierToken, IdentifierToken
+                     param.label = eat IdentifierToken
+                     param.name  = eat IdentifierToken
+                  else
+                     param.name = eat IdentifierToken
+                  end
+
+                  if peek? ':'
+                     eat ':'
+                     param.type = eat IdentifierToken
+                  else
+                     # untyped param
+                  end
+
+                  if peek? ',' and not peek?(',', IdentifierToken)
+                     raise 'Expecting param after comma in method param declaration'
+                  elsif peek? ','
+                     eat
+                  end
+
+                  # eat ',' if peek? ','
+               end
+            end
+         end
+      end
+
+
+      def parse_return_type
+         if peek? %w(: -> >>), IdentifierToken
+            eat # : or -> or >>
+            eat IdentifierToken
+         end
       end
 
 
@@ -249,48 +306,67 @@ class Parser
          node.name = eat('def', IdentifierToken).last
 
          # no params, no return
-         if peek? "\n"
-            eat "\n"
-            node.statements = parse_block
+         # if peek? "\n"
+         #    eat "\n"
+         #    node.statements = parse_block
 
-            # no params, return
-         elsif peek? %w(: ->), IdentifierToken
-            eat # : or ->
-            node.return_type = eat IdentifierToken
+         # no params, return
+         # elsif peek? %w(: -> >>), IdentifierToken
+         if peek? %w(: -> >>), IdentifierToken
+            node.return_type = parse_return_type
 
          elsif peek? '('
             eat '('
-            node.parameters = parse_method_params
+            node.parameters = parse_params
             eat ')'
 
-            if peek? %w(: ->), IdentifierToken
-               eat # : or ->
-               node.return_type = eat IdentifierToken
-            end
+            node.return_type = parse_return_type
          elsif peek? IdentifierToken
+            node.parameters = parse_params
 
-         else
-            eat
+            node.return_type = parse_return_type
+
+            # else
+            #    puts "no clue #{curr}"
+            #    raise 'not sure what to do about this'
+            #    # eat
          end
 
-         # eat "\n" while peek? "\n"
+         if peek? ';'
+         else
+            eat while curr == DelimiterToken
+            node.statements = parse_block
 
-         # puts "CURR #{curr} ? #{not peek?(';')}"
+            puts "parsed stmts, now curr #{curr}"
 
-         # if peek? ';' # blank obj
-         # node.statements = parse_block
-         # end
+            raise 'Expected } or end' unless curr == '}' or curr == 'end'
+
+            # assert_condition curr, (curr == '}')# || curr != 'end')
+            eat
+         end
 
       end
    end
 
 
+   def parse_subscript
+      # todo
+      eat '['
+      parse_statements.tap do
+         eat ']'
+      end
+   end
+
+
+   # todo: . access
    def parse_leaf
       if peek? '('
          eat '('
          parse_statements.tap do
             eat ')'
          end
+      elsif peek? '['
+         parse_subscript
 
       elsif peek? %w({ }) # for blocks that are not handled as part of other constructs. like just a random block surrounded by { and }
          eat and nil
@@ -319,20 +395,40 @@ class Parser
       elsif peek? StringToken or peek? NumberToken
          parse_string_or_number_literal
 
-      elsif curr == DelimiterToken
+      elsif peek? DelimiterToken
          eat and nil # don't care about delimiters that weren't already handled by the other cases
 
-      else
-         ExprNode.new.tap do |node|
-            node.token = eat
+      elsif peek? IdentifierToken
+         IdentifierNode.new.tap do |node|
+            node.name = eat
          end
+
+      else
+         before  = @tokens[@i - 3..@i - 1]
+         after   = @tokens[@i + 1..@i + 3]
+         context = @tokens[@i - 3..@i]
+
+         raise "\n\nUnhandled #{curr} in code\n\n#{context.map(&:to_s).join(' ')}"
+
+         # raise "\n\nUnhandled #{curr} in sequence\n\n#{before.map(&:to_s)}\n#{after.map(&:to_s)}"
       end
    end
 
 
    def parse until_token = EOFToken
       @statements = []
-      @statements << parse_statements while tokens? and curr != until_token and curr != EOFToken
+
+      while tokens? and curr != EOFToken
+         if until_token.is_a? Array
+            break if until_token.any? do |t|
+               curr == t
+            end
+         else
+            break if curr == until_token
+         end
+
+         @statements << parse_statements
+      end
       @statements.compact
    end
 end

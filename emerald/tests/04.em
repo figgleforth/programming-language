@@ -1,14 +1,10 @@
-lang
-boo = 1 + 2 * 3 -2 / 1
-name: string = 'cooper'
-dog: Dog
-#test = nil
-#dog.breed.name = nil
+def no_params_no_return;
+def no_params_return: int;
+def param_with_label(on day: string);
+def params_no_return(a: int, b: float);
+def params_return(a: int, b: float) >> Basic_Object;
+def whatever c: number, d: string >> string;
 
-def basic
-  hatch := 42
-end
-
-def returner -> bool
-  42 == basic
+def square value: number >> number
+	value * value
 end

@@ -58,9 +58,9 @@ class IdentifierToken < Token
 
    def to_s
       if symbol_literal
-         "Ident: :#{string}"
+         ":#{string}"
       else
-         "Ident: #{string}"
+         "#{string}"
       end
    end
 end
@@ -116,12 +116,11 @@ end
 
 
 class SymbolToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
-   BINARY_OPERATORS = %w(+ - * / % < > += -= *= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >>)
+   BINARY_OPERATORS = %w(+ - * / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> **)
    UNARY_OPERATORS  = %w(- + ~ !)
 
-
    def to_s
-      "Symbol: #{string}"
+      "#{string}"
    end
 
 

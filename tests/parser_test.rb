@@ -15,4 +15,4 @@ statements = parser.parse
 # puts tokens
 
 puts "\n== PARSED STATEMENTS ==\n\n"
-puts statements
+puts statements.join("\n\n")

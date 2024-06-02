@@ -27,7 +27,7 @@ class StringLiteralNode < LiteralNode
 
 
    def to_s
-      "STR(#{token.string})"
+      "Str(#{token.string})"
    end
 end
 
@@ -43,8 +43,8 @@ class NumberLiteralNode < LiteralNode
 
 
    def to_s
-      # "NUM(#{token.string})"
-      token.string
+      # token.string
+      "Num(#{token.string})"
    end
 end
 
@@ -62,7 +62,14 @@ class ObjectDeclNode < AstNode
 
 
    def to_s
-      "Obj(#{type.string}, base: #{base_type&.string}, comps: #{compositions.map(&:string)}, stmts(#{statements.count}): #{statements.map(&:to_s)})"
+      # "Obj(#{type.string}, base: #{base_type&.string}, comps: #{compositions.map(&:string)}, stmts(#{statements.count}): #{statements.map(&:to_s)})"
+
+      "Obj(#{type.string}".tap do |str|
+         str << ", base: #{base_type.string}" if base_type
+         str << ", comps(#{compositions.count}): #{compositions.map(&:to_s)}" unless compositions.empty?
+         str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+         str << ')'
+      end
    end
 end
 
@@ -79,7 +86,26 @@ class MethodDeclNode < AstNode
 
 
    def to_s
-      "Method(#{name}, return_type: #{return_type}, params(#{parameters.count}): #{parameters.map(&:string)}), stmts(#{statements.count}): #{statements.map(&:to_s)})"
+      # "Method(#{name}, return_type: #{return_type.to_s}, params(#{parameters.count}): #{parameters.map(&:to_s)}), stmts(#{statements.count}): #{statements.map(&:to_s)})"
+      "Method(#{name}".tap do |str|
+         str << ", returns: #{return_type}" if return_type
+         str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
+         str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+         str << ')'
+      end
+   end
+end
+
+class MethodParamNode < AstNode
+   attr_accessor :name, :label, :type
+
+
+   def to_s
+      "Param(#{name}".tap do |str|
+         str << ", type: #{type}" if type
+         str << ", label: #{label}" if label
+         str << ')'
+      end
    end
 end
 
@@ -87,9 +113,8 @@ end
 class VarAssignmentNode < AstNode
    attr_accessor :name, :type, :value
 
-
    def to_s
-      "VAR(#{name.string}".tap do |str|
+      "Var(#{name.string}".tap do |str|
          if type
             str << ": #{type.string}"
          end
@@ -109,7 +134,7 @@ class UnaryExprNode < AstNode
 
 
    def to_s
-      "(#{operator.string} #{operand})"
+      "UE(#{operator.string} #{operand})"
    end
 end
 
@@ -119,7 +144,15 @@ class BinaryExprNode < AstNode
 
 
    def to_s
-      "(#{left} #{operator.string} #{right})"
+      "BE(#{left} #{operator.string} #{right})"
+   end
+end
+
+class IdentifierNode < AstNode
+   attr_accessor :name
+
+   def to_s
+      "Ident(#{name})"
    end
 end
 
@@ -129,6 +162,6 @@ class ExprNode < AstNode
 
 
    def to_s
-      "UNKNOWN(#{token.string.inspect})"
+      "Expr(#{token.string.inspect})"
    end
 end
