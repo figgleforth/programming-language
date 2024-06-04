@@ -1,17 +1,16 @@
-obj String > Basic_Object
+obj string
 
-def - other
-	# remove instances of other from self. eg: 'hello world' - 'o' yields 'hell wrld'
-}
+# remove instances of other from self. eg: 'hello world' - 'o' => 'hell wrld'
+def - other: string;
 
-def / other
-	# split self into an array of substrings, using other as the delimiter. eg: 'hello world' / ' ' yields ['hello', 'world']
-}
+# concatenate two strings. eg: 'hello' + 'world' => 'helloworld'
+def + other: string;
 
-def * other
-	# repeat self other times. eg: 'hello' * 3 yields 'hellohellohello'
-}
+# split self into an array of substrings, using other as the delimiter. eg: 'hello world' / ' ' => ['hello', 'world']
+def / other: string;
 
-def [] other
-	# return the index of the first occurrence of other in self. eg: 'hello world' % 'o' yields 4. eg: 'hello world' % 'z' yields nil. eg: 'hello world' % 'ello' yields 1
-}
+# repeat self `other` times. eg: 'hello' * 3 => 'hellohellohello'
+def * other: int;
+
+# return the index of the first occurrence of other in self. eg: 'hello world'['o'] => 4. eg: 'hello world'['z'] => nil. eg: 'hello world'['ello'] => 1
+def [] other: string;

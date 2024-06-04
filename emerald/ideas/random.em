@@ -1,4 +1,4 @@
-obj TopLevelObject > Basic_Object imp Hatch, Door, Shelter # if obj declaration is the first statement then the top level object gets this declaration. plus indentation and closing } for its body are not required so just write code without indentation. ; is optional but recommend without it because ; implies an empty body. it will be ignored here by the parser though
+obj TopLevelObject > Base_Object imp Hatch, Door, Shelter
 
 imp Hatch # equivalent to adding imp Hatch, Door, Entity to object declaration
 imp Door, Shelter # imp keyword doesn't care about indentation because it just adds implementation to the current block/scope
@@ -6,9 +6,6 @@ imp Door, Shelter # imp keyword doesn't care about indentation because it just a
 api Hatch
 }
 
-api Door
-	req def open; # req keyword means objects implementing this api must implement this method
-}
 
 api Shelter
 }
@@ -17,20 +14,20 @@ api Shelter
 obj House imp Shelter; # equivalent empty body {}
 
 obj Home > House imp Hatch, Door # equivalent to empty body {} but you can omit { for all blocks
-  def address -> string; # unimplemented methods return nil
+  def address :: string; # unimplemented methods return nil
 }
 
 obj NPC > Entity imp Transform # equivalent to empty body {} but you can omit { for all blocks
 }
 
-obj Golden_Retriever > Dog
+obj Golden_Retriever > Dog;
 imp Intelligence, Charm # they can be on separate lines as well, both as top level declaration and regular object declaration
 
 obj Dog
 	imp Legs # should be indented when inside an actual block. but it's not enforced by the parser
-
 }
 
+# implementations left out cause i dont feel like doing that now
 api Comparison
 	def == other;
 	def !;
@@ -46,7 +43,7 @@ api Binary_Operatable
 	def ** other;
 }
 
-obj Basic_Object
+obj Base_Object
 	imp Comparison
 	imp Binary_Operatable
 
@@ -55,10 +52,10 @@ obj Basic_Object
 	}
 }
 
-obj Number > Basic_Object imp Binary_Operatable
+obj Number > Base_Object imp Binary_Operatable
 }
 
-def add left: Number, right: Number -> Number
+def add left: Number, right: Number :: Number
 	left + right
 }
 
@@ -86,7 +83,7 @@ obj Shelter; # equivalent to an empty object
 
 obj Hatch > Shelter imp Security_System # implements Security_System api
 
-  new
+  new # no params here
     super # call parent constructor
     # do something
   }
@@ -95,6 +92,7 @@ obj Hatch > Shelter imp Security_System # implements Security_System api
     @.type # 'respond_to_intruder(): nil'
     self.@.type # 'Hatch'
     door.@.type # 'Door'
+    # @ is the context variable. it contains vitals about the current object so that those variables don't pollute the obj's local scope. mainly a feature to make coding with this language less restrictive in the sense that there aren't so many reserved variable names.
   }
 }
 
@@ -105,11 +103,11 @@ api Door
 }
 
 api Security_System > Door # implements door api, so has access to door variable
-  def enter_numbers(numbers: int) -> bool as open # aliasing methods internally so that method ident can be verbose externally but simple internally
+  def enter_numbers(numbers: int) :: bool as open # aliasing methods internally so that method ident can be verbose externally but simple internally
     # ...
   }
 
-  def close -> bool
+  def close :: bool
     door.close
   }
 
@@ -124,7 +122,11 @@ api Security_System > Door # implements door api, so has access to door variable
 
 
 obj Others
-  arg people: [Person] # arg keyword is equivalent to declaring the argument in the constructor
+  arg total: int
+  arg people: [Person] ###
+   arg keyword is shorthand to declaring this as an argument in the constructor.
+   so this can be instantiated like Others.new(total: 5, people: []). or Others.new(people: [], total: 5). the order does not matter when using `arg`. neither does the presence. arg just means it is available as an argument to the constructor, but it is optional. this prevents having to write `new` initializers for multiple cases
+  ###
 
   arg leader: Person
     # block that runs whenever leader= is called
@@ -141,10 +143,10 @@ obj Others
   new people: [Person], leader: Person # parens are optional
   }
 
-  def evil -> bool :: false # :: can be used in place of a block expression, only when the block is a single line of code. multiline expressions using :: are not valid
+  def evil :: bool => false # => can be used in place of a block expression, only when the block is a single line of code. multiline expressions using => are not valid
 }
 
-# Context object may have useful info, but also acts as scratch object. can be accessed using @ symbol and exists once for the global scope, once for each obj object, and once for each method. I haven't yet decided if it should exist per block of code, it probably should to be consistent. This is cool because an object won't be cluttered with methods irrelevant to everyday programming.
+# Context object may have useful info, but also acts as scratch object. can be accessed using @ symbol and exists once for each obj object, and contains varying information depending on where it is called .like @.args contains information when accessed inside a method. when accessed top level, @.args would not have any information as there are no args present in that moment in code. This is cool because an object won't be cluttered with variables and methods irrelevant to everyday programming.
 obj Context
   args: [] # if applicable, like inside of a method scope
   scopes: [] ###
@@ -154,17 +156,18 @@ obj Context
   ###
 
   # function literal represents any type of method signature
-  type: string # '(int): int' or '(): float' or '(): nil', 'Context' or 'Basic_Object', and so on
+  type: string # '(int): int' or '(): float' or '(): nil', 'Context' or 'Base_Object', and so on
 
   def log; # use ; to stub a method
 }
 
-def haunted_castle -> Castle
+def haunted_castle :: Castle
   @.args # []
   @.type # (Time): Castle
 
   @.whatever # define any temporary variable that lives until the current scope is exited. any code executed after this line, until the scope is exited, will have access to @.whatever. you cannot override existing vars like @.args or @.type
-  @.boo = def foo(bar: int) -> int
+  @.boo = (bar: int)()
+
   } # works for methods as well
 
   @.boo(4) if self.?square # .? returns bool if receiver responds to `boo`, equivalent to Ruby's responds_to?('boo'). I kinda like `self?.` but since identifiers can end in question marks, this will be too ambiguous for the parser.
@@ -173,11 +176,11 @@ def haunted_castle -> Castle
   not_needed_method_call_result # or just don't store the result
 }
 
-def square(value: int) -> int
+def square(value: int) :: int
   value * value
 }
 
-def square value: int -> int
+def square value: int :: int
   value * value
 }
 
@@ -186,11 +189,11 @@ new
   @.type # method signature, in this case _Spec because constructor returns this obj, aka _Spec
 }
 
-def square_and_some(a: int) -> float
+def square_and_some(a: int) :: float
   a * a / 4.815 # return keyword is optional
 }
 
-def save -> bool # method signature is (): bool
+def save :: bool # method signature is (): bool
 }
 
 def no_args_and_no_return # method signature is (): nil
@@ -199,13 +202,13 @@ def no_args_and_no_return # method signature is (): nil
 def no_return(name: string) # method signature is (str): nil
 }
 
-def no_parens name: string -> string
+def no_parens name: string :: string
   "Hello, `name`!"
 }
 
 # argument labels
 
-def email(name: string, on day: string) -> string
+def email(name: string, on day: string) :: string
   # external argument label, allows for greater clarity for the caller. email(person, day) is fine, but email(person, on: day) is explicitly clear
 
   "`name`, you must enter \n the numbers on `day`!" # interpolation using backticks ``
@@ -252,8 +255,8 @@ typed = "hello" # invalid
 static some_static_var: int = 1
 
 first: TokenType = TokenType.literal
-second: TokenType = .identifier
-greeting: Another = .greet('Cooper')
+second: TokenType = TokenType.identifier
+greeting: Another = TokenType.greet('Cooper')
 greeting.value # "hi Cooper!"
 
 some_number: int = 42
@@ -263,16 +266,7 @@ pri two_number := 4
 color: (float, float, float, float) = (1.0, 1.0, 1.0, 1.0)
 whatever: (int, int, int) = (1, 2, 3) # etc
 
-# named tuple values
-color3: (r: float, g: float, b: float, a: float) = (1.0, 1.0, 1.0, 1.0)
-color4 := (w: 1.0, x: 1.0, y: 1.0, z: 1.0)
 
-# access tuple values by index
-color.0
-color.1
-color.2 # and so on
-color3.r # .g, .b, etc but only when names are present in the tuple declaration
-color4.w
 
 result: int = multiply(4, 8) # calling some multiply function
 year: int = 2023
@@ -283,35 +277,31 @@ description: string # uninitialized value is nil
 about_me: string = "I was created in `year`" # interpolation
 k: range = 0..10
 
+
 # method signature types are written as (inputs)(outputs)
-what1: (int)(int) #  args and return
-what2: (int)()    #  args and !return
-what3: ()(int)    # !args and return
-what4: ()()       # !args and !return
-
-# todo: rethink anon method syntax
-
-square: (float)(float) = (x: float) -> float {
-	x * x
-}
-
-what1 = (a: int) -> int {
+# anonymous methods
+what1 = (a: int)(int) {
   puts a
 }
 
-what2 = () {
+what2: (int)() = ()() {
 }
 
-what3 = () -> int {
+what3: ()(int) = ()(int) {
   42
 }
 
-what4 = () {
+what4: ()() = ()() {
+}
+
+square: (float)(float) = (x: float)(float) {
+	x * x
 }
 
 
-# these are equivalent
-value: float :: factor * weight
+
+# these are equivalent. these are calculated lazily
+value: float => factor * weight
 value: float
 	factor * weight
 }
@@ -352,7 +342,7 @@ sandwiches: [Sandwich] = [assorted1, assorted2, assorted3] # initialize your arr
 # type hinting
 monday: string = 'Monday'
 weekday: string = 'Friday'
-dates: Date = .today
+dates: Date = Date.today
 times: Time
 datetime: Date_Time
 
@@ -361,7 +351,7 @@ takes_string_returns_nothing: (string)() # writing `nil` is not optional as it n
 
 for some_collection_such_as_array
   it # keyword referring to the current item
-  at # keyword referring to the current index
+  ix # keyword referring to the current index
   skip # keyword to skip to the next iteration. I want to be able to use next as a variable name
   stop # keyword to break out of the loop
   # if `it` is a tuple, then `it.0` is the first item, `it.1` is the second, etc. or you may access them using their names
@@ -376,14 +366,14 @@ for some_dictionary
 
 for 10 # when a number is provided, it will loop that many times.
   it # eg) when looping 10, the it will be 1-10
-  at # eg) when looping 10 the i will be 0-9
+  ix # eg) when looping 10 the i will be 0-9
   skip
   stop
 }
 
 while locked?
   it # refers to locked?
-  at # refers to the current iteration of this loop
+  ix # refers to the current iteration of this loop
   skip # works here too
   stop # works here too
 }
@@ -434,14 +424,14 @@ def some_method
 # other blocks
 some_collection_such_as_array.each # no need to add `do |variable|` like in Ruby
   it
-  at
+  ix
   stop
   skip
 }
 
 collection.where # like Ruby's select and filter, but combined into one
   # should stop and skip be available?
-  at
+  ix
   it == 'something' # implied return
 }
 
@@ -450,7 +440,7 @@ squared := [1, 2, 3].map
   # at, stop, skip are also available. stop would bail on the map and could cause the mapped object to have less elements due to early bail.
 }
 
-square := Square.new.tap
+square := Square.new.tap # tap like Ruby
   it # instance
 }
 
@@ -458,48 +448,42 @@ only := collection.where
   it == 1
 }
 
-###
-  implementations are blocks of code that can be injected into any object.
-
-  obj ObjectReceivingComposition > SomeComposingAPI, SomeComposingAPI, AnotherComp, AnotherAndSoOn
-
-
-
-###
-
 api Stone
   mass: float
   ancestor: Stone
-  pri value: float
+  pri value: float # this instance var is private
 
-  # stubs are only allowed in api blocks because otherwise it's too ambiguous and difficult to determine whether the next line is the body of this method or a sibling statement
-  def weight -> float
+
+  def weight :: float
+    # ...
   }
 
-  def calculate_something(float) -> int
+  def calculate_something(float) :: int
+    # ...
   }
 
-  def label -> string
+  def label :: string
     "it weighs `mass`!"
   }
 
   pri def do_something # this method is private. privacy can be controlled per method like this
+    # ...
   }
 
   private # privacy for the rest of the scope. use full spelling `private` for scopes and shorthand `pri` for individual cases
 
-  def secretly_do_nothing;
+  def secretly_do_nothing
+    # ...
+  }
 }
 
 obj Emerald;
 
-obj Emerald > Gem, Stone # first one is the ancestor, the rest are api compositions
-
-  # must implement stubbed methods, but get variables and implemented methods for free
+obj Emerald > Gem imp Stone
 
   weight_in_lb: float
 
-  def value_in_dollars -> float; # stubbed method to be implemented
+  def value_in_dollars :: float; # stubbed method to be implemented by subobjects
 
   pri def do_something
     ancestor.calculate_something(4.8) # ancestor is defined in the Stone api
@@ -526,7 +510,7 @@ if emerald is Emerald # equivalent to ===
 # Errors are not automatically raised, instead they are passed by value and you are able to choose whether you want to raise or print the error
 
 api Error # compose with this to make custom errors
-  def message -> string
+  def message :: string
 
   def self.raise # obj methods, don't require an instance so it can be called like Error.raise
     # ...
@@ -534,42 +518,14 @@ api Error # compose with this to make custom errors
 }
 
 obj Not_Implemented > Error # you may add anything to the body so long as the stubbed method is implemented, whether with a full block or a single line expression
-  def message -> string :: 'You did not implement this or whatever'
+  def message :: string => 'You did not implement this or whatever'
 }
 
 def fail_with_error
   Not_Implemented.raise # you can raise an error here
 }
 
-###
-
-the reason for this + key symbol is because the object and its composition declarations are very pleasing to read. the + symbol also implies adding stuff together
-
-obj Something, ComposeThis, ComposeThat
-}
-
-look at how beautiful that is. even the short form is neat
-
-obj Something, ComposeThis, ComposeThat
-}
-
-###
-
-# this top level's api implementations:
-def weight -> float
-  # must implement according to api
-}
-
-pri def do_something -> float
-  ancestor.calculate_something(4.8)
-} # must also be implemented at top level if it is composed of Stone
-
-# hint) execute any code in the file, the file doesnt need to become an object. first all variables and methods are loaded, then any code inside the file is run
-whatever := get_something()
-
-# hint) static every object basically gets instantiated once at runtime anyway (maybe that is bad for big projects, tbd) so you get that object for free and it is used like YourObject  to reference the static instance. works with inferred object names where obj keyword was not used: Util_Math # inferred from file util_math.e
-
-obj Transform, Position, Rotation, Emerald/Scale # namespaces are filepath based, not needed here since all apis are here in this file. this object gets the rotation methods for free vis composition. its namespace is whatever folder it is in, eg if this code was in components/transform.e that would make this Components/Transform
+obj Transform imp Position, Rotation, Emerald/Scale # namespaces are filepath based, not needed here since all apis are here in this file. this object gets the rotation methods for free vis composition. its namespace is whatever folder it is in, eg if this code was in components/transform.e that would make this Components/Transform
 }
 
 # override namespace
@@ -586,16 +542,16 @@ api Scale
 }
 
 api Rotation
-  rotation := (0, 0)
+  rotation_degrees := 0.0
 
-  def look_at(target: Transform) -> Rotation
+  def look_at(target: Transform) :: Rotation
     # some implementation
   }
 }
 
 api Position
-  position := float2(0, 0)
+  position := vec2(0, 0)
 }
 
-api Transformable, Transform # nested compositions
+api Transformable imp Transform # apis composed together
 }

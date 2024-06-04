@@ -3,7 +3,7 @@ require_relative '../parser/parser'
 
 lexer = Lexer.new
 # parser = Parser.new
-SPACE             = '  '
+SPACE             = ' '
 commands_executed = 1
 
 while true
@@ -12,7 +12,7 @@ while true
    command_count     = "#{commands_executed}".rjust commands_width
    commands_executed += 1
 
-   print "#{command_count.rjust(3)})#{SPACE}"
+   print "#{command_count})\n\n"
    input = gets.chomp
    break if input == "exit"
 
@@ -26,7 +26,9 @@ while true
       lexer.source = input
          # tokens = scanner.string_to_tokens input
 
-      puts "--->#{SPACE}#{lexer.lex}"
+      puts
+      puts "#{lexer.lex}"
+      # puts "∎"
       puts
    rescue StandardError => e
       puts "Error: #{e.message}"

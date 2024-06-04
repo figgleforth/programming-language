@@ -1,4 +1,4 @@
-obj Context as self
+obj Context
 
 id: int
 

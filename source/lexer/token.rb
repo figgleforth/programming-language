@@ -68,14 +68,14 @@ end
 
 class KeywordToken < Token
    def to_s
-      "Keyword: #{string}"
+      "Keyword(#{string})"
    end
 end
 
 
 class StringToken < Token
    def to_s
-      "String: #{string}"
+      "String(#{string})"
    end
 
 
@@ -87,7 +87,7 @@ end
 
 class NumberToken < Token
    def to_s
-      "Num: #{string}"
+      "Num(#{string})"
    end
 
 
@@ -116,7 +116,7 @@ end
 
 
 class SymbolToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
-   BINARY_OPERATORS = %w(+ - * / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> **)
+   BINARY_OPERATORS = %w(. + - * / % < > [ \\+= -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> **)
    UNARY_OPERATORS  = %w(- + ~ !)
 
    def to_s
@@ -145,7 +145,7 @@ class CommentToken < Token
 
 
    def to_s
-      # "Comment: #{string}"
+      # "Comment(#{string})"
       "Comment()"
    end
 end
