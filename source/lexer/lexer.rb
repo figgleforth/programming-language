@@ -1,19 +1,19 @@
 # Turns string of code into tokens
 class Lexer
-    require_relative 'token'
+    require_relative 'tokens'
 
     KEYWORDS = %w(
-    api obj def new end arg
+    api obj def fun new end arg
     enum const private pri public pub static
     do if else for skip stop it is self when while
    )
 
-    # in this specific order so multi character operators are matched first
 
     TRIPLE_SYMBOLS = %w(<<= >>= !== === >== ||=)
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= := && || @@ ++ -- -> ** ::)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
+    # in this specific order so multi character operators are matched first
     SYMBOLS = [
         TRIPLE_SYMBOLS,
         DOUBLE_SYMBOLS,
@@ -355,7 +355,7 @@ class Lexer
                     eat while curr.delimiter?
                 end
             elsif SYMBOLS.include? curr.string
-                # fix: :style_symbols is including the inferred assignment operator := as well, but := should be a separate symbol. probably use SYMBOLS array
+                # @fix :style_symbols is including the inferred assignment operator := as well, but := should be a separate symbol. probably use SYMBOLS array
                 # if char == ':' and not peek&.delimiter? # :style symbols
                 #    eat ':'
                 #

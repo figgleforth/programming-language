@@ -1,6 +1,6 @@
 # Turns string of code into tokens
 class Parser
-    require_relative '../lexer/token'
+    require_relative '../lexer/tokens'
     require_relative 'nodes'
 
     attr_accessor :i, :tokens, :statements
@@ -13,48 +13,36 @@ class Parser
     end
 
 
-    # https://doc.comsol.com/5.5/doc/com.comsol.help.comsol/comsol_ref_definitions.12.022.html
-    # PRECEDENCES = [
-    #    [%w(( ) { } .), 1],
-    #    [%w(^), 2],
-    #    [%w(! - +), 3],
-    #    [%w([ ]), 4],
-    #    [%w(* /), 5],
-    #    [%w(+ -), 6],
-    #    [%w(< <= > >=), 7],
-    #    [%w(>== === !=== == !-), 8],
-    #    [%w(&&), 9],
-    #    [%w(||), 10],
-    #    [%w(,), 11],
-    # ]
     PRECEDENCES = [
-
-        [2, %w(( ))],
-        [3, %w([ ])],
-        [4, %w(!)],
-        [5, %w(- +)], # Unary minus and plus
-        [6, %w(**)], # Exponentiation
-        [7, %w(* / %)], # Multiplicative
-        [8, %w(+ -)], # Additive
-        [9, %w(<< >>)], # Shift
-        [10, %w(< <= > >=)], # Relational
-        [11, %w(== != === !==)], # Equality
-        [12, %w(&)], # Bitwise AND
-        [13, %w(^)], # Bitwise XOR
-        [14, %w(|)], # Bitwise OR
-        [15, %w(&&)], # Logical AND
-        [16, %w(||)], # Logical OR
-        [17, %w(?:)], # Ternary
-        [18, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
-        [19, %w(,)], # Comma
-        [20, %w(.)],
+        %w(( )),
+        %w([ ]),
+        %w(!),
+        %w(- +), # Unary minus and plus
+        %w(**), # Exponentiation
+        %w(* / %), # Multiplicative
+        %w(+ -), # Additive
+        %w(<< >>), # Shift
+        %w(< <= > >=), # Relational
+        %w(== != === !==), # Equality
+        %w(&), # Bitwise AND
+        %w(^), # Bitwise XOR
+        %w(|), # Bitwise OR
+        %w(&&), # Logical AND
+        %w(||), # Logical OR
+        %w(?:), # Ternary
+        %w(= += -= *= /= %= &= |= ^= <<= >>=), # Assignment
+        %w(,), # Comma
+        %w(.),
     ]
 
 
     def precedence_for token
-        PRECEDENCES.find do |_, chars|
+        # PRECEDENCES.find do |_, chars|
+        #     chars.include?(token.string)
+        # end&.at(0)
+        PRECEDENCES.find_index do |chars|
             chars.include?(token.string)
-        end&.at(0)
+        end
     end
 
 
@@ -137,9 +125,11 @@ class Parser
 
     def parse_statements precedence = 0
         left = parse_leaf
+        return left unless left
 
         while tokens? and curr
             break unless curr == SymbolToken and curr.binary?
+            # break if curr == SymbolToken and curr.unary?
 
             curr_prec = precedence_for curr
             break if curr_prec <= precedence
@@ -147,7 +137,11 @@ class Parser
             left = BinaryExprNode.new.tap do |node|
                 node.left     = left
                 node.operator = eat SymbolToken
-                node.right    = parse_statements curr_prec
+
+                # @todo is this the right way to handle this? what if I want expressions on the next line? maybe some keyword like `\`?
+                raise 'Expected expression' if peek? "\n"
+
+                node.right = parse_statements curr_prec
                 eat if curr == ']'
             end
         end
@@ -172,7 +166,7 @@ class Parser
 
     def parse_untyped_var_declaration_or_reassignment
         VarAssignmentNode.new.tap do |node|
-            tokens     = eat IdentifierToken, '='
+            tokens = eat IdentifierToken, '='
             raise 'Expected expression' if peek? "\n"
 
             node.name  = tokens[0]
@@ -183,7 +177,7 @@ class Parser
 
     def parse_inferred_var_declaration
         VarAssignmentNode.new.tap do |node|
-            tokens    = eat IdentifierToken, ':='
+            tokens = eat IdentifierToken, ':='
             raise 'Expected expression' if peek? "\n"
 
             node.name = tokens[0]
@@ -273,7 +267,7 @@ class Parser
                 # Ident : Ident (,)
                 # Ident Ident : Ident ... first ident here is a label
                 while peek? IdentifierToken
-                    params << MethodParamNode.new.tap do |param|
+                    params << FuncParamNode.new.tap do |param|
                         if peek? IdentifierToken, IdentifierToken
                             param.label = eat IdentifierToken
                             param.name  = eat IdentifierToken
@@ -309,8 +303,8 @@ class Parser
         end
 
 
-        MethodDeclNode.new.tap do |node|
-            node.name = eat('def', IdentifierToken).last
+        FuncDeclNode.new.tap do |node|
+            node.name = eat('fun', IdentifierToken).last
 
             if peek? %w(: -> >> ::), IdentifierToken
                 node.return_type = parse_return_type
@@ -351,7 +345,7 @@ class Parser
     end
 
 
-    # todo: . access
+    # @todo . access
     def parse_leaf
         if peek? '('
             eat '('
@@ -372,17 +366,17 @@ class Parser
         elsif peek? SymbolToken and curr.unary? # %w(- + ~ !)
             parse_unary_expr
 
-        elsif peek? 'def', IdentifierToken
+        elsif peek? 'fun', IdentifierToken
             parse_method_declaration
 
         elsif peek? 'obj', IdentifierToken
             parse_object_declaration
 
-        elsif peek? IdentifierToken, ':', IdentifierToken
-            parse_typed_var_declaration
-
         elsif peek? IdentifierToken, ':='
             parse_inferred_var_declaration
+
+        elsif peek? IdentifierToken, ':', IdentifierToken
+            parse_typed_var_declaration
 
         elsif peek? IdentifierToken, '='
             parse_untyped_var_declaration_or_reassignment

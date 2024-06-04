@@ -11,17 +11,17 @@ def no_params_no_return; # end of statement delimiter ; after method declaration
 
 def no_params_no_return
 	# do something
-} # alternate end of statement delimiter `}`. preferred in the language design when a body is present
+end # alternate end of statement delimiter `end`. preferred in the language design when a body is present
 
 def no_params_no_return end # alternate end of statement delimiter `end`. least preferred. only there if you want this to look more like Ruby
 
 def no_params_int_return :: int # ident after :: is the return type
 	42 # implied last statement return
-}
+end
 
 def greet(person name: string) # labels in params
 	'Hello `name`!' # string intrepolation
-}
+end
 
 greet(person: 'Locke')
 
@@ -38,8 +38,8 @@ puts "Magic number! `self.magic_number`" # accessible because the AnotherApi is 
 api AnotherAPI
 	def magic_number :: number # generic for int or float
 		42
-	}
-}
+	end
+end
 
 api Binary_Operatable
 	def + other;
@@ -48,7 +48,7 @@ api Binary_Operatable
 	def / other;
 	def % other;
 	def ** other;
-}
+end
 
 some_object: BaseObject
 some_reference_var: AnotherAPI # could be any obj that implements this
@@ -56,15 +56,15 @@ some_reference_var: AnotherAPI # could be any obj that implements this
 obj Hatch > Shelter imp Security_System
 	def open
 		door.open!
-	}
-} # internal obj, a child statement of Overview object.
+	end
+end # internal obj, a child statement of Overview object.
 
 
 
 
 
 
-# no closing } necessary, as well as no indentation at the top level because the top level statements can be left unindented and will still be children of the object declared at the top level
+# no closing end necessary, as well as no indentation at the top level because the top level statements can be left unindented and will still be children of the object declared at the top level
 
 # named tuple values
 color3: (r: float, g: float, b: float, a: float) = (1.0, 1.0, 1.0, 1.0)
