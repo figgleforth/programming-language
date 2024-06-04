@@ -4,7 +4,7 @@ class AstNode
 
     def initialize
         @tokens     = []
-        @short_form = true
+        @short_form = false #true
     end
 
 
@@ -103,7 +103,7 @@ class MethodParamNode < AstNode
 
 
     def to_s
-        "Param(#{name}".tap do |str|
+        "Param(name: #{name}".tap do |str|
             str << ", type: #{type}" if type
             str << ", label: #{label}" if label
             str << ')'
