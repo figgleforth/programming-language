@@ -11,7 +11,7 @@ class Token
    # token == '#'
    def == other
       if other.is_a? Class
-         other == self.class
+         other == self.class or self.is_a?(other)
       else
          other == string
       end
@@ -120,7 +120,8 @@ class SymbolToken < Token # special symbols of one or more characters. they are 
    UNARY_OPERATORS  = %w(- + ~ !)
 
    def to_s
-      "#{string}"
+      # "#{string}"
+      string
    end
 
 

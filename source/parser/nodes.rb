@@ -128,6 +128,38 @@ class FuncParamNode < Ast_Node
 end
 
 
+class FuncArgNode < Ast_Node
+    attr_accessor :expression, :label
+
+
+    def to_s
+        "#{short_form ? '' : 'Arg'}(#{expression.to_s}".tap do |str|
+            str << ", label: #{label}" if label
+            str << ')'
+        end
+    end
+end
+
+
+class FuncCallNode < Ast_Node
+    attr_accessor :function_name, :arguments
+
+
+    def initialize
+        super
+        @arguments = []
+    end
+
+
+    def to_s
+        "#{short_form ? '' : 'FuncCall'}(name: #{function_name}".tap do |str|
+            str << ", args(#{arguments.count}): #{arguments.map(&:to_s)}" unless arguments.empty?
+            str << ')'
+        end
+    end
+end
+
+
 class VarAssignmentNode < Ast_Node
     attr_accessor :name, :type, :value
 

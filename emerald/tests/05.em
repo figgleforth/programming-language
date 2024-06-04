@@ -5,3 +5,9 @@ abc = true && true
 true && false
 false && false
 -1
+
+boo.hoo.try(3 + 4, like: 5, again: abc)
+
+
+
+

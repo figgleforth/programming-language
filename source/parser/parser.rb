@@ -261,7 +261,43 @@ class Parser
     end
 
 
-    def parse_method_declaration
+    def parse_function_call
+        def parse_args
+            # Ident: Expr (,)
+            # Expr (,)
+            [].tap do |params|
+                while peek?(Token) and curr != ')'
+                    params << FuncArgNode.new.tap do |param|
+                        if peek? IdentifierToken, ':' #, Token
+                            param.label = eat IdentifierToken
+                            eat ':'
+                        end
+
+                        param.expression = if peek? Token, ','
+                            parse_block ','
+                        elsif peek? Token, ')'
+                            parse_block ')'
+                        else
+                            parse_block %w[, )]
+                        end.first
+                    end
+
+                    eat if peek? ','
+                end
+            end
+        end
+
+
+        FuncCallNode.new.tap do |node|
+            node.function_name = eat IdentifierToken
+            eat '('
+            node.arguments = parse_args
+            eat ')'
+        end
+    end
+
+
+    def parse_function_declaration
         def parse_params
             [].tap do |params|
                 # Ident : Ident (,)
@@ -283,7 +319,7 @@ class Parser
                         end
 
                         if peek? ',' and not peek?(',', IdentifierToken)
-                            raise 'Expecting param after comma in method param declaration'
+                            raise 'Expecting param after comma in function param declaration'
                         elsif peek? ','
                             eat
                         end
@@ -336,16 +372,6 @@ class Parser
     end
 
 
-    def parse_subscript
-        # todo
-        eat '['
-        parse_statements.tap do
-            eat ']'
-        end
-    end
-
-
-    # @todo . access
     def parse_leaf
         if peek? '('
             eat '('
@@ -367,7 +393,7 @@ class Parser
             parse_unary_expr
 
         elsif peek? 'fun', IdentifierToken
-            parse_method_declaration
+            parse_function_declaration
 
         elsif peek? 'obj', IdentifierToken
             parse_object_declaration
@@ -380,6 +406,9 @@ class Parser
 
         elsif peek? IdentifierToken, '='
             parse_untyped_var_declaration_or_reassignment
+
+        elsif peek? IdentifierToken, '('
+            parse_function_call
 
         elsif peek? StringToken or peek? NumberToken
             parse_string_or_number_literal
@@ -397,7 +426,7 @@ class Parser
             after   = @tokens[@i + 1..@i + 3]
             context = @tokens[@i - 3..@i]
 
-            raise "\n\nUnhandled #{curr} in code\n\n#{context.map(&:to_s).join(' ')}"
+            raise "\n\nUnhandled #{curr} in code\n\n#{context.map(&:to_s).join(' ')} <----"
 
             # raise "\n\nUnhandled #{curr} in sequence\n\n#{before.map(&:to_s)}\n#{after.map(&:to_s)}"
         end
@@ -406,7 +435,6 @@ class Parser
 
     def parse until_token = EOFToken
         @statements = []
-
         while tokens? and curr != EOFToken
             if until_token.is_a? Array
                 break if until_token.any? do |t|
