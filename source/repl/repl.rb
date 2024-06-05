@@ -34,7 +34,7 @@ class REPL
                 lexer.source = input
 
                 parser = Parser.new
-                parser.tokens = lexer.lex
+                parser.buffer = lexer.lex
                 # tokens = scanner.string_to_tokens input
 
                 puts

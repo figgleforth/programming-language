@@ -20,7 +20,7 @@ class Lexer
         SINGLE_SYMBOLS
     ].flatten
 
-    attr_accessor :i, :col, :row, :source, :tokens
+    attr_accessor :i, :col, :row, :source, :buffer
 
 
     def initialize source = nil

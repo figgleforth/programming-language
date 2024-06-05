@@ -3,119 +3,146 @@ class Parser
     require_relative '../lexer/tokens'
     require_relative 'nodes'
 
-    attr_accessor :i, :tokens, :statements
+    attr_accessor :i, :buffer, :statements
 
 
-    def initialize tokens = nil
+    def initialize buffer = []
         @statements = []
-        @tokens     = tokens
+        @buffer     = buffer
         @i          = 0 # index of current token
     end
 
 
-    PRECEDENCES = [
-        %w(( )),
-        %w([ ]),
-        %w(!),
-        %w(- +), # Unary minus and plus
-        %w(**), # Exponentiation
-        %w(* / %), # Multiplicative
-        %w(+ -), # Additive
-        %w(<< >>), # Shift
-        %w(< <= > >=), # Relational
-        %w(== != === !==), # Equality
-        %w(&), # Bitwise AND
-        %w(^), # Bitwise XOR
-        %w(|), # Bitwise OR
-        %w(&&), # Logical AND
-        %w(||), # Logical OR
-        %w(?:), # Ternary
-        %w(= += -= *= /= %= &= |= ^= <<= >>=), # Assignment
-        %w(,), # Comma
-        %w(.),
-    ]
+    # region Parsing Helpers
+    # makes a new Parser and sets its tokens to the current remainder
+    def new_parser_with_remainder_as_buffer
+        Parser.new remainder
+    end
 
 
+    # array of precedences, ordered by precedence. if the token provided matches one of the operator symbols in the array, then its precedence is the index of that operator symbol in the precedences array.
     def precedence_for token
-        # PRECEDENCES.find do |_, chars|
-        #     chars.include?(token.string)
-        # end&.at(0)
-        PRECEDENCES.find_index do |chars|
+        # todo: check if anything doesn't belong here, or in this language
+        [
+            %w(( )), # 0
+            %w([ ]), # 1
+            %w(!), # 2
+            %w(- +), # 3 Unary minus and plus
+            %w(**), # 4 Exponentiation
+            %w(* / %), # 5 Multiplicative
+            %w(+ -), # 6 Additive
+            %w(<< >>), # 7 Shift
+            %w(< <= > >=), # 8 Relational
+            %w(== != === !==), # 9 Equality
+            %w(&), # 10 Bitwise AND
+            %w(^), # 11 Bitwise XOR
+            %w(|), # 12 Bitwise OR
+            %w(&&), # 13 Logical AND
+            %w(||), # 14 Logical OR
+            %w(?:), # 15 Ternary
+            %w(= += -= *= /= %= &= |= ^= <<= >>=), # 16 Assignment
+            %w(,), # 17
+            %w(.),
+        ].find_index do |chars|
             chars.include?(token.string)
         end
     end
 
 
-    def last
-        @tokens[@i - 1]
+    # buffer[i - 1]
+    def prev
+        peek -1
     end
 
 
+    # buffer[i]
     def curr
-        raise 'Parser.tokens is nil' unless tokens
-        @tokens[@i]
+        peek 0
     end
 
 
+    # buffer[i..]
     def remainder
-        @tokens[@i..]
+        @buffer[@i..]
     end
 
 
+    # whether there are tokens remaining to be parsed
     def tokens?
-        @i < (@tokens&.length || 0)
+        @i < (@buffer&.length || 0)
     end
 
 
-    def assert_token token, expected
-        raise "Expected #{expected} but got #{token}" unless token == expected
+    # looks at token without eating, can look backwards as well but peek index is clamped to buffer. if accumulated, returns an array of tokens. otherwise returns a single token
+    def peek ahead = 0
+        raise 'Parser.tokens is nil' unless buffer
+
+        index = ahead.clamp(0, @buffer.count)
+        @buffer[@i + index]
     end
 
 
-    def assert_condition token, condition
-        raise "Unexpected #{token}" if condition == false
+    # looks ahead `count` tokens, without consuming them. cannot peek backwards
+    def peek_many count = 2
+        raise 'Parser.tokens is nil' unless buffer
+
+        remainder.slice 0, count
     end
 
 
-    # original version of peek, I don't think it'll be useful now that #peek? exists
-    def peek at = 1, length = 1
-        @tokens[@i + at, length]
+    # slices buffer until specified token, so it isn't included in the result. doesn't actually consume the buffer, you still have to do that by calling eat. easier to iterate this than fuck with the actual pointer in the buffer
+    def peek_until token = "\n"
+        remainder.slice_before do |t|
+            t == token
+        end.to_a.first
     end
 
 
-    def peek? * expected
-        return false unless remainder
+    # slices buffer past specified token, so it is included in the result. doesn't actually consume the buffer, you still have to do that by calling eat. easier to iterate this than fuck with the actual pointer in the buffer
+    def peek_past token = "\n"
+        remainder.slice_after do |t|
+            t == token
+        end.to_a.first
+    end
 
-        check = remainder&.reject do |token|
-            # reject delimiters except ; and \n
-            token == DelimiterToken and token != ';' and token != "\n"
-        end[..expected.length - 1]
 
-        return false unless check and not check.empty? # all? returns true for an empty array [].all? so this early return is required
+    # uses peek_until to get count of tokens until specified token, then adds that count to the buffer pointer @i
+    def eat_until token = "\n"
+        @i += peek_until(token).count
+    end
 
-        check.each_with_index.all? do |token, index|
-            if expected[index].is_a? Array
-                expected[index].any? { |exp| token == exp }
+
+    # uses peek_past to get count of tokens until it passes specified token, then adds that count to the buffer pointer @i
+    def eat_past token = "\n"
+        @i += peek_past(token).count
+    end
+
+
+    # checks whether the remainder buffer contains the exact sequence of tokens. if one of the arguments is an array then that token in the sequence can be either of the two. eg: ident, [:, =, :=]
+    def peek? * sequence
+        remainder.slice(0, sequence.count).each_with_index.all? do |token, index|
+            if sequence[index].is_a? Array
+                sequence[index].any? do |expected|
+                    token == expected
+                end
             else
-                token == expected[index]
+                token == sequence[index]
             end
         end
     end
 
-
-    def eat * expected
-        if expected.nil? or expected.empty? or expected.one?
+    # eats a specific sequence of tokens, either Token class or exact string. eg: eat StringLiteralToken, eat '.'. etc
+    # idea: support sequence of elements where an element can be one of many, like the sequence [IdentifierToken, [:=, =]]
+    def eat * sequence
+        if sequence.nil? or sequence.empty? or sequence.one?
+            eaten = curr
             @i += 1
-            return last
+            return eaten
         end
 
         [].tap do |result|
-            expected.each do |expect|
-                # eg: 'obj', IdentifierToken
-
-                @i += 1 while curr == DelimiterToken and curr != ';' # skip delimiters except ;
-
-                assert_token curr, expect
+            sequence.each do |expected|
+                raise "Expected #{expected} but got #{curr}" unless curr == expected
                 result << curr
                 @i += 1
             end
@@ -123,32 +150,9 @@ class Parser
     end
 
 
-    def parse_statements precedence = 0
-        left = parse_leaf
-        return left unless left
+    # endregion
 
-        while tokens? and curr
-            break unless curr == SymbolToken and curr.binary?
-            # break if curr == SymbolToken and curr.unary?
-
-            curr_prec = precedence_for curr
-            break if curr_prec <= precedence
-
-            left = BinaryExprNode.new.tap do |node|
-                node.left     = left
-                node.operator = eat SymbolToken
-
-                # @todo is this the right way to handle this? what if I want expressions on the next line? maybe some keyword like `\`?
-                raise 'Expected expression' if peek? "\n"
-
-                node.right = parse_statements curr_prec
-                eat if curr == ']'
-            end
-        end
-
-        left
-    end
-
+    # region Sequence Parsing
 
     def parse_typed_var_declaration
         VarAssignmentNode.new.tap do |node|
@@ -158,10 +162,9 @@ class Parser
 
             # eat while curr == "\s"
 
-
             if peek? '='
                 eat '='
-                node.value = parse_statements
+                node.value = parse_statement
             end
         end
     end
@@ -173,7 +176,7 @@ class Parser
             raise 'Expected expression' if peek? "\n"
 
             node.name  = tokens[0]
-            node.value = parse_statements
+            node.value = parse_statement
         end
     end
 
@@ -189,7 +192,7 @@ class Parser
             # ""
             # number
             # identifier
-            node.value = parse_statements
+            node.value = parse_statement
             # node.type = tokens[2]
         end
     end
@@ -209,7 +212,7 @@ class Parser
     def parse_unary_expr
         UnaryExprNode.new.tap do |node|
             node.operator = eat SymbolToken
-            node.operand  = parse_statements precedence_for(node.operator)
+            node.operand  = parse_statement precedence_for(node.operator)
         end
     end
 
@@ -375,10 +378,13 @@ class Parser
     end
 
 
+    # endregion
+
     def parse_leaf
         if peek? '('
-            eat '('
-            parse_statements.tap do
+            open_paren = eat '('
+            precedence = precedence_for(open_paren)
+            parse_statement(precedence).tap do
                 eat ')'
             end
 
@@ -407,7 +413,7 @@ class Parser
             parse_untyped_var_declaration_or_reassignment
 
         elsif peek? IdentifierToken, '('
-            # @todo function calls without parens
+            # todo: function calls without parens
             parse_function_call
 
         elsif peek? StringToken or peek? NumberToken
@@ -422,8 +428,36 @@ class Parser
             end
 
         else
-            raise "\n\nUnhandled `#{curr}` in code:\n\n#{remainder.map(&:to_s)}"
+            raise "\n\nUnhandled:\n\t#{curr}\n\nbuffer:\n\t#{@buffer[..5].map(&:to_s)}\n\nremainder:\n\t#{remainder.map(&:to_s)}"
         end
+    end
+
+
+    def parse_statement precedence = 0
+        left = parse_leaf
+        # return left unless left # todo: do I need this?
+        # return left if curr == EOFToken
+
+        while tokens? and curr
+            break unless curr == SymbolToken and curr.binary?
+            # break if curr == SymbolToken and curr.unary?
+
+            curr_prec = precedence_for curr
+            break if curr_prec <= precedence
+
+            left = BinaryExprNode.new.tap do |node|
+                node.left     = left
+                node.operator = eat SymbolToken
+
+                # todo: is this the right way to handle this? what if I want expressions on the next line? maybe some keyword like `\`?
+                raise 'Expected expression' if peek? "\n"
+
+                node.right = parse_statement curr_prec
+                eat if curr == ']'
+            end
+        end
+
+        left
     end
 
 
@@ -438,7 +472,7 @@ class Parser
                 break if curr == until_token
             end
 
-            @statements << parse_statements
+            @statements << parse_statement
         end
         @statements.compact
     end

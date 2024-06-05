@@ -26,7 +26,7 @@ end
 
 class EOFToken < Token
    def to_s
-      'EOF'
+      '\eof'
    end
 end
 
@@ -87,8 +87,8 @@ end
 
 class NumberToken < Token
    def to_s
+      # string
       "Num(#{string})"
-      string
    end
 
 

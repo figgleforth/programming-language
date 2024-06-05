@@ -45,8 +45,8 @@ class NumberLiteralNode < Ast_Node
 
 
     def to_s
-        # "Num(#{token.string})"
         token.string
+        "Num(#{token.string})"
     end
 
 
