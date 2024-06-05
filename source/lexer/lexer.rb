@@ -320,6 +320,11 @@ class Lexer
                         reduce_delimiters while last == curr # eat subsequent \s
                     end
                 elsif curr == "\s"
+                    # if @tokens.last.is_a?(IdentifierToken)
+                    #     @tokens << DelimiterToken.new("\s")
+                    # end
+                    # @note lexing \s breaks a lot. so don't
+
                     eat while curr.whitespace?
                     reduce_delimiters while last == curr
                 end

@@ -3,7 +3,7 @@ class Ast_Node
 
 
     def initialize
-        @short_form = true
+        @short_form = false
     end
 
 

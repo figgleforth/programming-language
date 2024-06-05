@@ -34,11 +34,11 @@ end
 class DelimiterToken < Token
    def to_s
       if string == ';'
-         "   [;]"
+         ";"
       elsif string == "\s"
-         "   [s]"
+         '\s'
       else
-         "   [n]"
+         '\n'
       end
    end
 end
@@ -88,6 +88,7 @@ end
 class NumberToken < Token
    def to_s
       "Num(#{string})"
+      string
    end
 
 

@@ -156,6 +156,9 @@ class Parser
             node.name = tokens[0]
             node.type = tokens[2]
 
+            # eat while curr == "\s"
+
+
             if peek? '='
                 eat '='
                 node.value = parse_statements
@@ -378,10 +381,6 @@ class Parser
             parse_statements.tap do
                 eat ')'
             end
-            # elsif peek? '['
-            #     parse_statements.tap do
-            #         eat ']'
-            #     end
 
         elsif peek? %w({ }) # for blocks that are not handled as part of other constructs. like just a random block surrounded by { and }
             eat and nil
@@ -389,7 +388,7 @@ class Parser
         elsif peek? CommentToken
             eat and nil
 
-        elsif peek? SymbolToken and curr.unary? # %w(- + ~ !)
+        elsif peek? SymbolToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             parse_unary_expr
 
         elsif peek? 'fun', IdentifierToken
@@ -408,27 +407,22 @@ class Parser
             parse_untyped_var_declaration_or_reassignment
 
         elsif peek? IdentifierToken, '('
+            # @todo function calls without parens
             parse_function_call
 
         elsif peek? StringToken or peek? NumberToken
             parse_string_or_number_literal
 
-        elsif peek? DelimiterToken
-            eat and nil # don't care about delimiters that weren't already handled by the other cases
+        elsif peek? DelimiterToken # don't care about delimiters that weren't already handled by the other cases
+            eat and nil
 
         elsif peek? IdentifierToken
             IdentExprNode.new.tap do |node|
-                node.name = eat
+                node.name = eat IdentifierToken
             end
 
         else
-            before  = @tokens[@i - 3..@i - 1]
-            after   = @tokens[@i + 1..@i + 3]
-            context = @tokens[@i - 3..@i]
-
-            raise "\n\nUnhandled #{curr} in code\n\n#{context.map(&:to_s).join(' ')} <----"
-
-            # raise "\n\nUnhandled #{curr} in sequence\n\n#{before.map(&:to_s)}\n#{after.map(&:to_s)}"
+            raise "\n\nUnhandled `#{curr}` in code:\n\n#{remainder.map(&:to_s)}"
         end
     end
 
