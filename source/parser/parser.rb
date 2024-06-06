@@ -1,15 +1,15 @@
 # Turns string of code into tokens
 class Parser
     require_relative '../lexer/tokens'
-    require_relative 'nodes'
+    require_relative 'ast'
 
-    attr_accessor :i, :buffer, :statements
+    attr_accessor :i, :buffer, :program
 
 
     def initialize buffer = []
-        @statements = []
-        @buffer     = buffer
-        @i          = 0 # index of current token
+        @program = Program.new
+        @buffer  = buffer
+        @i       = 0 # index of current token
     end
 
 
@@ -20,44 +20,44 @@ class Parser
     end
 
 
-    # array of precedences, ordered by precedence. if the token provided matches one of the operator symbols in the array, then its precedence is the index of that operator symbol in the precedences array.
+    # array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned.
     def precedence_for token
         # todo: check if anything doesn't belong here, or in this language
         [
-            %w(( )), # 0
-            %w([ ]), # 1
-            %w(!), # 2
-            %w(- +), # 3 Unary minus and plus
-            %w(**), # 4 Exponentiation
-            %w(* / %), # 5 Multiplicative
-            %w(+ -), # 6 Additive
-            %w(<< >>), # 7 Shift
-            %w(< <= > >=), # 8 Relational
-            %w(== != === !==), # 9 Equality
-            %w(&), # 10 Bitwise AND
-            %w(^), # 11 Bitwise XOR
-            %w(|), # 12 Bitwise OR
-            %w(&&), # 13 Logical AND
-            %w(||), # 14 Logical OR
-            %w(?:), # 15 Ternary
-            %w(= += -= *= /= %= &= |= ^= <<= >>=), # 16 Assignment
-            %w(,), # 17
-            %w(.),
-        ].find_index do |chars|
+            [0, %w(( ))],
+            [1, %w([ ])],
+            [2, %w(!)],
+            [3, %w(- +)], # Additive
+            [4, %w(**)], # Exponentiation
+            [5, %w(* / %)], # Multiplicative
+            # 6 is reserved for unary + -
+            [7, %w(<< >>)], # Shift
+            [8, %w(< <= > >=)], # Relational
+            [9, %w(== != === !==)], # Equality
+            [10, %w(&)], # Bitwise AND
+            [11, %w(^)], # Bitwise XOR
+            [12, %w(|)], # Bitwise OR
+            [13, %w(&&)], # Logical AND
+            [14, %w(||)], # Logical OR
+            [15, %w(?:)], # Ternary
+            [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
+            [18, %w(,)],
+            [19, %w(.)],
+        ].find do |_, chars|
             chars.include?(token.string)
-        end
+        end&.at(0)
     end
 
 
     # buffer[i - 1]
     def prev
-        peek -1
+        at -1
     end
 
 
     # buffer[i]
     def curr
-        peek 0
+        at 0
     end
 
 
@@ -74,7 +74,7 @@ class Parser
 
 
     # looks at token without eating, can look backwards as well but peek index is clamped to buffer. if accumulated, returns an array of tokens. otherwise returns a single token
-    def peek ahead = 0
+    def at ahead = 0
         raise 'Parser.tokens is nil' unless buffer
 
         index = ahead.clamp(0, @buffer.count)
@@ -131,12 +131,13 @@ class Parser
         end
     end
 
+
     # eats a specific sequence of tokens, either Token class or exact string. eg: eat StringLiteralToken, eat '.'. etc
     # idea: support sequence of elements where an element can be one of many, like the sequence [IdentifierToken, [:=, =]]
     def eat * sequence
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
-            @i += 1
+            @i    += 1
             return eaten
         end
 
@@ -155,7 +156,7 @@ class Parser
     # region Sequence Parsing
 
     def parse_typed_var_declaration
-        VarAssignmentNode.new.tap do |node|
+        AssignmentExpr.new.tap do |node|
             tokens    = eat IdentifierToken, ':', IdentifierToken
             node.name = tokens[0]
             node.type = tokens[2]
@@ -164,25 +165,25 @@ class Parser
 
             if peek? '='
                 eat '='
-                node.value = parse_statement
+                node.value = parse_expression
             end
         end
     end
 
 
     def parse_untyped_var_declaration_or_reassignment
-        VarAssignmentNode.new.tap do |node|
+        AssignmentExpr.new.tap do |node|
             tokens = eat IdentifierToken, '='
             raise 'Expected expression' if peek? "\n"
 
             node.name  = tokens[0]
-            node.value = parse_statement
+            node.value = parse_expression
         end
     end
 
 
     def parse_inferred_var_declaration
-        VarAssignmentNode.new.tap do |node|
+        AssignmentExpr.new.tap do |node|
             tokens = eat IdentifierToken, ':='
             raise 'Expected expression' if peek? "\n"
 
@@ -192,7 +193,7 @@ class Parser
             # ""
             # number
             # identifier
-            node.value = parse_statement
+            node.value = parse_expression
             # node.type = tokens[2]
         end
     end
@@ -200,9 +201,9 @@ class Parser
 
     def parse_string_or_number_literal
         if curr == StringToken
-            StringLiteralNode.new
+            StringExpr.new
         else
-            NumberLiteralNode.new
+            NumberExpr.new
         end.tap do |literal|
             literal.token = eat
         end
@@ -210,9 +211,9 @@ class Parser
 
 
     def parse_unary_expr
-        UnaryExprNode.new.tap do |node|
-            node.operator = eat SymbolToken
-            node.operand  = parse_statement precedence_for(node.operator)
+        UnaryExpr.new.tap do |node|
+            node.operator   = eat SymbolToken
+            node.expression = parse_expression 6 # this cannot use #precedence_for because it would return the same precedence as the binary operators of the same symbol, but we need to be able to be distinguish between the unary
         end
     end
 
@@ -226,7 +227,7 @@ class Parser
         #    obj Ident > Ident (imp Ident, ...) ({) \n
         #       (imp Ident, ...)
         #    }
-        ObjectDeclNode.new.tap do |node|
+        ObjectExpr.new.tap do |node|
             node.type = eat('obj', IdentifierToken).last
 
             if peek? '>', IdentifierToken
@@ -239,7 +240,7 @@ class Parser
             while peek? 'imp'
                 node.compositions << eat('imp', IdentifierToken).last
 
-                while curr == ',' and peek[0] == IdentifierToken
+                while curr == ',' and at[0] == IdentifierToken
                     node.compositions << eat(',', IdentifierToken).last
                 end
 
@@ -273,7 +274,7 @@ class Parser
             # Expr (,)
             [].tap do |params|
                 while peek?(Token) and curr != ')'
-                    params << FuncArgNode.new.tap do |param|
+                    params << FunctionArgExpr.new.tap do |param|
                         if peek? IdentifierToken, ':' #, Token
                             param.label = eat IdentifierToken
                             eat ':'
@@ -294,7 +295,7 @@ class Parser
         end
 
 
-        FuncCallNode.new.tap do |node|
+        FunctionCallExpr.new.tap do |node|
             node.function_name = eat IdentifierToken
             eat '('
             node.arguments = parse_args
@@ -309,7 +310,7 @@ class Parser
                 # Ident : Ident (,)
                 # Ident Ident : Ident ... first ident here is a label
                 while peek? IdentifierToken
-                    params << FuncParamNode.new.tap do |param|
+                    params << FunctionParamExpr.new.tap do |param|
                         if peek? IdentifierToken, IdentifierToken
                             param.label = eat IdentifierToken
                             param.name  = eat IdentifierToken
@@ -345,7 +346,7 @@ class Parser
         end
 
 
-        FuncDeclNode.new.tap do |node|
+        FunctionExpr.new.tap do |node|
             node.name = eat('fun', IdentifierToken).last
 
             if peek? %w(: -> >> ::), IdentifierToken
@@ -380,11 +381,12 @@ class Parser
 
     # endregion
 
-    def parse_leaf
+    # any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
+    def parse_ast
         if peek? '('
             open_paren = eat '('
             precedence = precedence_for(open_paren)
-            parse_statement(precedence).tap do
+            parse_expression(precedence).tap do
                 eat ')'
             end
 
@@ -423,7 +425,7 @@ class Parser
             eat and nil
 
         elsif peek? IdentifierToken
-            IdentExprNode.new.tap do |node|
+            IdentifierExpr.new.tap do |node|
                 node.name = eat IdentifierToken
             end
 
@@ -433,27 +435,25 @@ class Parser
     end
 
 
-    def parse_statement precedence = 0
-        left = parse_leaf
-        # return left unless left # todo: do I need this?
-        # return left if curr == EOFToken
+    def parse_expression starting_precedence = 0
+        left = parse_ast
 
-        while tokens? and curr
+        # if token after left is a binary operator, then we build a binary expression
+        while tokens?
             break unless curr == SymbolToken and curr.binary?
-            # break if curr == SymbolToken and curr.unary?
 
-            curr_prec = precedence_for curr
-            break if curr_prec <= precedence
+            curr_operator_prec = precedence_for curr
+            break if curr_operator_prec <= starting_precedence
 
-            left = BinaryExprNode.new.tap do |node|
+            left = BinaryExpr.new.tap do |node|
                 node.left     = left
                 node.operator = eat SymbolToken
 
-                # todo: is this the right way to handle this? what if I want expressions on the next line? maybe some keyword like `\`?
+                # todo: handle multiline statements?
                 raise 'Expected expression' if peek? "\n"
 
-                node.right = parse_statement curr_prec
-                eat if curr == ']'
+                node.right = parse_expression curr_operator_prec
+                eat if curr == ']' # todo: is this fine? it gives me a creepy feeling.
             end
         end
 
@@ -462,7 +462,7 @@ class Parser
 
 
     def parse until_token = EOFToken
-        @statements = []
+        program.expressions = []
         while tokens? and curr != EOFToken
             if until_token.is_a? Array
                 break if until_token.any? do |t|
@@ -472,8 +472,8 @@ class Parser
                 break if curr == until_token
             end
 
-            @statements << parse_statement
+            program.expressions << parse_expression
         end
-        @statements.compact
+        program.expressions.compact!
     end
 end

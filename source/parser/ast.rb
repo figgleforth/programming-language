@@ -1,9 +1,24 @@
-class Ast_Node
-    attr_accessor :short_form
+class Ast
+end
+
+
+class Program < Ast
+    attr_accessor :expressions
 
 
     def initialize
-        @short_form = false
+        @expressions = []
+    end
+end
+
+
+class Ast_Expression < Ast
+    attr_accessor :short_form,
+                  :inferred_type
+
+
+    def initialize
+        @short_form = true
     end
 
 
@@ -19,12 +34,12 @@ class Ast_Node
 end
 
 
-class StringLiteralNode < Ast_Node
+class StringExpr < Ast_Expression
     attr_accessor :token
 
 
     def to_s
-        "Str(#{token.string})"
+        "#{short_form ? '' : 'Str'}(#{token.string})"
     end
 
 
@@ -34,7 +49,7 @@ class StringLiteralNode < Ast_Node
 end
 
 
-class NumberLiteralNode < Ast_Node
+class NumberExpr < Ast_Expression
     attr_accessor :token
 
 
@@ -45,8 +60,9 @@ class NumberLiteralNode < Ast_Node
 
 
     def to_s
-        token.string
-        "Num(#{token.string})"
+        long  = "Num(#{token.string})"
+        short = "#{token.string}"
+        short_form ? short : long
     end
 
 
@@ -66,7 +82,7 @@ class NumberLiteralNode < Ast_Node
 end
 
 
-class ObjectDeclNode < Ast_Node
+class ObjectExpr < Ast_Expression
     attr_accessor :type, :base_type, :compositions, :statements, :is_top_level
 
 
@@ -91,7 +107,7 @@ class ObjectDeclNode < Ast_Node
 end
 
 
-class FuncDeclNode < Ast_Node
+class FunctionExpr < Ast_Expression
     attr_accessor :name, :return_type, :parameters, :statements
 
 
@@ -114,7 +130,19 @@ class FuncDeclNode < Ast_Node
 end
 
 
-class FuncParamNode < Ast_Node
+class CommaSeparatedExpr < Ast_Expression
+    attr_accessor :expressions,
+                  :count
+
+
+    def expressions= val
+        @expressions = val
+        @count       = val.count
+    end
+end
+
+
+class FunctionParamExpr < Ast_Expression
     attr_accessor :name, :label, :type
 
 
@@ -128,7 +156,7 @@ class FuncParamNode < Ast_Node
 end
 
 
-class FuncArgNode < Ast_Node
+class FunctionArgExpr < Ast_Expression
     attr_accessor :expression, :label
 
 
@@ -141,7 +169,7 @@ class FuncArgNode < Ast_Node
 end
 
 
-class FuncCallNode < Ast_Node
+class FunctionCallExpr < Ast_Expression
     attr_accessor :function_name, :arguments
 
 
@@ -152,7 +180,7 @@ class FuncCallNode < Ast_Node
 
 
     def to_s
-        "#{short_form ? '' : 'FuncCall'}(name: #{function_name}".tap do |str|
+        "FuncCall(name: #{function_name}".tap do |str|
             str << ", args(#{arguments.count}): #{arguments.map(&:to_s)}" unless arguments.empty?
             str << ')'
         end
@@ -160,7 +188,7 @@ class FuncCallNode < Ast_Node
 end
 
 
-class VarAssignmentNode < Ast_Node
+class AssignmentExpr < Ast_Expression
     attr_accessor :name, :type, :value
 
 
@@ -183,14 +211,14 @@ class VarAssignmentNode < Ast_Node
 end
 
 
-class UnaryExprNode < Ast_Node
+class UnaryExpr < Ast_Expression
     require_relative '../lexer/tokens'
-    attr_accessor :operator, :operand
+    attr_accessor :operator, :expression
 
 
     def to_s
-        long  = "UE(#{operator.string}#{operand})"
-        short = "(#{operator.string}#{operand})"
+        long  = "UE(#{operator.string}#{expression})"
+        short = "(#{operator.string}#{expression})"
         short_form ? short : long
     end
 
@@ -198,22 +226,22 @@ class UnaryExprNode < Ast_Node
     def evaluate
         case operator.string
             when '-'
-                operand.evaluate * -1
+                expression.evaluate * -1
             when '+'
-                operand.evaluate * +1
+                expression.evaluate * +1
             when '~'
                 raise 'Dunno how to ~'
             when '!'
-                not operand.evaluate
+                not expression.evaluate
             else
                 puts "what??? #{operator}"
-                raise "UnaryExprNode(#{operator.string.inspect}) not implemented"
+                raise "UnaryExpr(#{operator.string.inspect}) not implemented"
         end
     end
 end
 
 
-class BinaryExprNode < Ast_Node
+class BinaryExpr < Ast_Expression
     attr_accessor :operator, :left, :right
 
 
@@ -249,7 +277,7 @@ class BinaryExprNode < Ast_Node
 end
 
 
-class IdentExprNode < Ast_Node
+class IdentifierExpr < Ast_Expression
     require_relative '../lexer/lexer'
     attr_accessor :name
 
