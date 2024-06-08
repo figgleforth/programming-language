@@ -1,4 +1,4 @@
-The goal is to run a web application in as few lines of code as possible . Here's the current vision, using some built-in constructs.
+The goal is to run a web application in as few lines of code as possible. Here's the current vision, using some built-in constructs.
 
 Database records
 ```
