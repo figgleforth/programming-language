@@ -244,7 +244,7 @@ class Lexer
                 comment << eat
             end
 
-            eat "\n" # don't care to know if there's a newline after a comment
+            # eat "\n" # don't care to know if there's a newline after a comment
         end
     end
 
@@ -262,7 +262,7 @@ class Lexer
             end
 
             eat_many 3, marker
-            eat "\n" while curr.newline? # don't care to know if there's a newline after a comment
+            # eat "\n" while curr.newline? # don't care to know if there's a newline after a comment
         end
     end
 
