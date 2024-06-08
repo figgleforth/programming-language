@@ -54,6 +54,7 @@ class StringExpr < Ast_Expression
 
     def to_s
         "#{short_form ? '' : 'Str'}(#{token.string})"
+        inspect
     end
 
 
@@ -113,7 +114,7 @@ class ObjectExpr < Ast_Expression
         "#{short_form ? '' : 'Obj'}(#{type}".tap do |str|
             str << ", base: #{base_type}" if base_type
             str << ", comps(#{compositions.count}): #{compositions.map(&:to_s)}" unless compositions.empty?
-            str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+            str << ", exprs(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
             str << ')'
         end
     end

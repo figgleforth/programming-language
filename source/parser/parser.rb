@@ -229,15 +229,14 @@ class Parser
     end
 
 
-
     def parse_object_declaration
         # if first statement of program then it's top-level object declaration
-        #    obj Ident > Ident (imp Ident, ...) ({) \n
-        #    (imp Ident, ...)
+        #    obj Ident > Ident (inc Ident, ...) ({) \n
+        #    (inc Ident, ...)
         #
         # otherwise
-        #    obj Ident > Ident (imp Ident, ...) ({) \n
-        #       (imp Ident, ...)
+        #    obj Ident > Ident (inc Ident, ...) ({) \n
+        #       (inc Ident, ...)
         #    }
         ObjectExpr.new.tap do |node|
             node.type = eat('obj', IdentifierToken).last&.string
@@ -249,15 +248,15 @@ class Parser
 
             eat while peek? %W({ \n) # if we see \n or { then there needs to be a body. otherwise ; is expected
 
-            # api implementations
-            while peek? 'imp' and eat
+            # api compositions
+            while peek? 'inc' and eat
                 node.compositions << eat(IdentifierToken)
 
                 while peek? ',', IdentifierToken
                     node.compositions << eat(',', IdentifierToken).last
                 end
 
-                raise "Unexpected `,` without additional imps" if curr == ','
+                raise "Unexpected `,` without additional `inc`s" if curr == ','
                 eat while curr == "\n"
             end
 
@@ -360,7 +359,16 @@ class Parser
 
         FunctionExpr.new.tap do |node|
             eat # fun or def, I like both
-            node.name = eat IdentifierToken
+            # node.name = eat IdentifierToken
+
+            if peek? [SymbolToken, IdentifierToken]
+                node.name = eat
+                # node.name = eat IdentifierToken
+                # elsif peek? IdentifierToken
+                #     node.name = eat IdentifierToken
+            else
+                raise "Unexpected fun ident #{curr.inspect}"
+            end
 
             if peek? '(' # params
                 eat '('
@@ -412,7 +420,10 @@ class Parser
         elsif peek? SymbolToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             parse_unary_expr
 
-        elsif peek?(%w(fun def), IdentifierToken) # or peek?('def', IdentifierToken)
+        elsif peek? '@' or peek? 'self'
+            eat
+
+        elsif peek? %w(fun def) # I like both def and fun
             parse_function_declaration
 
         elsif peek? 'obj', IdentifierToken
@@ -427,8 +438,7 @@ class Parser
         elsif peek? IdentifierToken, '='
             parse_untyped_var_declaration_or_reassignment
 
-        elsif peek? IdentifierToken, '('
-            # todo: function calls without parens
+        elsif peek? IdentifierToken, '(' # todo: function calls without parens
             parse_function_call
 
         elsif peek? StringToken or peek? NumberToken

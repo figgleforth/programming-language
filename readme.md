@@ -2,19 +2,19 @@ The goal is to run a web application in as few lines of code as possible. Here's
 
 Database records
 ```
-obj User imp Record
+obj User inc Record
    email: string
    posts: [Post] # like Rails has_many
 }
 
-obj Post imp Record
+obj Post inc Record
    user: User # like Rails belongs_to
 }
 ```
 
 Servers
 ```
-obj Primary_Server imp Server
+obj Primary_Server inc Server
    port = 3000 # port for this server
    database = 'development' # database for this server  
 }
@@ -22,7 +22,7 @@ obj Primary_Server imp Server
 
 Controllers
 ```
-obj Posts_Controller imp Controller
+obj Posts_Controller inc Controller
    server = Primary_Server # requests are routed from this server
    
    get 'posts/:id'
@@ -36,7 +36,7 @@ obj Posts_Controller imp Controller
 }
 ```
 
-`Record`, `Controller`, and `Server` are builtin APIs that any object can implement to inherit their behavior.
+`Record`, `Controller`, and `Server` are builtin APIs that any object can inclement to inherit their variables and functions.
 ```
 api Record
    uuid: string = nil
