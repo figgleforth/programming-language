@@ -58,13 +58,13 @@ class Parser
 
     # buffer[i - 1]
     def prev
-        at -1
+        peek -1
     end
 
 
     # buffer[i]
     def curr
-        at 0
+        peek 0
     end
 
 
@@ -81,7 +81,7 @@ class Parser
 
 
     # looks at token without eating, can look backwards as well but peek index is clamped to buffer. if accumulated, returns an array of tokens. otherwise returns a single token
-    def at ahead = 0
+    def peek ahead = 0
         raise 'Parser.tokens is nil' unless buffer
 
         index = ahead.clamp(0, @buffer.count)
@@ -129,11 +129,19 @@ class Parser
     def peek? * sequence
         remainder.slice(0, sequence.count).each_with_index.all? do |token, index|
             if sequence[index].is_a? Array
-                sequence[index].any? do |expected|
-                    token == expected
+                sequence[index].any? do |sequence_element|
+                    if sequence_element.is_a? Symbol
+                        token == sequence_element.to_s
+                    else
+                        token == sequence_element
+                    end
                 end
             else
-                token == sequence[index]
+                if sequence[index].is_a? Symbol
+                    token == sequence[index].to_s
+                else
+                    token == sequence[index]
+                end
             end
         end
     end
@@ -414,6 +422,70 @@ class Parser
 
     # endregion
 
+    def make_ast
+        if peek? IdentifierToken, ':=', :obj
+            make_object_ast
+        elsif peek? IdentifierToken, ':=', :fun
+            make_function_ast
+        elsif peek? IdentifierToken, ':=', :api
+            make_api_ast
+        else
+            raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nRemainder:\n\t#{remainder.map(&:to_s)}\n\nParsed Expressions:\n\t#{parsed_expressions}"
+        end
+    end
+
+
+    # Ident := obj (> Base) ... \n }/end
+    def make_object_ast
+        ObjectExpr.new.tap do |node|
+            # Ident := obj (> Base)
+            node.type = eat(IdentifierToken, ':=', 'obj')[0].string
+
+            if peek? '>', IdentifierToken
+                node.base_type = eat('>', IdentifierToken).last&.string
+            end
+
+            eat if peek? '{'
+            eat while peek? "\n" # if we see \n or { then there needs to be a body. otherwise ; is expected
+
+            # api compositions
+            while peek? 'inc' and eat
+                node.compositions << eat(IdentifierToken)
+
+                while peek? ',', IdentifierToken
+                    node.compositions << eat(',', IdentifierToken).last
+                end
+
+                raise "Unexpected `,` without additional `inc`s" if curr == ','
+                eat while curr == "\n"
+            end
+
+            # body or empty obj termination
+            if peek? %w(; } end) # empty object, no body
+                eat
+            else
+                node.statements = parse_block %w(} end)
+
+                if peek? %w(} end)
+                    eat
+                else
+                    raise "expected obj to be closed with } or end" unless parsed_expressions.empty?
+                end
+            end
+        end
+    end
+
+
+    def make_function_ast
+
+    end
+
+
+    def make_api_ast
+
+    end
+
+
     # any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
     def parse_ast
         if peek? '('
@@ -474,7 +546,7 @@ class Parser
 
 
     def parse_expression starting_precedence = 0
-        left = parse_ast
+        left = make_ast # parse_ast
 
         # if token after left is a binary operator, then we build a binary expression
         while tokens?
