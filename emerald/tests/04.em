@@ -1,28 +1,16 @@
-# declarations without value
-name: string
-pretty: (Date_Time) -> string
+object := obj
+}
 
-# declarations with value
-name := 'Coopie'
-one := 1.0
-two: int = 2
+object2 := obj > Base
+}
 
-# functions
-today := fun # implied return type
-end
+object3 := obj > Base inc Basic
+}
 
-pretty: string = fun date: Date_Time
-end
+object4 := obj > Base inc Basic, Basic2
+	inc Basic3
+}
 
-# objects
-Time := obj
-	inc Time_Zone
-end
-
-Date_Time := obj > Time
-	inc Numbers
-end
-
-# reassignments
-one = 2.0
-two = 3
+object4 := obj > Base inc Basic, Basic2
+	inc Basic3, Basic4
+}
