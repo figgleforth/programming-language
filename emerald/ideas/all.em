@@ -14,7 +14,7 @@ api Shelter
 obj House imp Shelter; # equivalent empty body {}
 
 obj Home > House imp Hatch, Door # equivalent to empty body {} but you can omit { for all blocks
-  def address :: string; # unimplemented methods return nil
+  def address -> string; # unimplemented methods return nil
 }
 
 obj NPC > Entity imp Transform # equivalent to empty body {} but you can omit { for all blocks
@@ -55,7 +55,7 @@ obj Base_Object
 obj Number > Base_Object imp Binary_Operatable
 }
 
-def add left: Number, right: Number :: Number
+def add left: Number, right: Number -> Number
 	left + right
 }
 
@@ -103,11 +103,11 @@ api Door
 }
 
 api Security_System > Door # implements door api, so has access to door variable
-  def enter_numbers(numbers: int) :: bool as open # aliasing methods internally so that method ident can be verbose externally but simple internally
+  def enter_numbers(numbers: int) -> bool as open # aliasing methods internally so that method ident can be verbose externally but simple internally
     # ...
   }
 
-  def close :: bool
+  def close -> bool
     door.close
   }
 
@@ -143,7 +143,7 @@ obj Others
   new people: [Person], leader: Person # parens are optional
   }
 
-  def evil :: bool => false # => can be used in place of a block expression, only when the block is a single line of code. multiline expressions using => are not valid
+  def evil -> bool => false # => can be used in place of a block expression, only when the block is a single line of code. multiline expressions using => are not valid
 }
 
 # Context object may have useful info, but also acts as scratch object. can be accessed using @ symbol and exists once for each obj object, and contains varying information depending on where it is called .like @.args contains information when accessed inside a method. when accessed top level, @.args would not have any information as there are no args present in that moment in code. This is cool because an object won't be cluttered with variables and methods irrelevant to everyday programming.
@@ -161,7 +161,7 @@ obj Context
   def log; # use ; to stub a method
 }
 
-def haunted_castle :: Castle
+def haunted_castle -> Castle
   @.args # []
   @.type # (Time): Castle
 
@@ -176,11 +176,11 @@ def haunted_castle :: Castle
   not_needed_method_call_result # or just don't store the result
 }
 
-def square(value: int) :: int
+def square(value: int) -> int
   value * value
 }
 
-def square value: int :: int
+def square value: int -> int
   value * value
 }
 
@@ -189,11 +189,11 @@ new
   @.type # method signature, in this case _Spec because constructor returns this obj, aka _Spec
 }
 
-def square_and_some(a: int) :: float
+def square_and_some(a: int) -> float
   a * a / 4.815 # return keyword is optional
 }
 
-def save :: bool # method signature is (): bool
+def save -> bool # method signature is (): bool
 }
 
 def no_args_and_no_return # method signature is (): nil
@@ -202,13 +202,13 @@ def no_args_and_no_return # method signature is (): nil
 def no_return(name: string) # method signature is (str): nil
 }
 
-def no_parens name: string :: string
+def no_parens name: string -> string
   "Hello, `name`!"
 }
 
 # argument labels
 
-def email(name: string, on day: string) :: string
+def email(name: string, on day: string) -> string
   # external argument label, allows for greater clarity for the caller. email(person, day) is fine, but email(person, on: day) is explicitly clear
 
   "`name`, you must enter \n the numbers on `day`!" # interpolation using backticks ``
@@ -454,15 +454,15 @@ api Stone
   pri value: float # this instance var is private
 
 
-  def weight :: float
+  def weight -> float
     # ...
   }
 
-  def calculate_something(float) :: int
+  def calculate_something(float) -> int
     # ...
   }
 
-  def label :: string
+  def label -> string
     "it weighs `mass`!"
   }
 
@@ -483,7 +483,7 @@ obj Emerald > Gem imp Stone
 
   weight_in_lb: float
 
-  def value_in_dollars :: float; # stubbed method to be implemented by subobjects
+  def value_in_dollars -> float; # stubbed method to be implemented by sub-objects
 
   pri def do_something
     ancestor.calculate_something(4.8) # ancestor is defined in the Stone api
@@ -510,7 +510,7 @@ if emerald is Emerald # equivalent to ===
 # Errors are not automatically raised, instead they are passed by value and you are able to choose whether you want to raise or print the error
 
 api Error # compose with this to make custom errors
-  def message :: string
+  def message -> string
 
   def self.raise # obj methods, don't require an instance so it can be called like Error.raise
     # ...
@@ -518,22 +518,22 @@ api Error # compose with this to make custom errors
 }
 
 obj Not_Implemented > Error # you may add anything to the body so long as the stubbed method is implemented, whether with a full block or a single line expression
-  def message :: string => 'You did not implement this or whatever'
+  def message -> string => 'You did not implement this or whatever'
 }
 
 def fail_with_error
   Not_Implemented.raise # you can raise an error here
 }
 
-obj Transform imp Position, Rotation, Emerald/Scale # namespaces are filepath based, not needed here since all apis are here in this file. this object gets the rotation methods for free vis composition. its namespace is whatever folder it is in, eg if this code was in components/transform.e that would make this Components/Transform
+obj Transform imp Position, Rotation, Emerald::Scale # namespaces are filepath based, not needed here since all apis are here in this file. this object gets the rotation methods for free vis composition. its namespace is whatever folder it is in, eg if this code was in components/transform.e that would make this Components/Transform
 }
 
 # override namespace
-obj Cool_Namespace\Planet
+obj Cool_Namespace::Planet
   # file can be anywhere in the project and it's namespace will be set to Cool_Namespace instead of being inferred from the directory structure and filename
 }
 
-obj /Star
+obj ::Star
   # force global namespace regardless of file location
 }
 
@@ -544,7 +544,7 @@ api Scale
 api Rotation
   rotation_degrees := 0.0
 
-  def look_at(target: Transform) :: Rotation
+  def look_at(target: Transform) -> Rotation
     # some implementation
   }
 }
@@ -554,4 +554,38 @@ api Position
 }
 
 api Transformable imp Transform # apis composed together
+}
+
+
+
+
+obj Emerald
+	fun version -> any;
+	x: int = 1
+	version: string =
+
+	}
+
+}
+
+obj Math
+	default_offset: float = 0.0
+
+	cosine: float = ()
+	}
+
+	sine: float = (offset: float)
+		# ...
+	end
+
+	-> sine(offset)
+	}
+end
+
+api Rotation
+	rotation_degrees := 0.0
+
+	look_at: number = (target: any)
+		# ...
+	}
 }

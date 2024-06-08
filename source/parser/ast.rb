@@ -53,8 +53,9 @@ class StringExpr < Ast_Expression
 
 
     def to_s
-        "#{short_form ? '' : 'Str'}(#{token.string})"
-        inspect
+        long  = "Str(#{inspect})"
+        short = "#{token.string}"
+        short_form ? short : long
     end
 
 
@@ -129,17 +130,28 @@ class FunctionExpr < Ast_Expression
         super
         @parameters = []
         @statements = []
+        @short_form = true
     end
 
 
     def to_s
         # "Method(#{name}, return_type: #{return_type.to_s}, params(#{parameters.count}): #{parameters.map(&:to_s)}), stmts(#{statements.count}): #{statements.map(&:to_s)})"
-        "#{short_form ? '' : 'Fun'}(#{name}".tap do |str|
-            str << ", returns: #{return_type}" if return_type
+        short = "#{name}(".tap do |str|
+            str << "returns: #{return_type || 'nil'}"
             str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+            str << ", stmts(#{statements.count})" unless statements.empty?
+                # str << ", stmts(#{statements.count})" #": #{statements.map(&:to_s)}"
+                # if statements.one?
+                #     str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}"
+                # else
+                #     str << ", stmts(#{statements.count}): [first: #{statements.first.to_s}, last: #{statements.last.to_s}]"
+                # end
+            # end
             str << ')'
+            str << " -> (#{return_type})" if return_type
         end
+
+        short_form ? short : inspect
     end
 end
 

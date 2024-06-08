@@ -7,7 +7,7 @@ class Parser
 
 
     def initialize buffer = []
-        @parsed_expressions = 0
+        @parsed_expressions = []
         @buffer             = buffer
         @i                  = 0 # index of current token
     end
@@ -145,7 +145,7 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one?
-                raise "Expected #{sequence[0]} but got #{eaten}" unless eaten == sequence[0]
+                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{parsed_expressions}" unless eaten == sequence[0]
             end
             @i    += 1
             return eaten
@@ -250,6 +250,7 @@ class Parser
 
             # api compositions
             while peek? 'inc' and eat
+                puts "curr #{curr} ident? #{curr == IdentifierToken}"
                 node.compositions << eat(IdentifierToken)
 
                 while peek? ',', IdentifierToken
@@ -269,7 +270,7 @@ class Parser
                 if peek? %w(} end)
                     eat
                 else
-                    raise "expected obj to be closed with } or end" unless parsed_expressions == 0
+                    raise "expected obj to be closed with } or end" unless parsed_expressions.empty?
                 end
             end
         end
@@ -350,39 +351,38 @@ class Parser
 
 
         def parse_return_type
-            if peek? %w(-> >>), IdentifierToken
-                eat # -> or >>
-                eat IdentifierToken
+            if peek? %w(: -> >>), IdentifierToken
+                eat # : or -> or >> are allowed
             end
+            eat IdentifierToken
         end
 
 
-        FunctionExpr.new.tap do |node|
-            eat # fun or def, I like both
-            # node.name = eat IdentifierToken
+        # Functions require parens when params are present
+        #   fun ident ( params ) type \n (...) end
+        #   fun ident type \n (...) end
 
+        FunctionExpr.new.tap do |node|
+            eat # fun/def. I like both so both are allowed
+
+            # ident or operator overload
             if peek? [SymbolToken, IdentifierToken]
                 node.name = eat
-                # node.name = eat IdentifierToken
-                # elsif peek? IdentifierToken
-                #     node.name = eat IdentifierToken
             else
                 raise "Unexpected fun ident #{curr.inspect}"
             end
 
-            if peek? '(' # params
+            if peek? '('
                 eat '('
                 node.parameters = parse_params
                 eat ')'
-                node.return_type = parse_return_type
+            end
 
-            elsif peek? IdentifierToken
-                node.parameters  = parse_params
-                node.return_type = parse_return_type
+            # ...) ->/>> ident
+            # ...) ->/>> ident
 
-            else
+            if not peek? "\n" # body
                 node.return_type = parse_return_type
-
             end
 
             if peek? %W({ \n)
@@ -394,7 +394,19 @@ class Parser
             if peek? %w(; } end)
                 eat
             else
-                raise "expected fun to be closed with ; or } or end" unless parsed_expressions == 0
+                # if not peek? "\n" # body
+                #     node.return_type = parse_return_type
+                # end
+                #
+                # if peek? %W({ \n)
+                #     eat while peek? %W({ \n)
+                #     node.statements = parse_block %w(} end)
+                #     eat while peek? %W(\n)
+                # else
+                #     raise "expected fun to be closed with ; or } or end"
+                # end
+
+                raise "expected fun to be closed with ; or } or end"
             end
         end
     end
@@ -456,7 +468,7 @@ class Parser
             end
 
         else
-            raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nbuffer:\n\t#{@buffer[..5].map(&:to_s)}\n\nremainder:\n\t#{remainder.map(&:to_s)}"
+            raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{parsed_expressions}"
         end
     end
 
@@ -498,8 +510,11 @@ class Parser
                 break if curr == until_token
             end
 
-            expressions << parse_expression
-            @parsed_expressions += 1 # this is used to determine whether the first encountered obj declaration requires a closing } or end keyword
+            expr = parse_expression
+            if expr
+                expressions << expr
+                parsed_expressions << expr # this is used to determine whether the first encountered obj declaration requires a closing } or end keyword
+            end
         end
         expressions.compact
     end
