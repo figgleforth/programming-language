@@ -529,7 +529,7 @@ obj Transform imp Position, Rotation, Emerald/Scale # namespaces are filepath ba
 }
 
 # override namespace
-obj Cool_Namespace/Planet
+obj Cool_Namespace\Planet
   # file can be anywhere in the project and it's namespace will be set to Cool_Namespace instead of being inferred from the directory structure and filename
 }
 

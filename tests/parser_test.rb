@@ -6,13 +6,19 @@ require_relative '../source/lexer/lexer'
 source = File.read('emerald/tests/04.em').to_s
 lexer  = Lexer.new source
 tokens = lexer.lex
+# puts "tokens"
+# puts
+# tokens.each do |t|
+#     puts "- #{t}"
+# end
+# puts "///////"
 
 parser     = Parser.new tokens
-statements = parser.parse
+program = parser.to_ast
 
-# puts
+puts
 # puts "\n== TOKENS ==\n"
 # puts tokens
 
-puts "\n== PARSED STATEMENTS ==\n\n"
-puts statements.join("\n\n")
+# puts "\n== PROGRAM ==\n\n"
+puts program

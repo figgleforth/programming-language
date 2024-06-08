@@ -3,11 +3,12 @@ class Lexer
     require_relative 'tokens'
 
     KEYWORDS = %w(
-    api obj def fun new end arg
+    api obj def fun new end arg imp
     enum const private pri public pub static
     do if else for skip stop it is self when while
    )
 
+    TYPES = %w(int float array dictionary hash dict bool string any)
 
     TRIPLE_SYMBOLS = %w(<<= >>= !== === >== ||=)
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= := && || @@ ++ -- -> ** ::)
@@ -107,16 +108,17 @@ class Lexer
         end
 
 
-        # def == other
-        #    @string == other
-        # end
-
         def == other
             if other.is_a? String
                 other == @string
             else
                 other == self.class
             end
+        end
+
+
+        def to_s
+            string.inspect
         end
     end
 
@@ -203,34 +205,34 @@ class Lexer
 
     def eat_identifier
         ''.tap do |ident|
-            valid = %w(! ?)
+            valid = %w(! ? :)
             while curr.identifier? or valid.include?(curr.string)
                 ident << eat
 
-                break if valid.include? ident.chars.last # prevent consecutive !! or ??
+                if curr == ':' and peek(1) == ':'
+                    ident << eat
+                    ident << eat_identifier
+                end
+
+                break if curr == ident.chars.last and valid.include? ident.chars.last # prevent consecutive !! or ??
+                break if curr == ':'
                 break unless chars?
             end
         end
     end
 
 
-    def eat_colon_symbol
-        # eat :
-        # eat_number_or_numeric_identifier
-
-    end
-
-
-    def eat_number_or_numeric_identifier
-        number = eat_number
-
-        # support 1st, 2nd, 3rd?, 4th!, etc identifier syntax
-        if curr.alpha?
-            IdentifierToken.new(number + eat_identifier)
-        else
-            NumberToken.new(number)
-        end
-    end
+    # todo) Maybe support this again in the future. I like the idea of this.
+    # def eat_number_or_numeric_identifier
+        # number = eat_number
+        #
+        # # support 1st, 2nd, 3rd?, 4th!, etc identifier syntax
+        # if curr.alpha?
+        #     IdentifierToken.new(number + eat_identifier)
+        # else
+        # end
+        # NumberToken.new(eat_number)
+    # end
 
 
     def eat_oneline_comment
@@ -248,7 +250,6 @@ class Lexer
 
 
     # todo; stored value doesn't preserve newlines. maybe it should in case I want to generate documentation from these comments.
-    # todo;
     def eat_multiline_comment
         ''.tap do |comment|
             marker = '###'
@@ -309,7 +310,7 @@ class Lexer
                 if curr == ';'
                     @tokens << DelimiterToken.new(eat) # ;
                     # reduce_delimiters while last == curr # eat subsequent ;
-                    eat while curr.delimiter? #colon?
+                    eat while curr.delimiter? # colon?
                 elsif curr == "\n"
                     # care about \n and any following whitespaces
                     @tokens << DelimiterToken.new(eat) # \n
@@ -319,7 +320,7 @@ class Lexer
                         @tokens << DelimiterToken.new(eat) # \n
                         reduce_delimiters while last == curr # eat subsequent \s
                     end
-                elsif curr == "\s"
+                elsif curr == "\s" or curr == "\t" # aka curr.whitespace?
                     # if @tokens.last.is_a?(IdentifierToken)
                     #     @tokens << DelimiterToken.new("\s")
                     # end
@@ -330,17 +331,20 @@ class Lexer
                 end
 
             elsif curr == '#'
+                # todo) Make something with these comments. Something about the Token== override causes == with CommentToken to not work and it's frustrating me. So now the parser is no longer receiving comments. The original plan was for the parser to generate some documentation html.
                 if peek(0, 3) == '###'
-                    @tokens << CommentToken.new(eat_multiline_comment, true)
+                    # @tokens << CommentToken.new(eat_multiline_comment, true)
+                    eat_multiline_comment
                 else
-                    @tokens << CommentToken.new(eat_oneline_comment)
+                    # @tokens << CommentToken.new(eat_oneline_comment)
+                    eat_oneline_comment
                 end
 
             elsif curr == '"' or curr == "'"
                 @tokens << StringToken.new(eat_string)
 
             elsif curr.numeric?
-                @tokens << eat_number_or_numeric_identifier
+                @tokens << NumberToken.new(eat_number)
 
             elsif curr == '.' and peek&.numeric?
                 @tokens << NumberToken.new(eat_number)
@@ -350,7 +354,6 @@ class Lexer
 
                 if KEYWORDS.include? ident
                     @tokens << KeywordToken.new(ident)
-
                 else
                     @tokens << IdentifierToken.new(ident)
                 end
@@ -359,8 +362,8 @@ class Lexer
                     @tokens << DelimiterToken.new(eat)
                     eat while curr.delimiter?
                 end
+
             elsif SYMBOLS.include? curr.string
-                # @fix :style_symbols is including the inferred assignment operator := as well, but := should be a separate symbol. probably use SYMBOLS array
                 # if char == ':' and not peek&.delimiter? # :style symbols
                 #    eat ':'
                 #
@@ -370,11 +373,11 @@ class Lexer
                 #
                 #    @tokens << token
                 # else
+                # todo: Ruby style_symbols with :.
                 symbol = eat_symbol
                 @tokens << SymbolToken.new(symbol)
                 eat "\n" while curr.newline? and symbol == ';'
                 eat "\n" while curr.newline? and symbol == '}'
-
 
             else
                 raise_unknown_char # displays some source code with a caret pointing to the unknown character

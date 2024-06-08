@@ -1,4 +1,9 @@
+# todo) don't store token on any Ast node. instead, store the token's raw string. tired of not knowing whether Ast.whatever is a token or the raw string. ugh! search :token on this file and you'll see!
+
 class Ast
+    def to_s
+        "Ast"
+    end
 end
 
 
@@ -9,6 +14,15 @@ class Program < Ast
     def initialize
         @expressions = []
     end
+
+
+    def to_s
+        "Program:\n\n".tap do |program|
+            expressions.each do |expr|
+                program << "#{expr}\n"
+            end
+        end
+    end
 end
 
 
@@ -18,7 +32,7 @@ class Ast_Expression < Ast
 
 
     def initialize
-        @short_form = true
+        @short_form = false
     end
 
 
@@ -83,22 +97,21 @@ end
 
 
 class ObjectExpr < Ast_Expression
-    attr_accessor :type, :base_type, :compositions, :statements, :is_top_level
+    attr_accessor :type, :base_type, :compositions, :statements
 
 
     def initialize
         super
+        @base_type    = nil
+        @type         = nil
         @compositions = []
         @statements   = []
-        @is_top_level = false
     end
 
 
     def to_s
-        # "Obj(#{type.string}, base: #{base_type&.string}, comps: #{compositions.map(&:string)}, stmts(#{statements.count}): #{statements.map(&:to_s)})"
-
-        "Obj(#{type.string}".tap do |str|
-            str << ", base: #{base_type.string}" if base_type
+        "#{short_form ? '' : 'Obj'}(#{type}".tap do |str|
+            str << ", base: #{base_type}" if base_type
             str << ", comps(#{compositions.count}): #{compositions.map(&:to_s)}" unless compositions.empty?
             str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
             str << ')'
@@ -120,7 +133,7 @@ class FunctionExpr < Ast_Expression
 
     def to_s
         # "Method(#{name}, return_type: #{return_type.to_s}, params(#{parameters.count}): #{parameters.map(&:to_s)}), stmts(#{statements.count}): #{statements.map(&:to_s)})"
-        "Func(#{name}".tap do |str|
+        "#{short_form ? '' : 'Fun'}(#{name}".tap do |str|
             str << ", returns: #{return_type}" if return_type
             str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
             str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
@@ -147,7 +160,7 @@ class FunctionParamExpr < Ast_Expression
 
 
     def to_s
-        "Param(name: #{name}".tap do |str|
+        "#{short_form ? '' : 'Param'}(name: #{name}".tap do |str|
             str << ", type: #{type}" if type
             str << ", label: #{label}" if label
             str << ')'
@@ -180,7 +193,7 @@ class FunctionCallExpr < Ast_Expression
 
 
     def to_s
-        "FuncCall(name: #{function_name}".tap do |str|
+        "#{short_form ? '' : 'FunCall'}(name: #{function_name}".tap do |str|
             str << ", args(#{arguments.count}): #{arguments.map(&:to_s)}" unless arguments.empty?
             str << ')'
         end
@@ -247,7 +260,7 @@ class BinaryExpr < Ast_Expression
 
     def to_s
         long  = "BE(#{left} #{operator.string} #{right})"
-        short = "(#{left} #{operator.string} #{right})"
+        short = "(#{left}#{operator.string}#{right})"
         short_form ? short : long
     end
 

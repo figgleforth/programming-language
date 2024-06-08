@@ -38,7 +38,7 @@ class REPL
                 # tokens = scanner.string_to_tokens input
 
                 puts
-                puts parser.parse
+                puts parser.parse_until
                 # puts "∎"
                 puts
             rescue StandardError => e
