@@ -1,6 +1,4 @@
-### The goal is to run a web application in as few lines of code as possible
-
-Something like using the following built-in constructs.
+The goal is to run a web application in as few lines of code as possible . Here's the current vision, using some built-in constructs.
 
 Database records
 ```
@@ -35,5 +33,37 @@ obj Posts_Controller imp Controller
    post 'create';
    delete 'posts/:id';
    options 'whatever';
+}
+```
+
+`Record`, `Controller`, and `Server` are builtin APIs that any object can implement to inherit their behavior.
+```
+api Record
+   uuid: string = nil
+   created_at: Date_Time = nil
+   updated_at: Date_Time = nil
+   deleted_at: Date_Time = nil
+   
+   def find id: int -> Record;
+   def where -> [Record];
+   def delete -> bool;
+   def destroy -> bool;
+}
+
+api Controller
+   server: Server
+   params: {string: any}
+   
+   def get;
+   def put;
+   def post;
+   def patch;
+   def delete;
+   def options;
+}
+
+api Server
+   port: int = 3000
+   database: string = nil
 }
 ```
