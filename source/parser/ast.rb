@@ -99,7 +99,7 @@ end
 
 
 class ObjectExpr < Ast_Expression
-    attr_accessor :type, :base_type, :compositions, :statements
+    attr_accessor :type, :base_type, :compositions, :statements, :is_api
 
 
     def initialize
@@ -108,13 +108,15 @@ class ObjectExpr < Ast_Expression
         @type         = nil
         @compositions = []
         @statements   = []
+        @is_api       = false
     end
 
 
     def to_s
-        "#{short_form ? '' : 'Obj'}(#{type}".tap do |str|
+        type_label = is_api ? 'Api' : 'Obj'
+        "#{short_form ? '' : type_label}(#{type}".tap do |str|
             str << ", base: #{base_type}" if base_type
-            str << ", comps(#{compositions.count}): #{compositions.map(&:to_s)}" unless compositions.empty?
+            str << ", APIs(#{compositions.count}): #{compositions.map(&:to_s)}" unless compositions.empty?
             str << ", exprs(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
             str << ')'
         end
@@ -139,13 +141,13 @@ class FunctionExpr < Ast_Expression
         short = "#{name}(".tap do |str|
             str << "returns: #{return_type || 'nil'}"
             str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            str << ", stmts(#{statements.count})" unless statements.empty?
-                # str << ", stmts(#{statements.count})" #": #{statements.map(&:to_s)}"
-                # if statements.one?
-                #     str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}"
-                # else
-                #     str << ", stmts(#{statements.count}): [first: #{statements.first.to_s}, last: #{statements.last.to_s}]"
-                # end
+            # str << ", stmts(#{statements.count})" unless statements.empty?
+            str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+            # if statements.one?
+            #     str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}"
+            # else
+            #     str << ", stmts(#{statements.count}): [first: #{statements.first.to_s}, last: #{statements.last.to_s}]"
+            # end
             # end
             str << ')'
             str << " -> (#{return_type})" if return_type
