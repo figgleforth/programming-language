@@ -425,10 +425,12 @@ class Parser
     def make_ast
         if peek? IdentifierToken, ':=', :obj
             make_object_ast
+        elsif peek? IdentifierToken, ':=', :api
+            make_object_ast true
         elsif peek? IdentifierToken, ':=', :fun
             make_function_ast
-        elsif peek? IdentifierToken, ':=', :api
-            make_api_ast
+        elsif peek? DelimiterToken
+            eat and nil
         else
             raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nRemainder:\n\t#{remainder.map(&:to_s)}\n\nParsed Expressions:\n\t#{parsed_expressions}"
         end
@@ -436,10 +438,17 @@ class Parser
 
 
     # Ident := obj (> Base) ... \n }/end
-    def make_object_ast
+    def make_object_ast is_api_decl = false
         ObjectExpr.new.tap do |node|
-            # Ident := obj (> Base)
-            node.type = eat(IdentifierToken, ':=', 'obj')[0].string
+            node.is_api = is_api_decl
+
+            if is_api_decl
+                # Ident := api (> Base)
+                node.type = eat(IdentifierToken, ':=', 'api')[0].string
+            else
+                # Ident := obj (> Base)
+                node.type = eat(IdentifierToken, ':=', 'obj')[0].string
+            end
 
             if peek? '>', IdentifierToken
                 node.base_type = eat('>', IdentifierToken).last&.string
@@ -460,8 +469,7 @@ class Parser
                 eat while curr == "\n"
             end
 
-            # body or empty obj termination
-            if peek? %w(; } end) # empty object, no body
+            if peek? %w(; } end) # body or empty object termination
                 eat
             else
                 node.statements = parse_block %w(} end)
@@ -477,12 +485,27 @@ class Parser
 
 
     def make_function_ast
+        FunctionExpr.new.tap do |node|
+            # Ident := fun
+            node.name = eat(IdentifierToken, ':=', 'fun')[0].string
 
-    end
+            # todo) function params
 
+            eat if peek? '{'
+            eat while peek? "\n" # if we see \n or { then there needs to be a body. otherwise ; is expected
 
-    def make_api_ast
+            if peek? %w(; } end) # body or empty function termination
+                eat
+            else
+                node.statements = parse_block %w(} end)
 
+                if peek? %w(} end)
+                    eat
+                else
+                    raise "expected fun to be closed with } or end"
+                end
+            end
+        end
     end
 
 
