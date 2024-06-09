@@ -1,69 +1,44 @@
-The goal is to run a web application in as few lines of code as possible. Here's the current vision, using some built-in constructs.
+### Goals
+- Write as little fluff code as possible, that means fewer things like `class`, `def`, etc.
+- Built in web application in as few lines of code as possible
 
-Database records
+---
+
+Models
 ```
-obj User inc Record
+User :> Record
    email: string
    posts: [Post] # like Rails has_many
+   
+   authenticate? :: email: string, password: string :: bool
+   }
 }
 
-obj Post inc Record
+Post >: Record
    user: User # like Rails belongs_to
-}
-```
-
-Servers
-```
-obj Primary_Server inc Server
-   port = 3000 # port for this server
-   database = 'development' # database for this server  
 }
 ```
 
 Controllers
 ```
-obj Posts_Controller inc Controller
+Posts_Controller :> Controller
    server = Primary_Server # requests are routed from this server
    
-   get 'posts/:id'
+   get_single_post :: 'posts/:id' :: Post
       # do what you might do in a Rails controller
    }
    
-   put 'posts/:id';
-   post 'create';
-   delete 'posts/:id';
-   options 'whatever';
+   put_post :: 'posts/:id'
+   }
 }
 ```
 
-`Record`, `Controller`, and `Server` are builtin APIs that any object can inclement to inherit their variables and functions.
+Servers
 ```
-api Record
-   uuid: string = nil
-   created_at: Date_Time = nil
-   updated_at: Date_Time = nil
-   deleted_at: Date_Time = nil
-   
-   def find id: int -> Record;
-   def where -> [Record];
-   def delete -> bool;
-   def destroy -> bool;
-}
-
-api Controller
-   server: Server
-   params: {string: any}
-   
-   def get;
-   def put;
-   def post;
-   def patch;
-   def delete;
-   def options;
-}
-
-api Server
-   port: int = 3000
-   database: string = nil
+Primary_Server :> Server
+   port = 3000 # port for this server
+   database = 'development' # database for this server  
 }
 ```
+
+Controller syntax is still to be determined, but the point is that all it takes is a Server object and a Controller object to run a web app.
