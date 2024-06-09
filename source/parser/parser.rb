@@ -177,6 +177,14 @@ class Parser
 
     # region Sequence Parsing
 
+    def parse_block until_token = %w(} end)
+        parser = new_parser_with_remainder_as_buffer
+        stmts  = parser.parse_until until_token
+        @i     += parser.i
+        stmts || []
+    end
+
+
     def make_typed_var_decl_ast
         AssignmentExpr.new.tap do |node|
             tokens    = eat IdentifierToken, ':', IdentifierToken
@@ -197,32 +205,20 @@ class Parser
 
     def make_assignment_ast
         AssignmentExpr.new.tap do |node|
-            tokens = eat IdentifierToken, '='
+            node.name = eat IdentifierToken
+            eat # = or :=
 
             if peek? %W(; \n)
                 code = (tokens << curr).join(' ')
                 raise "Expected expression after `#{tokens[1]}` but got `#{curr}` in\n\n```\n#{code}\n```"
             end
 
-            node.name  = tokens[0]
             node.value = parse_expression
         end
     end
 
 
-    def parse_inferred_var_declaration
-        AssignmentExpr.new.tap do |node|
-            tokens = eat IdentifierToken, ':='
-            raise 'Expected expression' if peek? "\n"
-
-            node.name  = tokens[0]
-            node.value = parse_expression
-            # node.type= is done in a different stage
-        end
-    end
-
-
-    def parse_string_or_number_literal
+    def make_string_or_number_literal_ast
         if curr == StringToken
             StringExpr.new
         else
@@ -233,67 +229,11 @@ class Parser
     end
 
 
-    def parse_unary_expr
+    def make_unary_expr_ast
         UnaryExpr.new.tap do |node|
             node.operator   = eat SymbolToken
             node.expression = parse_expression 6 # this cannot use #precedence_for because it would return the same precedence as the binary operators of the same symbol, but we need to be able to be distinguish between the unary. there's probably a better way to do this, but who cares.
         end
-    end
-
-
-    def parse_object_declaration
-        # if first statement of program then it's top-level object declaration
-        #    obj Ident > Ident (inc Ident, ...) ({) \n
-        #    (inc Ident, ...)
-        #
-        # otherwise
-        #    obj Ident > Ident (inc Ident, ...) ({) \n
-        #       (inc Ident, ...)
-        #    }
-        ObjectExpr.new.tap do |node|
-            node.type = eat('obj', IdentifierToken).last&.string
-
-            if peek? '>', IdentifierToken
-
-                node.base_type = eat('>', IdentifierToken).last&.string
-            end
-
-            eat while peek? %W({ \n) # if we see \n or { then there needs to be a body. otherwise ; is expected
-
-            # api compositions
-            while peek? 'inc' and eat
-                puts "curr #{curr} ident? #{curr == IdentifierToken}"
-                node.compositions << eat(IdentifierToken)
-
-                while peek? ',', IdentifierToken
-                    node.compositions << eat(',', IdentifierToken).last
-                end
-
-                raise "Unexpected `,` without additional `inc`s" if curr == ','
-                eat while curr == "\n"
-            end
-
-            # body or empty obj termination
-            if peek? %w(; }) # empty object, no body
-                eat
-            else
-                node.statements = parse_block %w(} end)
-
-                if peek? %w(} end)
-                    eat
-                else
-                    raise "expected obj to be closed with } or end" unless parsed_expressions.empty?
-                end
-            end
-        end
-    end
-
-
-    def parse_block until_token = %w(} end)
-        parser = new_parser_with_remainder_as_buffer
-        stmts  = parser.parse_until until_token
-        @i     += parser.i
-        stmts || []
     end
 
 
@@ -323,6 +263,7 @@ class Parser
             end
         end
 
+
         # todo) how to handle spaces in place of parens like Ruby?
         FunctionCallExpr.new.tap do |node|
             node.function_name = eat IdentifierToken
@@ -333,127 +274,27 @@ class Parser
     end
 
 
-    def parse_function_declaration
-        def parse_params
-            [].tap do |params|
-                # Ident : Ident (,)
-                # Ident Ident : Ident ... first ident here is a label
+    # Ident := Ident (, Ident)
+    #   ...
+    # } or end
+    def make_object_ast is_api_decl = false
+        ObjectExpr.new.tap do |node|
+            node.type = eat(IdentifierToken, ':>')[0].string
+
+            if not peek? "\n"
                 while peek? IdentifierToken
-                    params << FunctionParamExpr.new.tap do |param|
-                        if peek? IdentifierToken, IdentifierToken
-                            param.label = eat IdentifierToken
-                        end
+                    node.compositions << eat(IdentifierToken).string
 
-                        param.name = eat IdentifierToken
-
-                        if peek? ':' # without this it's an untyped param
-                            eat ':'
-                            param.type = eat IdentifierToken
+                    if peek? ','
+                        if not peek? ',', IdentifierToken
+                            raise "Unexpected `,` without additional `inc`s" if curr == ','
                         end
-
-                        if peek? ',' and not peek?(',', IdentifierToken)
-                            raise 'Expecting param after comma in function param declaration'
-                        elsif peek? ','
-                            eat
-                        end
+                        eat ','
                     end
                 end
             end
-        end
-
-
-        def parse_return_type
-            if peek? %w(: -> >>), IdentifierToken
-                eat # : or -> or >> are allowed
-            end
-            eat IdentifierToken
-        end
-
-
-        # Functions require parens when params are present
-        #   fun ident ( params ) type \n (...) end
-        #   fun ident type \n (...) end
-
-        FunctionExpr.new.tap do |node|
-            eat # fun/def. I like both so both are allowed
-
-            # ident or operator overload
-            if peek? [SymbolToken, IdentifierToken]
-                node.name = eat
-            else
-                raise "Unexpected fun ident #{curr.inspect}"
-            end
-
-            if peek? '('
-                eat '('
-                node.parameters = parse_params
-                eat ')'
-            end
-
-            # ...) ->/>> ident
-            # ...) ->/>> ident
-
-            if not peek? "\n" # body
-                node.return_type = parse_return_type
-            end
-
-            if peek? %W({ \n)
-                eat while peek? %W({ \n)
-                node.statements = parse_block %w(} end)
-                eat while peek? %W(\n)
-            end
-
-            if peek? %w(; } end)
-                eat
-            else
-                # if not peek? "\n" # body
-                #     node.return_type = parse_return_type
-                # end
-                #
-                # if peek? %W({ \n)
-                #     eat while peek? %W({ \n)
-                #     node.statements = parse_block %w(} end)
-                #     eat while peek? %W(\n)
-                # else
-                #     raise "expected fun to be closed with ; or } or end"
-                # end
-
-                raise "expected fun to be closed with ; or } or end"
-            end
-        end
-    end
-
-
-    # endregion
-
-    # Ident := obj (> Base) ... \n }/end
-    def make_object_ast is_api_decl = false
-        ObjectExpr.new.tap do |node|
-            node.is_api = is_api_decl
-
-            node.type = eat(IdentifierToken).string
-
-            if peek? '>', IdentifierToken
-                node.base_type = eat('>', IdentifierToken).last&.string
-            end
-
-            eat ':='
-            keyword = is_api_decl ? 'api' : 'obj'
-            eat keyword
 
             eat while peek? "\n" # if we see \n or { then there needs to be a body. otherwise ; is expected
-
-            # api compositions
-            while peek? 'inc' and eat
-                node.compositions << eat(IdentifierToken)
-
-                while peek? ',', IdentifierToken
-                    node.compositions << eat(',', IdentifierToken).last
-                end
-
-                raise "Unexpected `,` without additional `inc`s" if curr == ','
-                eat while curr == "\n"
-            end
 
             if peek? %w(; } end) # body or empty object termination
                 eat
@@ -471,13 +312,63 @@ class Parser
 
 
     def make_function_ast
+        def parse_params
+            [].tap do |params|
+                # Ident : Ident (,)
+                # Ident Ident : Ident ... first ident here is a label
+                while peek? IdentifierToken
+                    params << FunctionParamExpr.new.tap do |param|
+                        if peek? IdentifierToken, IdentifierToken
+                            param.label = eat IdentifierToken
+                        end
+
+                        param.name = eat IdentifierToken
+
+                        if peek? ':' # without this it's an untyped param
+                            eat ':'
+                            param.type = eat IdentifierToken
+                        end
+
+                        # todo) parse for default values, so expect = and some expression
+
+                        if peek? ',' and not peek?(',', IdentifierToken)
+                            raise 'Expecting param after comma in function param declaration'
+                        elsif peek? ','
+                            eat
+                        end
+                    end
+                end
+            end
+        end
+
+
         FunctionExpr.new.tap do |node|
-            # Ident := fun
-            node.name = eat(IdentifierToken, ':=', 'fun')[0].string
+            node.name = eat(IdentifierToken).string
 
-            # todo) function params
+            double_colons = (peek_until "\n").count do |t|
+                t == '::'
+            end
 
-            eat if peek? '{'
+            # ident :: params :: return
+            # ident :: return
+            # ident ::
+            if double_colons == 2
+                eat '::'
+                node.parameters = parse_params
+                eat '::'
+                node.return_type = eat(IdentifierToken).string
+            elsif double_colons == 1
+                eat '::'
+
+                if peek? IdentifierToken, "\n"
+                    node.return_type = eat(IdentifierToken).string
+                    node.parameters << node.return_type
+                    node.ambiguous_params_return = true
+                else
+                    node.parameters = parse_params
+                end
+            end
+
             eat while peek? "\n" # if we see \n or { then there needs to be a body. otherwise ; is expected
 
             if peek? %w(; } end) # body or empty function termination
@@ -504,29 +395,35 @@ class Parser
                 eat ')'
             end
 
-        elsif peek?(IdentifierToken, '>', IdentifierToken, ':=', 'obj') or peek?(IdentifierToken, ':=', 'obj')
+        elsif peek? IdentifierToken, ':>'
             make_object_ast
 
-        elsif peek?(IdentifierToken, '>', IdentifierToken, ':=', 'api') or peek?(IdentifierToken, ':=', 'api')
-            make_object_ast true
-
-        elsif peek? IdentifierToken, ':=', :fun
+        elsif peek? IdentifierToken, '::'
             make_function_ast
 
         elsif peek? IdentifierToken, ':', IdentifierToken
             make_typed_var_decl_ast
 
-        elsif peek? IdentifierToken, '='
+        elsif peek? IdentifierToken, '=' or peek? IdentifierToken, ':='
             make_assignment_ast
 
         elsif peek? IdentifierToken, '('
-            make_function_call_ast
+            # todo: it could either be a function call or a function declaration. it depends on whether (> ident (:= fun)) is present on the same line and immediately after the closing parens.
+            # Something to think about is, could there ever be a case where a function call expression inside another expression, like a parenthesized list, cannot be differentiated from a function declaration?
+
+            # rough idea:
+            # 1) parse parenthesized expression
+            # 2) peek?(> ident) or peek?(:= fun) ? declaration : call
+
+            # make_function_ast
+            # make_function_call_ast
+            eat and nil
 
         elsif peek? SymbolToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
-            parse_unary_expr
+            make_unary_expr_ast
 
         elsif peek? StringToken or peek? NumberToken
-            parse_string_or_number_literal
+            make_string_or_number_literal_ast
 
         elsif peek? [CommentToken, DelimiterToken]
             eat and nil
@@ -540,13 +437,19 @@ class Parser
             end
 
         else
-            raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nRemainder:\n\t#{remainder.map(&:to_s)}\n\nParsed Expressions:\n\t#{parsed_expressions}"
+            unhandled = "UNHANDLED TOKEN:\n\t#{curr.inspect}"
+            remaining = "REMAINING:\n\t#{remainder.map(&:to_s)}"
+            progress  = "PARSED SO FAR:\n\t#{parsed_expressions}"
+            raise "\n\n#{unhandled}\n\n#{remaining}\n\n#{progress}"
         end
     end
 
 
+    # endregion
+
     def parse_expression starting_precedence = 0
-        left = make_ast # parse_ast
+        left = make_ast
+        return if not left # \n are eaten and return nil, so we have to terminate this expression early. Otherwise negative numbers are sometimes parsed as BE( - NUM) insteadof UE(-NUM)
 
         # if token after left is a binary operator, then we build a binary expression
         while tokens?
