@@ -231,7 +231,7 @@ class Parser
 
     def make_unary_expr_ast
         UnaryExpr.new.tap do |node|
-            node.operator   = eat SymbolToken
+            node.operator   = eat AsciiToken
             node.expression = parse_expression 6 # this cannot use #precedence_for because it would return the same precedence as the binary operators of the same symbol, but we need to be able to be distinguish between the unary. there's probably a better way to do this, but who cares.
         end
     end
@@ -419,7 +419,7 @@ class Parser
             # make_function_call_ast
             eat and nil
 
-        elsif peek? SymbolToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
+        elsif peek? AsciiToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast
 
         elsif peek? StringToken or peek? NumberToken
@@ -430,6 +430,11 @@ class Parser
 
         elsif peek? ',' # allows for comma separated statements
             eat and nil
+
+        elsif peek? SymbolToken
+            SymbolExpr.new.tap do |node|
+                node.string = eat.string
+            end
 
         elsif peek? [IdentifierToken, '@']
             IdentifierExpr.new.tap do |node|
@@ -453,14 +458,14 @@ class Parser
 
         # if token after left is a binary operator, then we build a binary expression
         while tokens?
-            break unless curr == SymbolToken and curr.binary?
+            break unless curr == AsciiToken and curr.binary?
 
             curr_operator_prec = precedence_for curr
             break if curr_operator_prec <= starting_precedence
 
             left = BinaryExpr.new.tap do |node|
                 node.left     = left
-                node.operator = eat SymbolToken
+                node.operator = eat AsciiToken
 
                 # todo: handle multiline statements?
                 raise 'Expected expression' if peek? "\n"

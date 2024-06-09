@@ -95,6 +95,12 @@ class StringToken < Token
     end
 end
 
+class SymbolToken < Token
+    def to_s
+        "Symbol(:#{string})"
+    end
+end
+
 
 class NumberToken < Token
     def to_s
@@ -127,7 +133,7 @@ class NumberToken < Token
 end
 
 
-class SymbolToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
+class AsciiToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
     BINARY_OPERATORS = %w(. + - * / % < > [ \\+= -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> **)
     UNARY_OPERATORS  = %w(- + ~ !)
 

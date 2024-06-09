@@ -43,8 +43,25 @@ class Ast_Expression < Ast
 
 
     def evaluate
-        puts "Trying to evaluate self #{self}"
-        raise NotImplementedError
+        puts "Trying to evaluate self #{self.inspect}"
+        self
+    end
+end
+
+
+class SymbolExpr < Ast_Expression
+    attr_accessor :string
+
+
+    def to_s
+        long  = "Sym(:#{string})"
+        short = ":#{string}"
+        short_form ? short : long
+    end
+
+
+    def evaluate
+        ":#{string}"
     end
 end
 
@@ -207,6 +224,7 @@ class FunctionCallExpr < Ast_Expression
             str << ')'
         end
     end
+
 end
 
 
@@ -221,8 +239,6 @@ class AssignmentExpr < Ast_Expression
             end
 
             str << " = #{value ? value : value.inspect}"
-
-            str << ")"
         end
     end
 
@@ -305,7 +321,7 @@ class IdentifierExpr < Ast_Expression
 
 
     def to_s
-        short_form ? "#{name}" : "Ident(#{name})"
+        short_form ? name : "Ident(#{name})"
     end
 
 

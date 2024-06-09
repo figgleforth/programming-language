@@ -3,6 +3,8 @@ nice = 69, naughty := 96, -100
 (1 + -2)
 -3
 
+omg = :boo
+
 nothing ::
 	nice = 69 + 12 / 123 * 4
 end

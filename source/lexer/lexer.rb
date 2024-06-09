@@ -9,7 +9,7 @@ class Lexer
     )
 
     UNUSED_KEYWORDS = %w(api obj def fun new end arg imp)
-    TYPES = %w(int float array dictionary hash dict bool string any)
+    TYPES           = %w(int float array dictionary hash dict bool string any)
 
     TRIPLE_SYMBOLS = %w(<<= >>= ||= !== ===)
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= := :> :: && || ++ -- -> **)
@@ -361,7 +361,23 @@ class Lexer
                     eat while curr.delimiter?
                 end
 
+            elsif curr == ':' and peek.alpha?
+                eat ':'
+                ident = eat_identifier
+                token = SymbolToken.new(ident)
+                @tokens << token
+
             elsif SYMBOLS.include? curr.string
+                # if curr == ':' and peek.alpha?
+                #     eat ':'
+                #     ident                = eat_identifier
+                #     token                = IdentifierToken.new(ident)
+                #     token.symbol_literal = true
+                #     @tokens << token
+                # else
+                symbol = eat_symbol
+                @tokens << AsciiToken.new(symbol)
+                # end
                 # if char == ':' and not peek&.delimiter? # :style symbols
                 #    eat ':'
                 #
@@ -372,8 +388,8 @@ class Lexer
                 #    @tokens << token
                 # else
                 # todo: Ruby style_symbols with :.
-                symbol = eat_symbol
-                @tokens << SymbolToken.new(symbol)
+                # symbol = eat_symbol
+                # @tokens << SymbolToken.new(symbol)
                 eat "\n" while curr.newline? and symbol == ';'
                 eat "\n" while curr.newline? and symbol == '}'
 
