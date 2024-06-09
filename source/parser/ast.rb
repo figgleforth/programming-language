@@ -17,9 +17,9 @@ class Program < Ast
 
 
     def to_s
-        "Program:\n\n".tap do |program|
+        ''.tap do |program|
             expressions.each do |expr|
-                program << "#{expr}\n"
+                program << "#{expr}\n\n"
             end
         end
     end
@@ -32,6 +32,7 @@ class Ast_Expression < Ast
 
 
     def initialize
+        # @short_form = true
         @short_form = false
     end
 
@@ -99,25 +100,21 @@ end
 
 
 class ObjectExpr < Ast_Expression
-    attr_accessor :type, :base_type, :compositions, :statements, :is_api
+    attr_accessor :type, :compositions, :statements
 
 
     def initialize
         super
-        @base_type    = nil
         @type         = nil
         @compositions = []
         @statements   = []
-        @is_api       = false
     end
 
 
     def to_s
-        type_label = is_api ? 'Api' : 'Obj'
-        "#{short_form ? '' : type_label}(#{type}".tap do |str|
-            str << ", base: #{base_type}" if base_type
-            str << ", APIs(#{compositions.count}): #{compositions.map(&:to_s)}" unless compositions.empty?
-            str << ", exprs(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+        (short_form ? "#{type}(" : ":> #{type}(").tap do |str|
+            str << "comps(#{compositions.count}): #{compositions.map(&:to_s)}, " unless compositions.empty?
+            str << "exprs(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
             str << ')'
         end
     end
@@ -125,32 +122,29 @@ end
 
 
 class FunctionExpr < Ast_Expression
-    attr_accessor :name, :return_type, :parameters, :statements
+    attr_accessor :name, :return_type, :parameters, :statements, :ambiguous_params_return
 
 
     def initialize
         super
-        @parameters = []
-        @statements = []
-        @short_form = true
+        @parameters              = []
+        @statements              = []
+        @short_form              = true
+        @ambiguous_params_return = false
     end
 
 
     def to_s
-        # "Method(#{name}, return_type: #{return_type.to_s}, params(#{parameters.count}): #{parameters.map(&:to_s)}), stmts(#{statements.count}): #{statements.map(&:to_s)})"
-        short = "#{name}(".tap do |str|
-            str << "returns: #{return_type || 'nil'}"
-            str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            # str << ", stmts(#{statements.count})" unless statements.empty?
+        short = ":: #{name}(".tap do |str|
+            if ambiguous_params_return
+                str << "params/return: #{return_type}"
+            else
+                str << "return: #{return_type || 'nil'}"
+                str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
+            end
+
             str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
-            # if statements.one?
-            #     str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}"
-            # else
-            #     str << ", stmts(#{statements.count}): [first: #{statements.first.to_s}, last: #{statements.last.to_s}]"
-            # end
-            # end
             str << ')'
-            str << " -> (#{return_type})" if return_type
         end
 
         short_form ? short : inspect
@@ -221,7 +215,7 @@ class AssignmentExpr < Ast_Expression
 
 
     def to_s
-        "#{short_form ? '' : 'Var'}(#{name.string}".tap do |str|
+        "@#{name.string}".tap do |str|
             if type
                 str << ": #{type.string}"
             end
@@ -311,7 +305,7 @@ class IdentifierExpr < Ast_Expression
 
 
     def to_s
-        short_form ? "#{name}" : "IdentExpr(#{name})"
+        short_form ? "#{name}" : "Ident(#{name})"
     end
 
 

@@ -3,15 +3,16 @@ class Lexer
     require_relative 'tokens'
 
     KEYWORDS = %w(
-    api obj def fun new end arg imp
-    enum const private pri public pub static
-    do if else for skip stop it is self when while
-   )
+        new end ini req
+        enum const private pri public pub static
+        do if else for skip stop it is self when while
+    )
 
+    UNUSED_KEYWORDS = %w(api obj def fun new end arg imp)
     TYPES = %w(int float array dictionary hash dict bool string any)
 
-    TRIPLE_SYMBOLS = %w(<<= >>= !== === >== ||=)
-    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= := && || @@ ++ -- -> ** ::)
+    TRIPLE_SYMBOLS = %w(<<= >>= ||= !== ===)
+    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= := :> :: && || ++ -- -> **)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
     # in this specific order so multi character operators are matched first
@@ -224,16 +225,15 @@ class Lexer
 
     # todo) Maybe support this again in the future. I like the idea of this.
     # def eat_number_or_numeric_identifier
-        # number = eat_number
-        #
-        # # support 1st, 2nd, 3rd?, 4th!, etc identifier syntax
-        # if curr.alpha?
-        #     IdentifierToken.new(number + eat_identifier)
-        # else
-        # end
-        # NumberToken.new(eat_number)
+    # number = eat_number
+    #
+    # # support 1st, 2nd, 3rd?, 4th!, etc identifier syntax
+    # if curr.alpha?
+    #     IdentifierToken.new(number + eat_identifier)
+    # else
     # end
-
+    # NumberToken.new(eat_number)
+    # end
 
     def eat_oneline_comment
         ''.tap do |comment|
@@ -243,13 +243,11 @@ class Lexer
             while chars? and not curr.newline?
                 comment << eat
             end
-
-            # eat "\n" # don't care to know if there's a newline after a comment
         end
     end
 
 
-    # todo; stored value doesn't preserve newlines. maybe it should in case I want to generate documentation from these comments.
+    # note: stored value doesn't preserve newlines. maybe it should in case I want to generate documentation from these comments.
     def eat_multiline_comment
         ''.tap do |comment|
             marker = '###'
@@ -262,7 +260,7 @@ class Lexer
             end
 
             eat_many 3, marker
-            # eat "\n" while curr.newline? # don't care to know if there's a newline after a comment
+            # bug: if you comment out a ## comment line, it becomes ### which then expects a closing ###. Not sure if I should add `if peek(0, 3) == marker`
         end
     end
 
