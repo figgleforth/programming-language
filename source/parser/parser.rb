@@ -177,7 +177,7 @@ class Parser
 
     # region Sequence Parsing
 
-    def parse_typed_var_declaration
+    def make_typed_var_decl_ast
         AssignmentExpr.new.tap do |node|
             tokens    = eat IdentifierToken, ':', IdentifierToken
             node.name = tokens[0]
@@ -185,13 +185,17 @@ class Parser
 
             if peek? '='
                 eat '='
+
+                if peek? %W(; \n)
+                    raise "Expected expression after ="
+                end
                 node.value = parse_expression
             end
         end
     end
 
 
-    def parse_untyped_var_declaration_or_reassignment
+    def make_assignment_ast
         AssignmentExpr.new.tap do |node|
             tokens = eat IdentifierToken, '='
 
@@ -293,7 +297,7 @@ class Parser
     end
 
 
-    def parse_function_call
+    def make_function_call_ast
         def parse_args
             # Ident: Expr (,)
             # Expr (,)
@@ -319,7 +323,7 @@ class Parser
             end
         end
 
-
+        # todo) how to handle spaces in place of parens like Ruby?
         FunctionCallExpr.new.tap do |node|
             node.function_name = eat IdentifierToken
             eat '('
@@ -422,39 +426,21 @@ class Parser
 
     # endregion
 
-    def make_ast
-        if peek? IdentifierToken, ':=', :obj
-            make_object_ast
-        elsif peek? IdentifierToken, ':=', :api
-            make_object_ast true
-        elsif peek? IdentifierToken, ':=', :fun
-            make_function_ast
-        elsif peek? DelimiterToken
-            eat and nil
-        else
-            raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nRemainder:\n\t#{remainder.map(&:to_s)}\n\nParsed Expressions:\n\t#{parsed_expressions}"
-        end
-    end
-
-
     # Ident := obj (> Base) ... \n }/end
     def make_object_ast is_api_decl = false
         ObjectExpr.new.tap do |node|
             node.is_api = is_api_decl
 
-            if is_api_decl
-                # Ident := api (> Base)
-                node.type = eat(IdentifierToken, ':=', 'api')[0].string
-            else
-                # Ident := obj (> Base)
-                node.type = eat(IdentifierToken, ':=', 'obj')[0].string
-            end
+            node.type = eat(IdentifierToken).string
 
             if peek? '>', IdentifierToken
                 node.base_type = eat('>', IdentifierToken).last&.string
             end
 
-            eat if peek? '{'
+            eat ':='
+            keyword = is_api_decl ? 'api' : 'obj'
+            eat keyword
+
             eat while peek? "\n" # if we see \n or { then there needs to be a body. otherwise ; is expected
 
             # api compositions
@@ -510,7 +496,7 @@ class Parser
 
 
     # any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
-    def parse_ast
+    def make_ast
         if peek? '('
             open_paren = eat '('
             precedence = precedence_for(open_paren)
@@ -518,52 +504,43 @@ class Parser
                 eat ')'
             end
 
-        elsif peek? %w({ }) # for blocks that are not handled as part of other constructs. like just a random block surrounded by { and }
-            eat and nil
+        elsif peek?(IdentifierToken, '>', IdentifierToken, ':=', 'obj') or peek?(IdentifierToken, ':=', 'obj')
+            make_object_ast
 
-        elsif peek? CommentToken
-            eat and nil
+        elsif peek?(IdentifierToken, '>', IdentifierToken, ':=', 'api') or peek?(IdentifierToken, ':=', 'api')
+            make_object_ast true
+
+        elsif peek? IdentifierToken, ':=', :fun
+            make_function_ast
+
+        elsif peek? IdentifierToken, ':', IdentifierToken
+            make_typed_var_decl_ast
+
+        elsif peek? IdentifierToken, '='
+            make_assignment_ast
+
+        elsif peek? IdentifierToken, '('
+            make_function_call_ast
 
         elsif peek? SymbolToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             parse_unary_expr
 
-        elsif peek? '@' or peek? 'self'
-            eat
-
-        elsif peek? %w(fun def) # I like both def and fun
-            parse_function_declaration
-
-        elsif peek? 'obj', IdentifierToken
-            parse_object_declaration
-
-        elsif peek? IdentifierToken, ':='
-            parse_inferred_var_declaration
-
-        elsif peek? IdentifierToken, ':', IdentifierToken
-            parse_typed_var_declaration
-
-        elsif peek? IdentifierToken, '='
-            parse_untyped_var_declaration_or_reassignment
-
-        elsif peek? IdentifierToken, '(' # todo: function calls without parens
-            parse_function_call
-
         elsif peek? StringToken or peek? NumberToken
             parse_string_or_number_literal
 
-        elsif peek? DelimiterToken # don't care about delimiters that weren't already handled by the other cases
+        elsif peek? [CommentToken, DelimiterToken]
             eat and nil
 
-        elsif peek? ',' # this is basically a statement terminator?
+        elsif peek? ',' # allows for comma separated statements
             eat and nil
 
-        elsif peek? IdentifierToken
+        elsif peek? [IdentifierToken, '@']
             IdentifierExpr.new.tap do |node|
-                node.name = eat IdentifierToken
+                node.name = eat.string
             end
 
         else
-            raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{parsed_expressions}"
+            raise "\n\nUnhandled:\n\t#{curr.inspect}\n\nRemainder:\n\t#{remainder.map(&:to_s)}\n\nParsed Expressions:\n\t#{parsed_expressions}"
         end
     end
 
