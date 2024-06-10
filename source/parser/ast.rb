@@ -1,6 +1,6 @@
-# todo) don't store token on any Ast node. instead, store the token's raw string. tired of not knowing whether Ast.whatever is a token or the raw string. ugh! search :token on this file and you'll see!
-
 class Ast
+    attr_accessor :token
+
     def to_s
         "Ast"
     end
@@ -43,33 +43,27 @@ class Ast_Expression < Ast
 
 
     def evaluate
-        puts "Trying to evaluate self #{self.inspect}"
+        puts "UNHANDLED EVALUATE\n\t#{self.inspect}\n\n"
         self
     end
 end
 
 
 class SymbolExpr < Ast_Expression
-    attr_accessor :string
-
-
     def to_s
-        long  = "Sym(:#{string})"
-        short = ":#{string}"
+        long  = "Sym(:#{token.string})"
+        short = ":#{token.string}"
         short_form ? short : long
     end
 
 
     def evaluate
-        ":#{string}"
+        ":#{token.string}"
     end
 end
 
 
 class StringExpr < Ast_Expression
-    attr_accessor :token
-
-
     def to_s
         long  = "Str(#{inspect})"
         short = "#{token.string}"
@@ -84,12 +78,9 @@ end
 
 
 class NumberExpr < Ast_Expression
-    attr_accessor :token
-
-
     def number
         # @todo convert to number
-        token&.string
+        token.string
     end
 
 
@@ -139,21 +130,21 @@ end
 
 
 class FunctionExpr < Ast_Expression
-    attr_accessor :name, :return_type, :parameters, :statements, :ambiguous_params_return
+    attr_accessor :name, :return_type, :parameters, :statements, :ambiguous_params_or_return
 
 
     def initialize
         super
-        @parameters              = []
-        @statements              = []
-        @short_form              = true
-        @ambiguous_params_return = false
+        @parameters                 = []
+        @statements                 = []
+        @short_form                 = true
+        @ambiguous_params_or_return = false
     end
 
 
     def to_s
         short = ":: #{name}(".tap do |str|
-            if ambiguous_params_return
+            if ambiguous_params_or_return
                 str << "params/return: #{return_type}"
             else
                 str << "return: #{return_type || 'nil'}"
@@ -229,7 +220,7 @@ end
 
 
 class AssignmentExpr < Ast_Expression
-    attr_accessor :name, :type, :value
+    attr_accessor :name, :type, :expression
 
 
     def to_s
@@ -238,13 +229,13 @@ class AssignmentExpr < Ast_Expression
                 str << ": #{type.string}"
             end
 
-            str << " = #{value ? value : value.inspect}"
+            str << " = #{expression ? expression : expression.inspect}"
         end
     end
 
 
     def evaluate
-        value&.evaluate
+        expression&.evaluate
     end
 end
 
@@ -317,21 +308,20 @@ end
 
 class IdentifierExpr < Ast_Expression
     require_relative '../lexer/lexer'
-    attr_accessor :name
 
 
     def to_s
-        short_form ? name : "Ident(#{name})"
+        short_form ? token.string : "Ident(#{token.string})"
     end
 
 
     def evaluate
-        if Lexer::KEYWORDS.include? name
-            return nil if name == 'nil'
-            return true if name == 'true'
-            return false if name == 'false'
+        if Lexer::KEYWORDS.include? token.string
+            return nil if token.string == 'nil'
+            return true if token.string == 'true'
+            return false if token.string == 'false'
         else
-            name
+            token.string
         end
     end
 end

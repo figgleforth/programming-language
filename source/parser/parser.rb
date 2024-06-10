@@ -3,13 +3,13 @@ class Parser
     require_relative '../lexer/tokens'
     require_relative 'ast'
 
-    attr_accessor :i, :buffer, :parsed_expressions
+    attr_accessor :i, :buffer, :statements
 
 
     def initialize buffer = []
-        @parsed_expressions = []
-        @buffer             = buffer
-        @i                  = 0 # index of current token
+        @statements = []
+        @buffer     = buffer
+        @i          = 0 # index of current token
     end
 
 
@@ -153,7 +153,7 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one?
-                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{parsed_expressions}" unless eaten == sequence[0]
+                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{statements}" unless eaten == sequence[0]
             end
             @i    += 1
             return eaten
@@ -197,7 +197,7 @@ class Parser
                 if peek? %W(; \n)
                     raise "Expected expression after ="
                 end
-                node.value = parse_expression
+                node.expression = parse_expression
             end
         end
     end
@@ -213,7 +213,7 @@ class Parser
                 raise "Expected expression after `#{tokens[1]}` but got `#{curr}` in\n\n```\n#{code}\n```"
             end
 
-            node.value = parse_expression
+            node.expression = parse_expression
         end
     end
 
@@ -304,7 +304,7 @@ class Parser
                 if peek? %w(} end)
                     eat
                 else
-                    raise "expected obj to be closed with } or end" unless parsed_expressions.empty?
+                    raise "expected obj to be closed with } or end" unless statements.empty?
                 end
             end
         end
@@ -363,7 +363,7 @@ class Parser
                 if peek? IdentifierToken, "\n"
                     node.return_type = eat(IdentifierToken).string
                     node.parameters << node.return_type
-                    node.ambiguous_params_return = true
+                    node.ambiguous_params_or_return = true
                 else
                     node.parameters = parse_params
                 end
@@ -433,18 +433,18 @@ class Parser
 
         elsif peek? SymbolToken
             SymbolExpr.new.tap do |node|
-                node.string = eat.string
+                node.token = eat
             end
 
         elsif peek? [IdentifierToken, '@']
             IdentifierExpr.new.tap do |node|
-                node.name = eat.string
+                node.token = eat
             end
 
         else
             unhandled = "UNHANDLED TOKEN:\n\t#{curr.inspect}"
             remaining = "REMAINING:\n\t#{remainder.map(&:to_s)}"
-            progress  = "PARSED SO FAR:\n\t#{parsed_expressions}"
+            progress  = "PARSED SO FAR:\n\t#{statements}"
             raise "\n\n#{unhandled}\n\n#{remaining}\n\n#{progress}"
         end
     end
@@ -471,7 +471,7 @@ class Parser
                 raise 'Expected expression' if peek? "\n"
 
                 node.right = parse_expression curr_operator_prec
-                eat if curr == ']' # todo: is this fine? it gives me a creepy feeling.
+                # eat if curr == ']' # todo: is this fine? it feels wrong
             end
         end
 
@@ -480,22 +480,19 @@ class Parser
 
 
     def parse_until until_token = EOFToken
-        expressions = []
-        while tokens? and curr != EOFToken
-            if until_token.is_a? Array
-                break if until_token.any? do |t|
-                    curr == t
+        statements.tap do |s|
+            while tokens? and curr != EOFToken
+                if until_token.is_a? Array
+                    break if until_token.any? do |t|
+                        curr == t
+                    end
+                else
+                    break if curr == until_token
                 end
-            else
-                break if curr == until_token
-            end
 
-            expr = parse_expression
-            if expr
-                expressions << expr
-                parsed_expressions << expr # this is used to determine whether the first encountered obj declaration requires a closing } or end keyword
+                expr = parse_expression
+                s << expr if expr
             end
-        end
-        expressions.compact
+        end.compact
     end
 end
