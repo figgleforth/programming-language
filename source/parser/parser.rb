@@ -14,8 +14,8 @@ class Parser
 
 
     def to_ast
-        Program.new.tap do |program|
-            program.expressions = parse_until(EOFToken)
+        Ast_Block.new.tap do |block|
+            block.expressions = parse_until EOFToken
         end
     end
 
@@ -186,7 +186,7 @@ class Parser
 
 
     def make_typed_var_decl_ast
-        AssignmentExpr.new.tap do |node|
+        Assignment_Expr.new.tap do |node|
             tokens    = eat IdentifierToken, ':', IdentifierToken
             node.name = tokens[0].string
             node.type = tokens[2]
@@ -204,7 +204,7 @@ class Parser
 
 
     def make_assignment_ast
-        AssignmentExpr.new.tap do |node|
+        Assignment_Expr.new.tap do |node|
             node.name = eat(IdentifierToken).string
             eat # = or :=
 
@@ -220,9 +220,9 @@ class Parser
 
     def make_string_or_number_literal_ast
         if curr == StringToken
-            StringExpr.new
+            String_Literal_Expr.new
         else
-            NumberExpr.new
+            Number_Literal_Expr.new
         end.tap do |literal|
             literal.token = eat
         end
@@ -230,7 +230,7 @@ class Parser
 
 
     def make_unary_expr_ast
-        UnaryExpr.new.tap do |node|
+        Unary_Expr.new.tap do |node|
             node.operator   = eat AsciiToken
             node.expression = parse_expression 6 # this cannot use #precedence_for because it would return the same precedence as the binary operators of the same symbol, but we need to be able to be distinguish between the unary. there's probably a better way to do this, but who cares.
         end
@@ -243,7 +243,7 @@ class Parser
             # Expr (,)
             [].tap do |params|
                 while peek?(Token) and curr != ')'
-                    params << FunctionArgExpr.new.tap do |param|
+                    params << Function_Arg_Expr.new.tap do |param|
                         if peek? IdentifierToken, ':' #, Token
                             param.label = eat IdentifierToken
                             eat ':'
@@ -265,7 +265,7 @@ class Parser
 
 
         # todo) how to handle spaces in place of parens like Ruby?
-        FunctionCallExpr.new.tap do |node|
+        Function_Call_Expr.new.tap do |node|
             node.function_name = eat IdentifierToken
             eat '('
             node.arguments = parse_args
@@ -278,7 +278,7 @@ class Parser
     #   ...
     # } or end
     def make_object_ast is_api_decl = false
-        ObjectExpr.new.tap do |node|
+        Object_Expr.new.tap do |node|
             node.type = eat(IdentifierToken, ':>')[0].string
 
             if not peek? "\n"
@@ -317,7 +317,7 @@ class Parser
                 # Ident : Ident (,)
                 # Ident Ident : Ident ... first ident here is a label
                 while peek? IdentifierToken
-                    params << FunctionParamExpr.new.tap do |param|
+                    params << Function_Param_Expr.new.tap do |param|
                         if peek? IdentifierToken, IdentifierToken
                             param.label = eat IdentifierToken
                         end
@@ -342,7 +342,7 @@ class Parser
         end
 
 
-        FunctionExpr.new.tap do |node|
+        Function_Expr.new.tap do |node|
             node.name = eat(IdentifierToken).string
 
             double_colons = (peek_until "\n").count do |t|
@@ -432,12 +432,12 @@ class Parser
             eat and nil
 
         elsif peek? SymbolToken
-            SymbolExpr.new.tap do |node|
+            Symbol_Literal_Expr.new.tap do |node|
                 node.token = eat
             end
 
         elsif peek? [IdentifierToken, '@']
-            IdentifierExpr.new.tap do |node|
+            Identifier_Expr.new.tap do |node|
                 node.token = eat
             end
 
@@ -463,7 +463,7 @@ class Parser
             curr_operator_prec = precedence_for curr
             break if curr_operator_prec <= starting_precedence
 
-            left = BinaryExpr.new.tap do |node|
+            left = Binary_Expr.new.tap do |node|
                 node.left     = left
                 node.operator = eat AsciiToken
 

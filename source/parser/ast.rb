@@ -15,7 +15,7 @@ class Ast
 end
 
 
-class Program < Ast
+class Ast_Block < Ast
     attr_accessor :expressions
 
 
@@ -57,7 +57,7 @@ class Ast_Expression < Ast
 end
 
 
-class SymbolExpr < Ast_Expression
+class Symbol_Literal_Expr < Ast_Expression
     def to_s
         long  = "Sym(:#{token.string})"
         short = ":#{token.string}"
@@ -71,7 +71,7 @@ class SymbolExpr < Ast_Expression
 end
 
 
-class StringExpr < Ast_Expression
+class String_Literal_Expr < Ast_Expression
     def to_s
         long  = "Str(#{inspect})"
         short = "#{token.string}"
@@ -85,7 +85,7 @@ class StringExpr < Ast_Expression
 end
 
 
-class NumberExpr < Ast_Expression
+class Number_Literal_Expr < Ast_Expression
     def number
         # @todo convert to number
         token.string
@@ -115,7 +115,7 @@ class NumberExpr < Ast_Expression
 end
 
 
-class ObjectExpr < Ast_Expression
+class Object_Expr < Ast_Expression
     attr_accessor :type, :compositions, :statements
 
 
@@ -137,7 +137,7 @@ class ObjectExpr < Ast_Expression
 end
 
 
-class FunctionExpr < Ast_Expression
+class Function_Expr < Ast_Expression
     attr_accessor :name, :return_type, :parameters, :statements, :ambiguous_params_or_return
 
 
@@ -168,7 +168,7 @@ class FunctionExpr < Ast_Expression
 end
 
 
-class CommaSeparatedExpr < Ast_Expression
+class Comma_Separated_Expr < Ast_Expression
     attr_accessor :expressions,
                   :count
 
@@ -180,7 +180,7 @@ class CommaSeparatedExpr < Ast_Expression
 end
 
 
-class FunctionParamExpr < Ast_Expression
+class Function_Param_Expr < Ast_Expression
     attr_accessor :name, :label, :type
 
 
@@ -194,7 +194,7 @@ class FunctionParamExpr < Ast_Expression
 end
 
 
-class FunctionArgExpr < Ast_Expression
+class Function_Arg_Expr < Ast_Expression
     attr_accessor :expression, :label
 
 
@@ -207,7 +207,7 @@ class FunctionArgExpr < Ast_Expression
 end
 
 
-class FunctionCallExpr < Ast_Expression
+class Function_Call_Expr < Ast_Expression
     attr_accessor :function_name, :arguments
 
 
@@ -227,7 +227,7 @@ class FunctionCallExpr < Ast_Expression
 end
 
 
-class AssignmentExpr < Ast_Expression
+class Assignment_Expr < Ast_Expression
     attr_accessor :name, :type, :expression
 
 
@@ -248,7 +248,7 @@ class AssignmentExpr < Ast_Expression
 end
 
 
-class UnaryExpr < Ast_Expression
+class Unary_Expr < Ast_Expression
     require_relative '../lexer/tokens'
     attr_accessor :operator, :expression
 
@@ -272,13 +272,13 @@ class UnaryExpr < Ast_Expression
                 not expression.evaluate
             else
                 puts "what??? #{operator}"
-                raise "UnaryExpr(#{operator.string.inspect}) not implemented"
+                raise "Unary_Expr(#{operator.string.inspect}) not implemented"
         end
     end
 end
 
 
-class BinaryExpr < Ast_Expression
+class Binary_Expr < Ast_Expression
     attr_accessor :operator, :left, :right
 
 
@@ -314,7 +314,7 @@ class BinaryExpr < Ast_Expression
 end
 
 
-class IdentifierExpr < Ast_Expression
+class Identifier_Expr < Ast_Expression
     require_relative '../lexer/lexer'
 
     def identifier
