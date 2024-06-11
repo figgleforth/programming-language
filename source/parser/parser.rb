@@ -188,7 +188,7 @@ class Parser
     def make_typed_var_decl_ast
         AssignmentExpr.new.tap do |node|
             tokens    = eat IdentifierToken, ':', IdentifierToken
-            node.name = tokens[0]
+            node.name = tokens[0].string
             node.type = tokens[2]
 
             if peek? '='
@@ -205,7 +205,7 @@ class Parser
 
     def make_assignment_ast
         AssignmentExpr.new.tap do |node|
-            node.name = eat IdentifierToken
+            node.name = eat(IdentifierToken).string
             eat # = or :=
 
             if peek? %W(; \n)

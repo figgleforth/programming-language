@@ -11,14 +11,5 @@ tokens = lexer.lex
 parser     = Parser.new tokens
 statements = parser.parse_until
 
-interpreter = Interpreter.new statements
-
-# puts
-# puts "\n== TOKENS ==\n"
-# puts tokens
-
-# puts "\n== PARSED STATEMENTS ==\n\n"
-# puts statements.join("\n\n")
-
-puts "\n== INTERPRETATION ==\n\n"
-puts interpreter.interpret
+interp = Interpreter.new statements
+interp.evaluate!

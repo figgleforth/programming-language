@@ -1,8 +1,16 @@
 class Ast
     attr_accessor :token
 
+
     def to_s
         "Ast"
+    end
+
+
+    # token == CommentToken
+    # token == '#'
+    def == other
+        other == self.class or self.is_a?(other)
     end
 end
 
@@ -308,6 +316,10 @@ end
 
 class IdentifierExpr < Ast_Expression
     require_relative '../lexer/lexer'
+
+    def identifier
+        token.string
+    end
 
 
     def to_s
