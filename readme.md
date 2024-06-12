@@ -5,25 +5,32 @@
 ### Sample
 
 ```
-STATUS {
-   WORKING_ON_IT
-   NOT_WORKING_ON_IT
+STATUS_ENUM {
+   CAN_BE_UNINITIALIZED
+   MUST_BE_CAPITALIZED = 0
+   CAN_BE, COMMA_SEPARATED,
+   OR_NESTED {
+      NICE = 42
+   }
+   NICE = 420
 }
 
-Emerald {
+Classes_Are_Capitalized {
+   member_vars_are_lowercase = 0
+   or_uninitialized;
    version = 0.0
    bugs = 1_000_000
-   status = STATUS.WORKING_ON_IT
+   status = STATUS_ENUM.NICE
    
-   info { 
+   member_functions_are_lowercase { 
       "Emerald version `version`"
    }
    
-   increase_version { to ->
-      version = to
+   functions_with_params { a_param -> 
+      "This param `a_param`"
    }
    
-   change_version { by delta ->
+   and_with_labels { by delta ->
       version += delta
    }
 }
