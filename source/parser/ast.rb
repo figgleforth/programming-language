@@ -274,13 +274,9 @@ class Assignment_Expr < Ast_Expression
 
 
     def to_s
-        "#{name}".tap do |str|
-            if type
-                str << ": #{type.string}"
-            end
-
-            str << " = #{expression ? expression : expression.inspect}"
-        end
+        long  = "mem(#{name}=#{expression})"
+        short = "(#{name}=#{expression})"
+        short_form ? short : long
     end
 
 
@@ -383,7 +379,7 @@ class Identifier_Expr < Ast_Expression
 end
 
 
-class Enum_Expr < Ast_Expression
+class Enum_Collection_Expr < Ast_Expression
     attr_accessor :name, :constants
 
 
@@ -403,8 +399,12 @@ class Enum_Expr < Ast_Expression
 end
 
 
-class Enum_Constant < Assignment_Expr
-    # attr_accessor :name, :type, :expression from Assignment_Expr
+class Enum_Constant_Expr < Ast_Expression
+    attr_accessor :name, :value
+
+    def to_s
+        "#{name} = #{value}"
+    end
 end
 
 # todo: come up with a better name

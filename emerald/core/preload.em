@@ -1,38 +1,32 @@
-obj Base_Object
-	# convenience for getting an object's type. eg: 'Base_Object'
-	fun ? -> string
-		@.type
-	end
+Base_Object {
+	== { other ->
+		self.id == other.id
+	}
 
-	# instance equality
-	fun == other: Base_Object -> bool
-		@.id == other.@.id
-	end
+	!= { other ->
+		self.id != other.id
+	}
 
-	fun != other: Base_Object -> bool
-		not self == other
-	end
+	=== { other ->
+		self.type == other.type
+	}
 
-	# type equality
-	fun === other: Base_Object -> bool
-		@.type == other.@.type
-	end
+	!== { other ->
+		self.type == other.type
+	}
 
-	fun !== other: Base_Object -> bool
-		not self === other
-	end
+	>== { other ->
+		self.ancestors.include? other
+	}
 
-	fun >== other: Base_Object -> bool
-		@.ancestors.include? other
-	end
+	? { self.type }
 
-	# eg: 'Base_Object(0x00000001049eec38)
-	fun inspect -> string
-		"`@.type`(`@.id.to_hash`)"
-	end
-end
+	inspect {
+		"`self.type`(`self.id.to_hash`)"
+	}
+}
 
-obj Context # represented as @ for every object
+obj Context # represents self for every object
 	id: int
 	type: string
 	type_raw: any

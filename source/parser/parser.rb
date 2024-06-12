@@ -29,9 +29,15 @@ class Parser
 
 
     def debug
-        "UNHANDLED TOKEN:\n\t#{curr.inspect}
-        REMAINING:\n\t#{remainder.map(&:to_s)}
-        PARSED SO FAR:\n\t#{statements}"
+        count     = [3, remainder.count].min
+        remaining = remainder.count > count ? remainder[-count..].map(&:to_s) : []
+
+        count = [3, statements.count].min
+        stmts = statements.count > count ? statements[-count..].map(&:to_s) : []
+
+        "\n\nUNHANDLED TOKEN:\n\t#{curr.inspect}
+        \n\nREMAINING:\n\t#{remaining}
+        \n\nPARSED SO FAR:\n\t#{stmts}"
     end
 
 
@@ -165,7 +171,7 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one?
-                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{statements}" unless eaten == sequence[0]
+                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{statements[-3...]}" unless eaten == sequence[0]
             end
             @i    += 1
             return eaten
@@ -247,36 +253,33 @@ class Parser
 
 
     def make_enum_ast
-        Enum_Expr.new.tap do |node|
-            node.name = eat(Identifier_Token).string
-            eat '{'
-
-            eat_past_newlines
-
-            # IDENT (= expr), ...
-            # IDENT, ...
-            # todo: nested enums like A { B {} }
-            until curr? '}'
-                if curr? Identifier_Token and not curr.constant?
-                    raise 'Enums must be completely capitalized'
+        # if = then Enum_Constant_Expr   -> eat the smallest unit CONST = val
+        # if { then Enum_Collection_Expr -> eat { then make_enum_ast until }
+        if curr? Identifier_Token, '{'
+            Enum_Collection_Expr.new.tap do |node|
+                node.name = eat(Identifier_Token).string
+                eat '{'
+                eat_past_newlines
+                until curr? '}'
+                    node.constants << make_enum_ast
+                    node.constants.compact!
                 end
-
-                node.constants << Enum_Constant.new.tap do |constant|
-                    eat_past_newlines
-                    constant.name = eat Identifier_Token
-                    if curr? '=' and eat '='
-                        if not curr? [Number_Token, String_Token]
-                            raise "Enum constants can only have string or number values"
-                        end
-                        constant.expression = parse_block(%W(, \n))[0]
-                    end
-                    eat_past_newlines
-                end
-
-                eat if curr? %W(, \n)
+                eat '}'
             end
+        elsif curr? Identifier_Token
+            Enum_Constant_Expr.new.tap do |node|
+                node.name = eat(Identifier_Token).string
 
-            eat '}'
+                if curr? '=' and eat '='
+                    # note: allow stateless methods as well?
+                    node.value = parse_block(%W(, \n))[0]
+                end
+                eat_past_newlines
+            end
+        elsif curr? ',' and eat ','
+            eat_past_newlines
+        else
+            raise debug
         end
     end
 
@@ -446,7 +449,7 @@ class Parser
                 eat ')'
             end
 
-        elsif curr? Identifier_Token and curr.object? # Capitalized identifier
+        elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_object_ast
 
         elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
@@ -457,24 +460,11 @@ class Parser
                 make_assignment_ast
             end
 
-        elsif curr? Identifier_Token, '=' and curr.constant? # UPPERCASE identifier
-            raise 'CONST = currently not supported yet'
-
-        elsif curr? Identifier_Token, '{' and curr.constant? # UPPERCASE identifier
+        elsif (curr? Identifier_Token, '{' or curr? Identifier_Token, '=') and curr.constant? # UPPERCASE identifier
             make_enum_ast
 
         elsif curr? Identifier_Token, '(' # todo: function calls
             raise 'function calls are not supported yet'
-            # it could either be a function call or a function declaration. it depends on whether (> ident (:= fun)) is present on the same line and immediately after the closing parens.
-            # Something to think about is, could there ever be a case where a function call expression inside another expression, like a parenthesized list, cannot be differentiated from a function declaration?
-
-            # rough idea:
-            # 1) parse parenthesized expression
-            # 2) peek?(> ident) or peek?(:= fun) ? declaration : call
-
-            # make_function_ast
-            # make_function_call_ast
-            # eat and nil
 
         elsif curr? '&', Identifier_Token
             Merge_Scope_Identifier_Expr.new.tap do |node|
@@ -490,8 +480,7 @@ class Parser
         elsif curr? Comment_Token
             eat and nil
 
-        elsif curr? %W(, ; \n)
-            # allows for comma separated statements, a nil statement
+        elsif curr? %W(, ; \n) # allows for comma separated statements, a nil statement
             eat and nil
 
         elsif curr? Symbol_Token
@@ -505,10 +494,7 @@ class Parser
             end
 
         else
-            unhandled = "UNHANDLED TOKEN:\n\t#{curr.inspect}"
-            remaining = "REMAINING:\n\t#{remainder.map(&:to_s)}"
-            progress  = "PARSED SO FAR:\n\t#{statements}"
-            raise "\n\n#{unhandled}\n\n#{remaining}\n\n#{progress}"
+            raise debug
         end
     end
 

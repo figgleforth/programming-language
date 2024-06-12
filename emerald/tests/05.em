@@ -1,8 +1,9 @@
 Player > Atom {
+	transform = &Transform # this is currently parsing as a variable assignment
+	&Transform # & will merge Transform into this object, it merges all its members and functions, including the ones that were merged into it beforehand
 	number = -1
 	player = 69 + 12 / -123 * 4 % 6
 	whatever;
-	level;
 	character = CHARACTER.GUY
 }
 
@@ -11,7 +12,6 @@ Sokoban {
 		GUY
 		PLATFORM
 	}
-
 }
 
 Entity {
@@ -19,31 +19,23 @@ Entity {
 	name;
 	position;
 
-# todo: unhandled `self`
-#	self.refs = 0 # class variable
+	# class var
+	self.refs = 0
 
-#	self.add_ref { # class function
+	# class func
+	self.add_ref {
 #		refs++
-#	}
+	}
 
-#	self.inspect { "Entity(`self.refs`)" }
+	self.inspect { "Entity(`self.refs`)" }
 
 }
 
 
-
-player./current_level = 1 # ./ is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible. .? is also supported since that's the first symbol I decided on, but it's annoying to type.
-player.?level
+player./current_level = 1 # ./ is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible.
 
 #if player./current_level # also works like ruby's #respond_to?
-#}
-
-
-
-Leaf > Entity {
-	name = 'Lilly'
-	character = CHARACTER.PLATFORM
-}
+#} # todo: flow control
 
 nice { param, param_with_default = 1 -> "body" }
 
@@ -60,7 +52,6 @@ sixty_nine = { 69 + 12 / -123 * 4 % 6 }
 func_without_params {
 	"body!"
 }
-
 
 empty {}
 
@@ -95,4 +86,73 @@ gain_level { player ->
 more { &one, &two = 2, three = 3 ->
 }
 
+STATUS {
+   WORKING_ON_IT = 1
+   NOT_WORKING_ON_IT
+}
+
+Emerald {
+   version = 0.0
+   bugs = 1_000_000
+   status = STATUS.WORKING_ON_IT
+
+   info {
+      "Emerald version `version`"
+   }
+
+   increase_version { to ->
+      version = to
+   }
+
+   change_version { by delta ->
+#      version += delta
+   }
+}
+
 first./middle./last
+
+_SOME_ENUM {}
+
+# todo: abc ?? xyz # abc if abc, otherwise xyz
+
+SOME_CONST = 1
+
+_Emerald {
+	atom = &Atom # this should merge the two scopes but also allow prefixing the scope with atom.
+}
+
+_function {
+	&Atom
+	 _ANOTHER_ENUM = 5
+	_ANOTHER_ENUM {}
+}
+
+#_ANOTHER_ENUM = 'yet'
+
+COLLECTION {
+	ONE, TWO = 2
+	THREE {
+		FOUR = 4, FIVE {
+			ZERO = 0
+		}, SIX {}
+	},
+	SEVEN = Atom.new
+}
+
+COLLECTION.THREE.FIVE
+
+Transform {
+	position;
+}
+
+Entity {
+	&Transform
+}
+
+Lilly_Pad {
+	&Entity
+
+	speed = 1.0
+
+	where_am_i? { "Lilly is at `position` and moving at `speed` units" } # position directly accessible because it was merged into this object with the &Entity statement
+}
