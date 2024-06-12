@@ -13,7 +13,7 @@ class Lexer
     TYPES           = %w(int float array dictionary hash dict bool string any)
 
     TRIPLE_SYMBOLS = %w(<<= >>= ||= !== ===)
-    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || ++ -- -> :: ** ??)
+    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || ++ -- -> :: ** ?? .? ./)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
     # in this specific order so multi character operators are matched first

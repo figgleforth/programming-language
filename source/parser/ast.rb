@@ -192,11 +192,13 @@ end
 
 
 class Function_Param_Expr < Ast_Expression
-    attr_accessor :name, :label, :type, :default_value
+    attr_accessor :name, :label, :type, :default_value, :merge_scope
 
 
     def to_s
-        "#{short_form ? '' : 'Param'}(#{name}".tap do |str|
+        "#{short_form ? '' : 'Param'}(".tap do |str|
+            str << '&' if merge_scope
+            str << "#{name}"
             str << "=#{default_value&.to_s || 'nil'}"
             str << ", type: #{type}" if type
             str << ", label: #{label}" if label
@@ -302,7 +304,7 @@ class Binary_Expr < Ast_Expression
 
     def initialize
         super
-        @short_form = true
+        # @short_form = true
     end
 
 
@@ -350,17 +352,6 @@ class Identifier_Expr < Ast_Expression
     def to_s
         short_form ? token.string : "Ident(#{token.string})"
     end
-
-
-    def evaluate
-        if Lexer::KEYWORDS.include? token.string
-            return nil if token.string == 'nil'
-            return true if token.string == 'true'
-            return false if token.string == 'false'
-        else
-            token.string
-        end
-    end
 end
 
 
@@ -385,4 +376,17 @@ end
 
 class Enum_Constant < Assignment_Expr
     # attr_accessor :name, :type, :expression from Assignment_Expr
+end
+
+class Merge_Scope_Identifier_Expr < Identifier_Expr
+    # the &ident operator. merges the scope of the ident into the current scope
+    attr_accessor :identifier
+
+    def to_s
+        if short_form
+            "&#{identifier}"
+        else
+            "merge_scope(#{identifier})"
+        end
+    end
 end

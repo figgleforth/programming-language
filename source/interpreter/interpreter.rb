@@ -49,3 +49,12 @@ class Interpreter
 end
 
 
+# def evaluate
+#     if Lexer::KEYWORDS.include? token.string
+#         return nil if token.string == 'nil'
+#         return true if token.string == 'true'
+#         return false if token.string == 'false'
+#     else
+#         token.string
+#     end
+# end

@@ -28,6 +28,13 @@ class Parser
     end
 
 
+    def debug
+        "UNHANDLED TOKEN:\n\t#{curr.inspect}
+        REMAINING:\n\t#{remainder.map(&:to_s)}
+        PARSED SO FAR:\n\t#{statements}"
+    end
+
+
     # array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. todo: audit operators
     def precedence_for token
         [
@@ -49,7 +56,7 @@ class Parser
             [15, %w(?:)], # Ternary
             [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
             [18, %w(,)],
-            [19, %w(.)],
+            [19, %w(. ./ .?)],
         ].find do |_, chars|
             chars.include?(token.string)
         end&.at(0)
@@ -228,7 +235,7 @@ class Parser
                     node.expression = parse_expression
                 end
             else
-                current   = "Expected = or =?"
+                current   = "Expected = with an expression or ; to terminate the var declaration"
                 unhandled = "UNHANDLED TOKEN:\n\t#{curr.inspect}"
                 remaining = "REMAINING:\n\t#{remainder.map(&:to_s)}"
                 progress  = "PARSED SO FAR:\n\t#{statements}"
@@ -361,8 +368,13 @@ class Parser
             [].tap do |params|
                 # Ident : Ident (,)
                 # Ident Ident : Ident ... first ident here is a label
-                while curr? Identifier_Token
+                while curr? Identifier_Token or curr? '&', Identifier_Token
                     params << Function_Param_Expr.new.tap do |param|
+                        if curr? '&', Identifier_Token
+                            eat '&'
+                            param.merge_scope = true
+                        end
+
                         if curr? Identifier_Token, Identifier_Token
                             param.label = eat Identifier_Token
                         end
@@ -373,7 +385,7 @@ class Parser
                             param.default_value = parse_block(%W{, \n -> ::})[0]
                         end
 
-                        if curr? ',' and not curr?(',', Identifier_Token)
+                        if curr? ',' and not (curr?(',', Identifier_Token) or curr?(',', '&', Identifier_Token))
                             raise 'Expecting param after comma in function param declaration'
                         elsif curr? ','
                             eat
@@ -448,6 +460,11 @@ class Parser
             # make_function_ast
             # make_function_call_ast
             # eat and nil
+
+        elsif curr? '&', Identifier_Token
+            Merge_Scope_Identifier_Expr.new.tap do |node|
+                node.identifier = eat('&', Identifier_Token)[1].string
+            end
 
         elsif curr? AsciiToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast
