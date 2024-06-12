@@ -16,11 +16,12 @@ end
 
 
 class Ast_Block < Ast
-    attr_accessor :expressions
+    attr_accessor :expressions, :merge_scopes
 
 
     def initialize
-        @expressions = []
+        @expressions  = []
+        @merge_scopes = []
     end
 
 
@@ -123,7 +124,7 @@ end
 
 
 class Object_Expr < Ast_Expression
-    attr_accessor :name, :compositions, :statements
+    attr_accessor :name, :compositions, :expressions, :merge_scopes
 
 
     def initialize
@@ -131,6 +132,21 @@ class Object_Expr < Ast_Expression
         @name         = 'Object'
         @compositions = []
         @statements   = []
+        @merge_scopes = []
+    end
+
+
+    def non_merge_scope_statements
+        expressions.select do |s|
+            s != Merge_Scope_Identifier_Expr
+        end
+    end
+
+
+    def merge_scope_statements
+        expressions.select do |s|
+            s == Merge_Scope_Identifier_Expr
+        end
     end
 
 
@@ -140,7 +156,8 @@ class Object_Expr < Ast_Expression
         else
             "obj{#{name}, ".tap do |str|
                 str << "comps(#{compositions.count}): #{compositions.map(&:to_s)}, " unless compositions.empty?
-                str << "exprs(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+                str << "merges(#{merge_scopes.count}): #{merge_scopes.map(&:to_s)}, " unless merge_scopes.empty?
+                str << "exprs(#{expressions.count}): #{expressions.map(&:to_s)}" unless expressions.empty?
                 str << '}'
             end
         end
@@ -149,28 +166,38 @@ end
 
 
 class Function_Expr < Ast_Expression
-    attr_accessor :name, :return_type, :parameters, :statements, :ambiguous_params_or_return
+    attr_accessor :name, :return_type, :parameters, :expressions
 
 
     def initialize
         super
-        @parameters                 = []
-        @statements                 = []
-        @short_form                 = true
-        @ambiguous_params_or_return = false
+        @parameters  = []
+        @expressions = []
+        @short_form  = true
+    end
+
+
+    def non_merge_scope_statements
+        expressions.select do |s|
+            s != Merge_Scope_Identifier_Expr
+        end
+    end
+
+
+    def merge_scope_statements
+        expressions.select do |s|
+            s == Merge_Scope_Identifier_Expr
+        end
     end
 
 
     def to_s
         short = "fun{#{name}".tap do |str|
-            # if ambiguous_params_or_return
-            #     str << "params/return: #{return_type}"
-            # else
-            #     str << "return: #{return_type || 'nil'}"
-            #     str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            # end
             str << " params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            str << " stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+            str << " merges(#{merge_scope_statements.count}): #{merge_scope_statements.map(&:to_s)}" unless merge_scope_statements.empty?
+            str << '}'
+
+            str << " stmts(#{non_merge_scope_statements.count}): #{non_merge_scope_statements.map(&:to_s)}" unless non_merge_scope_statements.empty?
             str << '}'
         end
 
@@ -179,6 +206,7 @@ class Function_Expr < Ast_Expression
 end
 
 
+# todo: make use of this eventually rather than putting just an array into the :expressions attribute that some classes declared
 class Comma_Separated_Expr < Ast_Expression
     attr_accessor :expressions,
                   :count
@@ -374,19 +402,22 @@ class Enum_Expr < Ast_Expression
     end
 end
 
+
 class Enum_Constant < Assignment_Expr
     # attr_accessor :name, :type, :expression from Assignment_Expr
 end
+
 
 class Merge_Scope_Identifier_Expr < Identifier_Expr
     # the &ident operator. merges the scope of the ident into the current scope
     attr_accessor :identifier
 
+
     def to_s
         if short_form
             "&#{identifier}"
         else
-            "merge_scope(#{identifier})"
+            "&scope(#{identifier})"
         end
     end
 end

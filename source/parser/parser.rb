@@ -357,7 +357,16 @@ class Parser
             end
 
             eat '{'
-            node.statements = parse_block '}'
+            block = parse_block '}'
+
+            node.expressions = block.select do |s|
+                s != Merge_Scope_Identifier_Expr
+            end
+
+            node.merge_scopes = block.select do |s|
+                s == Merge_Scope_Identifier_Expr
+            end
+
             eat '}'
         end
     end
@@ -417,7 +426,7 @@ class Parser
 
             eat_past_newlines
 
-            node.statements = parse_block '}'
+            node.expressions = parse_block '}'
             eat '}'
         end
     end
@@ -446,10 +455,14 @@ class Parser
                 make_assignment_ast
             end
 
+        elsif curr? Identifier_Token, '=' and curr.constant? # UPPERCASE identifier
+            raise 'CONST = currently not supported yet'
+
         elsif curr? Identifier_Token, '{' and curr.constant? # UPPERCASE identifier
             make_enum_ast
 
-            # elsif peek? Identifier_Token, '(' # todo: function calls
+        elsif curr? Identifier_Token, '(' # todo: function calls
+            raise 'function calls are not supported yet'
             # it could either be a function call or a function declaration. it depends on whether (> ident (:= fun)) is present on the same line and immediately after the closing parens.
             # Something to think about is, could there ever be a case where a function call expression inside another expression, like a parenthesized list, cannot be differentiated from a function declaration?
 
