@@ -407,7 +407,7 @@ class Enum_Constant < Assignment_Expr
     # attr_accessor :name, :type, :expression from Assignment_Expr
 end
 
-
+# todo: come up with a better name
 class Merge_Scope_Identifier_Expr < Identifier_Expr
     # the &ident operator. merges the scope of the ident into the current scope
     attr_accessor :identifier

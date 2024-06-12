@@ -15,7 +15,7 @@ class Parser
 
     def to_ast
         Ast_Block.new.tap do |block|
-            block.expressions = parse_until EOFToken
+            block.expressions = parse_until EOF_Token
         end
     end
 
@@ -294,7 +294,7 @@ class Parser
 
     def make_unary_expr_ast
         Unary_Expr.new.tap do |node|
-            node.operator   = eat AsciiToken
+            node.operator   = eat Ascii_Token
             node.expression = parse_expression 6 # this cannot use #precedence_for because it would return the same precedence as the binary operators of the same symbol, but we need to be able to be distinguish between the unary. there's probably a better way to do this, but who cares.
         end
     end
@@ -360,12 +360,14 @@ class Parser
             block = parse_block '}'
 
             node.expressions = block.select do |s|
-                s != Merge_Scope_Identifier_Expr
+                s != Merge_Scope_Identifier_Expr and not (s.respond_to?(:expression) and s.expression == Merge_Scope_Identifier_Expr)
             end
 
             node.merge_scopes = block.select do |s|
-                s == Merge_Scope_Identifier_Expr
+                s == Merge_Scope_Identifier_Expr or (s.respond_to?(:expression) and s.expression == Merge_Scope_Identifier_Expr)
             end
+
+            # todo: raise 'Duplicate merge scope' unless node.merge_scopes.map(&:identifier).count == node.merge_scopes.count
 
             eat '}'
         end
@@ -479,20 +481,20 @@ class Parser
                 node.identifier = eat('&', Identifier_Token)[1].string
             end
 
-        elsif curr? AsciiToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
+        elsif curr? Ascii_Token and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast
 
         elsif curr? String_Token or curr? Number_Token
             make_string_or_number_literal_ast
 
-        elsif curr? CommentToken
+        elsif curr? Comment_Token
             eat and nil
 
         elsif curr? %W(, ; \n)
             # allows for comma separated statements, a nil statement
             eat and nil
 
-        elsif curr? SymbolToken
+        elsif curr? Symbol_Token
             Symbol_Literal_Expr.new.tap do |node|
                 node.token = eat
             end
@@ -519,14 +521,14 @@ class Parser
 
         # if token after left is a binary operator, then we build a binary expression
         while tokens?
-            break unless curr == AsciiToken and curr.binary?
+            break unless curr == Ascii_Token and curr.binary?
 
             curr_operator_prec = precedence_for curr
             break if curr_operator_prec <= starting_precedence
 
             left = Binary_Expr.new.tap do |node|
                 node.left     = left
-                node.operator = eat AsciiToken
+                node.operator = eat Ascii_Token
 
                 # todo: handle multiline statements? I think usually it's a backslash that the lexer treats like a "skip newline" thing, so it basically combines the two lines. I'm leaving the comment here because I'm more likely to be working in this class than in the lexer.
                 raise 'Expected expression' if curr? "\n"
@@ -540,9 +542,9 @@ class Parser
     end
 
 
-    def parse_until until_token = EOFToken
+    def parse_until until_token = EOF_Token
         statements.tap do |s|
-            while tokens? and curr != EOFToken
+            while tokens? and curr != EOF_Token
                 if until_token.is_a? Array
                     break if until_token.any? do |t|
                         curr == t

@@ -20,6 +20,5 @@ puts
 # puts "\n== TOKENS ==\n"
 # puts tokens
 
-puts "============="
-puts "== PROGRAM ==\n\n"
+puts "============= AST:\n\n"
 puts program

@@ -317,16 +317,16 @@ class Lexer
                 # parser cares about ; and \n because that denotes the end of a statement or a pattern (eg: obj Ident \n)
 
                 if curr == ';'
-                    @tokens << DelimiterToken.new(eat) # ;
+                    @tokens << Delimiter_Token.new(eat) # ;
                     # reduce_delimiters while last == curr # eat subsequent ;
                     eat while curr.delimiter? # colon?
                 elsif curr == "\n"
                     # care about \n and any following whitespaces
-                    @tokens << DelimiterToken.new(eat) # \n
+                    @tokens << Delimiter_Token.new(eat) # \n
                     eat while curr.delimiter?
 
                     while curr.whitespace?
-                        @tokens << DelimiterToken.new(eat) # \n
+                        @tokens << Delimiter_Token.new(eat) # \n
                         reduce_delimiters while last == curr # eat subsequent \s
                     end
                 elsif curr == "\s" or curr == "\t" # aka curr.whitespace?
@@ -362,20 +362,20 @@ class Lexer
                 ident = eat_identifier
 
                 if KEYWORDS.include? ident
-                    @tokens << KeywordToken.new(ident)
+                    @tokens << Keyword_Token.new(ident)
                 else
                     @tokens << Identifier_Token.new(ident)
                 end
 
                 if curr == "\n"
-                    @tokens << DelimiterToken.new(eat)
+                    @tokens << Delimiter_Token.new(eat)
                     eat while curr.delimiter?
                 end
 
             elsif curr == ':' and peek.alpha?
                 eat ':'
                 ident = eat_identifier
-                token = SymbolToken.new(ident)
+                token = Symbol_Token.new(ident)
                 @tokens << token
 
             elsif SYMBOLS.include? curr.string
@@ -387,7 +387,7 @@ class Lexer
                 #     @tokens << token
                 # else
                 symbol = eat_symbol
-                @tokens << AsciiToken.new(symbol)
+                @tokens << Ascii_Token.new(symbol)
                 # end
                 # if char == ':' and not peek&.delimiter? # :style symbols
                 #    eat ':'
@@ -408,7 +408,7 @@ class Lexer
                 raise_unknown_char # displays some source code with a caret pointing to the unknown character
             end
         end
-        @tokens << EOFToken.new
+        @tokens << EOF_Token.new
     end
 
 end

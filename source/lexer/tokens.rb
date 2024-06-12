@@ -24,14 +24,14 @@ class Token
 end
 
 
-class EOFToken < Token
+class EOF_Token < Token
     def to_s
         '\eof'
     end
 end
 
 
-class DelimiterToken < Token
+class Delimiter_Token < Token
     def to_s
         if string == ';'
             ";"
@@ -44,7 +44,7 @@ class DelimiterToken < Token
 end
 
 
-class WhitespaceToken < Token
+class Whitespace_Token < Token
     def to_s
         self.object_id
         "\\s"
@@ -90,7 +90,7 @@ class Identifier_Token < Token
 end
 
 
-class KeywordToken < Token
+class Keyword_Token < Identifier_Token
     def to_s
         "Keyword(#{string})"
     end
@@ -109,7 +109,7 @@ class String_Token < Token
 end
 
 
-class SymbolToken < Token
+class Symbol_Token < Token
     def to_s
         "Symbol(:#{string})"
     end
@@ -147,7 +147,7 @@ class Number_Token < Token
 end
 
 
-class AsciiToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
+class Ascii_Token < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
     BINARY_OPERATORS = %w(. + - * / % < > [ \\+= -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** ./ ..) # todo: it sucks having two binary operators lists. one at the top of lexer.rb and here. when you change this, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
     UNARY_OPERATORS  = %w(- + ~ !)
 
@@ -169,7 +169,7 @@ class AsciiToken < Token # special symbols of one or more characters. they are n
 end
 
 
-class CommentToken < Token
+class Comment_Token < Token
     attr_accessor :multiline # may be useful for generating documentation
 
     def initialize string = nil, multiline = false
@@ -180,7 +180,7 @@ class CommentToken < Token
 
     # this is required because Token== is custom so I can do Token == "}". Not good but oh well.
     def == other
-        other.is_a? CommentToken
+        other.is_a? Comment_Token
     end
 
 
