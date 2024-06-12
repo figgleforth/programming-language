@@ -57,17 +57,20 @@ class Identifier_Token < Token
 
 
     def constant? # all upper, LIKE_THIS
-        string&.chars&.all? { |c| c.upcase == c }
+        test = string.gsub('_', '')
+        test&.chars&.all? { |c| c.upcase == c }
     end
 
 
     def object? # capitalized, Like_This or This
-        string[0].upcase == string[0] and not constant?
+        test = string.gsub('_', '')
+        test[0].upcase == test[0] and not constant?
     end
 
 
     def member? # all lower, some_method or some_variable
-        string&.chars&.all? { |c| c.downcase == c }
+        test = string.gsub('_', '')
+        test&.chars&.all? { |c| c.downcase == c }
     end
 
 
@@ -145,7 +148,7 @@ end
 
 
 class AsciiToken < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
-    BINARY_OPERATORS = %w(. + - * / % < > [ \\+= -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** .? ./) # todo: it sucks having two binary operators lists. one at the top of lexer.rb and here. when you change this, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
+    BINARY_OPERATORS = %w(. + - * / % < > [ \\+= -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** ./ ..) # todo: it sucks having two binary operators lists. one at the top of lexer.rb and here. when you change this, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
     UNARY_OPERATORS  = %w(- + ~ !)
 
 

@@ -56,7 +56,7 @@ class Parser
             [15, %w(?:)], # Ternary
             [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
             [18, %w(,)],
-            [19, %w(. ./ .?)],
+            [19, %w(. ./)],
         ].find do |_, chars|
             chars.include?(token.string)
         end&.at(0)
