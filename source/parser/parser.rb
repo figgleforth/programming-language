@@ -80,6 +80,11 @@ class Parser
     end
 
 
+    def eat_past_newlines
+        eat while curr? "\n"
+    end
+
+
     # looks at token without eating, can look backwards as well but peek index is clamped to buffer. if accumulated, returns an array of tokens. otherwise returns a single token
     def peek ahead = 0
         raise 'Parser.tokens is nil' unless buffer
@@ -126,7 +131,7 @@ class Parser
 
 
     # checks whether the remainder buffer contains the exact sequence of tokens. if one of the arguments is an array then that token in the sequence can be either of the two. eg: ident, [:, =, :=]
-    def peek? * sequence
+    def curr? * sequence
         remainder.slice(0, sequence.count).each_with_index.all? do |token, index|
             if sequence[index].is_a? Array
                 sequence[index].any? do |sequence_element|
@@ -160,11 +165,17 @@ class Parser
         end
 
         [].tap do |result|
-            # sequence =
-            #   eat '}'
-            #   eat %w(} end)
+            # Usage:
+            #   sequence =
+            #     eat '}'
+            #     eat %w(} end)
             sequence.each do |expected|
-                raise "Expected #{expected} but got #{curr}" unless curr == expected
+                unless curr == expected
+                    current   = "\n\nExpected #{expected} but got #{curr}"
+                    remaining = "\n\nREMAINING:\n\t#{remainder.map(&:to_s)}"
+                    progress  = "\n\nPARSED SO FAR:\n\t#{statements[3..]}"
+                    raise "#{current}#{remaining}#{progress}" unless curr == expected
+                end
 
                 result << curr
                 @i += 1
@@ -177,7 +188,7 @@ class Parser
 
     # region Sequence Parsing
 
-    def parse_block until_token = %w(} end)
+    def parse_block until_token = '}'
         parser = new_parser_with_remainder_as_buffer
         stmts  = parser.parse_until until_token
         @i     += parser.i
@@ -187,14 +198,14 @@ class Parser
 
     def make_typed_var_decl_ast
         Assignment_Expr.new.tap do |node|
-            tokens    = eat IdentifierToken, ':', IdentifierToken
+            tokens    = eat Identifier_Token, ':', Identifier_Token
             node.name = tokens[0].string
             node.type = tokens[2]
 
-            if peek? '='
+            if curr? '='
                 eat '='
 
-                if peek? %W(; \n)
+                if curr? %W(; \n)
                     raise "Expected expression after ="
                 end
                 node.expression = parse_expression
@@ -205,26 +216,71 @@ class Parser
 
     def make_assignment_ast
         Assignment_Expr.new.tap do |node|
-            node.name = eat(IdentifierToken).string
-            eat # = or :=
+            node.name = eat(Identifier_Token).string
 
-            if peek? %W(; \n)
-                code = (tokens << curr).join(' ')
-                raise "Expected expression after `#{tokens[1]}` but got `#{curr}` in\n\n```\n#{code}\n```"
+            if curr? ';'
+                eat ';'
+            elsif curr? '=' and eat '='
+                if curr? "\n"
+                    code = (buffer << curr).join(' ')
+                    raise "Expected expression after `#{buffer[1]}` but got `#{curr}` in\n\n```\n#{code}\n```"
+                else
+                    node.expression = parse_expression
+                end
+            else
+                current   = "Expected = or =?"
+                unhandled = "UNHANDLED TOKEN:\n\t#{curr.inspect}"
+                remaining = "REMAINING:\n\t#{remainder.map(&:to_s)}"
+                progress  = "PARSED SO FAR:\n\t#{statements}"
+                raise "\n\n#{current}\n\n#{unhandled}\n\n#{remaining}\n\n#{progress}"
             end
 
-            node.expression = parse_expression
+        end
+    end
+
+
+    def make_enum_ast
+        Enum_Expr.new.tap do |node|
+            node.name = eat(Identifier_Token).string
+            eat '{'
+
+            eat_past_newlines
+
+            # IDENT (= expr), ...
+            # IDENT, ...
+            # todo: nested enums like A { B {} }
+            until curr? '}'
+                if curr? Identifier_Token and not curr.constant?
+                    raise 'Enums must be completely capitalized'
+                end
+
+                node.constants << Enum_Constant.new.tap do |constant|
+                    eat_past_newlines
+                    constant.name = eat Identifier_Token
+                    if curr? '=' and eat '='
+                        if not curr? [Number_Token, String_Token]
+                            raise "Enum constants can only have string or number values"
+                        end
+                        constant.expression = parse_block(%W(, \n))[0]
+                    end
+                    eat_past_newlines
+                end
+
+                eat if curr? %W(, \n)
+            end
+
+            eat '}'
         end
     end
 
 
     def make_string_or_number_literal_ast
-        if curr == StringToken
+        if curr == String_Token
             String_Literal_Expr.new
         else
             Number_Literal_Expr.new
         end.tap do |literal|
-            literal.token = eat
+            literal.string = eat.string
         end
     end
 
@@ -242,23 +298,23 @@ class Parser
             # Ident: Expr (,)
             # Expr (,)
             [].tap do |params|
-                while peek?(Token) and curr != ')'
+                while curr?(Token) and curr != ')'
                     params << Function_Arg_Expr.new.tap do |param|
-                        if peek? IdentifierToken, ':' #, Token
-                            param.label = eat IdentifierToken
+                        if curr? Identifier_Token, ':' #, Token
+                            param.label = eat Identifier_Token
                             eat ':'
                         end
 
-                        param.expression = if peek? Token, ','
+                        param.expression = if curr? Token, ','
                             parse_block ','
-                        elsif peek? Token, ')'
+                        elsif curr? Token, ')'
                             parse_block ')'
                         else
                             parse_block %w[, )]
                         end.first
                     end
 
-                    eat if peek? ','
+                    eat if curr? ','
                 end
             end
         end
@@ -266,7 +322,7 @@ class Parser
 
         # todo) how to handle spaces in place of parens like Ruby?
         Function_Call_Expr.new.tap do |node|
-            node.function_name = eat IdentifierToken
+            node.function_name = eat Identifier_Token
             eat '('
             node.arguments = parse_args
             eat ')'
@@ -274,19 +330,18 @@ class Parser
     end
 
 
-    # Ident := Ident (, Ident)
-    #   ...
-    # } or end
+    # Ident ( > Ident (, Ident) )
+    #   { ... }
     def make_object_ast is_api_decl = false
         Object_Expr.new.tap do |node|
-            node.type = eat(IdentifierToken, ':>')[0].string
+            node.name = eat(Identifier_Token).string
 
-            if not peek? "\n"
-                while peek? IdentifierToken
-                    node.compositions << eat(IdentifierToken).string
+            if curr? '>' and eat '>'
+                while curr? Identifier_Token
+                    node.compositions << eat(Identifier_Token).string
 
-                    if peek? ','
-                        if not peek? ',', IdentifierToken
+                    if curr? ','
+                        if not curr? ',', Identifier_Token
                             raise "Unexpected `,` without additional `inc`s" if curr == ','
                         end
                         eat ','
@@ -294,19 +349,9 @@ class Parser
                 end
             end
 
-            eat while peek? "\n" # if we see \n or { then there needs to be a body. otherwise ; is expected
-
-            if peek? %w(; } end) # body or empty object termination
-                eat
-            else
-                node.statements = parse_block %w(} end)
-
-                if peek? %w(} end)
-                    eat
-                else
-                    raise "expected obj to be closed with } or end" unless statements.empty?
-                end
-            end
+            eat '{'
+            node.statements = parse_block '}'
+            eat '}'
         end
     end
 
@@ -316,24 +361,21 @@ class Parser
             [].tap do |params|
                 # Ident : Ident (,)
                 # Ident Ident : Ident ... first ident here is a label
-                while peek? IdentifierToken
+                while curr? Identifier_Token
                     params << Function_Param_Expr.new.tap do |param|
-                        if peek? IdentifierToken, IdentifierToken
-                            param.label = eat IdentifierToken
+                        if curr? Identifier_Token, Identifier_Token
+                            param.label = eat Identifier_Token
                         end
 
-                        param.name = eat IdentifierToken
+                        param.name = eat Identifier_Token
 
-                        if peek? ':' # without this it's an untyped param
-                            eat ':'
-                            param.type = eat IdentifierToken
+                        if curr? '=' and eat '='
+                            param.default_value = parse_block(%W{, \n -> ::})[0]
                         end
 
-                        # todo) parse for default values, so expect = and some expression
-
-                        if peek? ',' and not peek?(',', IdentifierToken)
+                        if curr? ',' and not curr?(',', Identifier_Token)
                             raise 'Expecting param after comma in function param declaration'
-                        elsif peek? ','
+                        elsif curr? ','
                             eat
                         end
                     end
@@ -342,73 +384,61 @@ class Parser
         end
 
 
+        # ident { (params -> or ::) ... }
         Function_Expr.new.tap do |node|
-            node.name = eat(IdentifierToken).string
-
-            double_colons = (peek_until "\n").count do |t|
-                t == '::'
+            if curr? Identifier_Token
+                node.name = eat(Identifier_Token, '{')[0].string
+            elsif curr? '{' # anonymous function
+                eat '{'
             end
 
-            # ident :: params :: return
-            # ident :: return
-            # ident ::
-            if double_colons == 2
-                eat '::'
-                node.parameters = parse_params
-                eat '::'
-                node.return_type = eat(IdentifierToken).string
-            elsif double_colons == 1
-                eat '::'
+            eat_past_newlines
 
-                if peek? IdentifierToken, "\n"
-                    node.return_type = eat(IdentifierToken).string
-                    node.parameters << node.return_type
-                    node.ambiguous_params_or_return = true
-                else
-                    node.parameters = parse_params
-                end
+            has_params      = (peek_until '}').any? do |t|
+                t == '->' or t == '::'
             end
 
-            eat while peek? "\n" # if we see \n or { then there needs to be a body. otherwise ; is expected
+            node.parameters = parse_params if has_params
 
-            if peek? %w(; } end) # body or empty function termination
-                eat
-            else
-                node.statements = parse_block %w(} end)
+            eat '->' if curr? '->'
+            eat '::' if curr? '::'
 
-                if peek? %w(} end)
-                    eat
-                else
-                    raise "expected fun to be closed with } or end"
-                end
-            end
+            eat_past_newlines
+
+            node.statements = parse_block '}'
+            eat '}'
         end
     end
 
 
     # any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
     def make_ast
-        if peek? '('
-            open_paren = eat '('
-            precedence = precedence_for(open_paren)
+        if curr? '{'
+            make_function_ast
+
+        elsif curr? '('
+            paren      = eat '('
+            precedence = precedence_for paren
             parse_expression(precedence).tap do
                 eat ')'
             end
 
-        elsif peek? IdentifierToken, ':>'
+        elsif curr? Identifier_Token and curr.object? # Capitalized identifier
             make_object_ast
 
-        elsif peek? IdentifierToken, '::'
-            make_function_ast
+        elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
 
-        elsif peek? IdentifierToken, ':', IdentifierToken
-            make_typed_var_decl_ast
+            if curr? Identifier_Token, '{'
+                make_function_ast
+            elsif curr? Identifier_Token, '='
+                make_assignment_ast
+            end
 
-        elsif peek? IdentifierToken, '=' or peek? IdentifierToken, ':='
-            make_assignment_ast
+        elsif curr? Identifier_Token, '{' and curr.constant? # UPPERCASE identifier
+            make_enum_ast
 
-        elsif peek? IdentifierToken, '('
-            # todo: it could either be a function call or a function declaration. it depends on whether (> ident (:= fun)) is present on the same line and immediately after the closing parens.
+            # elsif peek? Identifier_Token, '(' # todo: function calls
+            # it could either be a function call or a function declaration. it depends on whether (> ident (:= fun)) is present on the same line and immediately after the closing parens.
             # Something to think about is, could there ever be a case where a function call expression inside another expression, like a parenthesized list, cannot be differentiated from a function declaration?
 
             # rough idea:
@@ -417,26 +447,27 @@ class Parser
 
             # make_function_ast
             # make_function_call_ast
-            eat and nil
+            # eat and nil
 
-        elsif peek? AsciiToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
+        elsif curr? AsciiToken and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast
 
-        elsif peek? StringToken or peek? NumberToken
+        elsif curr? String_Token or curr? Number_Token
             make_string_or_number_literal_ast
 
-        elsif peek? [CommentToken, DelimiterToken]
+        elsif curr? CommentToken
             eat and nil
 
-        elsif peek? ',' # allows for comma separated statements
+        elsif curr? %W(, ; \n)
+            # allows for comma separated statements, a nil statement
             eat and nil
 
-        elsif peek? SymbolToken
+        elsif curr? SymbolToken
             Symbol_Literal_Expr.new.tap do |node|
                 node.token = eat
             end
 
-        elsif peek? [IdentifierToken, '@']
+        elsif curr? [Identifier_Token, '@']
             Identifier_Expr.new.tap do |node|
                 node.token = eat
             end
@@ -467,8 +498,8 @@ class Parser
                 node.left     = left
                 node.operator = eat AsciiToken
 
-                # todo: handle multiline statements?
-                raise 'Expected expression' if peek? "\n"
+                # todo: handle multiline statements? I think usually it's a backslash that the lexer treats like a "skip newline" thing, so it basically combines the two lines. I'm leaving the comment here because I'm more likely to be working in this class than in the lexer.
+                raise 'Expected expression' if curr? "\n"
 
                 node.right = parse_expression curr_operator_prec
                 # eat if curr == ']' # todo: is this fine? it feels wrong
@@ -490,8 +521,9 @@ class Parser
                     break if curr == until_token
                 end
 
-                expr = parse_expression
-                s << expr if expr
+                if (expr = parse_expression)
+                    s << expr
+                end
             end
         end.compact
     end

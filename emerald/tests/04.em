@@ -1,4 +1,4 @@
-nice = 69, naughty := 96, -100
+nice = 69, naughty = 96, -100
 69 + 12 / -123 * 4 % 6
 (1 + -2)
 -3
@@ -7,55 +7,72 @@ omg = :boo
 
 nothing ::
 	nice = 69 + 12 / 123 * 4
-end
+}
 
 something :: string # could be return type or param
-end
+}
 
 something :: claps # pre interpreter can determine which it is
-end
+}
 
-accuracy :: claps, shots: int
-end
+accuracy :: claps, shots
+}
 
-operation :: with value: int
-end
+operation :: with value
+}
 
-calculate :: using mode: Mode, with amount: float :: string
-end
+calculate :: using mode, with amount
+}
 
-Empty :>
-end
+Empty ::
+}
 
-Atom :>
-	id: int
-	type: any
-	created_at := Date_Time.now
-end
+Atom ::
+	id
+	type
+	created_at = Date_Time.now
+}
+
+::} # object block
+::} # method blocks
+:=} # lambda block
 
 # no such thing as a base class. Every object is either itself or self composed with other objects.
 Base :> Atom
-	nothing ::
-		nice = 69
-	end
+	iterate ::
+		doubler = :: it * 2 }
+		items.map doubler
 
-	something :: string
-	end
+		items.map :: it * 2 }
 
-	operation :: with value: int
-	end
-
-	calculate :: using mode: Mode, with amount: float :: float
-	end
-end
+		items.map ::
+			it * 2
+		}
+	}
 
 
-Collection :>
+
+	square :: input
+		input * input
+	}
+
+	something ::
+	}
+
+	operation :: with value
+	}
+
+	calculate :: using mode, with amount
+	}
+}
+
+
+Collection ::
 	elements: array
-end
+}
 
 
 Array :> Atom, Collection
-	include? :: element: any :: bool
-	end
-end
+	include? :: element
+	}
+}

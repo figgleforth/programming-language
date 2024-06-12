@@ -52,9 +52,23 @@ class WhitespaceToken < Token
 end
 
 
-class IdentifierToken < Token
+class Identifier_Token < Token
     require_relative 'lexer'
-    attr_accessor :symbol_literal
+
+
+    def constant? # all upper, LIKE_THIS
+        string&.chars&.all? { |c| c.upcase == c }
+    end
+
+
+    def object? # capitalized, Like_This or This
+        string[0].upcase == string[0] and not constant?
+    end
+
+
+    def member? # all lower, some_method or some_variable
+        string&.chars&.all? { |c| c.downcase == c }
+    end
 
 
     def keyword?
@@ -68,11 +82,7 @@ class IdentifierToken < Token
 
 
     def to_s
-        if symbol_literal
-            ":#{string}"
-        else
-            "#{string}"
-        end
+        string
     end
 end
 
@@ -84,7 +94,7 @@ class KeywordToken < Token
 end
 
 
-class StringToken < Token
+class String_Token < Token
     def to_s
         "String(#{string})"
     end
@@ -95,6 +105,7 @@ class StringToken < Token
     end
 end
 
+
 class SymbolToken < Token
     def to_s
         "Symbol(:#{string})"
@@ -102,7 +113,7 @@ class SymbolToken < Token
 end
 
 
-class NumberToken < Token
+class Number_Token < Token
     def to_s
         # string
         "Num(#{string})"

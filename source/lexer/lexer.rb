@@ -6,13 +6,14 @@ class Lexer
         new end ini req
         enum const private pri public pub static
         do if else for skip stop it is self when while
+        return
     )
 
     UNUSED_KEYWORDS = %w(api obj def fun new end arg imp)
     TYPES           = %w(int float array dictionary hash dict bool string any)
 
     TRIPLE_SYMBOLS = %w(<<= >>= ||= !== ===)
-    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= := :> :: && || ++ -- -> **)
+    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || ++ -- -> :: ** ??)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
     # in this specific order so multi character operators are matched first
@@ -232,7 +233,7 @@ class Lexer
     #     IdentifierToken.new(number + eat_identifier)
     # else
     # end
-    # NumberToken.new(eat_number)
+    # Number_Token.new(eat_number)
     # end
 
     def eat_oneline_comment
@@ -296,6 +297,16 @@ class Lexer
     end
 
 
+    def lowercase? c
+        c.downcase == c
+    end
+
+
+    def uppercase? c
+        c.upcase == c
+    end
+
+
     def lex input = nil
         @source = input if input
 
@@ -339,13 +350,13 @@ class Lexer
                 end
 
             elsif curr == '"' or curr == "'"
-                @tokens << StringToken.new(eat_string)
+                @tokens << String_Token.new(eat_string)
 
             elsif curr.numeric?
-                @tokens << NumberToken.new(eat_number)
+                @tokens << Number_Token.new(eat_number)
 
             elsif curr == '.' and peek&.numeric?
-                @tokens << NumberToken.new(eat_number)
+                @tokens << Number_Token.new(eat_number)
 
             elsif curr.identifier? or (curr == '_' and peek&.alphanumeric?)
                 ident = eat_identifier
@@ -353,7 +364,7 @@ class Lexer
                 if KEYWORDS.include? ident
                     @tokens << KeywordToken.new(ident)
                 else
-                    @tokens << IdentifierToken.new(ident)
+                    @tokens << Identifier_Token.new(ident)
                 end
 
                 if curr == "\n"

@@ -1,5 +1,5 @@
 class Ast
-    attr_accessor :token
+    attr_accessor :token, :string
 
 
     def to_s
@@ -73,28 +73,35 @@ end
 
 class String_Literal_Expr < Ast_Expression
     def to_s
-        long  = "Str(#{inspect})"
-        short = "#{token.string}"
+        long  = "Str(#{string})"
+        short = "#{string}"
         short_form ? short : long
     end
 
 
     def evaluate
-        token.string
+        string
     end
 end
 
 
 class Number_Literal_Expr < Ast_Expression
+
+    def initialize
+        super
+        @short_form = true
+    end
+
+
     def number
         # @todo convert to number
-        token.string
+        string
     end
 
 
     def to_s
-        long  = "Num(#{token.string})"
-        short = "#{token.string}"
+        long  = "Num(#{string})"
+        short = "#{string}"
         short_form ? short : long
     end
 
@@ -116,22 +123,26 @@ end
 
 
 class Object_Expr < Ast_Expression
-    attr_accessor :type, :compositions, :statements
+    attr_accessor :name, :compositions, :statements
 
 
     def initialize
         super
-        @type         = nil
+        @name         = 'Object'
         @compositions = []
         @statements   = []
     end
 
 
     def to_s
-        (short_form ? "#{type}(" : ":> #{type}(").tap do |str|
-            str << "comps(#{compositions.count}): #{compositions.map(&:to_s)}, " unless compositions.empty?
-            str << "exprs(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
-            str << ')'
+        if short_form
+            "obj{#{name}}"
+        else
+            "obj{#{name}, ".tap do |str|
+                str << "comps(#{compositions.count}): #{compositions.map(&:to_s)}, " unless compositions.empty?
+                str << "exprs(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+                str << '}'
+            end
         end
     end
 end
@@ -151,16 +162,16 @@ class Function_Expr < Ast_Expression
 
 
     def to_s
-        short = ":: #{name}(".tap do |str|
-            if ambiguous_params_or_return
-                str << "params/return: #{return_type}"
-            else
-                str << "return: #{return_type || 'nil'}"
-                str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            end
-
-            str << ", stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
-            str << ')'
+        short = "fun{#{name}".tap do |str|
+            # if ambiguous_params_or_return
+            #     str << "params/return: #{return_type}"
+            # else
+            #     str << "return: #{return_type || 'nil'}"
+            #     str << ", params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
+            # end
+            str << " params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
+            str << " stmts(#{statements.count}): #{statements.map(&:to_s)}" unless statements.empty?
+            str << '}'
         end
 
         short_form ? short : inspect
@@ -181,11 +192,12 @@ end
 
 
 class Function_Param_Expr < Ast_Expression
-    attr_accessor :name, :label, :type
+    attr_accessor :name, :label, :type, :default_value
 
 
     def to_s
-        "#{short_form ? '' : 'Param'}(name: #{name}".tap do |str|
+        "#{short_form ? '' : 'Param'}(#{name}".tap do |str|
+            str << "=#{default_value&.to_s || 'nil'}"
             str << ", type: #{type}" if type
             str << ", label: #{label}" if label
             str << ')'
@@ -232,7 +244,7 @@ class Assignment_Expr < Ast_Expression
 
 
     def to_s
-        "@#{name.string}".tap do |str|
+        "#{name}".tap do |str|
             if type
                 str << ": #{type.string}"
             end
@@ -251,6 +263,12 @@ end
 class Unary_Expr < Ast_Expression
     require_relative '../lexer/tokens'
     attr_accessor :operator, :expression
+
+
+    def initialize
+        super
+        @short_form = true
+    end
 
 
     def to_s
@@ -280,6 +298,12 @@ end
 
 class Binary_Expr < Ast_Expression
     attr_accessor :operator, :left, :right
+
+
+    def initialize
+        super
+        @short_form = true
+    end
 
 
     def to_s
@@ -317,6 +341,7 @@ end
 class Identifier_Expr < Ast_Expression
     require_relative '../lexer/lexer'
 
+
     def identifier
         token.string
     end
@@ -336,4 +361,28 @@ class Identifier_Expr < Ast_Expression
             token.string
         end
     end
+end
+
+
+class Enum_Expr < Ast_Expression
+    attr_accessor :name, :constants
+
+
+    def initialize
+        super
+        @constants = []
+    end
+
+
+    def to_s
+        if short_form
+            "enum{#{name}, constants(#{constants.count})}"
+        else
+            "enum{#{name}, constants(#{constants.count}): #{constants.map(&:to_s)}"
+        end
+    end
+end
+
+class Enum_Constant < Assignment_Expr
+    # attr_accessor :name, :type, :expression from Assignment_Expr
 end
