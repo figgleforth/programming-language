@@ -30,6 +30,6 @@ Emerald {
 
 em = Emerald.new
 em.increase_version 0.1
-em.change_bersion by: -0.1
+em.change_version by: -0.1
 em.info # Emerald version 0.0
 ```
