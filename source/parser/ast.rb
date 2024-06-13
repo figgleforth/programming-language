@@ -41,8 +41,8 @@ class Ast_Expression < Ast
 
 
     def initialize
-        # @short_form = true
-        @short_form = false
+        @short_form = true
+        # @short_form = false
     end
 
 
@@ -402,10 +402,12 @@ end
 class Enum_Constant_Expr < Ast_Expression
     attr_accessor :name, :value
 
+
     def to_s
         "#{name} = #{value}"
     end
 end
+
 
 # todo: come up with a better name
 class Merge_Scope_Identifier_Expr < Identifier_Expr
@@ -418,6 +420,27 @@ class Merge_Scope_Identifier_Expr < Identifier_Expr
             "&#{identifier}"
         else
             "&scope(#{identifier})"
+        end
+    end
+end
+
+
+class Conditional_Expr < Ast_Expression
+    attr_accessor :condition, :expr_when_true, :expr_when_false
+
+
+    def to_s
+        "if #{condition}".tap do |str|
+            if expr_when_true
+                str << " #{expr_when_true.map(&:to_s)}"
+            end
+            if expr_when_false
+                if expr_when_false.is_a? Conditional_Expr
+                    str << " else #{expr_when_false}"
+                else
+                    str << " else #{expr_when_false.map(&:to_s)}"
+                end
+            end
         end
     end
 end

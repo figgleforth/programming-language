@@ -154,5 +154,39 @@ Lilly_Pad {
 
 	speed = 1.0
 
-	where_am_i? { "Lilly is at `position` and moving at `speed` units" } # position directly accessible because it was merged into this object with the &Entity statement
+	inspect { "Lilly(at: `position`, speed: `speed` units" } # position directly accessible because it was merged into this object with the &Entity statement
+}
+
+this? = :test
+
+
+Enum_Collection_Expr {
+	&Ast_Expression
+
+	name;
+	constants;
+
+	to_s {
+#		if short_form
+#			"enum{`name`, constants(`constants.count`)}"
+#		else
+#			"enum{`name`, constants(`constants.count`): `constants.map(:to_s)`}"
+#		}
+	}
+}
+
+
+if 1 > 2
+	aaa
+	bbb
+elsif 4 > 3
+	ccc
+elif 5 > 3
+	ddd
+	eee
+	fff
+ef 100_000
+	hhh
+else
+	ggg
 }

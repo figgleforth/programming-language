@@ -437,6 +437,31 @@ class Parser
     end
 
 
+    def make_conditional_ast
+        Conditional_Expr.new.tap do |it|
+            eat 'if' if curr? 'if'
+            it.condition = parse_block("\n")[0]
+            eat_past_newlines
+            it.expr_when_true = parse_block %w(} else elsif elif ef)
+            if curr? 'else'
+                eat 'else'
+                it.expr_when_false = parse_block '}'
+                eat '}'
+            elsif curr? '}'
+                eat '}'
+            elsif curr? 'elsif' or curr? 'elif' or curr? 'ef'
+                while curr? 'elsif' or curr? 'elif' or curr? 'ef'
+                    eat # elsif or elif or ef
+                    raise 'Expected condition' if curr? "\n" or curr? ";" # todo: this doesn't seem right. how else can I ensure that the tokens here are an expression?
+                    it.expr_when_false = make_conditional_ast
+                end
+            else
+                raise "\n\nYou messed your if/else up\n" + debug
+            end
+        end
+    end
+
+
     # any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
     def make_ast
         if curr? '{'
@@ -448,6 +473,9 @@ class Parser
             parse_expression(precedence).tap do
                 eat ')'
             end
+
+        elsif curr? 'if'
+            make_conditional_ast
 
         elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_object_ast
