@@ -191,12 +191,6 @@ else
 	ggg
 }
 
-#while true
-#}
-
-
-
-
 Shop > Entity {
 	~Physics
 }
@@ -266,4 +260,9 @@ elswhile a < 0
 	# ...
 else
 	# ...
+}
+
+while true
+}, while false
+}, while shit
 }
