@@ -14,9 +14,7 @@ class Parser
 
 
     def to_ast
-        Block_Expr.new.tap do |block|
-            block.expressions = parse_until EOF_Token
-        end
+        parse_until EOF_Token
     end
 
 
@@ -202,10 +200,12 @@ class Parser
     # region Sequence Parsing
 
     def parse_block until_token = '}'
-        parser = new_parser_with_remainder_as_buffer
-        stmts  = parser.parse_until until_token
-        @i     += parser.i
-        stmts || []
+        Block_Expr.new.tap do |block|
+            parser            = new_parser_with_remainder_as_buffer
+            stmts             = parser.parse_until until_token
+            @i                += parser.i
+            block.expressions = stmts
+        end
     end
 
 
@@ -272,7 +272,7 @@ class Parser
 
                 if curr? '=' and eat '='
                     # note: allow stateless methods as well?
-                    node.value = parse_block(%W(, \n))[0]
+                    node.value = parse_block(%W(, \n))
                 end
                 eat_past_newlines
             end
@@ -321,7 +321,7 @@ class Parser
                             parse_block ')'
                         else
                             parse_block %w[, )]
-                        end.first
+                        end.expressions[0]
                     end
 
                     eat if curr? ','
@@ -330,9 +330,20 @@ class Parser
         end
 
 
+        def make_comma_separated_params
+            Comma_Separated_Expr.new.tap do |node|
+                node.blocks << parse_block(%w(, \)))
+                while curr? ','
+                    eat ','
+                    node.blocks << parse_block(%w(, \)))
+                end
+            end
+        end
+
+
         # todo) how to handle spaces in place of parens like Ruby?
         Function_Call_Expr.new.tap do |node|
-            node.function_name = eat Identifier_Token
+            node.name = eat Identifier_Token
             eat '('
             node.arguments = parse_args
             eat ')'
@@ -347,68 +358,52 @@ class Parser
             node.name = eat(Identifier_Token).string
 
             if curr? '>' and eat '>'
-                while curr? Identifier_Token
-                    node.compositions << eat(Identifier_Token).string
-
-                    if curr? ','
-                        if not curr? ',', Identifier_Token
-                            raise "Unexpected `,` without additional `inc`s" if curr == ','
-                        end
-                        eat ','
-                    end
-                end
+                node.parent = eat Identifier_Token
             end
 
             eat '{'
-            block = parse_block '}'
+            node.block = parse_block '}'
 
-            node.expressions = block.select do |s|
-                s != Merge_Scope_Identifier_Expr and not (s.respond_to?(:expression) and s.expression == Merge_Scope_Identifier_Expr)
-            end
-
-            node.merge_scopes = block.select do |s|
-                s == Merge_Scope_Identifier_Expr or (s.respond_to?(:expression) and s.expression == Merge_Scope_Identifier_Expr)
-            end
-
-            # todo: raise 'Duplicate merge scope' unless node.merge_scopes.map(&:identifier).count == node.merge_scopes.count
+            # todo: raise 'Duplicate merge scope' unless node.compositions.map(&:identifier).count == node.compositions.count
 
             eat '}'
         end
     end
 
 
-    def make_function_ast
-        def parse_params
-            [].tap do |params|
-                # Ident : Ident (,)
-                # Ident Ident : Ident ... first ident here is a label
-                while curr? Identifier_Token or curr? '&', Identifier_Token
-                    params << Function_Param_Expr.new.tap do |param|
-                        if curr? '&', Identifier_Token
-                            eat '&'
-                            param.merge_scope = true
-                        end
+    def parse_params
+        [].tap do |params|
+            # Ident : Ident (,)
+            # Ident Ident : Ident ... first ident here is a label
+            while curr? Identifier_Token or curr? '&', Identifier_Token
+                params << Function_Param_Expr.new.tap do |param|
+                    if curr? '&', Identifier_Token
+                        eat '&'
+                        param.merge_scope = true
+                    end
 
-                        if curr? Identifier_Token, Identifier_Token
-                            param.label = eat Identifier_Token
-                        end
+                    if curr? Identifier_Token, Identifier_Token
+                        param.label = eat Identifier_Token
+                    end
 
-                        param.name = eat Identifier_Token
+                    param.name = eat Identifier_Token
 
-                        if curr? '=' and eat '='
-                            param.default_value = parse_block(%W{, \n -> ::})[0]
-                        end
+                    if curr? '=' and eat '='
+                        param.default_value = parse_block(%W{, \n -> ::})
+                    end
 
-                        if curr? ',' and not (curr?(',', Identifier_Token) or curr?(',', '&', Identifier_Token))
-                            raise 'Expecting param after comma in function param declaration'
-                        elsif curr? ','
-                            eat
-                        end
+                    if curr? ',' and not (curr?(',', Identifier_Token) or curr?(',', '&', Identifier_Token))
+                        raise 'Expecting param after comma in function param declaration'
+                    elsif curr? ','
+                        eat
                     end
                 end
             end
         end
+    end
 
+
+    def make_function_ast
 
         # ident { (params -> or ::) ... }
         Function_Expr.new.tap do |node|
@@ -428,11 +423,13 @@ class Parser
 
             eat '->' if curr? '->'
             eat '::' if curr? '::'
-
             eat_past_newlines
 
-            node.expressions = parse_block '}'
+            block = parse_block '}'
             eat '}'
+
+            node.compositions = block.compositions
+            node.expressions  = block.expressions
         end
     end
 
@@ -440,7 +437,7 @@ class Parser
     def make_conditional_ast
         Conditional_Expr.new.tap do |it|
             eat 'if' if curr? 'if'
-            it.condition = parse_block("\n")[0]
+            it.condition = parse_block("\n")
             eat_past_newlines
             it.expr_when_true = parse_block %w(} else elsif elif ef)
             if curr? 'else'
@@ -500,11 +497,12 @@ class Parser
             make_enum_ast
 
         elsif curr? Identifier_Token, '(' # todo: function calls
-            raise 'function calls are not supported yet'
+            make_function_call_ast
 
-        elsif curr? '&', Identifier_Token
-            Merge_Scope_Identifier_Expr.new.tap do |node|
-                node.identifier = eat('&', Identifier_Token)[1].string
+        elsif curr? %w(~ &), Identifier_Token
+            Composition_Expr.new.tap do |node|
+                node.operator   = eat.string
+                node.identifier = eat.string
             end
 
         elsif curr? Ascii_Token and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)

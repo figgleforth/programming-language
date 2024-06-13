@@ -1,3 +1,5 @@
+a.b.c = 0
+
 Player > Atom {
 	transform = &Transform # this is currently parsing as a variable assignment
 	&Transform # & will merge Transform into this object, it merges all its members and functions, including the ones that were merged into it beforehand
@@ -20,7 +22,7 @@ Entity {
 	position;
 
 	# class var
-	self.refs = 0
+	self.references.count = 0
 
 	# class func
 	self.add_ref {
@@ -28,14 +30,13 @@ Entity {
 	}
 
 	self.inspect { "Entity(`self.refs`)" }
-
 }
 
 
 player./current_level = 1 # ./ is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible.
 
-#if player./current_level # also works like ruby's #respond_to?
-#} # todo: flow control
+if player./current_level # also works like ruby's #respond_to?
+}
 
 nice { param, param_with_default = 1 -> "body" }
 
@@ -193,3 +194,47 @@ else
 
 #while true
 #}
+
+
+
+
+Shop > Entity {
+	~Physics
+}
+
+Audio_Player {
+	&Entity
+	~Inventory
+	~Physics
+	~Renderer
+	~Rotation
+}
+
+Entity > Object {
+	inventory = &Inventory
+	&Physics
+
+	name;
+	move_speed;
+
+	go { to position ->
+		inventory.position = position
+	}
+}
+
+go(to: 123)
+
+method {}
+method2 { 48 }
+method3 { input -> "`input`" }
+method4 { in1, in2, in3, in4, in5 -> "boo!" }
+method5 { on input -> "`input`" }
+
+method
+method2()
+method3('yay')
+method4(4 + 8, Abc {}, WHAT {}, whatever {}, 32)
+method5(on: 'bwah')
+imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, member: shit)
+
+
