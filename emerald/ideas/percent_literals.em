@@ -8,6 +8,4 @@
 %W(abe boo cool) # ["ABE", "BOO", "COOL"]
 %w(abe boo cool) # ["abe", "boo", "cool"]
 
-%ds(abe boo cool) # {abe: nil, boo: nil, cool: nil}
-%dW(abe boo cool) # {"ABE": nil, "BOO": nil, "COOL": nil}
-%dv(abe boo cool) # {'abe': nil, 'boo': nil, 'cool': nil}
+%d(abe boo cool) # {abe: nil, boo: nil, cool: nil}

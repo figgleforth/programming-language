@@ -231,8 +231,8 @@ class Parser
         Assignment_Expr.new.tap do |node|
             node.name = eat(Identifier_Token).string
 
-            if curr? ';'
-                eat ';'
+            if curr? '=;'
+                eat '=;'
             elsif curr? '=' and eat '='
                 if curr? "\n"
                     code = (buffer << curr).join(' ')
@@ -247,7 +247,6 @@ class Parser
                 progress  = "PARSED SO FAR:\n\t#{expressions}"
                 raise "\n\n#{current}\n\n#{unhandled}\n\n#{remaining}\n\n#{progress}"
             end
-
         end
     end
 
@@ -434,12 +433,13 @@ class Parser
     end
 
 
-    def make_conditional_ast
+    def make_if_else_ast
         Conditional_Expr.new.tap do |it|
             eat 'if' if curr? 'if'
-            it.condition = parse_block("\n")
+            it.condition = parse_block("\n").expressions[0]
             eat_past_newlines
             it.expr_when_true = parse_block %w(} else elsif elif ef)
+
             if curr? 'else'
                 eat 'else'
                 it.expr_when_false = parse_block '}'
@@ -449,18 +449,39 @@ class Parser
             elsif curr? 'elsif' or curr? 'elif' or curr? 'ef'
                 while curr? 'elsif' or curr? 'elif' or curr? 'ef'
                     eat # elsif or elif or ef
-                    raise 'Expected condition' if curr? "\n" or curr? ";"
-                    it.expr_when_false = make_conditional_ast
+                    raise 'Expected condition in the elsif' if curr? "\n" or curr? ";"
+                    it.expr_when_false = make_if_else_ast
                 end
             else
-                raise "\n\nYou messed your if/else up\n" + debug
+                raise "\n\nYou messed your if/elsif/else up\n" + debug
             end
         end
     end
 
 
     def make_while_ast
+        While_Expr.new.tap do |it|
+            eat 'while' if curr? 'while'
+            it.condition = parse_block("\n").expressions[0]
+            eat_past_newlines
+            it.expr_when_true = parse_block %w(elswhile else })
 
+            if curr? 'else'
+                eat 'else'
+                it.expr_when_false = parse_block '}'
+                eat '}'
+            elsif curr? '}'
+                eat '}'
+            elsif curr? 'elswhile'
+                while curr? 'elswhile'
+                    eat # elswhile
+                    raise 'Expected condition in the elswhile' if curr? "\n" or curr? ";"
+                    it.expr_when_false = make_while_ast
+                end
+            else
+                raise "\n\nYou messed your while/elswhile/else up\n" + debug
+            end
+        end
     end
 
 
@@ -476,11 +497,17 @@ class Parser
                 eat ')'
             end
 
+        elsif curr? 'while'
+            make_while_ast
+
         elsif curr? 'if'
-            make_conditional_ast
+            make_if_else_ast
 
             # elsif curr? 'while' # todo: hold off on doing this until I fix all AST nodes that contain expressions. That really needs to be a Block_Expr. should be as easy as finding all .expressions= and .expressions=
             #     make_while_ast
+
+        elsif curr? Identifier_Token, '=;'
+            make_assignment_ast
 
         elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_object_ast
@@ -514,7 +541,7 @@ class Parser
         elsif curr? Comment_Token
             eat and nil
 
-        elsif curr? %W(, ; \n) # allows for comma separated expressions, a nil expression
+        elsif curr? %W(, \n) # ignoring the comma allows for expressions separated by commas
             eat and nil
 
         elsif curr? Symbol_Token

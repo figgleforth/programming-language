@@ -5,7 +5,8 @@ Player > Atom {
 	&Transform # & will merge Transform into this object, it merges all its members and functions, including the ones that were merged into it beforehand
 	number = -1
 	player = 69 + 12 / -123 * 4 % 6
-	whatever;
+	whatever =;
+
 	character = CHARACTER.GUY
 }
 
@@ -17,17 +18,15 @@ Sokoban {
 }
 
 Entity {
-	character;
-	name;
-	position;
+	character =;
+	name =;
+	position =;
 
 	# class var
 	self.references.count = 0
 
 	# class func
-	self.add_ref {
-#		refs++
-	}
+	self.do_something {}
 
 	self.inspect { "Entity(`self.refs`)" }
 }
@@ -143,7 +142,7 @@ COLLECTION {
 COLLECTION.THREE.FIVE
 
 Transform {
-	position;
+	position =;
 }
 
 Entity {
@@ -164,8 +163,8 @@ this? = :test
 Enum_Collection_Expr {
 	&Ast_Expression
 
-	name;
-	constants;
+	name =;
+	constants =;
 
 	to_s {
 #		if short_form
@@ -214,8 +213,8 @@ Entity > Object {
 	inventory = &Inventory
 	&Physics
 
-	name;
-	move_speed;
+	name =;
+	move_speed =;
 
 	go { to position ->
 		inventory.position = position
@@ -238,3 +237,33 @@ method5(on: 'bwah')
 imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, member: shit)
 
 
+if 1 > 2
+	aaa
+	bbb
+elif 4 > 3
+	ccc
+elif 5 > 3
+	ddd
+	eee
+	fff
+elif 100_000
+	hhh
+else
+	ggg
+}
+
+
+while 4 > 3
+	skip
+	stop, skip, whatever
+	1 + 2
+	go!(48), yay
+}
+
+while a > 0
+	# ...
+elswhile a < 0
+	# ...
+else
+	# ...
+}

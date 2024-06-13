@@ -394,13 +394,13 @@ class Conditional_Expr < Ast
     def to_s
         "if #{condition}".tap do |str|
             if expr_when_true
-                str << " #{expr_when_true.to_s}"
+                str << " then #{expr_when_true.expressions.map(&:to_s)}"
             end
             if expr_when_false
                 if expr_when_false.is_a? Conditional_Expr
                     str << " else #{expr_when_false.to_s}"
                 else
-                    str << " else #{expr_when_false.to_s}"
+                    str << " else #{expr_when_false.expressions.map(&:to_s)}"
                 end
             end
         end
@@ -409,6 +409,20 @@ end
 
 
 class While_Expr < Ast
-    attr_accessor :condition,
-                  :block # Block_Expr
+    attr_accessor :condition, :expr_when_true, :expr_when_false
+
+    def to_s
+        "while #{condition}".tap do |str|
+            if expr_when_true
+                str << " then #{expr_when_true.expressions.map(&:to_s)}"
+            end
+            if expr_when_false
+                if expr_when_false.is_a? While_Expr
+                    str << " else #{expr_when_false.to_s}"
+                else
+                    str << " else #{expr_when_false.expressions.map(&:to_s)}"
+                end
+            end
+        end
+    end
 end
