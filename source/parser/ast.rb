@@ -1,21 +1,27 @@
 class Ast
-    attr_accessor :token, :string
+    attr_accessor :short_form,
+                  :inferred_type,
+                  :string
 
 
     def to_s
-        "Ast"
+        'Base Ast'
     end
 
 
-    # token == CommentToken
-    # token == '#'
+    # curr == CommentToken, curr == '#', curr == '=', etc
     def == other
         other == self.class or self.is_a?(other)
+    end
+
+
+    def initialize
+        @short_form = true
     end
 end
 
 
-class Ast_Block < Ast
+class Block_Expr < Ast
     attr_accessor :expressions, :merge_scopes
 
 
@@ -35,44 +41,21 @@ class Ast_Block < Ast
 end
 
 
-class Ast_Expression < Ast
-    attr_accessor :short_form,
-                  :inferred_type
-
-
-    def initialize
-        @short_form = true
-        # @short_form = false
-    end
-
-
-    def == other
-        other == self.class
-    end
-
-
-    def evaluate
-        puts "UNHANDLED EVALUATE\n\t#{self.inspect}\n\n"
-        self
-    end
-end
-
-
-class Symbol_Literal_Expr < Ast_Expression
+class Symbol_Literal_Expr < Ast
     def to_s
-        long  = "Sym(:#{token.string})"
-        short = ":#{token.string}"
+        long  = "Sym(:#{string})"
+        short = ":#{string}"
         short_form ? short : long
     end
 
 
     def evaluate
-        ":#{token.string}"
+        ":#{string}"
     end
 end
 
 
-class String_Literal_Expr < Ast_Expression
+class String_Literal_Expr < Ast
     def to_s
         long  = "Str(#{string})"
         short = "#{string}"
@@ -86,7 +69,7 @@ class String_Literal_Expr < Ast_Expression
 end
 
 
-class Number_Literal_Expr < Ast_Expression
+class Number_Literal_Expr < Ast
 
     def initialize
         super
@@ -109,8 +92,8 @@ class Number_Literal_Expr < Ast_Expression
 
     # https://stackoverflow.com/a/18533211/1426880
     def string_to_float
-        Float(token.string)
-        i, f = token.string.to_i, token.string.to_f
+        Float(string)
+        i, f = string.to_i, string.to_f
         i == f ? i : f
     rescue ArgumentError
         self
@@ -123,7 +106,7 @@ class Number_Literal_Expr < Ast_Expression
 end
 
 
-class Object_Expr < Ast_Expression
+class Object_Expr < Ast
     attr_accessor :name, :compositions, :expressions, :merge_scopes
 
 
@@ -131,19 +114,19 @@ class Object_Expr < Ast_Expression
         super
         @name         = 'Object'
         @compositions = []
-        @statements   = []
+        @expressions  = []
         @merge_scopes = []
     end
 
 
-    def non_merge_scope_statements
+    def non_merge_scope_expressions
         expressions.select do |s|
             s != Merge_Scope_Identifier_Expr
         end
     end
 
 
-    def merge_scope_statements
+    def merge_scope_expressions
         expressions.select do |s|
             s == Merge_Scope_Identifier_Expr
         end
@@ -165,7 +148,7 @@ class Object_Expr < Ast_Expression
 end
 
 
-class Function_Expr < Ast_Expression
+class Function_Expr < Ast
     attr_accessor :name, :return_type, :parameters, :expressions
 
 
@@ -177,14 +160,14 @@ class Function_Expr < Ast_Expression
     end
 
 
-    def non_merge_scope_statements
+    def non_merge_scope_expressions
         expressions.select do |s|
             s != Merge_Scope_Identifier_Expr
         end
     end
 
 
-    def merge_scope_statements
+    def merge_scope_expressions
         expressions.select do |s|
             s == Merge_Scope_Identifier_Expr
         end
@@ -194,10 +177,10 @@ class Function_Expr < Ast_Expression
     def to_s
         short = "fun{#{name}".tap do |str|
             str << " params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            str << " merges(#{merge_scope_statements.count}): #{merge_scope_statements.map(&:to_s)}" unless merge_scope_statements.empty?
+            str << " merges(#{merge_scope_expressions.count}): #{merge_scope_expressions.map(&:to_s)}" unless merge_scope_expressions.empty?
             str << '}'
 
-            str << " stmts(#{non_merge_scope_statements.count}): #{non_merge_scope_statements.map(&:to_s)}" unless non_merge_scope_statements.empty?
+            str << " stmts(#{non_merge_scope_expressions.count}): #{non_merge_scope_expressions.map(&:to_s)}" unless non_merge_scope_expressions.empty?
             str << '}'
         end
 
@@ -207,7 +190,7 @@ end
 
 
 # todo: make use of this eventually rather than putting just an array into the :expressions attribute that some classes declared
-class Comma_Separated_Expr < Ast_Expression
+class Comma_Separated_Expr < Ast
     attr_accessor :expressions,
                   :count
 
@@ -219,7 +202,7 @@ class Comma_Separated_Expr < Ast_Expression
 end
 
 
-class Function_Param_Expr < Ast_Expression
+class Function_Param_Expr < Ast
     attr_accessor :name, :label, :type, :default_value, :merge_scope
 
 
@@ -236,7 +219,7 @@ class Function_Param_Expr < Ast_Expression
 end
 
 
-class Function_Arg_Expr < Ast_Expression
+class Function_Arg_Expr < Ast
     attr_accessor :expression, :label
 
 
@@ -249,7 +232,7 @@ class Function_Arg_Expr < Ast_Expression
 end
 
 
-class Function_Call_Expr < Ast_Expression
+class Function_Call_Expr < Ast
     attr_accessor :function_name, :arguments
 
 
@@ -269,7 +252,7 @@ class Function_Call_Expr < Ast_Expression
 end
 
 
-class Assignment_Expr < Ast_Expression
+class Assignment_Expr < Ast
     attr_accessor :name, :type, :expression
 
 
@@ -286,7 +269,7 @@ class Assignment_Expr < Ast_Expression
 end
 
 
-class Unary_Expr < Ast_Expression
+class Unary_Expr < Ast
     require_relative '../lexer/tokens'
     attr_accessor :operator, :expression
 
@@ -322,7 +305,7 @@ class Unary_Expr < Ast_Expression
 end
 
 
-class Binary_Expr < Ast_Expression
+class Binary_Expr < Ast
     attr_accessor :operator, :left, :right
 
 
@@ -364,22 +347,22 @@ class Binary_Expr < Ast_Expression
 end
 
 
-class Identifier_Expr < Ast_Expression
+class Identifier_Expr < Ast
     require_relative '../lexer/lexer'
 
 
     def identifier
-        token.string
+        string
     end
 
 
     def to_s
-        short_form ? token.string : "Ident(#{token.string})"
+        short_form ? string : "Ident(#{string})"
     end
 end
 
 
-class Enum_Collection_Expr < Ast_Expression
+class Enum_Collection_Expr < Ast
     attr_accessor :name, :constants
 
 
@@ -399,7 +382,7 @@ class Enum_Collection_Expr < Ast_Expression
 end
 
 
-class Enum_Constant_Expr < Ast_Expression
+class Enum_Constant_Expr < Ast
     attr_accessor :name, :value
 
 
@@ -425,7 +408,7 @@ class Merge_Scope_Identifier_Expr < Identifier_Expr
 end
 
 
-class Conditional_Expr < Ast_Expression
+class Conditional_Expr < Ast
     attr_accessor :condition, :expr_when_true, :expr_when_false
 
 
@@ -443,4 +426,10 @@ class Conditional_Expr < Ast_Expression
             end
         end
     end
+end
+
+
+class While_Expr < Ast
+    attr_accessor :condition,
+                  :block # Block_Expr
 end
