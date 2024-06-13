@@ -314,7 +314,7 @@ class Lexer
 
         while chars?
             if curr.delimiter?
-                # parser cares about ; and \n because that denotes the end of a statement or a pattern (eg: obj Ident \n)
+                # parser cares about ; and \n because that denotes the end of an expression or a pattern (eg: obj Ident \n)
 
                 if curr == ';'
                     @tokens << Delimiter_Token.new(eat) # ;

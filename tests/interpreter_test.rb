@@ -9,7 +9,7 @@ lexer  = Lexer.new source
 tokens = lexer.lex
 
 parser     = Parser.new tokens
-statements = parser.parse_until
+expressions = parser.parse_until
 
-interp = Interpreter.new statements
+interp = Interpreter.new expressions
 interp.evaluate!

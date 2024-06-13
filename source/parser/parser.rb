@@ -3,18 +3,18 @@ class Parser
     require_relative '../lexer/tokens'
     require_relative 'ast'
 
-    attr_accessor :i, :buffer, :statements
+    attr_accessor :i, :buffer, :expressions
 
 
     def initialize buffer = []
-        @statements = []
-        @buffer     = buffer
-        @i          = 0 # index of current token
+        @expressions = []
+        @buffer      = buffer
+        @i           = 0 # index of current token
     end
 
 
     def to_ast
-        Ast_Block.new.tap do |block|
+        Block_Expr.new.tap do |block|
             block.expressions = parse_until EOF_Token
         end
     end
@@ -32,8 +32,8 @@ class Parser
         count     = [3, remainder.count].min
         remaining = remainder.count > count ? remainder[-count..].map(&:to_s) : []
 
-        count = [3, statements.count].min
-        stmts = statements.count > count ? statements[-count..].map(&:to_s) : []
+        count = [3, expressions.count].min
+        stmts = expressions.count > count ? expressions[-count..].map(&:to_s) : []
 
         "\n\nUNHANDLED TOKEN:\n\t#{curr.inspect}
         \n\nREMAINING:\n\t#{remaining}
@@ -100,7 +100,7 @@ class Parser
 
     # looks at token without eating, can look backwards as well but peek index is clamped to buffer. if accumulated, returns an array of tokens. otherwise returns a single token
     def peek ahead = 0
-        raise 'Parser.tokens is nil' unless buffer
+        raise 'Parser.buffer is nil' unless buffer
 
         index = ahead.clamp(0, @buffer.count)
         @buffer[@i + index]
@@ -109,7 +109,7 @@ class Parser
 
     # looks ahead `count` tokens, without consuming them. cannot peek backwards
     def peek_many count = 2
-        raise 'Parser.tokens is nil' unless buffer
+        raise 'Parser.buffer is nil' unless buffer
 
         remainder.slice 0, count
     end
@@ -171,7 +171,7 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one?
-                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{statements[-3...]}" unless eaten == sequence[0]
+                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{expressions[-3...]}" unless eaten == sequence[0]
             end
             @i    += 1
             return eaten
@@ -186,7 +186,7 @@ class Parser
                 unless curr == expected
                     current   = "\n\nExpected #{expected} but got #{curr}"
                     remaining = "\n\nREMAINING:\n\t#{remainder.map(&:to_s)}"
-                    progress  = "\n\nPARSED SO FAR:\n\t#{statements[3..]}"
+                    progress  = "\n\nPARSED SO FAR:\n\t#{expressions[3..]}"
                     raise "#{current}#{remaining}#{progress}" unless curr == expected
                 end
 
@@ -244,7 +244,7 @@ class Parser
                 current   = "Expected = with an expression or ; to terminate the var declaration"
                 unhandled = "UNHANDLED TOKEN:\n\t#{curr.inspect}"
                 remaining = "REMAINING:\n\t#{remainder.map(&:to_s)}"
-                progress  = "PARSED SO FAR:\n\t#{statements}"
+                progress  = "PARSED SO FAR:\n\t#{expressions}"
                 raise "\n\n#{current}\n\n#{unhandled}\n\n#{remaining}\n\n#{progress}"
             end
 
@@ -452,13 +452,18 @@ class Parser
             elsif curr? 'elsif' or curr? 'elif' or curr? 'ef'
                 while curr? 'elsif' or curr? 'elif' or curr? 'ef'
                     eat # elsif or elif or ef
-                    raise 'Expected condition' if curr? "\n" or curr? ";" # todo: this doesn't seem right. how else can I ensure that the tokens here are an expression?
+                    raise 'Expected condition' if curr? "\n" or curr? ";"
                     it.expr_when_false = make_conditional_ast
                 end
             else
                 raise "\n\nYou messed your if/else up\n" + debug
             end
         end
+    end
+
+
+    def make_while_ast
+
     end
 
 
@@ -476,6 +481,9 @@ class Parser
 
         elsif curr? 'if'
             make_conditional_ast
+
+            # elsif curr? 'while' # todo: hold off on doing this until I fix all AST nodes that contain expressions. That really needs to be a Block_Expr. should be as easy as finding all .expressions= and .expressions=
+            #     make_while_ast
 
         elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_object_ast
@@ -508,17 +516,17 @@ class Parser
         elsif curr? Comment_Token
             eat and nil
 
-        elsif curr? %W(, ; \n) # allows for comma separated statements, a nil statement
+        elsif curr? %W(, ; \n) # allows for comma separated expressions, a nil expression
             eat and nil
 
         elsif curr? Symbol_Token
             Symbol_Literal_Expr.new.tap do |node|
-                node.token = eat
+                node.string = eat.string
             end
 
         elsif curr? [Identifier_Token, '@']
             Identifier_Expr.new.tap do |node|
-                node.token = eat
+                node.string = eat.string
             end
 
         else
@@ -544,7 +552,7 @@ class Parser
                 node.left     = left
                 node.operator = eat Ascii_Token
 
-                # todo: handle multiline statements? I think usually it's a backslash that the lexer treats like a "skip newline" thing, so it basically combines the two lines. I'm leaving the comment here because I'm more likely to be working in this class than in the lexer.
+                # todo: handle multiline expressions? I think usually it's a backslash that the lexer treats like a "skip newline" thing, so it basically combines the two lines. I'm leaving the comment here because I'm more likely to be working in this class than in the lexer.
                 raise 'Expected expression' if curr? "\n"
 
                 node.right = parse_expression curr_operator_prec
@@ -557,7 +565,7 @@ class Parser
 
 
     def parse_until until_token = EOF_Token
-        statements.tap do |s|
+        expressions.tap do |s|
             while tokens? and curr != EOF_Token
                 if until_token.is_a? Array
                     break if until_token.any? do |t|
