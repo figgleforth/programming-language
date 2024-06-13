@@ -1,11 +1,10 @@
+# :short_form, :string
 class Ast
-    attr_accessor :short_form,
-                  :inferred_type,
-                  :string
+    attr_accessor :short_form, :string
 
 
-    def to_s
-        'Base Ast'
+    def initialize
+        # @short_form = true
     end
 
 
@@ -13,29 +12,68 @@ class Ast
     def == other
         other == self.class or self.is_a?(other)
     end
-
-
-    def initialize
-        @short_form = true
-    end
 end
 
 
+# { .. } is always a block, whether its a class body, function body, or just a block just in the middle of a bunch of statements using {}. I think a block in the middle that declares params should probably fail because nothing is calling the block, it's essentially just grouping code together/
 class Block_Expr < Ast
-    attr_accessor :expressions, :merge_scopes
+    attr_accessor :name, :expressions, :compositions
 
 
     def initialize
         @expressions  = []
-        @merge_scopes = []
+        @compositions = []
+        @short_form   = true
+    end
+
+
+    def non_composition_expressions
+        expressions.select do |s|
+            s != Composition_Expr
+        end
+    end
+
+
+    def composition_expressions
+        expressions.select do |s|
+            s == Composition_Expr
+        end
     end
 
 
     def to_s
-        ''.tap do |program|
-            expressions.each do |expr|
-                program << "#{expr}\n\n"
+        base = short_form ? '' : 'block'
+        "#{base}".tap do |str|
+            str << '{' unless short_form
+            str << "comps(#{composition_expressions.count}): #{composition_expressions.map(&:to_s)}, " unless composition_expressions.empty?
+            str << "exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:to_s)}" unless non_composition_expressions.empty?
+            str << '}' unless short_form
+        end
+    end
+end
+
+
+class Function_Expr < Block_Expr
+    # Block_Expr  :name, :expressions, :compositions
+    attr_accessor :parameters
+
+
+    def initialize
+        super
+        @parameters = []
+        @short_form = false
+    end
+
+
+    def to_s
+        base = short_form ? '' : 'fun'
+        "#{base}{#{name}".tap do |str|
+            str << " -> params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
+            if not short_form
+                str << ", comps(#{composition_expressions.count}): #{composition_expressions.map(&:to_s)}, " unless composition_expressions.empty?
+                str << ", exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:to_s)}" unless non_composition_expressions.empty?
             end
+            str << '}'
         end
     end
 end
@@ -107,97 +145,42 @@ end
 
 
 class Object_Expr < Ast
-    attr_accessor :name, :compositions, :expressions, :merge_scopes
+    attr_accessor :name, :block, :parent
 
-
-    def initialize
-        super
-        @name         = 'Object'
-        @compositions = []
-        @expressions  = []
-        @merge_scopes = []
+    def compositions
+        block.compositions
     end
-
-
-    def non_merge_scope_expressions
-        expressions.select do |s|
-            s != Merge_Scope_Identifier_Expr
-        end
-    end
-
-
-    def merge_scope_expressions
-        expressions.select do |s|
-            s == Merge_Scope_Identifier_Expr
-        end
-    end
-
 
     def to_s
-        if short_form
-            "obj{#{name}}"
-        else
-            "obj{#{name}, ".tap do |str|
-                str << "comps(#{compositions.count}): #{compositions.map(&:to_s)}, " unless compositions.empty?
-                str << "merges(#{merge_scopes.count}): #{merge_scopes.map(&:to_s)}, " unless merge_scopes.empty?
-                str << "exprs(#{expressions.count}): #{expressions.map(&:to_s)}" unless expressions.empty?
-                str << '}'
+        "obj{#{name}".tap do |str|
+            str << " > #{parent}" if parent
+            if not short_form
+                str << ", " + block.to_s if block
             end
-        end
-    end
-end
-
-
-class Function_Expr < Ast
-    attr_accessor :name, :return_type, :parameters, :expressions
-
-
-    def initialize
-        super
-        @parameters  = []
-        @expressions = []
-        @short_form  = true
-    end
-
-
-    def non_merge_scope_expressions
-        expressions.select do |s|
-            s != Merge_Scope_Identifier_Expr
-        end
-    end
-
-
-    def merge_scope_expressions
-        expressions.select do |s|
-            s == Merge_Scope_Identifier_Expr
-        end
-    end
-
-
-    def to_s
-        short = "fun{#{name}".tap do |str|
-            str << " params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
-            str << " merges(#{merge_scope_expressions.count}): #{merge_scope_expressions.map(&:to_s)}" unless merge_scope_expressions.empty?
-            str << '}'
-
-            str << " stmts(#{non_merge_scope_expressions.count}): #{non_merge_scope_expressions.map(&:to_s)}" unless non_merge_scope_expressions.empty?
             str << '}'
         end
-
-        short_form ? short : inspect
     end
 end
 
 
 # todo: make use of this eventually rather than putting just an array into the :expressions attribute that some classes declared
 class Comma_Separated_Expr < Ast
-    attr_accessor :expressions,
-                  :count
+    attr_accessor :blocks
 
 
-    def expressions= val
-        @expressions = val
-        @count       = val.count
+    def initialize
+        super
+        @blocks = []
+    end
+
+    def to_s
+        "comma_separated(".tap do |str|
+            blocks.each_with_index do |block, i|
+                str << block.expressions[0].to_s
+                str << ', ' unless i == blocks.count - 1
+            end
+            str << ')'
+        end
     end
 end
 
@@ -224,8 +207,9 @@ class Function_Arg_Expr < Ast
 
 
     def to_s
-        "#{short_form ? '' : 'Arg'}(#{expression.to_s}".tap do |str|
-            str << ", label: #{label}" if label
+        "#{short_form ? '' : 'Arg'}(".tap do |str|
+            str << "label: #{label}, " if label
+            str << expression.to_s
             str << ')'
         end
     end
@@ -233,7 +217,7 @@ end
 
 
 class Function_Call_Expr < Ast
-    attr_accessor :function_name, :arguments
+    attr_accessor :name, :arguments
 
 
     def initialize
@@ -243,8 +227,8 @@ class Function_Call_Expr < Ast
 
 
     def to_s
-        "#{short_form ? '' : 'FunCall'}(name: #{function_name}".tap do |str|
-            str << ", args(#{arguments.count}): #{arguments.map(&:to_s)}" unless arguments.empty?
+        "#{short_form ? '' : 'fun_call'}(name: #{name}".tap do |str|
+            str << ", #{arguments.map(&:to_s)}" if arguments
             str << ')'
         end
     end
@@ -257,7 +241,7 @@ class Assignment_Expr < Ast
 
 
     def to_s
-        long  = "mem(#{name}=#{expression})"
+        long  = "assignment(#{name}=#{expression})"
         short = "(#{name}=#{expression})"
         short_form ? short : long
     end
@@ -357,7 +341,7 @@ class Identifier_Expr < Ast
 
 
     def to_s
-        short_form ? string : "Ident(#{string})"
+        short_form ? string : "ident(#{string})"
     end
 end
 
@@ -392,18 +376,13 @@ class Enum_Constant_Expr < Ast
 end
 
 
-# todo: come up with a better name
-class Merge_Scope_Identifier_Expr < Identifier_Expr
+class Composition_Expr < Identifier_Expr
     # the &ident operator. merges the scope of the ident into the current scope
-    attr_accessor :identifier
+    attr_accessor :operator, :identifier
 
 
     def to_s
-        if short_form
-            "&#{identifier}"
-        else
-            "&scope(#{identifier})"
-        end
+        "#{operator}#{identifier}"
     end
 end
 
@@ -415,13 +394,13 @@ class Conditional_Expr < Ast
     def to_s
         "if #{condition}".tap do |str|
             if expr_when_true
-                str << " #{expr_when_true.map(&:to_s)}"
+                str << " #{expr_when_true.to_s}"
             end
             if expr_when_false
                 if expr_when_false.is_a? Conditional_Expr
-                    str << " else #{expr_when_false}"
+                    str << " else #{expr_when_false.to_s}"
                 else
-                    str << " else #{expr_when_false.map(&:to_s)}"
+                    str << " else #{expr_when_false.to_s}"
                 end
             end
         end

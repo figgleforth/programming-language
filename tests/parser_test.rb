@@ -21,4 +21,8 @@ puts
 # puts tokens
 
 puts "============= AST:\n\n"
-puts program
+# puts program
+program.each do |expr|
+    puts expr
+    puts
+end
