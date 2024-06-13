@@ -3,13 +3,14 @@ class Parser
     require_relative '../lexer/tokens'
     require_relative 'ast'
 
-    attr_accessor :i, :buffer, :expressions
+    attr_accessor :i, :buffer, :expressions, :eaten_this_iteration
 
 
     def initialize buffer = []
-        @expressions = []
-        @buffer      = buffer
-        @i           = 0 # index of current token
+        @i                    = 0 # index of current token
+        @buffer               = buffer
+        @expressions          = []
+        @eaten_this_iteration = []
     end
 
 
@@ -35,7 +36,7 @@ class Parser
 
         "\n\nUNHANDLED TOKEN:\n\t#{curr.inspect}
         \n\nREMAINING:\n\t#{remaining}
-        \n\nPARSED SO FAR:\n\t#{stmts}"
+        \n\nEATEN THIS ITERATION of #parse_expre:\n\t#{@eaten.map(&:to_s)}"
     end
 
 
@@ -169,9 +170,10 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one?
-                raise "\n\nExpected #{sequence[0]} but got #{eaten}\n\ncurrent:\n\t#{curr.inspect}\n\nprev:\n\t#{@buffer[@i - 1].inspect}\n\nremainder:\n\t#{remainder.map(&:to_s)}\n\nexpressions:\n\t#{expressions[-3...]}" unless eaten == sequence[0]
+                raise debug unless eaten == sequence[0]
             end
             @i    += 1
+            eaten_this_iteration << eaten
             return eaten
         end
 
@@ -188,7 +190,9 @@ class Parser
                     raise "#{current}#{remaining}#{progress}" unless curr == expected
                 end
 
-                result << curr
+                eaten = curr
+                result << eaten
+                eaten_this_iteration << eaten
                 @i += 1
             end
         end
@@ -271,7 +275,7 @@ class Parser
 
                 if curr? '=' and eat '='
                     # note: allow stateless methods as well?
-                    node.value = parse_block(%W(, \n))
+                    node.value = parse_block(%W(, \n)).expressions[0]
                 end
                 eat_past_newlines
             end
@@ -329,6 +333,7 @@ class Parser
         end
 
 
+        # todo: make use of this. maybe this will help prevent this from parsing `go(wtf =;)` to `fun_call(name: go, ["Arg(set(wtf=))"])`. this makes no sense
         def make_comma_separated_params
             Comma_Separated_Expr.new.tap do |node|
                 node.blocks << parse_block(%w(, \)))
@@ -388,7 +393,7 @@ class Parser
                     param.name = eat Identifier_Token
 
                     if curr? '=' and eat '='
-                        param.default_value = parse_block(%W{, \n -> ::})
+                        param.default_value = parse_block(%W{, \n -> ::}).expressions[0]
                     end
 
                     if curr? ',' and not (curr?(',', Identifier_Token) or curr?(',', '&', Identifier_Token))
@@ -412,17 +417,15 @@ class Parser
                 eat '{'
             end
 
-            eat_past_newlines
-
-            has_params      = (peek_until '}').any? do |t|
+            has_params = (peek_until '}').any? do |t|
                 t == '->' or t == '::'
             end
 
+            eat_past_newlines
             node.parameters = parse_params if has_params
 
             eat '->' if curr? '->'
             eat '::' if curr? '::'
-            eat_past_newlines
 
             block = parse_block '}'
             eat '}'
@@ -436,8 +439,7 @@ class Parser
     def make_if_else_ast
         Conditional_Expr.new.tap do |it|
             eat 'if' if curr? 'if'
-            it.condition = parse_block("\n").expressions[0]
-            eat_past_newlines
+            it.condition      = parse_block("\n").expressions[0]
             it.expr_when_true = parse_block %w(} else elsif elif ef)
 
             if curr? 'else'
@@ -462,8 +464,7 @@ class Parser
     def make_while_ast
         While_Expr.new.tap do |it|
             eat 'while' if curr? 'while'
-            it.condition = parse_block("\n").expressions[0]
-            eat_past_newlines
+            it.condition      = parse_block("\n").expressions[0]
             it.expr_when_true = parse_block %w(elswhile else })
 
             if curr? 'else'
@@ -509,7 +510,7 @@ class Parser
         elsif curr? Identifier_Token, '=;'
             make_assignment_ast
 
-        elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
+        elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # and not prev == '&' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_object_ast
 
         elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
@@ -569,6 +570,7 @@ class Parser
         # if token after left is a binary operator, then we build a binary expression
         while tokens?
             break unless curr == Ascii_Token and curr.binary?
+            break if curr? '&', Identifier_Token
 
             curr_operator_prec = precedence_for curr
             break if curr_operator_prec <= starting_precedence
@@ -577,7 +579,6 @@ class Parser
                 node.left     = left
                 node.operator = eat Ascii_Token
 
-                # todo: handle multiline expressions? I think usually it's a backslash that the lexer treats like a "skip newline" thing, so it basically combines the two lines. I'm leaving the comment here because I'm more likely to be working in this class than in the lexer.
                 raise 'Expected expression' if curr? "\n"
 
                 node.right = parse_expression curr_operator_prec
@@ -600,6 +601,7 @@ class Parser
                     break if curr == until_token
                 end
 
+                eaten_this_iteration = []
                 if (expr = parse_expression)
                     s << expr
                 end

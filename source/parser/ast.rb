@@ -68,7 +68,7 @@ class Function_Expr < Block_Expr
     def to_s
         base = short_form ? '' : 'fun'
         "#{base}{#{name}".tap do |str|
-            str << " -> params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
+            str << " params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
             if not short_form
                 str << ", comps(#{composition_expressions.count}): #{composition_expressions.map(&:to_s)}, " unless composition_expressions.empty?
                 str << ", exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:to_s)}" unless non_composition_expressions.empty?
@@ -241,7 +241,7 @@ class Assignment_Expr < Ast
 
 
     def to_s
-        long  = "assignment(#{name}=#{expression})"
+        long  = "set(#{name}=#{expression})"
         short = "(#{name}=#{expression})"
         short_form ? short : long
     end
@@ -371,7 +371,7 @@ class Enum_Constant_Expr < Ast
 
 
     def to_s
-        "#{name} = #{value}"
+        "#{name} = #{value || 'nil'}"
     end
 end
 

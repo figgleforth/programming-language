@@ -1,8 +1,15 @@
 a.b.c = 0
 
+Atom {
+	&Pos
+	&Rot
+
+	whatever =;
+}
+
 Player > Atom {
-	transform = &Transform # this is currently parsing as a variable assignment
 	&Transform # & will merge Transform into this object, it merges all its members and functions, including the ones that were merged into it beforehand
+	transform = &Transform # this is currently parsing as a variable assignment
 	number = -1
 	player = 69 + 12 / -123 * 4 % 6
 	whatever =;
@@ -54,6 +61,7 @@ func_without_params {
 }
 
 empty {}
+Empty {}
 
 lost = { in = 42 -> }
 
@@ -64,7 +72,7 @@ lost = { in = 42 -> }
 GAME_LOOP_STATE {
 	UPDATE = 0
 	RENDER = 69 + 12 / -123 * 4 % 6
-	WHENCE = 'yes'
+	WHENCE = 'yes' # todo: need to .expressions[0]
 }
 
 TESTING {}
@@ -79,11 +87,11 @@ next_level { player
 # adds members of this object to the local scope but they reference the arg player. allows you to do:
 gain_level { player ->
 	&player
-	&works.on.nested.too
+	&works.on.nested.too # todo: this parsed as `exprs(1): ["BE(BE(BE(&works . ident(on)) . ident(nested)) . ident(too))`
 #	level += 1 # equivalent to player.level when not using &. it's the programmer's responsibility to make sure they don't & args with clashing members. #raise when that happens
 }
 
-more { &one, &two = 2, three = 3 ->
+more { &one, &two = 2, three = 3 -> # todo: the & in params isn't treated as a comp technically, but the interpreter can figure it out
 }
 
 STATUS {
@@ -264,5 +272,8 @@ else
 
 while true
 }, while false
-}, while shit
+}, while
+	shit
 }
+
+go(wtf =;) # this shouldn't be possible
