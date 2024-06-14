@@ -260,7 +260,7 @@ class Assignment_Expr < Ast
 
 
     def to_s
-        "#{name}=#{expression}"
+        "#{name}=#{expression || 'nil'}"
     end
 
 
