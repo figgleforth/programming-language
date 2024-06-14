@@ -58,7 +58,7 @@ class Parser
             [12, %w(|)], # Bitwise OR
             [13, %w(&&)], # Logical AND
             [14, %w(||)], # Logical OR
-            [15, %w(?:)], # Ternary
+            # [15, %w(?:)], # Ternary
             [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
             [18, %w(,)],
             [19, %w(. ./)],
@@ -517,6 +517,23 @@ class Parser
         elsif curr? 'if'
             make_if_else_ast
 
+        # elsif curr? '+', '+' or curr? '-', '-' # bug: can't use this operator because it breaks 1 -------- 2
+        #     Composition_Expr.new.tap do |node|
+        #         node.operator   = (eat and eat)
+        #         node.identifier = eat.string
+        #         if curr? 'as' and eat
+        #             node.name = eat.string
+        #         end
+        #     end
+            # elsif curr? %w(~ &), Identifier_Token # or curr? Identifier_Token, '=', '&'
+            #     Composition_Expr.new.tap do |node|
+            #         node.operator   = eat.string
+            #         node.identifier = eat.string
+            #         if curr? 'as' and eat
+            #             node.name = eat.string
+            #         end
+            #     end
+
         elsif curr? Identifier_Token, '=;'
             make_assignment_ast
 
@@ -527,7 +544,7 @@ class Parser
 
             if curr? Identifier_Token, '{'
                 make_function_ast
-            elsif curr? Identifier_Token, '='
+            elsif curr? Identifier_Token, '=' # and not curr? Identifier_Token, '=', '&'
                 make_assignment_ast
             end
 
@@ -536,12 +553,6 @@ class Parser
 
         elsif curr? Identifier_Token, '(' # todo: function calls
             make_function_call_ast
-
-        elsif curr? %w(~ &), Identifier_Token
-            Composition_Expr.new.tap do |node|
-                node.operator   = eat.string
-                node.identifier = eat.string
-            end
 
         elsif curr? Ascii_Token and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast

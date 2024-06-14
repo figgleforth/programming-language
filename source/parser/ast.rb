@@ -331,7 +331,7 @@ class Binary_Expr < Ast
 
 
     def to_s
-        long  = "BE(#{left}#{operator}#{right}"
+        long  = "BE(#{left} '#{operator}' #{right}"
         short = "(#{left}#{operator}#{right}"
         str   = short_form ? short : long
         str   += ']' if operator == '['
@@ -412,11 +412,11 @@ end
 
 class Composition_Expr < Identifier_Expr
     # the &ident operator. merges the scope of the ident into the current scope
-    attr_accessor :operator, :identifier
+    attr_accessor :operator, :identifier, :name
 
 
     def to_s
-        "#{operator}#{identifier}"
+        "#{operator}#{identifier}#{name ? " as #{name}" : ''}"
     end
 end
 
