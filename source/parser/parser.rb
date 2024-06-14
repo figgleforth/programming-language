@@ -43,6 +43,8 @@ class Parser
     # array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. todo: audit operators
     def precedence_for token
         [
+            [0, %w(-: +:)], # composition
+
             [0, %w(( ))],
             [1, %w([ ])],
             [2, %w(!)],
@@ -61,7 +63,7 @@ class Parser
             # [15, %w(?:)], # Ternary
             [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
             [18, %w(,)],
-            [19, %w(. ./)],
+            [20, %w(. ./)],
         ].find do |_, chars|
             chars.include?(token.string)
         end&.at(0)
@@ -517,14 +519,18 @@ class Parser
         elsif curr? 'if'
             make_if_else_ast
 
-        # elsif curr? '+', '+' or curr? '-', '-' # bug: can't use this operator because it breaks 1 -------- 2
-        #     Composition_Expr.new.tap do |node|
-        #         node.operator   = (eat and eat)
-        #         node.identifier = eat.string
-        #         if curr? 'as' and eat
-        #             node.name = eat.string
-        #         end
-        #     end
+        elsif curr? '+:' or curr? '-:'
+            Composition_Expr.new.tap do |node|
+                node.operator   = eat
+                node.identifier = eat.string
+                if curr? 'as' and eat
+                    if curr? Identifier_Token and curr.member?
+                        node.name = eat.string
+                    else
+                        raise "Composition name capitalization must be all lowercase because it is being declared as a variable"
+                    end
+                end
+            end
             # elsif curr? %w(~ &), Identifier_Token # or curr? Identifier_Token, '=', '&'
             #     Composition_Expr.new.tap do |node|
             #         node.operator   = eat.string
@@ -576,6 +582,9 @@ class Parser
                 node.string = eat.string
             end
 
+        elsif curr? ':', '+' or curr? ':', '-'
+            raise "You used #{curr}#{peek(1)} but probably meant #{peek(1)}#{curr}"
+
         else
             raise debug
         end
@@ -592,7 +601,17 @@ class Parser
         while tokens?
             if curr? Ascii_Token and curr.binary?
                 curr_operator_prec = precedence_for(curr)
-                break if curr_operator_prec <= starting_precedence
+
+                # todo: should +: and -: be able to be mixed with other operators?
+                if curr.composition?
+                    # this ensures that the ast is right leaning, so like (a+(b-c)) instead of ((a+b)-c)
+                    break if curr_operator_prec < starting_precedence
+                else
+                    # this is left leaning, so like ((a+b)-c) instead of (a+(b-c))
+                    break if curr_operator_prec <= starting_precedence
+                end
+
+                # break if curr_operator_prec <= starting_precedence
 
                 left = Binary_Expr.new.tap do |node|
                     node.left     = left

@@ -326,13 +326,13 @@ class Binary_Expr < Ast
 
     def initialize
         super
-        # @short_form = false
+        @short_form = true
     end
 
 
     def to_s
         long  = "BE(#{left} '#{operator}' #{right}"
-        short = "(#{left}#{operator}#{right}"
+        short = "(#{left} #{operator} #{right}"
         str   = short_form ? short : long
         str   += ']' if operator == '['
         str   += ')'
@@ -367,6 +367,12 @@ end
 
 class Identifier_Expr < Ast
     require_relative '../lexer/lexer'
+
+
+    def initialize
+        super
+        @short_form = true
+    end
 
 
     def identifier
