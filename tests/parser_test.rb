@@ -20,7 +20,7 @@ puts
 # puts "\n== TOKENS ==\n"
 # puts tokens
 
-puts "============= AST:\n\n"
+puts "============= AST (#{program.count} statements):\n\n"
 # puts program
 program.each do |expr|
     puts expr

@@ -13,7 +13,7 @@ class Lexer
     TYPES           = %w(int float array dictionary hash dict bool string any)
 
     TRIPLE_SYMBOLS = %w(<<= >>= ||= !== === ...)
-    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ?? ./ .. =; +: -:)
+    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ?? ./ .. =;)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
     # in this specific order so multi character operators are matched first
@@ -314,7 +314,7 @@ class Lexer
 
         while chars?
             if curr.delimiter?
-                # parser cares about ; and \n because that denotes the end of an expression or a pattern (eg: obj Ident \n)
+                # parser cares about ; and \n
 
                 if curr == ';'
                     @tokens << Delimiter_Token.new(eat) # ;
@@ -330,13 +330,9 @@ class Lexer
                         reduce_delimiters while last == curr # eat subsequent \s
                     end
                 elsif curr == "\s" or curr == "\t" # aka curr.whitespace?
-                    # if @tokens.last.is_a?(IdentifierToken)
-                    #     @tokens << DelimiterToken.new("\s")
-                    # end
-                    # @note lexing \s breaks a lot. so don't
-
                     eat while curr.whitespace?
                     reduce_delimiters while last == curr
+
                 end
 
             elsif curr == '#'
@@ -367,11 +363,6 @@ class Lexer
                     @tokens << Identifier_Token.new(ident)
                 end
 
-                if curr == "\n"
-                    @tokens << Delimiter_Token.new(eat)
-                    eat while curr.delimiter?
-                end
-
             elsif curr == ':' and peek.alpha?
                 eat ':'
                 ident = eat_identifier
@@ -379,30 +370,8 @@ class Lexer
                 @tokens << token
 
             elsif SYMBOLS.include? curr.string
-                # if curr == ':' and peek.alpha?
-                #     eat ':'
-                #     ident                = eat_identifier
-                #     token                = IdentifierToken.new(ident)
-                #     token.symbol_literal = true
-                #     @tokens << token
-                # else
                 symbol = eat_symbol
                 @tokens << Ascii_Token.new(symbol)
-                # end
-                # if char == ':' and not peek&.delimiter? # :style symbols
-                #    eat ':'
-                #
-                #    ident                = eat_identifier
-                #    token                = IdentifierToken.new(ident)
-                #    token.symbol_literal = true
-                #
-                #    @tokens << token
-                # else
-                # todo: Ruby style_symbols with :.
-                # symbol = eat_symbol
-                # @tokens << SymbolToken.new(symbol)
-                eat "\n" while curr.newline? and symbol == ';'
-                eat "\n" while curr.newline? and symbol == '}'
 
             else
                 raise_unknown_char # displays some source code with a caret pointing to the unknown character

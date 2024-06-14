@@ -43,8 +43,6 @@ class Parser
     # array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. todo: audit operators
     def precedence_for token
         [
-            [0, %w(-: +:)], # composition
-
             [0, %w(( ))],
             [1, %w([ ])],
             [2, %w(!)],
@@ -270,6 +268,7 @@ class Parser
                     node.constants.compact!
                 end
                 eat '}'
+                eat_past_newlines
             end
         elsif curr? Identifier_Token
             Enum_Constant_Expr.new.tap do |node|
@@ -359,9 +358,6 @@ class Parser
 
             eat '{'
             node.block = parse_block '}'
-
-            # todo: raise 'Duplicate merge scope' unless node.compositions.map(&:identifier).count == node.compositions.count
-
             eat '}'
         end
     end
@@ -519,26 +515,15 @@ class Parser
         elsif curr? 'if'
             make_if_else_ast
 
-        elsif curr? '+:' or curr? '-:'
+        elsif (curr? '&', Identifier_Token and not peek(1).member?) or (curr? '~', Identifier_Token and not peek(1).member?)
+            # todo: named compositions
             Composition_Expr.new.tap do |node|
                 node.operator   = eat
                 node.identifier = eat.string
-                if curr? 'as' and eat
-                    if curr? Identifier_Token and curr.member?
-                        node.name = eat.string
-                    else
-                        raise "Composition name capitalization must be all lowercase because it is being declared as a variable"
-                    end
-                end
             end
-            # elsif curr? %w(~ &), Identifier_Token # or curr? Identifier_Token, '=', '&'
-            #     Composition_Expr.new.tap do |node|
-            #         node.operator   = eat.string
-            #         node.identifier = eat.string
-            #         if curr? 'as' and eat
-            #             node.name = eat.string
-            #         end
-            #     end
+
+        elsif curr? '&', Identifier_Token and peek(1).member?
+            raise 'Cannot compose with members right now, only classes and enums'
 
         elsif curr? Identifier_Token, '=;'
             make_assignment_ast
@@ -601,17 +586,7 @@ class Parser
         while tokens?
             if curr? Ascii_Token and curr.binary?
                 curr_operator_prec = precedence_for(curr)
-
-                # todo: should +: and -: be able to be mixed with other operators?
-                if curr.composition?
-                    # this ensures that the ast is right leaning, so like (a+(b-c)) instead of ((a+b)-c)
-                    break if curr_operator_prec < starting_precedence
-                else
-                    # this is left leaning, so like ((a+b)-c) instead of (a+(b-c))
-                    break if curr_operator_prec <= starting_precedence
-                end
-
-                # break if curr_operator_prec <= starting_precedence
+                break if curr_operator_prec <= starting_precedence
 
                 left = Binary_Expr.new.tap do |node|
                     node.left     = left
@@ -648,7 +623,6 @@ class Parser
                     break if curr == until_token
                 end
 
-                eaten_this_iteration = []
                 if (expr = parse_expression)
                     s << expr
                 end

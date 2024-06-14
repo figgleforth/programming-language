@@ -326,7 +326,7 @@ class Binary_Expr < Ast
 
     def initialize
         super
-        @short_form = true
+        # @short_form = true
     end
 
 
@@ -421,8 +421,18 @@ class Composition_Expr < Identifier_Expr
     attr_accessor :operator, :identifier, :name
 
 
+    def initialize
+        super
+        @short_form = false
+    end
+
+
     def to_s
-        "#{operator}#{identifier}#{name ? " as #{name}" : ''}"
+        if short_form
+            "#{operator}#{identifier}#{name ? " = #{name}" : ''}"
+        else
+            "comp(#{operator}#{identifier}#{name ? " = #{name}" : ''})"
+        end
     end
 end
 
