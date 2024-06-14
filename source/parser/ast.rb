@@ -147,9 +147,11 @@ end
 class Object_Expr < Ast
     attr_accessor :name, :block, :parent
 
+
     def compositions
         block.compositions
     end
+
 
     def to_s
         "obj{#{name}".tap do |str|
@@ -172,6 +174,7 @@ class Comma_Separated_Expr < Ast
         super
         @blocks = []
     end
+
 
     def to_s
         "comma_separated(".tap do |str|
@@ -241,9 +244,7 @@ class Assignment_Expr < Ast
 
 
     def to_s
-        long  = "set(#{name}=#{expression})"
-        short = "(#{name}=#{expression})"
-        short_form ? short : long
+        "#{name}=#{expression}"
     end
 
 
@@ -265,14 +266,14 @@ class Unary_Expr < Ast
 
 
     def to_s
-        long  = "UE(#{operator.string}#{expression})"
-        short = "(#{operator.string}#{expression})"
+        long  = "UE(#{operator}#{expression})"
+        short = "(#{operator}#{expression})"
         short_form ? short : long
     end
 
 
     def evaluate
-        case operator.string
+        case operator
             when '-'
                 expression.evaluate * -1
             when '+'
@@ -283,8 +284,18 @@ class Unary_Expr < Ast
                 not expression.evaluate
             else
                 puts "what??? #{operator}"
-                raise "Unary_Expr(#{operator.string.inspect}) not implemented"
+                raise "Unary_Expr(#{operator.inspect}) not implemented"
         end
+    end
+end
+
+
+class Subscript_Expr < Ast
+    attr_accessor :left, :index_expression
+
+
+    def to_s
+        "#{left}[#{index_expression}]"
     end
 end
 
@@ -295,23 +306,26 @@ class Binary_Expr < Ast
 
     def initialize
         super
-        # @short_form = true
+        # @short_form = false
     end
 
 
     def to_s
-        long  = "BE(#{left} #{operator.string} #{right})"
-        short = "(#{left}#{operator.string}#{right})"
-        short_form ? short : long
+        long  = "BE(#{left}#{operator}#{right}"
+        short = "(#{left}#{operator}#{right}"
+        str   = short_form ? short : long
+        str   += ']' if operator == '['
+        str   += ')'
+        str
     end
 
 
     def evaluate
         if right.evaluate == nil or right.evaluate == 'nil'
-            raise "BinaryExprNode trying to `#{operator.string}` with nil"
+            raise "BinaryExprNode trying to `#{operator}` with nil"
         end
 
-        case operator.string
+        case operator
             when '+'
                 left.evaluate + right.evaluate
             when '-'
@@ -325,7 +339,7 @@ class Binary_Expr < Ast
             when '&&'
                 left.evaluate && right.evaluate
             else
-                raise "BinaryExprNode(#{operator.string.inspect}) not implemented"
+                raise "BinaryExprNode(#{operator.inspect}) not implemented"
         end
     end
 end
@@ -341,7 +355,7 @@ class Identifier_Expr < Ast
 
 
     def to_s
-        short_form ? string : "ident(#{string})"
+        short_form ? string : "id(#{string})"
     end
 end
 
@@ -358,9 +372,9 @@ class Enum_Collection_Expr < Ast
 
     def to_s
         if short_form
-            "enum{#{name}, constants(#{constants.count})}"
+            "enum{#{name}, consts(#{constants.count})}"
         else
-            "enum{#{name}, constants(#{constants.count}): #{constants.map(&:to_s)}"
+            "enum{#{name}, consts(#{constants.count}): #{constants.map(&:to_s)}"
         end
     end
 end
@@ -410,6 +424,7 @@ end
 
 class While_Expr < Ast
     attr_accessor :condition, :expr_when_true, :expr_when_false
+
 
     def to_s
         "while #{condition}".tap do |str|

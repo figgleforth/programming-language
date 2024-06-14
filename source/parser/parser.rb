@@ -36,7 +36,7 @@ class Parser
 
         "\n\nUNHANDLED TOKEN:\n\t#{curr.inspect}
         \n\nREMAINING:\n\t#{remaining}
-        \n\nEATEN THIS ITERATION of #parse_expre:\n\t#{@eaten.map(&:to_s)}"
+        \n\nEATEN THIS ITERATION of #parse_expre:\n\t#{@eaten_this_iteration.map(&:to_s)}"
     end
 
 
@@ -300,7 +300,7 @@ class Parser
 
     def make_unary_expr_ast
         Unary_Expr.new.tap do |node|
-            node.operator   = eat Ascii_Token
+            node.operator   = eat(Ascii_Token).string
             node.expression = parse_expression 6 # this cannot use #precedence_for because it would return the same precedence as the binary operators of the same symbol, but we need to be able to be distinguish between the unary. there's probably a better way to do this, but who cares.
         end
     end
@@ -504,13 +504,10 @@ class Parser
         elsif curr? 'if'
             make_if_else_ast
 
-            # elsif curr? 'while' # todo: hold off on doing this until I fix all AST nodes that contain expressions. That really needs to be a Block_Expr. should be as easy as finding all .expressions= and .expressions=
-            #     make_while_ast
-
         elsif curr? Identifier_Token, '=;'
             make_assignment_ast
 
-        elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # and not prev == '&' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
+        elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_object_ast
 
         elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
@@ -569,20 +566,27 @@ class Parser
 
         # if token after left is a binary operator, then we build a binary expression
         while tokens?
-            break unless curr == Ascii_Token and curr.binary?
-            break if curr? '&', Identifier_Token
+            if curr? Ascii_Token and curr.binary?
+                curr_operator_prec = precedence_for(curr)
+                break if curr_operator_prec <= starting_precedence
 
-            curr_operator_prec = precedence_for curr
-            break if curr_operator_prec <= starting_precedence
+                left = Binary_Expr.new.tap do |node|
+                    node.left     = left
+                    node.operator = eat(Ascii_Token).string
 
-            left = Binary_Expr.new.tap do |node|
-                node.left     = left
-                node.operator = eat Ascii_Token
+                    raise 'Expected expression' if curr? "\n"
 
-                raise 'Expected expression' if curr? "\n"
-
-                node.right = parse_expression curr_operator_prec
-                # eat if curr == ']' # todo: is this fine? it feels wrong
+                    node.right = parse_expression curr_operator_prec
+                end
+            elsif curr? '['
+                eat '['
+                left = Subscript_Expr.new.tap do |node|
+                    node.left  = left
+                    node.index_expression = parse_expression
+                end
+                eat ']'
+            else
+                break
             end
         end
 

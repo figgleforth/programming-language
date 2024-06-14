@@ -277,3 +277,11 @@ while true
 }
 
 go(wtf =;) # this shouldn't be possible
+
+
+a[b[c]][1][abc[2 + 3]] + 4
+
+a[b[c]][1][abc[2+3]+4]
+
+a[1+2][b[c[3]]][d+e][f-g]
+a[1+2][b[c[3]]][d+e][f-g]
