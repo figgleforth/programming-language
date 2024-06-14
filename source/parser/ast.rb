@@ -79,30 +79,23 @@ class Function_Expr < Block_Expr
 end
 
 
-class Symbol_Literal_Expr < Ast
+class Object_Expr < Ast
+    attr_accessor :name, :block, :parent
+
+
+    def compositions
+        block.compositions
+    end
+
+
     def to_s
-        long  = "Sym(:#{string})"
-        short = ":#{string}"
-        short_form ? short : long
-    end
-
-
-    def evaluate
-        ":#{string}"
-    end
-end
-
-
-class String_Literal_Expr < Ast
-    def to_s
-        long  = "Str(#{string})"
-        short = "#{string}"
-        short_form ? short : long
-    end
-
-
-    def evaluate
-        string
+        "obj{#{name}".tap do |str|
+            str << " > #{parent}" if parent
+            if not short_form
+                str << ", " + block.to_s if block
+            end
+            str << '}'
+        end
     end
 end
 
@@ -144,42 +137,65 @@ class Number_Literal_Expr < Ast
 end
 
 
-class Object_Expr < Ast
-    attr_accessor :name, :block, :parent
+class Symbol_Literal_Expr < Ast
+    def to_s
+        long  = "Sym(:#{string})"
+        short = ":#{string}"
+        short_form ? short : long
+    end
 
 
-    def compositions
-        block.compositions
+    def evaluate
+        ":#{string}"
+    end
+end
+
+
+class String_Literal_Expr < Ast
+    def to_s
+        long  = "Str(#{string})"
+        short = "#{string}"
+        short_form ? short : long
+    end
+
+
+    def evaluate
+        string
+    end
+end
+
+
+class Array_Literal_Expr < Ast
+    attr_accessor :values
+
+
+    def initialize
+        super
+        @values = []
     end
 
 
     def to_s
-        "obj{#{name}".tap do |str|
-            str << " > #{parent}" if parent
-            if not short_form
-                str << ", " + block.to_s if block
-            end
-            str << '}'
-        end
+        "[#{values.map(&:to_s).join(',')}]"
     end
 end
 
 
 # todo: make use of this eventually rather than putting just an array into the :expressions attribute that some classes declared
 class Comma_Separated_Expr < Ast
-    attr_accessor :blocks
+    attr_accessor :expressions
 
 
     def initialize
         super
-        @blocks = []
+        @expressions = []
     end
 
 
     def to_s
         "comma_separated(".tap do |str|
-            blocks.each_with_index do |block, i|
-                str << block.expressions[0].to_s
+            expressions.each_with_index do |expr, i|
+                str << expr.expressions[0].to_s
                 str << ', ' unless i == blocks.count - 1
             end
             str << ')'
@@ -295,7 +311,11 @@ class Subscript_Expr < Ast
 
 
     def to_s
-        "#{left}[#{index_expression}]"
+        if index_expression
+            "#{left}[#{index_expression}]"
+        else
+            "#{left}[nil]"
+        end
     end
 end
 

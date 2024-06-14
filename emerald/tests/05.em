@@ -285,3 +285,25 @@ a[b[c]][1][abc[2+3]+4]
 
 a[1+2][b[c[3]]][d+e][f-g]
 a[1+2][b[c[3]]][d+e][f-g]
+
+[1, 2, 3+4,while true
+}, while false
+}, while
+	shit
+}, Abc{}, DEF{}, def{}, {}, [], a[0], Player > Atom {
+	&Transform # & will merge Transform into this object, it merges all its members and functions, including the ones that were merged into it beforehand
+	transform = &Transform # this is currently parsing as a variable assignment
+	number = -1
+	player = 69 + 12 / -123 * 4 % 6
+	whatever =;
+
+	character = CHARACTER.GUY
+}]
+
+
+
+a[1+2][b[c[3]]][d+e][f-g]
+
+some_var[]
+
+[]

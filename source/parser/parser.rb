@@ -333,17 +333,7 @@ class Parser
         end
 
 
-        # todo: make use of this. maybe this will help prevent this from parsing `go(wtf =;)` to `fun_call(name: go, ["Arg(set(wtf=))"])`. this makes no sense
-        def make_comma_separated_params
-            Comma_Separated_Expr.new.tap do |node|
-                node.blocks << parse_block(%w(, \)))
-                while curr? ','
-                    eat ','
-                    node.blocks << parse_block(%w(, \)))
-                end
-            end
-        end
-
+        # todo: should not be parsing a =; like in `go(wtf =;)` it parses to `fun_call(name: go, ["Arg(set(wtf=))"])`. this makes no sense
 
         # todo) how to handle spaces in place of parens like Ruby?
         Function_Call_Expr.new.tap do |node|
@@ -371,6 +361,18 @@ class Parser
             # todo: raise 'Duplicate merge scope' unless node.compositions.map(&:identifier).count == node.compositions.count
 
             eat '}'
+        end
+    end
+
+
+    # todo: do I need this?
+    def make_comma_separated_ast
+        Comma_Separated_Expr.new.tap do |node|
+            node.expressions << parse_block(%w(, \)))
+            while curr? ','
+                eat ','
+                node.expressions << parse_block(%w(, \)))
+            end
         end
     end
 
@@ -491,6 +493,17 @@ class Parser
         if curr? '{'
             make_function_ast
 
+        elsif curr? '['
+            Array_Literal_Expr.new.tap do |it|
+                eat '['
+                it.values << parse_block(%w(, \) ])).expressions[0]
+                while curr? ','
+                    eat ','
+                    it.values << parse_block(%w(, \) ])).expressions[0]
+                end
+                eat ']'
+            end
+
         elsif curr? '('
             paren      = eat '('
             precedence = precedence_for paren
@@ -581,8 +594,8 @@ class Parser
             elsif curr? '['
                 eat '['
                 left = Subscript_Expr.new.tap do |node|
-                    node.left  = left
-                    node.index_expression = parse_expression
+                    node.left             = left
+                    node.index_expression = parse_expression unless curr? ']'
                 end
                 eat ']'
             else
