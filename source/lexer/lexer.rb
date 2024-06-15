@@ -354,6 +354,10 @@ class Lexer
             elsif curr == '.' and peek&.numeric?
                 @tokens << Number_Token.new(eat_number)
 
+            elsif curr == '&' and peek.alpha?
+                eat '&'
+                @tokens << Identifier_Token.new("&#{eat_identifier}")
+
             elsif curr.identifier? or (curr == '_' and peek&.alphanumeric?)
                 ident = eat_identifier
 

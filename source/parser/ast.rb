@@ -371,7 +371,7 @@ class Identifier_Expr < Ast
 
     def initialize
         super
-        @short_form = true
+        # @short_form = true
     end
 
 

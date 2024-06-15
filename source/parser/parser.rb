@@ -28,15 +28,9 @@ class Parser
 
 
     def debug
-        count     = [3, remainder.count].min
-        remaining = remainder.count > count ? remainder[-count..].map(&:to_s) : []
-
-        count = [3, expressions.count].min
-        stmts = expressions.count > count ? expressions[-count..].map(&:to_s) : []
-
-        "\n\nUNHANDLED TOKEN:\n\t#{curr.inspect}
-        \n\nREMAINING:\n\t#{remaining}
-        \n\nEATEN THIS ITERATION of #parse_expre:\n\t#{@eaten_this_iteration.map(&:to_s)}"
+        "\n\nCURR TOKEN:\n\t#{curr.inspect}
+        \nPREV TOKEN:\n\t#{prev.inspect}
+        \nEATEN THIS ITERATION of #parse_expre:\n\t#{@eaten_this_iteration.map(&:to_s)}"
     end
 
 
@@ -377,30 +371,30 @@ class Parser
 
     def parse_params
         [].tap do |params|
-            # Ident : Ident (,)
-            # Ident Ident : Ident ... first ident here is a label
             while curr? Identifier_Token or curr? '&', Identifier_Token
-                params << Function_Param_Expr.new.tap do |param|
-                    if curr? '&', Identifier_Token
+                params << Function_Param_Expr.new.tap do |it|
+                    if curr? Identifier_Token, '&', Identifier_Token
+                        it.merge_scope = true
+                        it.label       = eat(Identifier_Token).string
                         eat '&'
-                        param.merge_scope = true
+                        it.name = eat(Identifier_Token).string
+                    elsif curr? '&', Identifier_Token
+                        it.merge_scope = true
+                        eat '&'
+                        it.name = eat(Identifier_Token).string
+                    elsif curr? Identifier_Token, Identifier_Token
+                        it.label = eat(Identifier_Token).string
+                        it.name  = eat(Identifier_Token).string
+                    elsif curr? Identifier_Token
+                        it.name = eat(Identifier_Token).string
                     end
 
-                    if curr? Identifier_Token, Identifier_Token
-                        param.label = eat Identifier_Token
+                    if curr? '='
+                        eat '='
+                        it.default_value = parse_block(%W(, \n ->)).expressions[0]
                     end
 
-                    param.name = eat Identifier_Token
-
-                    if curr? '=' and eat '='
-                        param.default_value = parse_block(%W{, \n -> ::}).expressions[0]
-                    end
-
-                    if curr? ',' and not (curr?(',', Identifier_Token) or curr?(',', '&', Identifier_Token))
-                        raise 'Expecting param after comma in function param declaration'
-                    elsif curr? ','
-                        eat
-                    end
+                    eat ',' if curr? ','
                 end
             end
         end
@@ -515,15 +509,15 @@ class Parser
         elsif curr? 'if'
             make_if_else_ast
 
-        elsif (curr? '&', Identifier_Token and not peek(1).member?) or (curr? '~', Identifier_Token and not peek(1).member?)
+        elsif (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?)) or (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
             # todo: named compositions
             Composition_Expr.new.tap do |node|
                 node.operator   = eat
                 node.identifier = eat.string
             end
 
-        elsif curr? '&', Identifier_Token and peek(1).member?
-            raise 'Cannot compose with members right now, only classes and enums'
+            elsif curr? '&', Identifier_Token and peek(1).member?
+                raise 'Cannot compose a class with members, only other classes and enums'
 
         elsif curr? Identifier_Token, '=;'
             make_assignment_ast

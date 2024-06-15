@@ -1,25 +1,18 @@
+player = 69 + 12 / -123 * 4 % 6
+a.b.c = 0
+1 ----------- 2
+1 +++++++ 2
+1 - --2
+1 & 1
+
 Atom {
 	& Entity
 	~ Transform
-#	& entity
 	& CHARACTER
 
 	xyz += 1
-
-	here? {
-		& Transform
-	}
-
 }
 
-1 & 1
-
-1 +++++++ 2 # this is incorrect
-1 ----------- 2
-1 - --2
-
-a.b.c = 0
-player = 69 + 12 / -123 * 4 % 6
 
 Atom {
 	& Pos
@@ -382,3 +375,10 @@ Readonly > Record {
 
 records = Record.where { it.something == true }
 records = Readonly.where { it.something == true } # lighter objects in memory because they aren't using Persistence and Validations
+
+test { abc &this = 1, def that, like = 2, &whatever  ->
+}
+
+test { with &a = 1, whence b = 2, c, d = variable=; ->
+	# params with & are going to have their variables and functions merged into this scope
+}
