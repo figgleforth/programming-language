@@ -374,12 +374,12 @@ class Parser
             while curr? Identifier_Token or curr? '&', Identifier_Token
                 params << Function_Param_Expr.new.tap do |it|
                     if curr? Identifier_Token, '&', Identifier_Token
-                        it.merge_scope = true
+                        it.composition = true
                         it.label       = eat(Identifier_Token).string
                         eat '&'
                         it.name = eat(Identifier_Token).string
                     elsif curr? '&', Identifier_Token
-                        it.merge_scope = true
+                        it.composition = true
                         eat '&'
                         it.name = eat(Identifier_Token).string
                     elsif curr? Identifier_Token, Identifier_Token

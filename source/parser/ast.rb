@@ -205,12 +205,12 @@ end
 
 
 class Function_Param_Expr < Ast
-    attr_accessor :name, :label, :type, :default_value, :merge_scope
+    attr_accessor :name, :label, :type, :default_value, :composition
 
 
     def to_s
         "#{short_form ? '' : 'Param'}(".tap do |str|
-            str << '&' if merge_scope
+            str << '&' if composition
             str << "#{name}"
             str << "=#{default_value&.to_s || 'nil'}"
             str << ", type: #{type}" if type
@@ -417,7 +417,6 @@ end
 
 
 class Composition_Expr < Identifier_Expr
-    # the &ident operator. merges the scope of the ident into the current scope
     attr_accessor :operator, :identifier, :name
 
 
