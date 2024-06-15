@@ -258,7 +258,6 @@ end
 class Assignment_Expr < Ast
     attr_accessor :name, :type, :expression
 
-
     def to_s
         "#{name}=#{expression || 'nil'}"
     end
@@ -299,7 +298,6 @@ class Unary_Expr < Ast
             when '!'
                 not expression.evaluate
             else
-                puts "what??? #{operator}"
                 raise "Unary_Expr(#{operator.inspect}) not implemented"
         end
     end

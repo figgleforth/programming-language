@@ -1,3 +1,33 @@
+(a + b) * c
+!a
+-a + +b
+a ** b
+a * b / c % d
+a + b - c
+a << b >> c
+a < b <= c > d >= e
+a == b != c === d !== e
+a & b
+a ^ b
+a | b
+a && b
+a || b
+a = b
+a += b
+a -= b
+a *= b
+a /= b
+a %= b
+a &= b
+a |= b
+a ^= b
+a <<= b
+a >>= b
+a, b, c
+
+#a ? b : c # todo
+
+
 player = 69 + 12 / -123 * 4 % 6
 a.b.c = 0
 1 ----------- 2
