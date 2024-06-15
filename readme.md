@@ -1,42 +1,98 @@
-### Goals
-- Write as little fluff code as possible, that means fewer things like `class`, `def`, etc.
-- Built in web application in as few lines of code as possible, so it should have server built in, along with database and model constructs, and response rendering.
-
-### Sample
-
+Variable without value
 ```
-STATUS_ENUM {
-   CAN_BE_UNINITIALIZED
-   MUST_BE_CAPITALIZED = 0
-   CAN_BE, COMMA_SEPARATED,
-   OR_NESTED {
-      NICE = 42
-   }
-   NICE = 420
+version =;
+```
+
+Variable with value
+```
+version = 0
+```
+
+Anonymous block
+```
+{
+   version = 0
+}
+```
+
+Function
+```
+set_version {
+   version = 0
+}
+```
+
+Function with params
+```
+set_version { v ->
+   version = v
+}
+```
+
+Params with default values
+```
+set_version { v = 0 ->
+   version = v
+}
+```
+
+Enum
+```
+ENVIRONMENT {
+   DEV,
+   PROD
+}
+```
+
+Class
+```
+ENVIRONMENT {
+   DEV,
+   PROD
 }
 
-Classes_Are_Capitalized {
-   member_vars_are_lowercase = 0
-   or_uninitialized;
-   version = 0.0
-   bugs = 1_000_000
-   status = STATUS_ENUM.NICE
+Em {
+   environment = ENVIRONMENT.DEV;
    
-   member_functions_are_lowercase { 
-      "Emerald version `version`"
+   set_version { v = 0 ->
+      version = v
    }
+}
+```
+
+Instance
+```
+ENVIRONMENT {
+   DEV,
+   PROD
+}
+
+Em {
+   environment = ENVIRONMENT.DEV;
    
-   functions_with_params { a_param -> 
-      "This param `a_param`"
-   }
-   
-   and_with_labels { by delta ->
-      version += delta
+   set_version { v = 0 ->
+      version = v
    }
 }
 
-em = Emerald.new
-em.increase_version 0.1
-em.change_version by: -0.1
-em.info # Emerald version 0.0
+lang = Em.new
+```
+
+Function call
+```
+ENVIRONMENT {
+   DEV,
+   PROD
+}
+
+Em {
+   environment = ENVIRONMENT.DEV;
+   
+   set_version { v = 0 ->
+      version = v
+   }
+}
+
+lang = Em.new
+lang.set_version 1
 ```
