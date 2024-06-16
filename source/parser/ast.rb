@@ -4,7 +4,7 @@ class Ast
 
 
     def initialize
-        # @short_form = true
+        @short_form = false
     end
 
 
@@ -41,12 +41,12 @@ class Block_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         base = short_form ? '' : 'block'
         "#{base}".tap do |str|
             str << '{' unless short_form
-            str << "comps(#{composition_expressions.count}): #{composition_expressions.map(&:to_s)}, " unless composition_expressions.empty?
-            str << "exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:to_s)}" unless non_composition_expressions.empty?
+            str << "comps(#{composition_expressions.count}): #{composition_expressions.map(&:pretty)}, " unless composition_expressions.empty?
+            str << "exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:pretty)}" unless non_composition_expressions.empty?
             str << '}' unless short_form
         end
     end
@@ -65,13 +65,13 @@ class Function_Expr < Block_Expr
     end
 
 
-    def to_s
+    def pretty
         base = short_form ? '' : 'fun'
         "#{base}{#{name}".tap do |str|
-            str << " params(#{parameters.count}): #{parameters.map(&:to_s)}" unless parameters.empty?
+            str << " params(#{parameters.count}): #{parameters.map(&:pretty)}" unless parameters.empty?
             if not short_form
-                str << ", comps(#{composition_expressions.count}): #{composition_expressions.map(&:to_s)}, " unless composition_expressions.empty?
-                str << ", exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:to_s)}" unless non_composition_expressions.empty?
+                str << ", comps(#{composition_expressions.count}): #{composition_expressions.map(&:pretty)}, " unless composition_expressions.empty?
+                str << ", exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:pretty)}" unless non_composition_expressions.empty?
             end
             str << '}'
         end
@@ -79,7 +79,7 @@ class Function_Expr < Block_Expr
 end
 
 
-class Object_Expr < Ast
+class Class_Expr < Ast
     attr_accessor :name, :block, :parent
 
 
@@ -88,7 +88,7 @@ class Object_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         "obj{#{name}".tap do |str|
             str << " > #{parent}" if parent
             if not short_form
@@ -101,6 +101,8 @@ end
 
 
 class Number_Literal_Expr < Ast
+    attr_accessor :type, :decimal_position
+
 
     def initialize
         super
@@ -108,13 +110,24 @@ class Number_Literal_Expr < Ast
     end
 
 
-    def number
-        # @todo convert to number
-        string
+    def string= val
+        @string = val
+        if val[0] == '.'
+            @type             = :float
+            @decimal_position = :start
+        elsif val[-1] == '.'
+            @type             = :float
+            @decimal_position = :end
+        elsif val&.include? '.'
+            @type             = :float
+            @decimal_position = :middle
+        else
+            @type = :int
+        end
     end
 
 
-    def to_s
+    def pretty
         long  = "Num(#{string})"
         short = "#{string}"
         short_form ? short : long
@@ -138,7 +151,7 @@ end
 
 
 class Symbol_Literal_Expr < Ast
-    def to_s
+    def pretty
         long  = "Sym(:#{string})"
         short = ":#{string}"
         short_form ? short : long
@@ -152,15 +165,19 @@ end
 
 
 class String_Literal_Expr < Ast
-    def to_s
-        long  = "Str(#{string})"
-        short = "#{string}"
-        short_form ? short : long
+    attr_accessor :interpolated
+
+
+    def string= val
+        @string       = val
+        @interpolated = val.include? '`' # todo: this is naive
     end
 
 
-    def evaluate
-        string
+    def pretty
+        long  = "Str(#{string})"
+        short = "#{string}"
+        short_form ? short : long
     end
 end
 
@@ -175,7 +192,7 @@ class Array_Literal_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         "[#{values.map(&:to_s).join(',')}]"
     end
 end
@@ -192,7 +209,7 @@ class Comma_Separated_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         "comma_separated(".tap do |str|
             expressions.each_with_index do |expr, i|
                 str << expr.expressions[0].to_s
@@ -208,7 +225,7 @@ class Function_Param_Expr < Ast
     attr_accessor :name, :label, :type, :default_value, :composition
 
 
-    def to_s
+    def pretty
         "#{short_form ? '' : 'Param'}(".tap do |str|
             str << '&' if composition
             str << "#{name}"
@@ -225,7 +242,7 @@ class Function_Arg_Expr < Ast
     attr_accessor :expression, :label
 
 
-    def to_s
+    def pretty
         "#{short_form ? '' : 'Arg'}(".tap do |str|
             str << "label: #{label}, " if label
             str << expression.to_s
@@ -245,9 +262,9 @@ class Function_Call_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         "#{short_form ? '' : 'fun_call'}(name: #{name}".tap do |str|
-            str << ", #{arguments.map(&:to_s)}" if arguments
+            str << ", #{arguments.map(&:pretty)}" if arguments
             str << ')'
         end
     end
@@ -258,13 +275,14 @@ end
 class Assignment_Expr < Ast
     attr_accessor :name, :type, :expression
 
-    def to_s
-        "#{name}=#{expression || 'nil'}"
+
+    def pretty
+        "#{name}=#{expression&.pretty || 'nil'}"
     end
 
 
-    def evaluate
-        expression&.evaluate
+    def == other
+        other.is_a?(Assignment_Expr) and name == other.name and expression == other.expression
     end
 end
 
@@ -280,7 +298,7 @@ class Unary_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         long  = "UE(#{operator}#{expression})"
         short = "(#{operator}#{expression})"
         short_form ? short : long
@@ -308,7 +326,7 @@ class Subscript_Expr < Ast
     attr_accessor :left, :index_expression
 
 
-    def to_s
+    def pretty
         if index_expression
             "#{left}[#{index_expression}]"
         else
@@ -328,7 +346,7 @@ class Binary_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         long  = "BE(#{left} '#{operator}' #{right}"
         short = "(#{left} #{operator} #{right}"
         str   = short_form ? short : long
@@ -378,7 +396,12 @@ class Identifier_Expr < Ast
     end
 
 
-    def to_s
+    def == other
+        other.is_a?(Identifier_Expr) and other.string == string
+    end
+
+
+    def pretty
         short_form ? string : "id(#{string})"
     end
 end
@@ -394,11 +417,11 @@ class Enum_Collection_Expr < Ast
     end
 
 
-    def to_s
+    def pretty
         if short_form
             "enum{#{name}, consts(#{constants.count})}"
         else
-            "enum{#{name}, consts(#{constants.count}): #{constants.map(&:to_s)}"
+            "enum{#{name}, consts(#{constants.count}): #{constants.map(&:pretty)}"
         end
     end
 end
@@ -408,7 +431,7 @@ class Enum_Constant_Expr < Ast
     attr_accessor :name, :value
 
 
-    def to_s
+    def pretty
         "#{name} = #{value || 'nil'}"
     end
 end
@@ -424,7 +447,7 @@ class Composition_Expr < Identifier_Expr
     end
 
 
-    def to_s
+    def pretty
         if short_form
             "#{operator}#{identifier}#{name ? " = #{name}" : ''}"
         else
@@ -438,16 +461,16 @@ class Conditional_Expr < Ast
     attr_accessor :condition, :expr_when_true, :expr_when_false
 
 
-    def to_s
+    def pretty
         "if #{condition}".tap do |str|
             if expr_when_true
-                str << " then #{expr_when_true.expressions.map(&:to_s)}"
+                str << " then #{expr_when_true.expressions.map(&:pretty)}"
             end
             if expr_when_false
                 if expr_when_false.is_a? Conditional_Expr
                     str << " else #{expr_when_false.to_s}"
                 else
-                    str << " else #{expr_when_false.expressions.map(&:to_s)}"
+                    str << " else #{expr_when_false.expressions.map(&:pretty)}"
                 end
             end
         end
@@ -459,16 +482,16 @@ class While_Expr < Ast
     attr_accessor :condition, :expr_when_true, :expr_when_false
 
 
-    def to_s
+    def pretty
         "while #{condition}".tap do |str|
             if expr_when_true
-                str << " then #{expr_when_true.expressions.map(&:to_s)}"
+                str << " then #{expr_when_true.expressions.map(&:pretty)}"
             end
             if expr_when_false
                 if expr_when_false.is_a? While_Expr
                     str << " else #{expr_when_false.to_s}"
                 else
-                    str << " else #{expr_when_false.expressions.map(&:to_s)}"
+                    str << " else #{expr_when_false.expressions.map(&:pretty)}"
                 end
             end
         end

@@ -42,8 +42,8 @@ class Interpreter
             else
                 "Unrecognized ast #{expr.inspect}"
 
-            # when Identifier_Expr
-            # when Object_Expr
+                # when Identifier_Expr
+                # when Class_Expr
         end
     end
 end

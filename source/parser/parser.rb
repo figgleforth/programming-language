@@ -15,7 +15,9 @@ class Parser
 
 
     def to_ast
-        parse_until EOF_Token
+        result = parse_until EOF_Token
+        return result[0] if result.one?
+        result
     end
 
 
@@ -343,7 +345,7 @@ class Parser
     # Ident ( > Ident (, Ident) )
     #   { ... }
     def make_object_ast is_api_decl = false
-        Object_Expr.new.tap do |node|
+        Class_Expr.new.tap do |node|
             node.name = eat(Identifier_Token).string
 
             if curr? '>' and eat '>'
@@ -516,10 +518,13 @@ class Parser
                 node.identifier = eat.string
             end
 
-            elsif curr? '&', Identifier_Token and peek(1).member?
-                raise 'Cannot compose a class with members, only other classes and enums'
+        elsif curr? '&', Identifier_Token and peek(1).member?
+            raise 'Cannot compose a class with members, only other classes and enums'
 
         elsif curr? Identifier_Token, '=;'
+            if curr.constant?
+                raise 'Enums must be initialized as a collection or single value.'
+            end
             make_assignment_ast
 
         elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next

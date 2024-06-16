@@ -1,40 +1,3 @@
-(a + b) * c
-!a
--a + +b
-a ** b
-a * b / c % d
-a + b - c
-a << b >> c
-a < b <= c > d >= e
-a == b != c === d !== e
-a & b
-a ^ b
-a | b
-a && b
-a || b
-a = b
-a += b
-a -= b
-a *= b
-a /= b
-a %= b
-a &= b
-a |= b
-a ^= b
-a <<= b
-a >>= b
-a, b, c
-
-#a ? b : c # todo
-
-
-player = 69 + 12 / -123 * 4 % 6
-a.b.c = 0
-1 ----------- 2
-1 +++++++ 2
-1 - --2
-1 & 1
-
 Atom {
 	& Entity
 	~ Transform
@@ -126,11 +89,46 @@ GAME_LOOP_STATE {
 
 TESTING {}
 
+(a + b) * c
+!a
+-a + +b
+a ** b
+a * b / c % d
+a + b - c
+a << b >> c
+a < b <= c > d >= e
+a == b != c === d !== e
+a & b
+a ^ b
+a | b
+a && b
+a || b
+a = b
+a += b
+a -= b
+a *= b
+a /= b
+a %= b
+a &= b
+a |= b
+a ^= b
+a <<= b
+a >>= b
+a, b, c
+player = 69 + 12 / -123 * 4 % 6
+a.b.c = 0
+1 ----------- 2
+1 +++++++ 2
+1 - --2
+1 & 1
+#a ? b : c # todo
+
 
 next_level { player
 # todo: unhandled +=
 #	player.level += 1
 }
+
 
 
 # adds members of this object to the local scope but they reference the arg player. allows you to do:
@@ -409,6 +407,16 @@ records = Readonly.where { it.something == true } # lighter objects in memory be
 test { abc &this = 1, def that, like = 2, &whatever  ->
 }
 
-test { with &a = 1, whence b = 2, c, d = variable=; ->
+test { with &a = 1, whence b = 2, c, d = variable= 1 ->
 	# params with & are going to have their variables and functions merged into this scope
 }
+
+[1, "asdf"]
+
+
+1.0
+1.
+0.1
+.1
+
+1.2.3.4
