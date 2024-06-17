@@ -1,4 +1,4 @@
-# @todo use a real testing framework
+# todo: use a real testing framework
 require_relative '../source/lexer/lexer'
 
 source = File.read('tests/sandbox.em').to_s
