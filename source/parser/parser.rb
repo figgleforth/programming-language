@@ -200,11 +200,19 @@ class Parser
     # region Sequence Parsing
 
     def parse_block until_token = '}'
-        Block_Expr.new.tap do |block|
-            parser            = new_parser_with_remainder_as_buffer
-            stmts             = parser.parse_until until_token
-            @i                += parser.i
-            block.expressions = stmts
+        Block_Expr.new.tap do |it|
+            parser         = new_parser_with_remainder_as_buffer
+            stmts          = parser.parse_until until_token
+            @i             += parser.i
+            it.expressions = stmts
+
+            # make sure the block's compositions are derived from the expressions parsed in the block
+            it.compositions = stmts.select do |s|
+                s.is_a? Composition_Expr
+            end.map do |comp|
+                comp.identifier
+            end
+
         end
     end
 
@@ -344,16 +352,24 @@ class Parser
 
     # Ident ( > Ident (, Ident) )
     #   { ... }
-    def make_object_ast is_api_decl = false
-        Class_Expr.new.tap do |node|
-            node.name = eat(Identifier_Token).string
+    def make_class_ast is_api_decl = false
+        Class_Expr.new.tap do |it|
+            it.name = eat(Identifier_Token).string
 
             if curr? '>' and eat '>'
-                node.parent = eat(Identifier_Token).string
+                it.parent = eat(Identifier_Token).string
             end
 
             eat '{'
-            node.block = parse_block '}'
+            it.block = parse_block '}'
+
+            # make sure the class's compositions are derived from the expressions parsed in the block
+            it.compositions = it.block.expressions.select do |expr|
+                expr.is_a? Composition_Expr
+            end.map do |comp|
+                comp.identifier
+            end
+
             eat '}'
         end
     end
@@ -554,7 +570,7 @@ class Parser
             make_assignment_ast
 
         elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
-            make_object_ast
+            make_class_ast
 
         elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
 

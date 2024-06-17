@@ -80,11 +80,12 @@ end
 
 
 class Class_Expr < Ast
-    attr_accessor :name, :block, :parent
+    attr_accessor :name, :block, :parent, :compositions
 
 
-    def compositions
-        block.compositions
+    def initialize
+        super
+        @compositions = []
     end
 
 
