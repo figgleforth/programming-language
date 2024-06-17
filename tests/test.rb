@@ -183,12 +183,25 @@ test { abc &this = 1, def that, like = 2, &whatever  -> }
         it.parameters[3].composition
 end
 
+t 'func { param1, param2 -> }' do |it|
+    it.is_a? Function_Expr and
+        it.parameters.count == 2 and
+        it.expressions.empty?
+end
+
 t 'x + y' do |it|
     it.is_a? Binary_Expr and it.left.is_a? Identifier_Expr and it.right.is_a? Identifier_Expr
 end
 
 t 'x + y * z' do |it|
     it.is_a? Binary_Expr and it.left.is_a? Identifier_Expr and it.right.is_a? Binary_Expr
+end
+
+t 'a + (b * c) - d' do |it|
+    it.is_a? Binary_Expr and
+        it.left.is_a? Binary_Expr and
+        it.right.is_a? Identifier_Expr and
+        it.left.right.is_a? Binary_Expr
 end
 
 t 'ENUM {}' do |it|
@@ -313,6 +326,15 @@ else
         it.when_false.when_false.is_a? Block_Expr
 end
 
+t 'while a > b
+    x + y
+}' do |it|
+    it.is_a? While_Expr and
+        it.condition.is_a? Binary_Expr and
+        it.when_true.is_a? Block_Expr and
+        it.when_true.expressions.first.is_a? Binary_Expr
+end
+
 t 'call()' do |it|
     it.is_a? Function_Call_Expr and it.arguments.empty?
 end
@@ -329,6 +351,15 @@ t 'call(with: a, 1, "asf")' do |it|
     it.is_a? Function_Call_Expr and it.arguments.count == 3 and it.arguments[0].label == 'with'
 end
 
+t 'call(a: 1, b, c: "str", 42)' do |it|
+    it.is_a? Function_Call_Expr and
+        it.arguments.count == 4 and
+        it.arguments[0].label == 'a' and
+        it.arguments[1].label.nil? and
+        it.arguments[2].label == 'c' and
+        it.arguments[3].label.nil?
+end
+
 t 'imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, shit)' do |it|
     it.is_a? Function_Call_Expr and it.arguments.count == 4 and it.arguments[0].label and it.arguments[1].label and it.arguments[2].label and it.arguments[3].label.nil?
 end
@@ -336,3 +367,9 @@ end
 t ':test' do |it|
     it.is_a? Symbol_Literal_Expr
 end
+
+t 'Abc { & Xyz }' do |it|
+    it.is_a? Class_Expr and
+        it.compositions.count == 1
+end
+
