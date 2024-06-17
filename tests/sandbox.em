@@ -404,9 +404,6 @@ Readonly > Record {
 records = Record.where { it.something == true }
 records = Readonly.where { it.something == true } # lighter objects in memory because they aren't using Persistence and Validations
 
-test { abc &this = 1, def that, like = 2, &whatever  ->
-}
-
 test { with &a = 1, whence b = 2, c, d = variable= 1 ->
 	# params with & are going to have their variables and functions merged into this scope
 }
@@ -419,4 +416,7 @@ test { with &a = 1, whence b = 2, c, d = variable= 1 ->
 0.1
 .1
 
-1.2.3.4
+1.2.3.4 # todo, broken
+
+test { abc &this = 1, def that, like = 2, &whatever  ->
+} # todo: &ident is being treated as a basic ident.

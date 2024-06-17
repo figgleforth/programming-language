@@ -183,17 +183,17 @@ end
 
 
 class Array_Literal_Expr < Ast
-    attr_accessor :values
+    attr_accessor :elements
 
 
     def initialize
         super
-        @values = []
+        @elements = []
     end
 
 
     def pretty
-        "[#{values.map(&:to_s).join(',')}]"
+        "[#{elements.map(&:to_s).join(',')}]"
     end
 end
 
@@ -223,6 +223,12 @@ end
 
 class Function_Param_Expr < Ast
     attr_accessor :name, :label, :type, :default_value, :composition
+
+
+    def initialize
+        super
+        @composition = false
+    end
 
 
     def pretty
@@ -458,19 +464,19 @@ end
 
 
 class Conditional_Expr < Ast
-    attr_accessor :condition, :expr_when_true, :expr_when_false
+    attr_accessor :condition, :when_true, :when_false
 
 
     def pretty
         "if #{condition}".tap do |str|
-            if expr_when_true
-                str << " then #{expr_when_true.expressions.map(&:pretty)}"
+            if when_true
+                str << " then #{when_true.expressions.map(&:pretty)}"
             end
-            if expr_when_false
-                if expr_when_false.is_a? Conditional_Expr
-                    str << " else #{expr_when_false.to_s}"
+            if when_false
+                if when_false.is_a? Conditional_Expr
+                    str << " else #{when_false.to_s}"
                 else
-                    str << " else #{expr_when_false.expressions.map(&:pretty)}"
+                    str << " else #{when_false.expressions.map(&:pretty)}"
                 end
             end
         end
@@ -479,19 +485,19 @@ end
 
 
 class While_Expr < Ast
-    attr_accessor :condition, :expr_when_true, :expr_when_false
+    attr_accessor :condition, :when_true, :when_false
 
 
     def pretty
         "while #{condition}".tap do |str|
-            if expr_when_true
-                str << " then #{expr_when_true.expressions.map(&:pretty)}"
+            if when_true
+                str << " then #{when_true.expressions.map(&:pretty)}"
             end
-            if expr_when_false
-                if expr_when_false.is_a? While_Expr
-                    str << " else #{expr_when_false.to_s}"
+            if when_false
+                if when_false.is_a? While_Expr
+                    str << " else #{when_false.to_s}"
                 else
-                    str << " else #{expr_when_false.expressions.map(&:pretty)}"
+                    str << " else #{when_false.expressions.map(&:pretty)}"
                 end
             end
         end

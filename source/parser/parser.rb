@@ -349,7 +349,7 @@ class Parser
             node.name = eat(Identifier_Token).string
 
             if curr? '>' and eat '>'
-                node.parent = eat Identifier_Token
+                node.parent = eat(Identifier_Token).string
             end
 
             eat '{'
@@ -375,7 +375,16 @@ class Parser
         [].tap do |params|
             while curr? Identifier_Token or curr? '&', Identifier_Token
                 params << Function_Param_Expr.new.tap do |it|
-                    if curr? Identifier_Token, '&', Identifier_Token
+                    if curr? Identifier_Token and curr.composition?
+                        it.composition = true
+                        ident          = eat.string
+                        it.name        = ident[1..] # excludes the & or ~
+                    elsif curr? Identifier_Token and not curr.composition? and peek(1) == Identifier_Token and peek(1).composition?
+                        it.composition = true
+                        it.label       = eat(Identifier_Token).string
+                        ident          = eat.string
+                        it.name        = ident[1..]
+                    elsif curr? Identifier_Token, '&', Identifier_Token
                         it.composition = true
                         it.label       = eat(Identifier_Token).string
                         eat '&'
@@ -406,9 +415,9 @@ class Parser
     def make_function_ast
 
         # ident { (params -> or ::) ... }
-        Function_Expr.new.tap do |node|
+        Function_Expr.new.tap do |it|
             if curr? Identifier_Token
-                node.name = eat(Identifier_Token, '{')[0].string
+                it.name = eat(Identifier_Token, '{')[0].string
             elsif curr? '{' # anonymous function
                 eat '{'
             end
@@ -418,7 +427,14 @@ class Parser
             end
 
             eat_past_newlines
-            node.parameters = parse_params if has_params
+            it.parameters = parse_params if has_params
+
+            # make sure function expr also knows about the compositions in the parameters
+            it.compositions = it.parameters.select do |param|
+                param.composition
+            end.map do |param|
+                param.name
+            end
 
             eat '->' if curr? '->'
             eat '::' if curr? '::'
@@ -426,21 +442,23 @@ class Parser
             block = parse_block '}'
             eat '}'
 
-            node.compositions = block.compositions
-            node.expressions  = block.expressions
+            it.compositions << block.compositions
+            it.expressions = block.expressions
+            it.compositions.flatten!
         end
     end
 
 
     def make_if_else_ast
+        # note: reconsider elif and ef, do we really need these?
         Conditional_Expr.new.tap do |it|
             eat 'if' if curr? 'if'
-            it.condition      = parse_block("\n").expressions[0]
-            it.expr_when_true = parse_block %w(} else elsif elif ef)
+            it.condition = parse_block("\n").expressions[0]
+            it.when_true = parse_block %w(} else elsif elif ef)
 
             if curr? 'else'
                 eat 'else'
-                it.expr_when_false = parse_block '}'
+                it.when_false = parse_block '}'
                 eat '}'
             elsif curr? '}'
                 eat '}'
@@ -448,7 +466,7 @@ class Parser
                 while curr? 'elsif' or curr? 'elif' or curr? 'ef'
                     eat # elsif or elif or ef
                     raise 'Expected condition in the elsif' if curr? "\n" or curr? ";"
-                    it.expr_when_false = make_if_else_ast
+                    it.when_false = make_if_else_ast
                 end
             else
                 raise "\n\nYou messed your if/elsif/else up\n" + debug
@@ -460,12 +478,12 @@ class Parser
     def make_while_ast
         While_Expr.new.tap do |it|
             eat 'while' if curr? 'while'
-            it.condition      = parse_block("\n").expressions[0]
-            it.expr_when_true = parse_block %w(elswhile else })
+            it.condition = parse_block("\n").expressions[0]
+            it.when_true = parse_block %w(elswhile else })
 
             if curr? 'else'
                 eat 'else'
-                it.expr_when_false = parse_block '}'
+                it.when_false = parse_block '}'
                 eat '}'
             elsif curr? '}'
                 eat '}'
@@ -473,7 +491,7 @@ class Parser
                 while curr? 'elswhile'
                     eat # elswhile
                     raise 'Expected condition in the elswhile' if curr? "\n" or curr? ";"
-                    it.expr_when_false = make_while_ast
+                    it.when_false = make_while_ast
                 end
             else
                 raise "\n\nYou messed your while/elswhile/else up\n" + debug
@@ -490,11 +508,12 @@ class Parser
         elsif curr? '['
             Array_Literal_Expr.new.tap do |it|
                 eat '['
-                it.values << parse_block(%w(, \) ])).expressions[0]
+                it.elements << parse_block(%w(, \) ])).expressions[0]
                 while curr? ','
                     eat ','
-                    it.values << parse_block(%w(, \) ])).expressions[0]
+                    it.elements << parse_block(%w(, \) ])).expressions[0]
                 end
+                it.elements.compact! # parse_block can return nil, so this could be an array of nil values.
                 eat ']'
             end
 
@@ -516,6 +535,13 @@ class Parser
             Composition_Expr.new.tap do |node|
                 node.operator   = eat
                 node.identifier = eat.string
+            end
+
+        elsif curr? Identifier_Token and curr.composition?
+            Composition_Expr.new.tap do |it|
+                ident         = eat.string
+                it.operator   = ident[0]
+                it.identifier = ident[1..] # excludes the &
             end
 
         elsif curr? '&', Identifier_Token and peek(1).member?

@@ -74,6 +74,11 @@ class Identifier_Token < Token
     end
 
 
+    def composition?
+        string[0] == '&'
+    end
+
+
     def keyword?
         KEYWORDS.include? string
     end
@@ -166,6 +171,7 @@ class Ascii_Token < Token # special symbols of one or more characters. they are 
     def unary?
         UNARY_OPERATORS.include? string
     end
+
 
     def composition?
         %w(+: -:).include? string
