@@ -2,7 +2,7 @@ require_relative '../source/lexer/lexer'
 require_relative '../source/parser/parser'
 require_relative '../source/parser/ast'
 
-puts "\nRunning tests:\n\n"
+puts "\nRunning tests...\n\n"
 
 @tests_ran = 1
 
@@ -20,7 +20,7 @@ def t code, &block
     tokens = Lexer.new(code).lex
     ast    = Parser.new(tokens).to_ast
 
-    puts "#{@tests_ran.to_s.rjust(2)}) #{code}"
+    # puts "#{@tests_ran.to_s.rjust(2)}) #{code}"
     block_result  = block.call ast
     parser_output = [ast].flatten.map { |a| a.inspect }
 
@@ -373,3 +373,6 @@ t 'Abc { & Xyz }' do |it|
         it.compositions.count == 1
 end
 
+t '@before' do |it|
+    it.is_a? At_Operator_Expr
+end

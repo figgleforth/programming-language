@@ -1,9 +1,9 @@
+# docs syntax, reference :Atom class identifier in documentation with a colon.
 Atom {
-	& Entity
-	~ Transform
-	& CHARACTER
-
-	xyz += 1
+	# compositions
+	& Entity # merges all of Entity with Atom
+	~ Transform # if Entity is composed with Transform, this removes Transform from Atom
+	& CHARACTER # CHARACTER is some enum, so this composition removes the need to prefix the enum constants with CHARACTER.
 }
 
 
@@ -15,12 +15,11 @@ Atom {
 }
 
 Player > Atom {
-	& Transform # & will merge Transform into this object, it merges all its members and functions, including the ones that were merged into it beforehand
-#	& Transform as transform
+	& Transform
 	~ Transform
 
 	number = -1
-	player = 69 + 12 / -123 * 4 % 6
+	player = 96 + 12 / -123 * 4 % 6
 	whatever =;
 
 	character = CHARACTER.GUY
@@ -29,11 +28,9 @@ Player > Atom {
 	character = GUY
 }
 
-Sokoban {
-	CHARACTER {
-		GUY
-		PLATFORM
-	}
+CHARACTER {
+	GUY
+	PLATFORM
 }
 
 Entity {
@@ -63,10 +60,10 @@ cool { param, param_with_default = 1 ->
 }
 
 spicy = {
-	input = 69 -> 'whatever'
+	input = 96 -> 'whatever'
 }
 
-sixty_nine = { 69 + 12 / -123 * 4 % 6 }
+yolo = { 96 + 12 / -123 * 4 % 6 }
 
 func_without_params {
 	"body!"
@@ -83,8 +80,8 @@ lost = { in = 42 -> }
 
 GAME_LOOP_STATE {
 	UPDATE = 0
-	RENDER = 69 + 12 / -123 * 4 % 6
-	WHENCE = 'yes' # todo: need to .expressions[0]
+	RENDER = 96 + 12 / -123 * 4 % 6
+	STRING = 'yes'
 }
 
 TESTING {}
@@ -115,7 +112,7 @@ a ^= b
 a <<= b
 a >>= b
 a, b, c
-player = 69 + 12 / -123 * 4 % 6
+player = 96 + 12 / -123 * 4 % 6
 a.b.c = 0
 1 ----------- 2
 1 +++++++ 2
@@ -125,21 +122,11 @@ a.b.c = 0
 
 
 next_level { player
-# todo: unhandled +=
-#	player.level += 1
+	player.level += 1
 }
 
-
-
-# adds members of this object to the local scope but they reference the arg player. allows you to do:
 gain_level { player ->
-#	& player
-#	& works.on.nested.too # todo: this parsed as `exprs(1): ["BE(BE(BE(&works . ident(on)) . ident(nested)) . ident(too))`
-#	level += 1 # equivalent to player.level when not using &. it's the programmer's responsibility to make sure they don't & args with clashing members. #raise when that happens
 }
-
-#more { &one, &two = 2, three = 3 -> # todo: the & in params isn't treated as a comp technically, but the interpreter can figure it out
-#}
 
 STATUS {
    WORKING_ON_IT = 1
@@ -173,7 +160,7 @@ _SOME_ENUM {}
 SOME_CONST = 1
 
 _Emerald {
-	& Atom # this should merge the two scopes but also allow prefixing the scope with atom.
+	& Atom
 }
 
 _function {
@@ -181,8 +168,6 @@ _function {
 	 _ANOTHER_ENUM = 5
 	_ANOTHER_ENUM {}
 }
-
-#_ANOTHER_ENUM = 'yet'
 
 COLLECTION {
 	ONE, TWO = 2
@@ -205,15 +190,11 @@ Entity {
 }
 
 Lilly_Pad {
-#	& Entity
-
 	speed = 1.0
-
-	inspect { "Lilly(at: `position`, speed: `speed` units" } # position directly accessible because it was merged into this object with the &Entity statement
+	inspect { "Lilly(at: `position`, speed: `speed` units" }
 }
 
-this? = :test
-
+this? = :test # Ruby's symbol literals
 
 Enum_Collection_Expr {
 	& Ast_Expression
@@ -222,15 +203,11 @@ Enum_Collection_Expr {
 	constants =;
 
 	to_s {
-#		if short_form
-#			"enum{`name`, constants(`constants.count`)}"
-#		else
-#			"enum{`name`, constants(`constants.count`): `constants.map(:to_s)`}"
-#		}
 	}
 }
 
 
+# multiple keywords for else-if
 if 1 > 2
 	aaa
 	bbb
@@ -259,18 +236,15 @@ Audio_Player {
 }
 
 Entity > Object {
-#	& Inventory
-#	& Physics
-
 	name =;
 	move_speed =;
 
-	go { to position ->
+	go { to position -> # to is the label for position when calling this function
 		inventory.position = position
 	}
 }
 
-go(to: 123)
+go(to: 123) # the label being used. Should it be required when the function is defined with it?
 
 method {}
 method2 { 48 }
@@ -283,7 +257,7 @@ method2()
 method3('yay')
 method4(4 + 8, Abc {}, WHAT {}, whatever {}, 32)
 method5(on: 'bwah')
-imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, member: shit)
+imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, member: nice)
 
 
 if 1 > 2
@@ -308,36 +282,36 @@ while 4 > 3
 	go!(48), yay
 }
 
+# if-else style while loops
 while a > 0
-	# ...
+	abra
 elswhile a < 0
-	# ...
+	ca
 else
-	# ...
+	dabra
 }
 
+# separate statements because they are comma-separated
 while true
 }, while false
 }, while
-	shit
+	nice
 }
 
+# making sure that this parses properly
 a[b[c]][1][abc[2 + 3]] + 4
-
 a[b[c]][1][abc[2+3]+4]
-
 a[1+2][b[c[3]]][d+e][f-g]
 a[1+2][b[c[3]]][d+e][f-g]
 
 [1, 2, 3+4,while true
 }, while false
 }, while
-	shit
+	nice
 }, Abc{}, DEF{}, def{}, {}, [], a[0], Player > Atom {
-	~ Transform # & will merge Transform into this object, it merges all its members and functions, including the ones that were merged into it beforehand
-#	& Transform as transform # this is currently parsing as a variable assignment
+	& Transform # & will merge Transform into this object
 	number = -1
-	player = 69 + 12 / -123 * 4 % 6
+	player = 96 + 12 / -123 * 4 % 6
 	whatever =;
 
 	character = CHARACTER.GUY
@@ -354,26 +328,6 @@ some_var[]
 wtf =;
 go(wtf =;)
 
-### omg this should do this at runtime! aaaaah this is amazing so it does this on the scope it's called on
-shop & physics
-
-
-Danger {
-	it =;
-}
-
-it = true
-
-~ Danger
-it # this would fail, because you removed it earlier
-
-###
-
-
-#& physics
-#~ position
-
-
 Atom {
 	& Entity
 	& Transform
@@ -388,7 +342,7 @@ Record {
 	& Validations
 }
 
-Readonly_Record { # equivalent of only & Columns
+Readonly_Record {
 	& Record
 	~ Persistence
 	~ Validations
@@ -402,21 +356,38 @@ Readonly > Record {
 }
 
 records = Record.where { it.something == true }
-records = Readonly.where { it.something == true } # lighter objects in memory because they aren't using Persistence and Validations
+records = Readonly.where { it.something == true }
 
 test { with &a = 1, whence b = 2, c, d = variable= 1 ->
-	# params with & are going to have their variables and functions merged into this scope
+	# params with & are going to have their variables and functions merged into this scope, meaning instead of a.some_variable, you can just use some_variable
 }
 
 [1, "asdf"]
-
 
 1.0
 1.
 0.1
 .1
 
-1.2.3.4 # todo, broken
+1.2.3.4 # todo, this is still parsing as a number
 
 test { abc &this = 1, def that, like = 2, &whatever  ->
-} # todo: &ident is being treated as a basic ident.
+}
+
+
+&test
+&Test
+
+User.where {
+	it.created_at > Date_Time.today
+}
+
+User.where {
+	created_at > Date_Time.today and posts.count > 0
+}
+
+double { value -> value * 2 }
+
+# todo: runtime hooks for function calls. Haven't decided on syntax yet
+#before double { arguments -> # arguments would be something like [{ name: value, type: float/int/whatever }]
+#}

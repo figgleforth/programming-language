@@ -358,6 +358,14 @@ class Lexer
                 eat '&'
                 @tokens << Identifier_Token.new("&#{eat_identifier}")
 
+            elsif curr == '@' and peek.alpha? # at operators, like @add @rem @sub for composition, @before @after for hooks
+                ident = eat '@'
+                ident += eat_identifier
+                if curr == '='
+                    ident += eat
+                end
+                @tokens << Keyword_Token.new(ident)
+
             elsif curr.identifier? or (curr == '_' and peek&.alphanumeric?)
                 ident = eat_identifier
 

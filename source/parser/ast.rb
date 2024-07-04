@@ -444,6 +444,16 @@ class Enum_Constant_Expr < Ast
 end
 
 
+class At_Operator_Expr < Ast
+    attr_accessor :identifier, :expression
+
+
+    def pretty
+        identifier
+    end
+end
+
+
 class Composition_Expr < Identifier_Expr
     attr_accessor :operator, :identifier, :name
 

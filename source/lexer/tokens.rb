@@ -18,21 +18,26 @@ class Token
     end
 
 
-    def to_s
+    def pretty
         string || super
+    end
+
+
+    def to_s
+        string
     end
 end
 
 
 class EOF_Token < Token
-    def to_s
+    def pretty
         '\eof'
     end
 end
 
 
 class Delimiter_Token < Token
-    def to_s
+    def pretty
         if string == ';'
             ";"
         elsif string == "\s"
@@ -45,7 +50,7 @@ end
 
 
 class Whitespace_Token < Token
-    def to_s
+    def pretty
         self.object_id
         "\\s"
     end
@@ -89,21 +94,31 @@ class Identifier_Token < Token
     end
 
 
-    def to_s
+    def pretty
         string
     end
 end
 
 
 class Keyword_Token < Identifier_Token
-    def to_s
+    def pretty
         "Keyword(#{string})"
+    end
+
+
+    def at_operator?
+        string[0] == '@'
+    end
+
+
+    def ends_with_equals?
+        string[-1] == '='
     end
 end
 
 
 class String_Token < Token
-    def to_s
+    def pretty
         "String(#{string})"
     end
 
@@ -115,14 +130,14 @@ end
 
 
 class Symbol_Token < Token
-    def to_s
+    def pretty
         "Symbol(:#{string})"
     end
 end
 
 
 class Number_Token < Token
-    def to_s
+    def pretty
         # string
         "Num(#{string})"
     end
@@ -157,7 +172,7 @@ class Ascii_Token < Token # special symbols of one or more characters. they are 
     UNARY_OPERATORS  = %w(- + ~ !)
 
 
-    def to_s
+    def pretty
         # "#{string}"
         string
     end
@@ -194,7 +209,7 @@ class Comment_Token < Token
     end
 
 
-    def to_s
+    def pretty
         # "Comment(#{string})"
         "Comment()"
     end

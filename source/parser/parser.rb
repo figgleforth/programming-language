@@ -546,6 +546,16 @@ class Parser
         elsif curr? 'if'
             make_if_else_ast
 
+        elsif curr? Keyword_Token and curr.at_operator?
+            At_Operator_Expr.new.tap do |it|
+                it.identifier = eat.string
+                eat_past_newlines
+                if curr? Identifier_Token and curr.member?
+                    it.expression = make_function_ast
+                elsif curr? Identifier_Token
+                    raise 'only members right now'
+                end
+            end # todo: only accept specific operators like @before @after for now. We'll handle the composition ones later, together with replacing the parsing of its ast right below this
         elsif (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?)) or (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
             # todo: named compositions
             Composition_Expr.new.tap do |node|
@@ -561,7 +571,7 @@ class Parser
             end
 
         elsif curr? '&', Identifier_Token and peek(1).member?
-            raise 'Cannot compose a class with members, only other classes and enums'
+            raise 'Cannot compose a class with members, only other classes and enums' # todo: why not?
 
         elsif curr? Identifier_Token, '=;'
             if curr.constant?
