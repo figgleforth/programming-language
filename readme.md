@@ -1,14 +1,19 @@
+### The end goal is something like the following
+
 Variable without value
+
 ```
 version =;
 ```
 
 Variable with value
+
 ```
 version = 0
 ```
 
 Anonymous block
+
 ```
 {
    version = 0
@@ -16,6 +21,7 @@ Anonymous block
 ```
 
 Function
+
 ```
 set_version {
    version = 0
@@ -23,6 +29,7 @@ set_version {
 ```
 
 Function with params
+
 ```
 set_version { v ->
    version = v
@@ -30,6 +37,7 @@ set_version { v ->
 ```
 
 Params with default values
+
 ```
 set_version { v = 0 ->
    version = v
@@ -37,6 +45,7 @@ set_version { v = 0 ->
 ```
 
 Enum
+
 ```
 ENVIRONMENT {
    DEV,
@@ -45,6 +54,7 @@ ENVIRONMENT {
 ```
 
 Class
+
 ```
 ENVIRONMENT {
    DEV,
@@ -61,6 +71,7 @@ Em {
 ```
 
 Instance
+
 ```
 ENVIRONMENT {
    DEV,
@@ -79,6 +90,7 @@ lang = Em.new
 ```
 
 Function call
+
 ```
 ENVIRONMENT {
    DEV,
