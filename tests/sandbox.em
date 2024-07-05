@@ -369,8 +369,6 @@ test { with &a = 1, whence b = 2, c, d = variable= 1 ->
 0.1
 .1
 
-1.2.3.4 # todo, this is still parsing as a number
-
 test { abc &this = 1, def that, like = 2, &whatever  ->
 }
 

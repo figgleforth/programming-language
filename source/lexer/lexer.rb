@@ -195,10 +195,13 @@ class Lexer
 
     def eat_number
         ''.tap do |number|
-            valid = %w(. _)
+            valid         = %w(. _)
+            decimal_found = false
 
             while chars? and (curr.numeric? or valid.include?(curr.string))
                 number << eat
+                decimal_found = true if number[-1] == '.'
+                raise "Number #{number} already contains a period" if decimal_found and curr == '.'
                 break if curr.newline? or curr.whitespace?
             end
         end
