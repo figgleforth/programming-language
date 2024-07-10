@@ -209,10 +209,7 @@ class Parser
             # make sure the block's compositions are derived from the expressions parsed in the block
             it.compositions = stmts.select do |s|
                 s.is_a? Composition_Expr
-            end.map do |comp|
-                comp.identifier
             end
-
         end
     end
 
@@ -366,8 +363,6 @@ class Parser
             # make sure the class's compositions are derived from the expressions parsed in the block
             it.compositions = it.block.expressions.select do |expr|
                 expr.is_a? Composition_Expr
-            end.map do |comp|
-                comp.identifier
             end
 
             eat '}'
@@ -428,10 +423,9 @@ class Parser
     end
 
 
-    def make_function_ast
-
+    def make_block_ast
         # ident { (params -> or ::) ... }
-        Function_Expr.new.tap do |it|
+        Block_Expr.new.tap do |it|
             if curr? Identifier_Token
                 it.name = eat(Identifier_Token, '{')[0].string
             elsif curr? '{' # anonymous function
@@ -466,7 +460,6 @@ class Parser
 
 
     def make_if_else_ast
-        # note: reconsider elif and ef, do we really need these?
         Conditional_Expr.new.tap do |it|
             eat 'if' if curr? 'if'
             it.condition = parse_block("\n").expressions[0]
@@ -478,9 +471,9 @@ class Parser
                 eat '}'
             elsif curr? '}'
                 eat '}'
-            elsif curr? 'elsif' or curr? 'elif' or curr? 'ef'
-                while curr? 'elsif' or curr? 'elif' or curr? 'ef'
-                    eat # elsif or elif or ef
+            elsif curr? 'elsif' or curr? 'elif'
+                while curr? 'elsif' or curr? 'elif'
+                    eat # elsif or elif
                     raise 'Expected condition in the elsif' if curr? "\n" or curr? ";"
                     it.when_false = make_if_else_ast
                 end
@@ -516,10 +509,9 @@ class Parser
     end
 
 
-    # any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
-    def make_ast
+    def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
         if curr? '{'
-            make_function_ast
+            make_block_ast
 
         elsif curr? '['
             Array_Literal_Expr.new.tap do |it|
@@ -551,7 +543,7 @@ class Parser
                 it.identifier = eat.string
                 eat_past_newlines
                 if curr? Identifier_Token and curr.member?
-                    it.expression = make_function_ast
+                    it.expression = make_block_ast
                 elsif curr? Identifier_Token
                     raise 'only members right now'
                 end
@@ -585,7 +577,7 @@ class Parser
         elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
 
             if curr? Identifier_Token, '{'
-                make_function_ast
+                make_block_ast
             elsif curr? Identifier_Token, '=' # and not curr? Identifier_Token, '=', '&'
                 make_assignment_ast
             end

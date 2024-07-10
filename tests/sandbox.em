@@ -59,10 +59,6 @@ cool { param, param_with_default = 1 ->
 	"body"
 }
 
-spicy = {
-	input = 96 -> 'whatever'
-}
-
 yolo = { 96 + 12 / -123 * 4 % 6 }
 
 func_without_params {
@@ -217,8 +213,6 @@ elif 5 > 3
 	ddd
 	eee
 	fff
-ef 100_000
-	hhh
 else
 	ggg
 }
@@ -358,7 +352,7 @@ Readonly > Record {
 records = Record.where { it.something == true }
 records = Readonly.where { it.something == true }
 
-test { with &a = 1, whence b = 2, c, d = variable= 1 ->
+test { with &a = 1, where b = 2, c, d = variable= 1 ->
 	# params with & are going to have their variables and functions merged into this scope, meaning instead of a.some_variable, you can just use some_variable
 }
 
@@ -371,7 +365,6 @@ test { with &a = 1, whence b = 2, c, d = variable= 1 ->
 
 test { abc &this = 1, def that, like = 2, &whatever  ->
 }
-
 
 &test
 &Test
@@ -386,6 +379,11 @@ User.where {
 
 double { value -> value * 2 }
 
-# todo: runtime hooks for function calls. Haven't decided on syntax yet
-#before double { arguments -> # arguments would be something like [{ name: value, type: float/int/whatever }]
-#}
+spicy = { input = 96 ->
+	'whatever'
+}
+
+{ in = 42 ->
+	'anon block'
+	yay
+}

@@ -111,7 +111,7 @@ t 'x = ENUM.VALUE' do |it|
 end
 
 t '{}' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.expressions.empty? and
         it.compositions.empty? and
         it.parameters.empty?
@@ -119,7 +119,7 @@ end
 
 t 'x = {}' do |it|
     it.is_a? Assignment_Expr and
-        it.expression.is_a? Function_Expr and
+        it.expression.is_a? Block_Expr and
         it.expression.expressions.empty? and
         it.expression.compositions.empty? and
         it.expression.parameters.empty?
@@ -134,59 +134,66 @@ t 'x = Abc {}' do |it|
 end
 
 t 'x {}' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.expressions.empty? and
         it.compositions.empty? and
-        it.parameters.empty?
+        it.parameters.empty? and
+        it.named?
 end
 
 t 'x { 42 }' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.expressions.one? and
         it.expressions.first.is_a? Number_Literal_Expr and
         it.compositions.empty? and
-        it.parameters.empty?
+        it.parameters.empty? and
+        it.named?
 end
 
 t 'x { in -> }' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.expressions.empty? and
         it.compositions.empty? and
-        it.parameters.one?
+        it.parameters.one? and
+        it.named?
 end
 
 t 'x { in, out -> 42, 24 }' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.expressions.count == 2 and
         it.compositions.empty? and
-        it.parameters.count == 2
+        it.parameters.count == 2 and
+        it.named?
 end
 
 t 'x { & in -> }' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.expressions.empty? and
         it.compositions.one? and
         it.parameters.one? and
-        it.parameters[0].composition
+        it.parameters[0].composition and
+        it.named?
 end
 
 t '
 test { abc &this = 1, def that, like = 2, &whatever  -> }
 ' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.expressions.empty? and
         it.compositions.count == 2 and
         it.parameters.count == 4 and
         it.parameters[0].composition and
         not it.parameters[1].composition and
         not it.parameters[2].composition and
-        it.parameters[3].composition
+        it.parameters[3].composition and
+        it.named?
 end
 
 t 'func { param1, param2 -> }' do |it|
-    it.is_a? Function_Expr and
+    it.is_a? Block_Expr and
         it.parameters.count == 2 and
-        it.expressions.empty?
+        it.expressions.empty? and
+        it.named?
 end
 
 t 'x + y' do |it|
@@ -252,7 +259,11 @@ t 'Abc > Xyz {}' do |it|
 end
 
 t '& Abc' do |it|
-    it.is_a? Composition_Expr
+    it.is_a? Composition_Expr and it.operator == '&'
+end
+
+t '~ Xyz' do |it|
+    it.is_a? Composition_Expr and it.operator == '~'
 end
 
 t 'self./something' do |it|
@@ -373,6 +384,23 @@ t 'Abc { & Xyz }' do |it|
         it.compositions.count == 1
 end
 
-t '@before' do |it|
-    it.is_a? At_Operator_Expr
+t '{ one_line_block }' do |it|
+    it.is_a? Block_Expr and it.parameters.count == 0 and
+        not it.expressions.empty? and
+        not it.named?
+end
+
+t '{ input -> one_line_block }' do |it|
+    it.is_a? Block_Expr and it.parameters.count == 1 and
+        not it.expressions.empty? and
+        not it.named?
+end
+
+t '{
+    jack
+    locke
+}' do |it|
+    it.is_a? Block_Expr and it.parameters.count == 0 and
+        it.expressions.count == 2 and
+        not it.named?
 end

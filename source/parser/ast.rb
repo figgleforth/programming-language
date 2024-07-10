@@ -17,10 +17,11 @@ end
 
 # { .. } is always a block, whether its a class body, function body, or just a block just in the middle of a bunch of statements using {}. I think a block in the middle that declares params should probably fail because nothing is calling the block, it's essentially just grouping code together/
 class Block_Expr < Ast
-    attr_accessor :name, :expressions, :compositions
+    attr_accessor :name, :expressions, :compositions, :parameters
 
 
     def initialize
+        @parameters   = []
         @expressions  = []
         @compositions = []
         @short_form   = true
@@ -41,39 +42,19 @@ class Block_Expr < Ast
     end
 
 
+    def named?
+        not name.nil?
+    end
+
+
     def pretty
         base = short_form ? '' : 'block'
         "#{base}".tap do |str|
             str << '{' unless short_form
+            str << "params(#{parameters.count}): #{parameters.map(&:pretty)}, " unless parameters.empty?
             str << "comps(#{composition_expressions.count}): #{composition_expressions.map(&:pretty)}, " unless composition_expressions.empty?
             str << "exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:pretty)}" unless non_composition_expressions.empty?
             str << '}' unless short_form
-        end
-    end
-end
-
-
-class Function_Expr < Block_Expr
-    # Block_Expr  :name, :expressions, :compositions
-    attr_accessor :parameters
-
-
-    def initialize
-        super
-        @parameters = []
-        @short_form = false
-    end
-
-
-    def pretty
-        base = short_form ? '' : 'fun'
-        "#{base}{#{name}".tap do |str|
-            str << " params(#{parameters.count}): #{parameters.map(&:pretty)}" unless parameters.empty?
-            if not short_form
-                str << ", comps(#{composition_expressions.count}): #{composition_expressions.map(&:pretty)}, " unless composition_expressions.empty?
-                str << ", exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:pretty)}" unless non_composition_expressions.empty?
-            end
-            str << '}'
         end
     end
 end
