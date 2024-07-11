@@ -1,4 +1,10 @@
-### The end goal is something like the following
+### Goals
+
+- Some syntax that I like, outlined below
+- Web server and MVC architecture as part of standard library
+   - The ultimate goal is to create web apps without external libraries like how you use Rails with Ruby
+
+### Syntax
 
 Variable without value
 
