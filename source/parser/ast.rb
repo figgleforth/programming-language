@@ -116,19 +116,9 @@ class Number_Literal_Expr < Ast
     end
 
 
+    # Useful reading
     # https://stackoverflow.com/a/18533211/1426880
-    def string_to_float
-        Float(string)
-        i, f = string.to_i, string.to_f
-        i == f ? i : f
-    rescue ArgumentError
-        self
-    end
-
-
-    def evaluate
-        string_to_float
-    end
+    # https://stackoverflow.com/a/1235891/1426880
 end
 
 
@@ -140,8 +130,24 @@ class Symbol_Literal_Expr < Ast
     end
 
 
-    def evaluate
-        ":#{string}"
+    def to_ruby_symbol
+        string.to_s
+    end
+end
+
+
+class Boolean_Literal_Expr < Ast
+    def pretty
+        long  = "Bool(:#{string})"
+        short = ":#{string}"
+        short_form ? short : long
+    end
+
+
+    def to_bool
+        return true if string == "true"
+        return false if string == "false"
+        raise "Boolean_Literal_Expr should be either true or false, but is #{string.inspect}"
     end
 end
 
@@ -291,22 +297,6 @@ class Unary_Expr < Ast
         short = "(#{operator}#{expression})"
         short_form ? short : long
     end
-
-
-    def evaluate
-        case operator
-            when '-'
-                expression.evaluate * -1
-            when '+'
-                expression.evaluate * +1
-            when '~'
-                raise 'Dunno how to ~'
-            when '!'
-                not expression.evaluate
-            else
-                raise "Unary_Expr(#{operator.inspect}) not implemented"
-        end
-    end
 end
 
 
@@ -341,30 +331,6 @@ class Binary_Expr < Ast
         str   += ']' if operator == '['
         str   += ')'
         str
-    end
-
-
-    def evaluate
-        if right.evaluate == nil or right.evaluate == 'nil'
-            raise "BinaryExprNode trying to `#{operator}` with nil"
-        end
-
-        case operator
-            when '+'
-                left.evaluate + right.evaluate
-            when '-'
-                left.evaluate - right.evaluate
-            when '*'
-                left.evaluate * right.evaluate
-            when '/'
-                left.evaluate / right.evaluate
-            when '%'
-                left.evaluate % right.evaluate
-            when '&&'
-                left.evaluate && right.evaluate
-            else
-                raise "BinaryExprNode(#{operator.inspect}) not implemented"
-        end
     end
 end
 

@@ -48,9 +48,9 @@ Entity {
 }
 
 
-player./current_level = 1 # ./ is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible.
+player.?current_level = 1 # .? is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible.
 
-if player./current_level # also works like ruby's #respond_to?
+if player.?current_level # also works like ruby's #respond_to?
 }
 
 nice { param, param_with_default = 1 -> "body" }
@@ -147,7 +147,7 @@ Emerald {
    }
 }
 
-first./middle./last
+first.?middle.?last
 
 _SOME_ENUM {}
 
@@ -387,3 +387,6 @@ spicy = { input = 96 ->
 	'anon block'
 	yay
 }
+
+test = true
+test = false

@@ -136,6 +136,13 @@ class Symbol_Token < Token
 end
 
 
+class Boolean_Token < Token
+    def pretty
+        "Bool(:#{string})"
+    end
+end
+
+
 class Number_Token < Token
     def pretty
         # string
@@ -168,7 +175,7 @@ end
 
 
 class Ascii_Token < Token # special symbols of one or more characters. they are not identifiers, they are +, :, &, (, \n, etc. the lexer doesn't care what kind of symbol (newline, binary operator, unary operator, etc), just that it is one.
-    BINARY_OPERATORS = %w(. + - * / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** ./ ..) # todo: it sucks having two binary operators lists. one at the top of lexer.rb and here. when you change this, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
+    BINARY_OPERATORS = %w(. + - * / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** ./ .? ..) # todo: it sucks having two binary operators lists. one at the top of lexer.rb and here. when you change this, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
     UNARY_OPERATORS  = %w(- + ~ !)
 
 

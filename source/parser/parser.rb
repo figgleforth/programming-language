@@ -57,7 +57,7 @@ class Parser
             # [15, %w(?:)], # Ternary
             [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
             [18, %w(,)],
-            [20, %w(. ./)],
+            [20, %w(. ./ .?)],
         ].find do |_, chars|
             chars.include?(token.string)
         end&.at(0)
@@ -289,9 +289,11 @@ class Parser
     end
 
 
-    def make_string_or_number_literal_ast
+    def make_string_or_number_or_boolean_literal_ast
         if curr == String_Token
             String_Literal_Expr.new
+        elsif curr == Boolean_Token
+            Boolean_Literal_Expr.new
         else
             Number_Literal_Expr.new
         end.tap do |literal|
@@ -591,8 +593,8 @@ class Parser
         elsif curr? Ascii_Token and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast
 
-        elsif curr? String_Token or curr? Number_Token
-            make_string_or_number_literal_ast
+        elsif curr? String_Token or curr? Number_Token or curr? Boolean_Token
+            make_string_or_number_or_boolean_literal_ast
 
         elsif curr? Comment_Token
             eat and nil
