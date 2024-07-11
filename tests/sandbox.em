@@ -349,6 +349,8 @@ Readonly > Record {
 	~ Validations
 }
 
+# todo: fix #where so that it doesn't require an opening brace {
+
 records = Record.where { it.something == true }
 records = Readonly.where { it.something == true }
 

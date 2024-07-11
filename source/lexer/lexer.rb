@@ -6,6 +6,7 @@ class Lexer
         new end ini req
         enum const private pri public pub static
         do if else for skip stop it is self when while
+        where map tap
         return
     )
 
@@ -18,9 +19,9 @@ class Lexer
 
     # in this specific order so multi character operators are matched first
     SYMBOLS = [
-        TRIPLE_SYMBOLS,
-        DOUBLE_SYMBOLS,
-        SINGLE_SYMBOLS
+      TRIPLE_SYMBOLS,
+      DOUBLE_SYMBOLS,
+      SINGLE_SYMBOLS
     ].flatten
 
     attr_accessor :i, :col, :row, :source, :buffer
