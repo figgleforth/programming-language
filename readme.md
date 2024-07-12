@@ -165,11 +165,6 @@ print { language = Em.new ->
   interpret # locally access 
 }
 
-print { language = Em.new ->
-  &language
-  interpret # locally access 
-}
-
 print { &language = Em.new -> interpret } # composition compacted into param declaration
 
 lang = Em.new
