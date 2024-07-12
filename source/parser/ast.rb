@@ -61,7 +61,7 @@ end
 
 
 class Class_Expr < Ast
-    attr_accessor :name, :block, :parent, :compositions
+    attr_accessor :name, :block, :base_class, :compositions
 
 
     def initialize
@@ -72,7 +72,7 @@ class Class_Expr < Ast
 
     def pretty
         "obj{#{name}".tap do |str|
-            str << " > #{parent}" if parent
+            str << " > #{base_class}" if base_class
             if not short_form
                 str << ", " + block.to_s if block
             end

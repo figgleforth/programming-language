@@ -39,25 +39,25 @@ class Parser
     # array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. todo: audit operators
     def precedence_for token
         [
-            [0, %w(( ))],
-            [1, %w([ ])],
-            [2, %w(!)],
-            [3, %w(- +)], # Additive
-            [4, %w(**)], # Exponentiation
-            [5, %w(* / %)], # Multiplicative
-            # 6 is reserved for unary + -
-            [7, %w(<< >>)], # Shift
-            [8, %w(< <= > >=)], # Relational
-            [9, %w(== != === !==)], # Equality
-            [10, %w(&)], # Bitwise AND
-            [11, %w(^)], # Bitwise XOR
-            [12, %w(|)], # Bitwise OR
-            [13, %w(&&)], # Logical AND
-            [14, %w(||)], # Logical OR
-            # [15, %w(?:)], # Ternary
-            [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
-            [18, %w(,)],
-            [20, %w(. ./ .?)],
+          [0, %w(( ))],
+          [1, %w([ ])],
+          [2, %w(!)],
+          [3, %w(- +)], # Additive
+          [4, %w(**)], # Exponentiation
+          [5, %w(* / %)], # Multiplicative
+          # 6 is reserved for unary + -
+          [7, %w(<< >>)], # Shift
+          [8, %w(< <= > >=)], # Relational
+          [9, %w(== != === !==)], # Equality
+          [10, %w(&)], # Bitwise AND
+          [11, %w(^)], # Bitwise XOR
+          [12, %w(|)], # Bitwise OR
+          [13, %w(&&)], # Logical AND
+          [14, %w(||)], # Logical OR
+          # [15, %w(?:)], # Ternary
+          [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
+          [18, %w(,)],
+          [20, %w(. ./ .?)],
         ].find do |_, chars|
             chars.include?(token.string)
         end&.at(0)
@@ -356,7 +356,7 @@ class Parser
             it.name = eat(Identifier_Token).string
 
             if curr? '>' and eat '>'
-                it.parent = eat(Identifier_Token).string
+                it.base_class = eat(Identifier_Token).string
             end
 
             eat '{'
@@ -375,11 +375,12 @@ class Parser
     # todo: do I need this?
     def make_comma_separated_ast
         Comma_Separated_Expr.new.tap do |node|
-            node.expressions << parse_block(%w(, \)))
+            node.expressions << parse_block(%w[, )])
             while curr? ','
                 eat ','
-                node.expressions << parse_block(%w(, \)))
+                node.expressions << parse_block(%w[, )])
             end
+            eat ')'
         end
     end
 
@@ -528,6 +529,8 @@ class Parser
             end
 
         elsif curr? '('
+            # make_comma_separated_ast
+
             paren      = eat '('
             precedence = precedence_for paren
             parse_expression(precedence).tap do

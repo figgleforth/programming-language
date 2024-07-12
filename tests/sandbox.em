@@ -392,3 +392,5 @@ spicy = { input = 96 ->
 
 test = true
 test = false
+
+Atom > Atoms {}

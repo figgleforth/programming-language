@@ -143,8 +143,7 @@ Em.parse
 
 ---
 
-Composing classes with other classes, instances, or enums, as opposed to inheritance. Provides local access to the thing
-composed
+Composing classes with other classes, instances, or enums. Basically merges the two
 
 ```
 Runtime {
@@ -190,6 +189,14 @@ Eminem {
 lang = Eminem.new
 lang.interpret # not callable because Runtime was decomposed
 lang.DEV
+```
+
+---
+Inheritance, with the `>` symbol implying that the left-hand class is more than the right-hand
+class
+
+```
+Eminem > Em { }
 ```
 
 ---
