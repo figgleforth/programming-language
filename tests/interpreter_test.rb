@@ -23,6 +23,10 @@ def t code, &block
 end
 
 
+# t File.read('tests/sandbox.em').to_s do |it|
+#     true
+# end
+
 t '' do |it|
     it.is_a? Runtime_Scope
 end

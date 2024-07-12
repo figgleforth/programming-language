@@ -12,7 +12,7 @@ def t code, &block
 
     tokens       = Lexer.new(code).lex
     ast          = Parser.new(tokens).to_ast
-    block_result = block.call ast
+    block_result = block.call ast[0] # test only the first expression parse since this test only cares about single expressions
 
     if not block_result
         parser_output = [ast].flatten.map { |a| a.inspect }
