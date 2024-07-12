@@ -8,15 +8,14 @@ class Interpreter # evaluates AST and returns the result
 
     def initialize expressions
         @expressions = expressions
-        @scopes      = [Runtime_Scope.new]
+        @scopes      = []
     end
 
 
     def interpret!
+        push_scope Runtime_Scope.new # the global scope
         expressions.each do |expr|
             value = evaluate(expr)
-            next unless value
-            puts value
         end
         pop_scope
     end

@@ -15,9 +15,7 @@ class Parser
 
 
     def to_ast
-        result = parse_until EOF_Token
-        return result[0] if result.one?
-        result
+        parse_until EOF_Token
     end
 
 
