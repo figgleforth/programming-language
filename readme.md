@@ -9,9 +9,9 @@
 - Web app focused, so server and MVC constructs as standard features
     - The ultimate goal is to create web apps without external libraries like how one might use Rails with Ruby
 
-*Most of the syntax below is parsing, some is not.*
-
 ### Syntax
+
+*Most of the syntax is parsing, some is not. And most is not interpreting while some is.*
 
 Comments
 
@@ -152,12 +152,18 @@ Functional programming features
 
 ```
 [1, 2, 3, 4].where
-  it # refers to the current item
-  at # refers to the index of the current item
+  it # refers to the current element
+  at # refers to the index of the current element
 }
 
 [1, 2, 3, 4].map 
-  it *= 2
+  it
+  at
+}
+
+[].each
+  it
+  at
 }
 
 [].tap 
