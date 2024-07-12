@@ -422,13 +422,17 @@ t '[].tap {
     it
     at
 }' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'tap' and it.left.is_a? Array_Literal_Expr and it.right.expressions.expressions.count == 2
+    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'tap' and it.left.is_a? Array_Literal_Expr and it.right.block.expressions.count == 2
 end
 
 t '[].map {}' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'map' and it.left.is_a? Array_Literal_Expr and it.right.expressions.expressions.count == 0
+    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'map' and it.left.is_a? Array_Literal_Expr and it.right.block.expressions.count == 0
 end
 
 t '[].where { it == nil }' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'where' and it.left.is_a? Array_Literal_Expr and it.right.expressions.expressions.count == 1 and it.right.expressions.expressions[0].is_a? Binary_Expr
+    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'where' and it.left.is_a? Array_Literal_Expr and it.right.block.expressions.count == 1 and it.right.block.expressions[0].is_a? Binary_Expr
+end
+
+t 'tap {}' do |it|
+    it.is_a? Functional_Expr and it.name == 'tap'
 end

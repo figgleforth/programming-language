@@ -60,6 +60,11 @@ class Block_Expr < Ast
 end
 
 
+class Functional_Expr < Ast # where, map, tap, each
+    attr_accessor :name, :block
+end
+
+
 class Class_Expr < Ast
     attr_accessor :name, :block, :base_class, :compositions
 
@@ -462,6 +467,3 @@ class While_Expr < Ast
     end
 end
 
-
-class Functional_Expr < Block_Expr # where, map, tap, each
-end

@@ -543,7 +543,7 @@ class Parser
                 it.name = eat.string
 
                 eat '{' if curr? '{'
-                it.expressions = parse_block
+                it.block = parse_block
                 eat '}'
             end
 

@@ -409,3 +409,5 @@ Atom > What {}
 [1, 2].where
 	it == 2
 }
+
+tap {} # valid, but pointless
