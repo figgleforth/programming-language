@@ -393,4 +393,5 @@ spicy = { input = 96 ->
 test = true
 test = false
 
-Atom > Atoms {}
+Atom > WHAT {} # bug: should not be able to extend constants. Maybe only if the left-hand identifier is also a constant? Are there any use-cases for that?
+

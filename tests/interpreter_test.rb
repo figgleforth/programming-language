@@ -61,7 +61,8 @@ b
 b = a
 b
 b = nil
-'b is next ', b, 4+2, nil
+'b in a string', b, 4+2, nil
+'`b` interpolated into the string'
 "
 
 # source = File.read('tests/sandbox.em').to_s

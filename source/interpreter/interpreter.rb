@@ -141,7 +141,6 @@ class Interpreter # evaluates AST and returns the result
 
 
     def get_member member
-        # TODO nested scopes, and that they should be able to access members of the global scope and the scope enclosing it
         # TODO should nil be a static object or just a string from the POV of the user?
         # TODO should it crash when something is nil?
         value = curr_scope.members[member.to_s]
@@ -155,7 +154,7 @@ class Interpreter # evaluates AST and returns the result
                 break unless next_scope
                 value = next_scope.members[member.to_s]
             end
-            scopes.reverse! # put it back in the proper order. TODO I imagine the double reverse isn't performant, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order
+            scopes.reverse! # put it back in the proper order. TODO the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
         end
 
         value || 'NIL'
