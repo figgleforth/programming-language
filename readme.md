@@ -117,7 +117,7 @@ Class, must be capitalized
 
 ```
 Em {
-   environment = ENVIRONMENT.DEV; # or ENVIRONMENT.NESTED.NICE
+   environment = ENVIRONMENT.DEV # or ENVIRONMENT.NESTED.NICE
    version =;
 }
 ```
