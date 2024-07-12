@@ -310,6 +310,16 @@ class Parser
     end
 
 
+    def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
+        Macro_Expr.new.tap do |it|
+            it.name = eat(Macro_Token).string
+            eat '('
+            it.identifiers << eat(Identifier_Token).string while curr? Identifier_Token
+            eat ')'
+        end
+    end
+
+
     def make_function_call_ast
         def parse_args
             # Ident: Expr (,)
@@ -605,6 +615,9 @@ class Parser
 
         elsif curr? Ascii_Token and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast
+
+        elsif curr? Macro_Token
+            make_macro_ast
 
         elsif curr? String_Token or curr? Number_Token or curr? Boolean_Token
             make_string_or_number_or_boolean_literal_ast

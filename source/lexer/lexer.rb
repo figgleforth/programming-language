@@ -17,6 +17,8 @@ class Lexer
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ** ?? ./ .? .. =;)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
+    MACROS = %w(%s %S %v %V %w %W %d)
+
     # in this specific order so multi character operators are matched first
     SYMBOLS = [
       TRIPLE_SYMBOLS,
@@ -339,13 +341,13 @@ class Lexer
 
                 end
 
+            elsif MACROS.include? peek(0, 2)&.string # %s, %S, etc
+                @tokens << Macro_Token.new(eat_many(2))
+
             elsif curr == '#'
-                # todo) Make something with these comments. Something about the Token== override causes == with CommentToken to not work and it's frustrating me. So now the parser is no longer receiving comments. The original plan was for the parser to generate some documentation html.
                 if peek(0, 3) == '###'
-                    # @tokens << CommentToken.new(eat_multiline_comment, true)
                     eat_multiline_comment
                 else
-                    # @tokens << CommentToken.new(eat_oneline_comment)
                     eat_oneline_comment
                 end
 
@@ -362,7 +364,7 @@ class Lexer
                 eat '&'
                 @tokens << Identifier_Token.new("&#{eat_identifier}")
 
-            elsif curr == '@' and peek.alpha? # at operators, like @add @rem @sub for composition, @before @after for hooks
+            elsif curr == '@' and peek.alpha? # at operators, like @before @after hooks
                 ident = eat '@'
                 ident += eat_identifier
                 if curr == '='

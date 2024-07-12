@@ -467,3 +467,18 @@ class While_Expr < Ast
     end
 end
 
+
+class Macro_Expr < Ast
+    attr_accessor :name, # %s, %S, %v, %V, etc
+                  :identifiers # the body between the parens
+
+    def initialize
+        super
+        @identifiers = []
+    end
+
+
+    def pretty
+        "#{name}(#{identifiers.join(' ')})"
+    end
+end

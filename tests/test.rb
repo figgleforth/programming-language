@@ -436,3 +436,7 @@ end
 t 'tap {}' do |it|
     it.is_a? Functional_Expr and it.name == 'tap'
 end
+
+t '%s(boo hoo)' do |it|
+    it.is_a? Macro_Expr and it.identifiers = %w(boo hoo)
+end

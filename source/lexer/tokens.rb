@@ -222,3 +222,6 @@ class Comment_Token < Token
     end
 end
 
+
+class Macro_Token < Token # %s(), %S(), %d(), etc
+end

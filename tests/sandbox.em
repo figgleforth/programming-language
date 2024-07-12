@@ -411,3 +411,14 @@ Atom > What {}
 }
 
 tap {} # valid, but pointless
+
+%s(boo hoo moo) # [:boo,  :hoo,  :moo]
+%S(boo hoo moo) # [:BOO,  :HOO,  :MOO]
+
+%v(boo hoo moo) # ['boo', 'hoo', 'moo']
+%V(boo hoo moo) # ['BOO', 'HOO', 'MOO']
+
+%w(boo hoo moo) # ["boo", "hoo", "moo"]
+%W(boo hoo moo) # ["BOO", "HOO", "MOO"]
+
+%d(boo hoo moo) # {boo: nil, hoo: nil, moo: nil}
