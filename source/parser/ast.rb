@@ -461,3 +461,7 @@ class While_Expr < Ast
         end
     end
 end
+
+
+class Functional_Expr < Block_Expr # where, map, tap, each
+end

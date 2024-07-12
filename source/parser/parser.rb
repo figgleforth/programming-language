@@ -356,6 +356,7 @@ class Parser
             it.name = eat(Identifier_Token).string
 
             if curr? '>' and eat '>'
+                raise 'Parent must be a Class' unless curr.object?
                 it.base_class = eat(Identifier_Token).string
             end
 
@@ -535,6 +536,15 @@ class Parser
             precedence = precedence_for paren
             parse_expression(precedence).tap do
                 eat ')'
+            end
+
+        elsif curr? %w(where map tap each)
+            Functional_Expr.new.tap do |it|
+                it.name = eat.string
+
+                eat '{' if curr? '{'
+                it.expressions = parse_block
+                eat '}'
             end
 
         elsif curr? 'while'

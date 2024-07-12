@@ -393,5 +393,19 @@ spicy = { input = 96 ->
 test = true
 test = false
 
-Atom > WHAT {} # bug: should not be able to extend constants. Maybe only if the left-hand identifier is also a constant? Are there any use-cases for that?
+Atom > What {}
 
+[].each
+}
+
+"boo".tap
+	it += 'oo'
+}
+
+"".map
+	it += 'nice'
+}
+
+[1, 2].where
+	it == 2
+}
