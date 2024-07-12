@@ -255,7 +255,7 @@ t 'Abc > Xyz {}' do |it|
     it.is_a? Class_Expr and
       it.block.expressions.empty? and
       it.block.compositions.empty? and
-      it.parent == 'Xyz'
+      it.base_class == 'Xyz'
 end
 
 t '& Abc' do |it|

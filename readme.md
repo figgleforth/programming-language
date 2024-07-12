@@ -85,7 +85,7 @@ set_version { v = 0 -> version = v }
 Function params with labels
 
 ```
-greeting { for name -> "Hello `name`" # interpolation }
+greeting { for name -> "Hello `name`" } # interpolation
 
 greeting(for: 'Em')
 ```
@@ -94,7 +94,7 @@ greeting(for: 'Em')
 Blocks assigned to variables. Not sure yet how to call them
 
 ```
-greeting = { for name -> "Hello `name`" # interpolation }
+greeting = { for name -> "Hello `name`" } # interpolation
 ```
 
 ---
