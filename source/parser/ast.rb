@@ -28,6 +28,13 @@ class Block_Expr < Ast
     end
 
 
+    def before_hook_expressions # any expressions that are `@before some_function`
+        expressions.select do |s|
+            s.is_a? Function_Hook_Operator_Expr
+        end
+    end
+
+
     def non_composition_expressions
         expressions.select do |s|
             s != Composition_Expr
@@ -403,6 +410,11 @@ class At_Operator_Expr < Ast
     def pretty
         identifier
     end
+end
+
+
+class Function_Hook_Operator_Expr < At_Operator_Expr
+    attr_accessor :target_function_identifier
 end
 
 

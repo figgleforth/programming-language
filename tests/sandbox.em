@@ -382,8 +382,11 @@ User.where {
 double { value -> value * 2 }
 
 spicy = { input = 96 ->
+	@before check_spicy_function
 	'whatever'
 }
+
+check_spicy_function { arguments -> }
 
 { in = 42 ->
 	'anon block'

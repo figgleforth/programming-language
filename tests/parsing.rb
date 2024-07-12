@@ -23,9 +23,9 @@ def t code, &block
 end
 
 
-# t File.read('tests/sandbox.em').to_s do |it|
-#     true
-# end
+t File.read('tests/sandbox.em').to_s do |it|
+    true
+end
 
 t '42' do |it|
     it.is_a? Number_Literal_Expr and
@@ -137,6 +137,16 @@ t 'x {}' do |it|
       it.compositions.empty? and
       it.parameters.empty? and
       it.named?
+end
+
+t 'x {
+    @before check_x
+}' do |it|
+    it.is_a? Block_Expr and
+      it.expressions.one? and
+      it.compositions.empty? and
+      it.parameters.empty? and
+      it.named? and it.before_hook_expressions.one?
 end
 
 t 'x { 42 }' do |it|
