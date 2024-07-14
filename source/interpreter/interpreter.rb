@@ -67,9 +67,12 @@ class Interpreter # evaluates AST and returns the result
                 expr.to_bool
 
             when Identifier_Expr
-                ident = get_variable expr.string
-                # todo: show error message if no ident exists
-                ident || nil # Nil_Construct.new
+                construct = get_variable_construct expr.string
+                if construct
+                    evaluate construct.expression
+                else
+                    nil
+                end
 
             when Unary_Expr
                 value = evaluate(expr.expression)
@@ -113,9 +116,15 @@ class Interpreter # evaluates AST and returns the result
                 end
 
             when Assignment_Expr
-                value = evaluate(expr.expression)
-                set_variable expr.name, value
-                value
+                # todo: when assigning blocks, should they be evaluated right away? Probably not
+
+                expr = Variable_Construct.new.tap do |it|
+                    it.name       = expr.name
+                    it.expression = expr.expression
+
+                    set_variable_construct expr.name, it
+                end.expression
+                evaluate expr
 
             when Block_Expr
                 # todo: compositions; args/params
@@ -126,8 +135,8 @@ class Interpreter # evaluates AST and returns the result
                         it.expressions = expr.expressions
                         it.name        = expr.name
 
-                        set_method expr.name, it
-                        last_statement = it
+                        set_method_construct expr.name, it
+                        last_statement = it.name
                     end
                 else
                     push_scope Runtime_Scope.new
@@ -140,7 +149,7 @@ class Interpreter # evaluates AST and returns the result
                 last_statement
 
             when Function_Call_Expr
-                construct      = get_method expr.name
+                construct      = get_method_construct expr.name
                 if not construct
                     raise "Em – UNDEFINED #{expr.name}"
                 end
@@ -159,14 +168,14 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def set_method identifier, construct
+    def set_method_construct identifier, construct
         # todo: does #add_method interfere with the Kernel
         # todo: I want methods to be able to have the same name but different arguments
         curr_scope.methods[identifier.to_s] = construct
     end
 
 
-    def get_method identifier
+    def get_method_construct identifier
         body = curr_scope.methods[identifier.to_s]
 
         if not body
@@ -187,12 +196,12 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def set_variable identifier, value # todo: is member.to_s the key to use here?
-        curr_scope.variables[identifier.to_s] = value
+    def set_variable_construct identifier, expression # todo: is member.to_s the key to use here?
+        curr_scope.variables[identifier.to_s] = expression # not the result, so that the expression can be evaluated later
     end
 
 
-    def get_variable identifier
+    def get_variable_construct identifier
         # todo: should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
         # todo: the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
         value = curr_scope.variables[identifier.to_s]

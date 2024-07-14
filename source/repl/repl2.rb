@@ -50,6 +50,8 @@ def repl(f_symbol_color, equals_color, output_color)
 
         if output
             output = output.to_s.colorize(output_ansi)
+        else
+            output = output.inspect
         end
 
         puts output
