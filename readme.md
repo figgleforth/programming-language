@@ -11,7 +11,13 @@
 
 ---
 
-*Sample constructs*
+```bash
+# requires at least ruby 3.2.2
+$ ruby source/repl/repl_old.rb # WIP interactive repl
+$ ruby tests/test.rb # parsing and interpreting tests
+```
+
+---
 
 Comments
 

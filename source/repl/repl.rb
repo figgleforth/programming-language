@@ -1,51 +1,55 @@
 require_relative '../lexer/lexer'
 require_relative '../parser/parser'
+require_relative '../interpreter/interpreter'
 
-class REPL
-    attr_accessor :lexer, :parser, :commands_executed
-
-    SPACE = ' '
-
-    def initialize
-        @commands_executed = 1
-        @lexer             = Lexer.new
-        @parser            = Parser.new
-    end
+# Method to convert hex color to RGB
+def hex_to_rgb(hex)
+    hex.scan(/../).map { |color| color.to_i(16) }
+end
 
 
-    def run_repl
-        while true
-            # for the label that shows which command number this is
-            commands_width    = @commands_executed.to_s.length
-            command_count     = "#{@commands_executed}".rjust commands_width
-            @commands_executed += 1
+# Method to convert RGB to ANSI escape code
+def rgb_to_ansi(rgb)
+    "\e[38;2;#{rgb[0]};#{rgb[1]};#{rgb[2]}m"
+end
 
-            print "#{command_count})\n\n"
-            input = gets.chomp
-            break if input == "exit"
 
-            # Print the input back
-            repeater = '-'
-            repeated = repeater.rjust [commands_width, 1].min.to_i, repeater
-            prefix   = repeated.rjust commands_width
-
-            # Execute and print the result of the input
-            begin
-                lexer.source = input
-
-                parser = Parser.new
-                parser.buffer = lexer.lex
-                # tokens = scanner.string_to_tokens input
-
-                puts
-                puts parser.parse_until
-                # puts "∎"
-                puts
-            rescue StandardError => e
-                puts "Error: #{e.message}"
-            end
-        end
+# Method to wrap text in ANSI escape code
+class String
+    def colorize(ansi_code)
+        "#{ansi_code}#{self}\e[0m"
     end
 end
 
-REPL.new.run_repl
+
+@blue          = rgb_to_ansi(hex_to_rgb("22C5FE"))
+@comment_green = rgb_to_ansi(hex_to_rgb("3BB037"))
+@gray          = rgb_to_ansi(hex_to_rgb("8A8878"))
+
+
+def repl
+    interpreter = Interpreter.new
+
+    loop do
+        print " ƒ  ".colorize(@comment_green)
+        input = gets.chomp
+        next unless input.size > 0
+        break if %w(\q exit).include? input.downcase
+
+        begin
+            tokens    = Lexer.new(input).lex
+            ast       = Parser.new(tokens).to_ast
+            construct = interpreter.evaluate ast.first
+        rescue Exception => e
+            construct = e
+        end
+
+        print " ■  ".colorize(@gray)
+        construct ||= construct.inspect
+        puts construct.to_s.colorize(@gray)
+    end
+end
+
+
+puts "——— Type \\q or exit to quit".to_s.colorize(@gray)
+repl
