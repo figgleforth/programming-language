@@ -2,13 +2,10 @@ require_relative '../source/parser/parser'
 require_relative '../source/lexer/lexer'
 require_relative '../source/interpreter/interpreter'
 
-puts "\nRunning interpreter tests...\n\n"
-
 
 def t code, &block
     raise ArgumentError, '#t requires a code string' unless code.is_a?(String)
     raise ArgumentError, '#t requires a block' unless block_given?
-    @tests_ran ||= 0
 
     tokens       = Lexer.new(code).lex
     ast          = Parser.new(tokens).to_ast
@@ -182,5 +179,3 @@ method()
 " do |it|
     it == 4815162342
 end
-
-puts "Ran #{@tests_ran} tests"

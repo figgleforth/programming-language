@@ -213,7 +213,6 @@ class Interpreter # evaluates AST and returns the result
                 end
                 last_statement
             when Nil_Expr, nil
-                # Nil_Construct.new
                 nil
 
             else

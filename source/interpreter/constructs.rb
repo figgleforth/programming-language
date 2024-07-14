@@ -16,6 +16,3 @@ class Class_Construct < Construct
     attr_accessor :name
 end
 
-
-class Nil_Construct < Construct
-end

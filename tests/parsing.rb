@@ -2,13 +2,10 @@ require_relative '../source/lexer/lexer'
 require_relative '../source/parser/parser'
 require_relative '../source/parser/ast'
 
-puts "\nRunning parser tests...\n\n"
-
 
 def t code, &block
     raise ArgumentError, '#t requires a code string' unless code.is_a?(String)
     raise ArgumentError, '#t requires a block' unless block_given?
-    @tests_ran ||= 0
 
     tokens       = Lexer.new(code).lex
     ast          = Parser.new(tokens).to_ast
@@ -448,5 +445,3 @@ end
 t '%s(boo hoo)' do |it|
     it.is_a? Macro_Expr and it.identifiers = %w(boo hoo)
 end
-
-puts "Ran #{@tests_ran} tests"
