@@ -1,23 +1,24 @@
 require_relative '../parser/ast'
 require_relative 'runtime_scope'
+require_relative 'constructs'
 
 
 class Interpreter # evaluates AST and returns the result
     attr_accessor :expressions, :scopes
 
 
-    def initialize expressions
+    def initialize expressions = []
         @expressions = expressions
-        @scopes      = []
+        @scopes      = [Runtime_Scope.new] # default runtime scope
     end
 
 
     def interpret!
-        push_scope Runtime_Scope.new # the global scope
+        output = nil
         expressions.each do |expr|
-            value = evaluate(expr)
+            output = evaluate expr # expressions.first
         end
-        pop_scope
+        output
     end
 
 
@@ -37,6 +38,7 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
+    # @return [Runtime_Scope, nil]
     def curr_scope
         @scopes.last
     end
@@ -56,7 +58,7 @@ class Interpreter # evaluates AST and returns the result
                 end
 
             when String_Literal_Expr
-                expr.string
+                expr.string.inspect # note: using #inspect so that the output contains the quotes
 
             when Symbol_Literal_Expr
                 expr.to_ruby_symbol
@@ -65,7 +67,10 @@ class Interpreter # evaluates AST and returns the result
                 expr.to_bool
 
             when Identifier_Expr
-                get_member expr.string
+                ident = get_variable expr.string
+                # todo: show error message if no ident exists
+                ident || nil # Nil_Construct.new
+
             when Unary_Expr
                 value = evaluate(expr.expression)
                 case expr.operator
@@ -109,40 +114,88 @@ class Interpreter # evaluates AST and returns the result
 
             when Assignment_Expr
                 value = evaluate(expr.expression)
-                set_member_in_curr_scope expr.name, value
+                set_variable expr.name, value
                 value
 
             when Block_Expr
-                # TODO compositions; args/params
-                push_scope Runtime_Scope.new
-                expr.expressions.map do |block_expr|
-                    stmt = evaluate block_expr
-                    puts(stmt ? stmt : 'nil')
+                # todo: compositions; args/params
+
+                last_statement = nil # is the default return value of all blocks
+                if expr.named? # store the block on the current scope
+                    Method_Construct.new.tap do |it|
+                        it.expressions = expr.expressions
+                        it.name        = expr.name
+
+                        set_method expr.name, it
+                        last_statement = it
+                    end
+                else
+                    push_scope Runtime_Scope.new
+                    # evaluate the block
+                    expr.expressions.map do |block_expr|
+                        last_statement ||= evaluate block_expr
+                    end
+                    pop_scope
                 end
-                pop_scope
+                last_statement
+
+            when Function_Call_Expr
+                construct      = get_method expr.name
+                if not construct
+                    raise "Em – UNDEFINED #{expr.name}"
+                end
+                last_statement = nil # is the default return value of all blocks
+                construct.expressions.map do |block_expr|
+                    last_statement ||= evaluate block_expr
+                end
+                last_statement
+            when Nil_Expr
+                # Nil_Construct.new
                 nil
 
-            when nil
-                raise "nil expr passed to evaluate"
             else
                 raise "Unrecognized ast #{expr.inspect}"
         end
     end
 
 
-    def set_member_in_curr_scope member, value
-        # TODO is member.to_s the key to use here?
-        if curr_scope.members[member.to_s]
-            puts "%% OVERWRITE #{member} = #{value} %%" # TODO maybe make some warning buffer, something like push_warning
-        end
-        curr_scope.members[member.to_s] = value
+    def set_method identifier, construct
+        # todo: does #add_method interfere with the Kernel
+        # todo: I want methods to be able to have the same name but different arguments
+        curr_scope.methods[identifier.to_s] = construct
     end
 
 
-    def get_member member
-        # TODO should nil be a static object or just a string from the POV of the user?
-        # TODO should it crash when something is nil?
-        value = curr_scope.members[member.to_s]
+    def get_method identifier
+        body = curr_scope.methods[identifier.to_s]
+
+        if not body
+            depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
+            scopes.reverse!
+            while body.nil?
+                depth      += 1
+                next_scope = scopes[depth]
+                # puts "checking next_scope #{next_scope}"
+                break unless next_scope
+                body = next_scope.methods[identifier.to_s]
+                puts "checking next_scope #{next_scope}: #{body.inspect}"
+            end
+            scopes.reverse! # put it back in the proper order
+        end
+
+        body
+    end
+
+
+    def set_variable identifier, value # todo: is member.to_s the key to use here?
+        curr_scope.variables[identifier.to_s] = value
+    end
+
+
+    def get_variable identifier
+        # todo: should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
+        # todo: the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
+        value = curr_scope.variables[identifier.to_s]
 
         if not value
             depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
@@ -151,11 +204,11 @@ class Interpreter # evaluates AST and returns the result
                 depth      += 1
                 next_scope = scopes[depth]
                 break unless next_scope
-                value = next_scope.members[member.to_s]
+                value = next_scope.variables[identifier.to_s]
             end
-            scopes.reverse! # put it back in the proper order. TODO the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
+            scopes.reverse! # put it back in the proper order
         end
 
-        value || 'NIL'
+        value
     end
 end

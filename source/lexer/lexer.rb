@@ -7,7 +7,7 @@ class Lexer
         enum const private pri public pub static
         do if else for skip stop it is self when while
         where map tap
-        return
+        return nil
     )
 
     UNUSED_KEYWORDS = %w(api obj def fun new end arg imp)

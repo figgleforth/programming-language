@@ -143,7 +143,7 @@ class Symbol_Literal_Expr < Ast
 
 
     def to_ruby_symbol
-        string.to_s
+        string.to_sym
     end
 end
 
@@ -493,4 +493,8 @@ class Macro_Expr < Ast
     def pretty
         "#{name}(#{identifiers.join(' ')})"
     end
+end
+
+
+class Nil_Expr < Ast
 end

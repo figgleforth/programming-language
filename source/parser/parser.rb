@@ -569,6 +569,9 @@ class Parser
                 eat_past_newlines
             end
 
+        elsif curr? Keyword_Token and curr == 'nil'
+            eat and Nil_Expr.new
+
         elsif (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?)) or (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
             # todo: named compositions
             Composition_Expr.new.tap do |node|
@@ -621,7 +624,7 @@ class Parser
         elsif curr? Comment_Token
             eat and nil
 
-        elsif curr? %W(, \n) # ignoring the comma allows for expressions separated by commas
+        elsif curr? %W(, ; \n) # ignoring the comma allows for expressions separated by commas
             eat and nil
 
         elsif curr? Symbol_Token

@@ -448,3 +448,5 @@ end
 t '%s(boo hoo)' do |it|
     it.is_a? Macro_Expr and it.identifiers = %w(boo hoo)
 end
+
+puts "Ran #{@tests_ran} tests"

@@ -16,7 +16,7 @@ def t code, &block
     block_result = block.call output
 
     if not block_result
-        raise "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n#{output}"
+        raise "\n\n——————————— FAILED TEST\n#{code}\n——————————— PROGRAM OUTPUT\n#{output.inspect}\n———————————"
     end
 
     @tests_ran += 1
@@ -28,42 +28,159 @@ end
 # end
 
 t '' do |it|
-    it.is_a? Runtime_Scope
+    it.nil?
 end
 
-# 2+3
-# 4-5
-# 6*7
-# 8/9
-# 10%11
-# -1
-# -2.0
-# -1 + +3
-# (1 + 2) * 3
-# 1.
-# 2.
-# 'lost'
-# 1/2
-# 1/2.0
-# 1.0/2
-# 1.0/2.0
-# true
-# !true
-# false
-# !false
-# x = 1
-# :lost
-# 'lost' == :lost
-# :lost == :lost
-# 'lost' == 'lost'
-#
-# { x }
-# { a + \"LOST\" } # currently interprets as `NILLOST`, NIL being the placeholder for nil
-# a = 1 + 2
-# { b = 7 }
-# b
-# b = a
-# b
-# b = nil
-# 'b in a string', b, 4+2, nil
-# '`b` interpolated into the string'
+t '1' do |it|
+    it == 1 and it.is_a? Integer
+end
+
+t '-1' do |it|
+    it == -1 and it.is_a? Integer
+end
+
+t '48.15' do |it|
+    it == 48.15 and it.is_a? Float
+end
+
+t '16.' do |it|
+    it == 16.0 and it.is_a? Float
+end
+
+t '.23' do |it|
+    it.is_a? Float
+end
+
+t '2 + 3' do |it|
+    it == 5
+end
+
+t '4 - 5' do |it|
+    it == -1
+end
+
+t '6 * 7' do |it|
+    it == 42
+end
+
+t "8/9" do |it|
+    it == 0
+end
+
+t "10%11" do |it|
+    it == 10
+end
+
+t "-1 + +3" do |it|
+    it == 2
+end
+
+t "(1 + 2) * 3" do |it|
+    it == 9 and it.is_a? Integer
+end
+
+t "1/2" do |it|
+    it == 0
+end
+
+t "1/2.0" do |it|
+    it == 0.5
+end
+
+t "1.0/2" do |it|
+    it == 0.5
+end
+
+t "1.0/2.0" do |it|
+    it == 0.5
+end
+
+t "true" do |it|
+    it == true
+end
+
+t "!true" do |it|
+    it == false
+end
+
+t "false" do |it|
+    it == false
+end
+
+t "!false" do |it|
+    it == !false
+end
+
+t "x = 1" do |it|
+    it == 1
+end
+
+t ":lost" do |it|
+    it == :lost
+end
+
+t "'lost'" do |it|
+    it.is_a? String
+end
+
+t "'lost' == :lost" do |it|
+    it == false
+end
+
+t ":lost == :lost" do |it|
+    it == true
+end
+
+t "'lost' == 'lost'" do |it|
+    it == true
+end
+
+t "a = 1 + 2" do |it|
+    it == 3
+end
+
+t "{ b = 8 }" do |it|
+    it == 8
+end
+
+t "b = 7
+b
+" do |it|
+    it == 7
+end
+
+t "
+a = 4815
+b = a" do |it|
+    it == 4815
+end
+
+t "b = nil" do |it|
+    it == nil
+end
+
+t "1, nil, 3" do |it|
+    it == 3
+end
+
+t "'b in a string', b, 4+2, nil" do |it|
+    it.nil? # todo: implement interpolation
+end
+
+t "'`b` interpolated into the string'" do |it|
+    it.is_a? String # todo: implement interpolation
+end
+
+t "x = 'the island'
+{ x }" do |it|
+    it.is_a? String
+end
+
+t "
+method { 4815162342 }
+method()
+" do |it|
+    it == 4815162342
+end
+
+puts "Ran #{@tests_ran} tests"
