@@ -9,9 +9,9 @@
 - Web app focused, so server and MVC constructs as standard features
     - The ultimate goal is to create web apps without external libraries like how one might use Rails with Ruby
 
-### Syntax
+---
 
-*Most of the syntax is parsing, some is not. And most is not interpreting while some is.*
+*Sample constructs*
 
 Comments
 
@@ -206,7 +206,7 @@ else
 }
 ```
 
-Macros
+Macros, or shortcuts for a select few expressions
 
 ```
 %s(boo hoo moo) # [:boo,  :hoo,  :moo]
