@@ -60,7 +60,7 @@ end
 class Identifier_Token < Token
     require_relative 'lexer'
 
-    # note: I remove the _ and & here because identifiers can be parsed with those because of specific language features. But the purpose is so that the #all? tests in each method here don't fail, since upcasing & and _ yields the same value so it makes the identifier a constant, object, and member simultaneously. Originally I thought this felt wrong, but after writing out the purpose here, it's fine to stay.
+    # TODO: should not remove _ and & because I want `_` to be a valid identifier
     def constant? # all upper, LIKE_THIS
         test = string.gsub('_', '').gsub('&', '')
         test&.chars&.all? { |c| c.upcase == c }
@@ -69,7 +69,7 @@ class Identifier_Token < Token
 
     def object? # capitalized, Like_This or This
         test = string.gsub('_', '').gsub('&', '')
-        test[0].upcase == test[0] and not constant?
+        test[0]&.upcase == test[0] and not constant?
     end
 
 

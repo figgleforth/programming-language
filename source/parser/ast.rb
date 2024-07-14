@@ -182,6 +182,23 @@ class String_Literal_Expr < Ast
 end
 
 
+class Dictionary_Literal_Expr < Ast
+    attr_accessor :keys, :values
+
+
+    def initialize
+        super
+        @keys   = []
+        @values = []
+    end
+
+
+    def pretty
+        "Dictionary(keys: #{@keys.join(',')})"
+    end
+end
+
+
 class Array_Literal_Expr < Ast
     attr_accessor :elements
 
@@ -348,17 +365,27 @@ end
 
 
 class Identifier_Expr < Ast
-    require_relative '../lexer/lexer'
-
-
-    def initialize
-        super
-        # @short_form = true
-    end
-
 
     def identifier
         string
+    end
+
+
+    def constant? # all upper, LIKE_THIS
+        test = string.gsub('_', '').gsub('&', '')
+        test&.chars&.all? { |c| c.upcase == c }
+    end
+
+
+    def class? # capitalized, Like_This or This
+        test = string.gsub('_', '').gsub('&', '')
+        test[0]&.upcase == test[0] and not constant?
+    end
+
+
+    def member? # all lower, some_method or some_variable
+        test = string.gsub('_', '').gsub('&', '')
+        test&.chars&.all? { |c| c.downcase == c }
     end
 
 

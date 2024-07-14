@@ -98,7 +98,7 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def evaluate expr
+    def evaluate expr # note: issues are raised here because the REPL catches these errors and prints them nicely in color
         case expr
             when Number_Literal_Expr
                 if expr.type == :int
@@ -119,14 +119,6 @@ class Interpreter # evaluates AST and returns the result
 
             when Boolean_Literal_Expr
                 expr.to_bool
-
-            when Identifier_Expr
-                construct = get_variable_construct expr.string
-                if construct
-                    evaluate construct.expression
-                else
-                    raise "Undefined `#{expr.string}`"
-                end
 
             when Unary_Expr
                 value = evaluate(expr.expression)
@@ -169,16 +161,34 @@ class Interpreter # evaluates AST and returns the result
                         raise "Binary_Expr unknown operator #{expr.operator}"
                 end
 
+            when Identifier_Expr
+                construct = get_variable_construct expr.string
+                if construct
+                    # puts "construct.inspect #{construct.inspect}"
+                    if construct.is_a? Variable_Construct and construct.expression.is_a? Block_Expr
+                        construct.expression
+                    else
+                        evaluate construct.expression
+                    end
+                else
+                    raise "Undefined `#{expr.string}`" # todo: improve error messaging
+                end
+
             when Assignment_Expr
                 # todo: when assigning blocks, should they be evaluated right away? Probably not
 
-                expr = Variable_Construct.new.tap do |it|
+                Variable_Construct.new.tap do |it|
                     it.name       = expr.name
                     it.expression = expr.expression
 
                     set_variable_construct expr.name, it
-                end.expression
-                evaluate expr
+                end
+
+                if expr.expression.is_a? Block_Expr
+                    # puts "not evaluating, just storing"
+                else
+                    evaluate expr.expression # todo: unless the expression is a block? I can't decide if it should evaluate right away. The naive answer is that it shouldn't. Right?
+                end
 
             when Block_Expr
                 # todo: compositions; args/params
@@ -190,8 +200,8 @@ class Interpreter # evaluates AST and returns the result
                         it.name        = expr.name
 
                         set_method_construct expr.name, it
-                        last_statement = it.name
-                    end
+                        last_statement = it
+                    end # todo: in pry, declaring a method prints its name as output. it does not evaluate it
                 else
                     push_scope Runtime_Scope.new
                     # evaluate the block
@@ -216,7 +226,7 @@ class Interpreter # evaluates AST and returns the result
                 nil
 
             else
-                raise "Interpreting not implemented for #{expr.inspect}"
+                raise "Interpreting not implemented for #{expr.class}"
         end
     end
 end

@@ -7,15 +7,21 @@ def t code, &block
     raise ArgumentError, '#t requires a code string' unless code.is_a?(String)
     raise ArgumentError, '#t requires a block' unless block_given?
 
-    tokens       = Lexer.new(code).lex
-    ast          = Parser.new(tokens).to_ast
-    output       = Interpreter.new(ast).interpret!
+    begin
+        tokens = Lexer.new(code).lex
+        ast    = Parser.new(tokens).to_ast
+        output = Interpreter.new(ast).interpret!
+    rescue Exception => e
+        output = e # so that I can explicitly test what the output might be, even when the interpreter raises an exception. I probably won't use this much, but it works for now
+    end
+
     block_result = block.call output
 
     if not block_result
-        raise "\n\n——————————— FAILED TEST\n#{code}\n——————————— PROGRAM OUTPUT\n#{output.inspect}\n———————————"
+        raise "\n\n——————————— FAILED TEST\n#{code}\n——————————— PROGRAM OUTPUT\n#{output.inspect}\n———————————\n"
     end
 
+    @tests_ran ||= 0
     @tests_ran += 1
 end
 
@@ -137,7 +143,7 @@ t "a = 1 + 2" do |it|
 end
 
 t "{ b = 8 }" do |it|
-    it == 8
+    it.is_a? RuntimeError and it.message == 'Parser expected token(s): ["}"]'
 end
 
 t "b = 7
@@ -152,6 +158,10 @@ b = a" do |it|
     it == 4815
 end
 
+t "boo" do |it|
+    it.is_a? RuntimeError and it.message == "Undefined `boo`"
+end
+
 t "b = nil" do |it|
     it == nil
 end
@@ -161,15 +171,14 @@ t "1, nil, 3" do |it|
 end
 
 t "'b in a string', b, 4+2, nil" do |it|
-    it.nil? # todo: implement interpolation
+    it.is_a? RuntimeError and it.message == "Undefined `b`"
 end
 
 t "'`b` interpolated into the string'" do |it|
     it.is_a? String # todo: implement interpolation
 end
 
-t "x = 'the island'
-{ x }" do |it|
+t "x = 'the island'" do |it|
     it.is_a? String
 end
 

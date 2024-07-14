@@ -1,6 +1,6 @@
 @tests_ran = 0
 
-puts "Testing ..."
+print "Testing... "
 require_relative 'parsing'
 require_relative 'interpreting'
-puts "... #{@tests_ran} tests performed"
+print "#{@tests_ran} tests"

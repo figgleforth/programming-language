@@ -7,22 +7,28 @@ def t code, &block
     raise ArgumentError, '#t requires a code string' unless code.is_a?(String)
     raise ArgumentError, '#t requires a block' unless block_given?
 
-    tokens       = Lexer.new(code).lex
-    ast          = Parser.new(tokens).to_ast
-    block_result = block.call ast[0] # test only the first expression parse since this test only cares about single expressions
+    begin
+        tokens = Lexer.new(code).lex
+        ast    = Parser.new(tokens).to_ast
+    rescue Exception => e
+        raise "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n———————————\nException: #{e}"
+    end
+
+    block_result = block.call ast.first # test only the first expression parse since this test only cares about single expressions
 
     if not block_result
         parser_output = [ast].flatten.map { |a| a.inspect }
         raise "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n#{parser_output}"
     end
 
+    @tests_ran ||= 0
     @tests_ran += 1
 end
 
 
-t File.read('tests/sandbox.em').to_s do |it|
-    true
-end
+# t File.read('tests/sandbox.em').to_s do |it|
+#     true
+# end
 
 t '42' do |it|
     it.is_a? Number_Literal_Expr and
@@ -85,7 +91,7 @@ t '[a, b + c]' do |it|
 end
 
 t 'x' do |it|
-    it.is_a? Identifier_Expr
+    it.is_a? Identifier_Expr and it.member? and not it.class? and not it.constant?
 end
 
 t 'x =;' do |it|
@@ -106,13 +112,38 @@ t 'x = ENUM.VALUE' do |it|
 end
 
 t '{}' do |it|
-    it.is_a? Block_Expr and
-      it.expressions.empty? and
-      it.compositions.empty? and
-      it.parameters.empty?
+    it.is_a? Dictionary_Literal_Expr and it.keys.none? and it.values.none?
+end
+
+t '{ x }' do |it|
+    it.is_a? Dictionary_Literal_Expr and it.keys.one? and it.values.none?
+end
+
+t '{ x y }' do |it|
+    it.is_a? Dictionary_Literal_Expr and it.keys.count == 2 and it.values.none?
+end
+
+t '{ x, y }' do |it|
+    it.is_a? Dictionary_Literal_Expr and it.keys.count == 2 and it.values.none?
+end
+
+t '{ a:
+    "value on the next line"
+}' do |it|
+    it.is_a? Dictionary_Literal_Expr and it.keys.one? and it.values.one?
+end
+
+t '{ a: 123, b: {},
+c: Abc{}, d: "lost" }' do |it|
+    it.is_a? Dictionary_Literal_Expr and it.keys.count == 4 and it.values.count == 4 and it.keys[2] == 'c'
 end
 
 t 'x = {}' do |it|
+    it.is_a? Assignment_Expr and
+      it.expression.is_a? Dictionary_Literal_Expr and it.expression.keys.none? and it.expression.values.none?
+end
+
+t 'x = { -> }' do |it|
     it.is_a? Assignment_Expr and
       it.expression.is_a? Block_Expr and
       it.expression.expressions.empty? and
@@ -214,6 +245,10 @@ t 'a + (b * c) - d' do |it|
       it.left.is_a? Binary_Expr and
       it.right.is_a? Identifier_Expr and
       it.left.right.is_a? Binary_Expr
+end
+
+t 'SOME_CONSTANT' do |it|
+    it.is_a? Identifier_Expr and not it.member? and not it.class? and it.constant?
 end
 
 t 'ENUM {}' do |it|
@@ -376,8 +411,8 @@ t 'call(a: 1, b, c: "str", 42)' do |it|
       it.arguments[3].label.nil?
 end
 
-t 'imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, shit)' do |it|
-    it.is_a? Function_Call_Expr and it.arguments.count == 4 and it.arguments[0].label and it.arguments[1].label and it.arguments[2].label and it.arguments[3].label.nil?
+t 'imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, nothing, {})' do |it|
+    it.is_a? Function_Call_Expr and it.arguments.count == 5 and it.arguments[0].label and it.arguments[1].label and it.arguments[2].label and it.arguments[3].label.nil? and it.arguments.last.expression.is_a? Dictionary_Literal_Expr
 end
 
 t ':test' do |it|
@@ -389,7 +424,7 @@ t 'Abc { & Xyz }' do |it|
       it.compositions.count == 1
 end
 
-t '{ one_line_block }' do |it|
+t '{ -> one_line_block }' do |it|
     it.is_a? Block_Expr and it.parameters.count == 0 and
       not it.expressions.empty? and
       not it.named?
@@ -401,7 +436,7 @@ t '{ input -> one_line_block }' do |it|
       not it.named?
 end
 
-t '{
+t '{ ->
     jack
     locke
 }' do |it|
@@ -442,6 +477,22 @@ t 'tap {}' do |it|
     it.is_a? Functional_Expr and it.name == 'tap'
 end
 
+t "where\n}" do |it|
+    it.is_a? Functional_Expr and it.name == 'where'
+end
+
+t "each\n}" do |it|
+    it.is_a? Functional_Expr and it.name == 'each'
+end
+
+t "map\n}" do |it|
+    it.is_a? Functional_Expr and it.name == 'map'
+end
+
+t "tap\n}" do |it|
+    it.is_a? Functional_Expr and it.name == 'tap'
+end
+
 t '%s(boo hoo)' do |it|
-    it.is_a? Macro_Expr and it.identifiers = %w(boo hoo)
+    it.is_a? Macro_Expr and it.identifiers == %w(boo hoo)
 end

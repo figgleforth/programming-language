@@ -164,7 +164,7 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one?
-                raise "Parser expected #{sequence}" unless eaten == sequence[0] # todo: improve
+                raise "Parser expected token(s): #{sequence}" unless eaten == sequence[0] # todo: improve
             end
             @i    += 1
             eaten_this_iteration << eaten
@@ -521,9 +521,37 @@ class Parser
     end
 
 
+    def make_dictionary_ast
+        Dictionary_Literal_Expr.new.tap do |it|
+            eat '{'
+
+            eat_past_newlines
+            while curr? Identifier_Token
+                it.keys << eat(Identifier_Token).string
+
+                if curr? ':' and eat
+                    eat_past_newlines
+                    it.values << parse_expression
+                end
+
+                eat if curr? ','
+                eat_past_newlines
+            end
+
+            eat '}'
+        end
+    end
+
+
     def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
         if curr? '{'
-            make_block_ast
+            if peek_until('}').any? { |t| t == '->' } # whether the contents between the braces contains an arrow, indicating that it's a block
+                make_block_ast
+            else
+                # { key, key, key }
+                # { key key key }
+                make_dictionary_ast
+            end
 
         elsif curr? '['
             Array_Literal_Expr.new.tap do |it|
