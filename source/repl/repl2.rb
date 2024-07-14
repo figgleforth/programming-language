@@ -22,41 +22,35 @@ class String
 end
 
 
-f_symbol_color = "22C5FE"
-equals_color   = "8A8878"
-output_color   = "8A8878"
+@blue          = "22C5FE"
+@comment_green = "3BB037"
+@gray          = "8A8878"
 
 
-def repl(f_symbol_color, equals_color, output_color)
-    fn_ansi     = rgb_to_ansi(hex_to_rgb(f_symbol_color))
-    equals_ansi = rgb_to_ansi(hex_to_rgb(equals_color))
-    output_ansi = rgb_to_ansi(hex_to_rgb(output_color))
+def repl
+    fn_ansi     = rgb_to_ansi(hex_to_rgb(@comment_green))
+    output_ansi = rgb_to_ansi(hex_to_rgb(@gray))
     interpreter = Interpreter.new
 
     loop do
         print " ƒ  ".colorize(fn_ansi)
         input = gets.chomp
+        next unless input.size > 0
         break if %w(\q exit).include? input.downcase
 
-        print "    ".colorize(equals_ansi)
-
         begin
-            tokens = Lexer.new(input).lex
-            ast    = Parser.new(tokens).to_ast
-            output = interpreter.evaluate ast.first
+            tokens    = Lexer.new(input).lex
+            ast       = Parser.new(tokens).to_ast
+            construct = interpreter.evaluate ast.first
         rescue Exception => e
-            output = e
+            construct = e
         end
 
-        if output
-            output = output.to_s.colorize(output_ansi)
-        else
-            output = output.inspect
-        end
-
-        puts output
+        print " ■  ".colorize(output_ansi)
+        construct ||= construct.inspect
+        puts construct.to_s.colorize(output_ansi)
     end
 end
 
 
-repl(f_symbol_color, equals_color, output_color)
+repl

@@ -44,6 +44,60 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
+    def set_method_construct identifier, construct
+        # todo: does #add_method interfere with the Kernel
+        # todo: I want methods to be able to have the same name but different arguments
+        curr_scope.methods[identifier.to_s] = construct
+    end
+
+
+    def get_method_construct identifier
+        body = curr_scope.methods[identifier.to_s]
+
+        if not body
+            depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
+            scopes.reverse!
+            while body.nil?
+                depth      += 1
+                next_scope = scopes[depth]
+                # puts "checking next_scope #{next_scope}"
+                break unless next_scope
+                body = next_scope.methods[identifier.to_s]
+                puts "checking next_scope #{next_scope}: #{body.inspect}"
+            end
+            scopes.reverse! # put it back in the proper order
+        end
+
+        body
+    end
+
+
+    def set_variable_construct identifier, expression # todo: is member.to_s the key to use here?
+        curr_scope.variables[identifier.to_s] = expression # not the result, so that the expression can be evaluated later
+    end
+
+
+    def get_variable_construct identifier
+        # todo: should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
+        # todo: the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
+        value = curr_scope.variables[identifier.to_s]
+
+        if not value
+            depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
+            scopes.reverse!
+            while value.nil?
+                depth      += 1
+                next_scope = scopes[depth]
+                break unless next_scope
+                value = next_scope.variables[identifier.to_s]
+            end
+            scopes.reverse! # put it back in the proper order
+        end
+
+        value
+    end
+
+
     def evaluate expr
         case expr
             when Number_Literal_Expr
@@ -158,66 +212,12 @@ class Interpreter # evaluates AST and returns the result
                     last_statement ||= evaluate block_expr
                 end
                 last_statement
-            when Nil_Expr
+            when Nil_Expr, nil
                 # Nil_Construct.new
                 nil
 
             else
                 raise "Unrecognized ast #{expr.inspect}"
         end
-    end
-
-
-    def set_method_construct identifier, construct
-        # todo: does #add_method interfere with the Kernel
-        # todo: I want methods to be able to have the same name but different arguments
-        curr_scope.methods[identifier.to_s] = construct
-    end
-
-
-    def get_method_construct identifier
-        body = curr_scope.methods[identifier.to_s]
-
-        if not body
-            depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
-            scopes.reverse!
-            while body.nil?
-                depth      += 1
-                next_scope = scopes[depth]
-                # puts "checking next_scope #{next_scope}"
-                break unless next_scope
-                body = next_scope.methods[identifier.to_s]
-                puts "checking next_scope #{next_scope}: #{body.inspect}"
-            end
-            scopes.reverse! # put it back in the proper order
-        end
-
-        body
-    end
-
-
-    def set_variable_construct identifier, expression # todo: is member.to_s the key to use here?
-        curr_scope.variables[identifier.to_s] = expression # not the result, so that the expression can be evaluated later
-    end
-
-
-    def get_variable_construct identifier
-        # todo: should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
-        # todo: the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
-        value = curr_scope.variables[identifier.to_s]
-
-        if not value
-            depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
-            scopes.reverse!
-            while value.nil?
-                depth      += 1
-                next_scope = scopes[depth]
-                break unless next_scope
-                value = next_scope.variables[identifier.to_s]
-            end
-            scopes.reverse! # put it back in the proper order
-        end
-
-        value
     end
 end
