@@ -125,7 +125,7 @@ class Interpreter # evaluates AST and returns the result
                 if construct
                     evaluate construct.expression
                 else
-                    nil
+                    raise "Undefined `#{expr.string}`"
                 end
 
             when Unary_Expr
@@ -216,7 +216,7 @@ class Interpreter # evaluates AST and returns the result
                 nil
 
             else
-                raise "Unrecognized ast #{expr.inspect}"
+                raise "Interpreting not implemented for #{expr.inspect}"
         end
     end
 end

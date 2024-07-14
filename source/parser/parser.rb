@@ -164,7 +164,7 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one?
-                raise debug unless eaten == sequence[0]
+                raise "Parser expected #{sequence}" unless eaten == sequence[0] # todo: improve
             end
             @i    += 1
             eaten_this_iteration << eaten
@@ -641,7 +641,7 @@ class Parser
             raise "You used #{curr}#{peek(1)} but probably meant #{peek(1)}#{curr}"
 
         else
-            raise debug
+            raise "Parsing not implemented for #{curr}"
         end
     end
 
