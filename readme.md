@@ -12,217 +12,30 @@
 ---
 
 ```bash
-# requires at least ruby 3.2.2
+# requires ruby 3.2.2 or newer
 $ ruby source/repl/repl_old.rb # WIP interactive repl
 $ ruby tests/test.rb # parsing and interpreting tests
 ```
 
 ---
-
-Comments
-
-```
-# single line comment
-
-###
-multiline comment
-###
-```
-
-Variable declarations
+*A few samples of the syntax*
 
 ```
-version =; # without a value
-version = 0
-version = 100_000
-version = 0. # equivalent to 0.0
-version = .0 # equivalent to 0.0
-```
+variable_without_value =;
+with_value = 0.1
+interpolation = 'version `with_value`'
 
-String interpolation
-
-```
-version_label = "Em version `version`"
-version_label = 'Em version `version`'
-```
-
-Blocks and functions
-
-```
-# Anonymous block
-{ 
-   version = 0
-   what? =; # variables can include ? or !
-   okay! =;
+CONSTANT = 48151
+ENUM {
+  CONSTANT = 62342
 }
 
-# Named block (aka function)
-set_version {
-   version = 0
-}
+greet_method { 'hello' }
+greet_with_args { name -> 'hello `name`' }
 
-# With params
-set_version { v ->
-   version = v
-}
-
-# Calling functions
-set_version(0.00001)
-
-# Compacted and params with default values
-set_version { v = 0 -> version = v }
-
-# Function params with labels
-greeting { for name -> "Hello `name`" }
-greeting(for: 'Em')
-
-# Blocks assigned to variables. Not yet sure how to call blocks stored in variables
-greeting = { for name -> "Hello `name`" }
-```
-
-Enums and constants, must be caps
-
-```
-ENVIRONMENT {
-   DEV = 0,
-   PROD = 1,
-   NESTED {
-      NICE = 3
-   }
-}
-
-PI = 3.14
-```
-
-Classes, must be capitalized
-
-```
-Em {
-   environment = ENVIRONMENT.DEV
-   env = ENVIRONMENT.NESTED.NICE
-   version =;
-   self.parse {} # class functions
-}
-
-lang = Em.new # instance
-lang.version
-
-Em.parse
-```
-
-Composition allows merging of constructs
-
-```
-Runtime {
-  interpret {}
-}
-
-ENVIRONMENT {
-   DEV,
-   PROD
-}
-
-Em {
-   & Runtime
-   & ENVIRONMENT
-}
-
-Em.DEV
-em = Em.new
-em.interpret
-
-print { language = Em.new ->
-  &language
-  interpret # local access to the interpret function
-}
-
-print { &language = Em.new -> interpret } # composition compacted into param declaration
-```
-
-Decompositions, or removing specific compositions. Removes local access to the thing decomposed
-
-```
-Eminem {
-   & Em
-   ~ Runtime
-}
-
-Eminem.DEV
-lang = Eminem.new
-lang.interpret # not callable because Runtime was decomposed
-
-Eminem > Em { } # inheritance, the `>` symbol implies that the left-hand class is more than the right-hand class
-```
-
-Functional programming features
-
-```
-[1, 2, 3, 4].where
-  it # refers to the current element
-  at # refers to the index of the current element
-}
-
-[1, 2, 3, 4].map 
-  it
-  at
-}
-
-[].each
-  it
-  at
-}
-
-[].tap 
-  it # refers to the construct tapped into
-}
-
-"".tap
-  it += 'Hello'
+Some_Class {
+  # same syntax for variables, constants, and methods
 }
 ```
 
-Flow control, no need for `}` in the middle of control flow chains. But it's required to close out the flow control
-construct
-
-```
-if true
-}
-
-if false
-else
-}
-
-if a > b
-elsif a < c # or elif
-else
-}
-
-while true
-}
-
-while false
-else
-}
-
-while a > b
-  skip # skip this iteration
-  stop # stop the loop
-elswhile a < c
-else
-}
-```
-
-Macros, or shortcuts for a select few expressions
-
-```
-%s(boo hoo moo) # [:boo,  :hoo,  :moo]
-%S(boo hoo moo) # [:BOO,  :HOO,  :MOO]
-
-%v(boo hoo moo) # ['boo', 'hoo', 'moo']
-%V(boo hoo moo) # ['BOO', 'HOO', 'MOO']
-
-%w(boo hoo moo) # ["boo", "hoo", "moo"]
-%W(boo hoo moo) # ["BOO", "HOO", "MOO"]
-
-%d(boo hoo moo) # {boo: nil, hoo: nil, moo: nil}
-```
+*See `tests/parsing.rb` or `tests/interpreting.rb` for more.*
