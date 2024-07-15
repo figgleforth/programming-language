@@ -70,9 +70,11 @@ class REPL
                 color  = 'red'
             end
 
-            print colorize(color, "■  ")
-            output = output.inspect
+            # ■
+            print colorize(color, "   ")
+            output ||= 'nil'
             puts colorize(color, output.to_s)
+            # print colorize(color, '■')
         end
     end
 
