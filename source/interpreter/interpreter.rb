@@ -44,10 +44,32 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def set_method_construct identifier, construct
-        # todo: does #add_method interfere with the Kernel
-        # todo: I want methods to be able to have the same name but different arguments
-        curr_scope.methods[identifier.to_s] = construct
+    # @return [Runtime_Scope]
+    def global_scope
+        @scopes.first || Runtime_Scope.new
+    end
+
+
+    # region Get constructs
+    # todo: generalize these getters
+    def get_variable_construct identifier
+        # todo: should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
+        # todo: the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
+        value = curr_scope.variables[identifier.to_s]
+
+        if not value
+            depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
+            scopes.reverse!
+            while value.nil?
+                depth      += 1
+                next_scope = scopes[depth]
+                break unless next_scope
+                value = next_scope.variables[identifier.to_s]
+            end
+            scopes.reverse! # put it back in the proper order
+        end
+
+        value
     end
 
 
@@ -72,31 +94,42 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def set_variable_construct identifier, expression # todo: is member.to_s the key to use here?
-        curr_scope.variables[identifier.to_s] = expression # not the result, so that the expression can be evaluated later
-    end
+    def get_class_construct identifier
+        construct = curr_scope.classes[identifier.to_s]
 
-
-    def get_variable_construct identifier
-        # todo: should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
-        # todo: the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
-        value = curr_scope.variables[identifier.to_s]
-
-        if not value
+        if not construct
             depth = 0 # `start at the next scope and reverse the scopes array so we can traverse up the stack easier
             scopes.reverse!
-            while value.nil?
+            while construct.nil?
                 depth      += 1
                 next_scope = scopes[depth]
+                # puts "checking next_scope #{next_scope}"
                 break unless next_scope
-                value = next_scope.variables[identifier.to_s]
+                construct = next_scope.classes[identifier.to_s]
+                puts "checking next_scope #{next_scope}: #{construct.inspect}"
             end
             scopes.reverse! # put it back in the proper order
         end
 
-        value
+        construct
     end
 
+
+    def set_construct type, identifier, construct
+        case type
+            when :variable
+                curr_scope.variables[identifier.to_s] = construct
+            when :method
+                curr_scope.methods[identifier.to_s] = construct
+            when :class
+                curr_scope.classes[identifier.to_s] = construct
+            else
+                raise "#set_construct – unknown type #{type.inspect}"
+        end
+    end
+
+
+    # endregion
 
     def evaluate expr # note: issues are raised here because the REPL catches these errors and prints them nicely in color
         case expr
@@ -161,34 +194,60 @@ class Interpreter # evaluates AST and returns the result
                         raise "Binary_Expr unknown operator #{expr.operator}"
                 end
 
+            when Dictionary_Literal_Expr
+                # reference: https://rosettacode.org/wiki/Hash_from_two_arrays#Ruby
+                value_results = expr.values.map do |val|
+                    evaluate val
+                end
+                Hash[expr.keys.zip(value_results)]
+
             when Identifier_Expr
+                # walk up the construct types at any identifier. todo: I don't care to differentiate between the types of identifiers at this point, or do I? What if there are name collisions?
                 construct = get_variable_construct expr.string
-                if construct
-                    # puts "construct.inspect #{construct.inspect}"
-                    if construct.is_a? Variable_Construct and construct.expression.is_a? Block_Expr
-                        construct.expression
-                    else
-                        evaluate construct.expression
-                    end
-                else
+                if not construct
+                    construct = get_method_construct expr.string
+                end
+                if not construct
+                    construct = get_class_construct expr.string
+                end
+
+                if not construct
                     raise "Undefined `#{expr.string}`" # todo: improve error messaging
                 end
 
-            when Assignment_Expr
-                # todo: when assigning blocks, should they be evaluated right away? Probably not
+                if construct.is_a? Variable_Construct
+                    if construct.value
+                        construct.value
+                    elsif construct.expression.is_a? Block_Expr
+                        construct.expression
+                    end
+                elsif construct.is_a? Method_Construct
+                    construct
+                elsif construct.is_a? Class_Construct
+                    construct
+                else
+                    evaluate construct.expression
+                end
 
+            when Assignment_Expr
+                return_value = nil
                 Variable_Construct.new.tap do |it|
                     it.name       = expr.name
                     it.expression = expr.expression
+                    return_value  = expr.expression
 
-                    set_variable_construct expr.name, it
-                end
+                    if not expr.expression.is_a? Block_Expr # don't evaluate blocks yet so that they
+                        it.value     = evaluate(expr.expression)
+                        return_value = it.value
+                    end
 
-                if expr.expression.is_a? Block_Expr
-                    # puts "not evaluating, just storing"
-                else
-                    evaluate expr.expression # todo: unless the expression is a block? I can't decide if it should evaluate right away. The naive answer is that it shouldn't. Right?
+                    if expr.expression.is_a? Identifier_Expr # in case the variable is a all caps constant
+                        it.is_constant = expr.expression.constant?
+                    end
+
+                    set_construct :variable, it.name, it
                 end
+                return_value
 
             when Block_Expr
                 # todo: compositions; args/params
@@ -196,15 +255,15 @@ class Interpreter # evaluates AST and returns the result
                 last_statement = nil # is the default return value of all blocks
                 if expr.named? # store the block on the current scope
                     Method_Construct.new.tap do |it|
-                        it.expressions = expr.expressions
-                        it.name        = expr.name
+                        it.block = expr
+                        it.name  = expr.name
 
-                        set_method_construct expr.name, it
+                        set_construct :method, it.name, it
                         last_statement = it
                     end # todo: in pry, declaring a method prints its name as output. it does not evaluate it
                 else
+                    # evaluate the block since it wasn't named, and therefor isn't being stored
                     push_scope Runtime_Scope.new
-                    # evaluate the block
                     expr.expressions.map do |block_expr|
                         last_statement ||= evaluate block_expr
                     end
@@ -213,15 +272,39 @@ class Interpreter # evaluates AST and returns the result
                 last_statement
 
             when Function_Call_Expr
-                construct      = get_method_construct expr.name
-                if not construct
-                    raise "Em – UNDEFINED #{expr.name}"
-                end
                 last_statement = nil # is the default return value of all blocks
-                construct.expressions.map do |block_expr|
-                    last_statement ||= evaluate block_expr
+
+                construct = get_method_construct expr.name
+                if construct
+                    construct.block.expressions.each do |block_expr|
+                        last_statement ||= evaluate block_expr # expressions.first
+                    end
+                else
+                    # when blocks are stored in variables, they can be evaluated later as long as a method by the same name doesn't already exist? This doesn't seem right
+                    construct = get_variable_construct expr.name
+                    if construct and construct.expression.is_a? Block_Expr
+                        construct.expression.expressions.map do |block_expr|
+                            last_statement ||= evaluate block_expr
+                        end
+                    else
+                        raise "Undefined `#{expr.name}`"
+                    end
+
                 end
+
                 last_statement
+
+            when Class_Expr
+                # store the construct, then use it whenever a class must be initialized.
+                construct = Class_Construct.new.tap do |it|
+                    # todo: don't just copy all the properties. Prepare a Class Construct that is the result of these properties
+                    it.name         = expr.name
+                    it.block        = expr.block
+                    it.base_class   = expr.base_class
+                    it.compositions = expr.compositions
+                    set_construct :class, it.name, it
+                end
+
             when Nil_Expr, nil
                 nil
 

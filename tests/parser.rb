@@ -11,7 +11,8 @@ def t code, &block
         tokens = Lexer.new(code).lex
         ast    = Parser.new(tokens).to_ast
     rescue Exception => e
-        raise "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n———————————\nException: #{e}"
+        puts "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n———————————\n\n"
+        raise e
     end
 
     block_result = block.call ast.first # test only the first expression parse since this test only cares about single expressions
@@ -26,9 +27,9 @@ def t code, &block
 end
 
 
-# t File.read('tests/sandbox.em').to_s do |it|
-#     true
-# end
+t File.read('tests/sandbox.em').to_s do |it|
+    true
+end
 
 t '42' do |it|
     it.is_a? Number_Literal_Expr and

@@ -48,12 +48,15 @@ class REPL
     def repl
         interpreter = Interpreter.new
 
-        trap("INT") { puts; print(prompt) } # when
+        trap('INT') do
+            # todo: prevent ctrl+c from terminating, and make it cancel the current input. Currently it cancels the input but preserves the input prior to cancelling.
+            Readline.refresh_line
+            puts; print(prompt)
+        end
 
         loop do
-            # print(prompt)
-            # input = gets.chomp
             input = Readline.readline(prompt, true)
+
             next unless input.size > 0
             break if %w(\q exit).include? input.downcase
 
@@ -61,14 +64,14 @@ class REPL
                 color  = 'gray'
                 tokens = Lexer.new(input).lex
                 ast    = Parser.new(tokens).to_ast
-                output = interpreter.evaluate ast.first # the value of the program
+                output = interpreter.evaluate ast.first
             rescue Exception => e # todo: commented for now so I can catch errors
                 output = e
                 color  = 'red'
             end
 
             print colorize(color, "■  ")
-            output ||= output.inspect
+            output = output.inspect
             puts colorize(color, output.to_s)
         end
     end

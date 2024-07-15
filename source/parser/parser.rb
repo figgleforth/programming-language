@@ -163,8 +163,8 @@ class Parser
     def eat * sequence
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
-            if sequence&.one?
-                raise "Parser expected token(s): #{sequence}" unless eaten == sequence[0] # todo: improve
+            if sequence&.one? and eaten != sequence[0]
+                raise "Parser expected token(s): #{sequence} but got: #{eaten}" # todo: improve this error
             end
             @i    += 1
             eaten_this_iteration << eaten
@@ -212,23 +212,22 @@ class Parser
     end
 
 
-    def make_typed_var_decl_ast
-        Assignment_Expr.new.tap do |node|
-            tokens    = eat Identifier_Token, ':', Identifier_Token
-            node.name = tokens[0].string
-            node.type = tokens[2]
-
-            if curr? '='
-                eat '='
-
-                if curr? %W(; \n)
-                    raise "Expected expression after ="
-                end
-                node.expression = parse_expression
-            end
-        end
-    end
-
+    # def make_typed_var_decl_ast # todo: support types
+    #     Assignment_Expr.new.tap do |node|
+    #         tokens    = eat Identifier_Token, ':', Identifier_Token
+    #         node.name = tokens[0].string
+    #         node.type = tokens[2]
+    #
+    #         if curr? '='
+    #             eat '='
+    #
+    #             if curr? %W(; \n)
+    #                 raise "Expected expression after ="
+    #             end
+    #             node.expression = parse_expression
+    #         end
+    #     end
+    # end
 
     def make_assignment_ast
         Assignment_Expr.new.tap do |node|
@@ -275,7 +274,7 @@ class Parser
 
                 if curr? '=' and eat '='
                     # note: allow stateless methods as well?
-                    node.value = parse_block(%W(, \n)).expressions[0]
+                    node.value = parse_expression # parse_block(%W(, \n)).expressions[0]
                 end
                 eat_past_newlines
             end
@@ -529,7 +528,7 @@ class Parser
             while curr? Identifier_Token
                 it.keys << eat(Identifier_Token).string
 
-                if curr? ':' and eat
+                if curr? %w(: =) and eat
                     eat_past_newlines
                     it.values << parse_expression
                 end

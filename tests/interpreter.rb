@@ -8,17 +8,19 @@ def t code, &block
     raise ArgumentError, '#t requires a block' unless block_given?
 
     begin
-        tokens = Lexer.new(code).lex
-        ast    = Parser.new(tokens).to_ast
-        output = Interpreter.new(ast).interpret!
+        exception = nil # store it so that I can check against the error message below. todo: make some kind of error message object, similar to localization? Would be cool to allow you to customize the error messages
+        tokens    = Lexer.new(code).lex
+        ast       = Parser.new(tokens).to_ast
+        output    = Interpreter.new(ast).interpret!
     rescue Exception => e
-        output = e # so that I can explicitly test what the output might be, even when the interpreter raises an exception. I probably won't use this much, but it works for now
+        exception = e
     end
 
-    block_result = block.call output
+    block_param  = exception || output
+    block_result = block.call block_param
 
     if not block_result
-        raise "\n\n——————————— FAILED TEST\n#{code}\n——————————— PROGRAM OUTPUT\n#{output.inspect}\n———————————\n"
+        raise "\n\n——————————— FAILED TEST\n#{code}\n——————————— PROGRAM OUTPUT\n#{output.inspect}\n———————————\nBlock called with: #{block_param.inspect}"
     end
 
     @tests_ran ||= 0
@@ -26,9 +28,9 @@ def t code, &block
 end
 
 
-# t File.read('tests/sandbox.em').to_s do |it|
-#     true
-# end
+t File.read('tests/sandbox.em').to_s do |it|
+    true
+end
 
 t '' do |it|
     it.nil?
@@ -143,7 +145,7 @@ t "a = 1 + 2" do |it|
 end
 
 t "{ b = 8 }" do |it|
-    it.is_a? RuntimeError and it.message == 'Parser expected token(s): ["}"]'
+    it == { 'b' => 8 }
 end
 
 t "b = 7
@@ -158,8 +160,8 @@ b = a" do |it|
     it == 4815
 end
 
-t "boo" do |it|
-    it.is_a? RuntimeError and it.message == "Undefined `boo`"
+t 'boo' do |it|
+    it.is_a? RuntimeError and it.message == 'Undefined `boo`'
 end
 
 t "b = nil" do |it|

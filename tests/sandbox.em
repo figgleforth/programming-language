@@ -1,4 +1,7 @@
-# docs syntax, reference :Atom class identifier in documentation with a colon.
+# bug: ? and ! can be in the middle of identifiers
+# todo: a ? b : c
+# todo: abc ?? xyz # abc if abc, otherwise xyz
+
 Atom {
 	# compositions
 	& Entity # merges all of Entity with Atom
@@ -7,6 +10,7 @@ Atom {
 }
 
 
+# idea: docs syntax, reference :Atom class identifier in documentation with a colon.
 Atom {
 	& Pos
 	~ Rot
@@ -59,7 +63,7 @@ cool { param, param_with_default = 1 ->
 	"body"
 }
 
-yolo = { 96 + 12 / -123 * 4 % 6 }
+yolo = { -> 96 + 12 / -123 * 4 % 6 }
 
 func_without_params {
 	"body!"
@@ -71,7 +75,7 @@ Empty {}
 lost = { in = 42 -> }
 
 {
-	whatever
+	-> whatever
 }
 
 GAME_LOOP_STATE {
@@ -114,7 +118,6 @@ a.b.c = 0
 1 +++++++ 2
 1 - --2
 1 & 1
-#a ? b : c # todo
 
 
 next_level { player
@@ -150,8 +153,6 @@ Emerald {
 first.?middle.?last
 
 _SOME_ENUM {}
-
-# todo: abc ?? xyz # abc if abc, otherwise xyz
 
 SOME_CONST = 1
 
@@ -349,10 +350,8 @@ Readonly > Record {
 	~ Validations
 }
 
-# todo: fix #where so that it doesn't require an opening brace {
-
 records = Record.where { it.something == true }
-records = Readonly.where { it.something == true }
+records = Readonly.where it.something == true } # opening brace optional
 
 test { with &a = 1, where b = 2, c, d = variable= 1 ->
 	# params with & are going to have their variables and functions merged into this scope, meaning instead of a.some_variable, you can just use some_variable
@@ -425,3 +424,7 @@ tap {} # valid, but pointless
 %W(boo hoo moo) # ["BOO", "HOO", "MOO"]
 
 %d(boo hoo moo) # {boo: nil, hoo: nil, moo: nil}
+
+{ x: 1 }
+{ x = 1 }
+

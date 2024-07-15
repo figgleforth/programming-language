@@ -194,7 +194,7 @@ class Dictionary_Literal_Expr < Ast
 
 
     def pretty
-        "Dictionary(keys: #{@keys.join(',')})"
+        "Dictionary(keys: #{@keys.join(',')}, values: #{@values.join(',')})"
     end
 end
 
