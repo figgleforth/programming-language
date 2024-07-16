@@ -1,3 +1,5 @@
+Create a test to run all the test I usually run
+
 Generalize parsing expressions between parens. I think the function call ast parses parameters between parens, so go look there. When abstracted it can be reused for tuples. Also where Parser#make_ast checks curr? '(' I'm calling parse_expression again. But I think this is where I want to use #make_comma_separated_ast
 
 Figure out string interpolation. See String_Literal_Expr#string=
@@ -12,21 +14,21 @@ Pop last ast and replace with new ast to make conditionals (unless while if) wor
 
 ? and ! can be in the middle of identifiers
 
-a ? b : c
+Implement, a ? b : c or is that unnecessary? I kind of like the `expr if expr else expr` syntax.
 
 abc ?? xyz (abc if abc, otherwise xyz). This is basically how Ruby's || works. Maybe I don't need this since the interpreter uses Ruby's || when interpreting Em's ||
 
-extract documentation comments and todos from lexed tokens
+Extract documentation comments and todos from lexed tokens
 
-generate references into a /references folder somewhere, creating directories to match the code that was lexed. eg controllers/users_controller.e documents to references/controllers/users_controller.md
+Generate references into a /references folder somewhere, creating directories to match the code that was lexed. eg controllers/users_controller.e documents to references/controllers/users_controller.md
 
 Should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
 
-The double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
+The double reversing of @scopes in Interpreter#get_construct is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
 
-compositions and args/params at Interpreter#evaluate when Block_Expr
+Compositions and args/params at Interpreter#evaluate when Block_Expr
 
-use function signature in #get_construct and #set_construct? But I'm not sure how, since Function_Call_Expr only knows a function's name.
+Use function signature in #get_construct and #set_construct? But I'm not sure how, since Function_Call_Expr only knows a function's name.
 
 Double check why Identifier_Expr and Identifier_Token both have identical #constant?, #object?, and #member?
 
@@ -49,3 +51,9 @@ Repl: prevent ctrl+c from terminating, and make it cancel the current input. Cur
 Consider composition with members. Parser#make_ast prevents it
 
 If calling func without parens, think about how to handle collisions between variable and func names
+
+I like how Ruby has classes for builtin types, like TrueClass, FalseClass, Integer, etc. Reading through true_class.rb, it dawned on me that there's probably some preload.rb-like file that would declare `true = TrueClass.new` or something like that. I'm currently lexing a Boolean_Token when an identifier is 'true' or 'false', then parsing that into a Boolean_Literal_Expr, and finally interpreting Boolean_Literal_Expr using Boolean_Literal_Expr#to_bool
+
+Clean up Parser#make_ast – apparently there's a mix of methods (make_*_ast) and some inline creations right at the conditional. It would be nice to be consistent. I bet the same is true for Lexer#lex
+
+
