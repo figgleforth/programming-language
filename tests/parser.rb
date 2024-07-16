@@ -299,12 +299,28 @@ t 'Abc > Xyz {}' do |it|
       it.base_class == 'Xyz'
 end
 
+t '* Xyz' do |it|
+    it.is_a? Composition_Expr and it.operator == '*'
+end
+
 t '& Abc' do |it|
     it.is_a? Composition_Expr and it.operator == '&'
 end
 
 t '~ Xyz' do |it|
     it.is_a? Composition_Expr and it.operator == '~'
+end
+
+t 'Abc { * Xyz }' do |it|
+    it.is_a? Class_Expr and it.block.compositions.one?
+end
+
+t 'Abc { * Xyz as xyz }' do |it|
+    it.is_a? Class_Expr and it.block.compositions.one? and it.block.compositions[0].name
+end
+
+t 'Abc { * Xyz, ~ Xyz }' do |it|
+    it.is_a? Class_Expr and it.block.compositions.count == 2 and it.block.compositions.all? { |c| c.name.nil? }
 end
 
 t 'self./something' do |it|

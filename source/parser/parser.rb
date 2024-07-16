@@ -281,7 +281,7 @@ class Parser
         elsif curr? ',' and eat ','
             eat_past_newlines
         else
-            raise debug
+            raise "Parser#make_enum_ast not sure about #{curr.inspect}"
         end
     end
 
@@ -543,6 +543,9 @@ class Parser
 
 
     def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
+        add_comp    = (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        remove_comp = (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        merge_comp  = (curr? '*', Identifier_Token and (peek(1).constant? or peek(1).object?))
         if curr? '{'
             if peek_until('}').any? { |t| t == '->' } # whether the contents between the braces contains an arrow, indicating that it's a block
                 make_block_ast
@@ -599,11 +602,14 @@ class Parser
         elsif curr? Keyword_Token and curr == 'nil'
             eat and Nil_Expr.new
 
-        elsif (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?)) or (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
-            # todo: named compositions
+        elsif add_comp or remove_comp or merge_comp
             Composition_Expr.new.tap do |node|
-                node.operator   = eat
+                node.operator   = eat # * & ~
                 node.identifier = eat.string
+
+                if curr? 'as' and eat
+                    node.name = eat(Identifier_Token).string
+                end
             end
 
         elsif curr? Identifier_Token and curr.composition?

@@ -2,11 +2,21 @@
 # todo: a ? b : c
 # todo: abc ?? xyz # abc if abc, otherwise xyz
 
-Atom {
+CHARACTER {
+	GUY
+	ENEMY
+}
+
+Thing {
 	# compositions
-	& Entity # merges all of Entity with Atom
-	~ Transform # if Entity is composed with Transform, this removes Transform from Atom
-	& CHARACTER # CHARACTER is some enum, so this composition removes the need to prefix the enum constants with CHARACTER.
+	* Atom # merges all of Atom's declarations into Thing, does not become of type Atom
+	& Atom # merges all of Atom's declarations into Thing, also becomes of type Atom
+
+	~ Transform # removes Transform's declarations, like when they merged through another comp like Atom
+
+	& CHARACTER # works with enums. No need to prefix GUY or ENEMY with CHARACTER dot
+
+	# Objects can simultaneously be as many types as they want to compose with. I think I want that to work with enums as well.
 }
 
 
@@ -16,6 +26,12 @@ Atom {
 	~ Rot
 
 	whatever =;
+}
+
+Player { & Atom as atom }
+
+Thing {
+	* Atom
 }
 
 Player > Atom {
@@ -32,10 +48,6 @@ Player > Atom {
 	character = GUY
 }
 
-CHARACTER {
-	GUY
-	PLATFORM
-}
 
 Entity {
 	character =;
