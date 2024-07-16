@@ -38,4 +38,4 @@ Some_Class {
 }
 ```
 
-*See `tests/parsing.rb` or `tests/interpreting.rb` for more.*
+*See `tests/parser.rb` or `tests/interpreter.rb` for more.*
