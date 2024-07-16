@@ -3,12 +3,13 @@ end
 
 
 class Variable_Construct < Construct
-    attr_accessor :name, :expression, :value, :is_constant
+    attr_accessor :name, :expression, :result, :is_constant
+    # @expression could be a Block_Expr or any other Ast
 end
 
 
-class Method_Construct < Construct
-    attr_accessor :name, :block
+class Function_Construct < Construct
+    attr_accessor :name, :block, :signature
 end
 
 

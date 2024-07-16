@@ -1,11 +1,11 @@
 class Runtime_Scope
     @@block_depth = 0
-    attr_accessor :depth, :variables, :methods, :classes
+    attr_accessor :depth, :variables, :functions, :classes
 
 
     def initialize
         @variables    = {}
-        @methods      = {}
+        @functions    = {}
         @classes      = {}
         @depth        = @@block_depth
         @@block_depth += 1
@@ -23,6 +23,6 @@ class Runtime_Scope
 
 
     def to_s
-        "Scope<methods #{methods}>"
+        "Scope<functions #{functions}>"
     end
 end

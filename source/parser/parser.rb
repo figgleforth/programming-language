@@ -293,8 +293,8 @@ class Parser
             Boolean_Literal_Expr.new
         else
             Number_Literal_Expr.new
-        end.tap do |literal|
-            literal.string = eat.string
+        end.tap do |it|
+            it.string = eat.string
         end
     end
 

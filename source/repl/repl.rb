@@ -19,7 +19,7 @@ class REPL
 
 
     def initialize
-        puts colorize('gray', "■  Type \\q or exit to quit".to_s)
+        puts colorize('gray', "Type \\q or \\x or exit to quit".to_s)
     end
 
 
@@ -40,11 +40,11 @@ class REPL
 
 
     def prompt
-        colorize('green', "❯  ")
+        colorize('green', "❯ ")
     end
 
 
-    # note: I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to be as simple as possible
+    # note: I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean
     def repl
         interpreter = Interpreter.new
 
@@ -58,7 +58,7 @@ class REPL
             input = Readline.readline(prompt, true)
 
             next unless input.size > 0
-            break if %w(\q exit).include? input.downcase
+            break if %w(\q \x exit).include? input.downcase
 
             begin
                 color  = 'gray'
@@ -71,8 +71,9 @@ class REPL
             end
 
             # ■
-            print colorize(color, "   ")
-            output ||= 'nil'
+            print colorize(color, '  ')
+            # puts "output: #{output.inspect}"
+            output ||= 'nil' if output.nil?
             puts colorize(color, output.to_s)
             # print colorize(color, '■')
         end

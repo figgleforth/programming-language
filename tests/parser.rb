@@ -497,3 +497,19 @@ end
 t '%s(boo hoo)' do |it|
     it.is_a? Macro_Expr and it.identifiers == %w(boo hoo)
 end
+
+t 'true' do |it|
+    it.is_a? Boolean_Literal_Expr and it.to_bool == true
+end
+
+t 'false' do |it|
+    it.is_a? Boolean_Literal_Expr and it.to_bool == false
+end
+
+t 'true && false' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Boolean_Literal_Expr and it.right.is_a? Boolean_Literal_Expr
+end
+
+t 'true || false' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Boolean_Literal_Expr and it.right.is_a? Boolean_Literal_Expr
+end

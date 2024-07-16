@@ -113,7 +113,15 @@ t "false" do |it|
 end
 
 t "!false" do |it|
-    it == !false
+    it == true
+end
+
+t 'true && false' do |it|
+    it == false
+end
+
+t 'true || false' do |it|
+    it == true
 end
 
 t "x = 1" do |it|
@@ -184,9 +192,14 @@ t "x = 'the island'" do |it|
     it.is_a? String
 end
 
+t '{ -> true }' do |it|
+    it == true
+end
+
 t "
-method { 4815162342 }
-method()
+method { -> 4 }
+method2 { 5 }
+method() + method2()
 " do |it|
-    it == 4815162342
+    it == 9
 end

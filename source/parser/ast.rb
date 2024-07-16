@@ -17,7 +17,7 @@ end
 
 # { .. } is always a block, whether its a class body, function body, or just a block just in the middle of a bunch of statements using {}. I think a block in the middle that declares params should probably fail because nothing is calling the block, it's essentially just grouping code together/
 class Block_Expr < Ast
-    attr_accessor :name, :expressions, :compositions, :parameters
+    attr_accessor :name, :expressions, :compositions, :parameters, :signature
 
 
     def initialize
@@ -54,6 +54,17 @@ class Block_Expr < Ast
     end
 
 
+    def signature # to support multiple methods with the same name, each method needs to be able to be represented as a signature. Naive idea: name+block.parameters.names.join(,)
+        @signature ||= name.tap do |it|
+            parameters.each do |param|
+                # it: Function_Param_Expr
+                # maybe also use compositions in the signature for better control over signature equality
+                it << "#{param.label}:#{param.name}=#{param.default_value}"
+            end
+        end
+    end
+
+
     def pretty
         base = short_form ? '' : 'block'
         "#{base}".tap do |str|
@@ -64,6 +75,64 @@ class Block_Expr < Ast
             str << '}' unless short_form
         end
     end
+end
+
+
+# todo: rename these to Block_* for consistency
+class Function_Param_Expr < Ast
+    attr_accessor :name, :label, :type, :default_value, :composition
+
+
+    def initialize
+        super
+        @composition = false
+    end
+
+
+    def pretty
+        "#{short_form ? '' : 'Param'}(".tap do |str|
+            str << '&' if composition
+            str << "#{name}"
+            str << "=#{default_value&.to_s || 'nil'}"
+            str << ", type: #{type}" if type
+            str << ", label: #{label}" if label
+            str << ')'
+        end
+    end
+end
+
+
+class Function_Arg_Expr < Ast
+    attr_accessor :expression, :label
+
+
+    def pretty
+        "#{short_form ? '' : 'Arg'}(".tap do |str|
+            str << "label: #{label}, " if label
+            str << expression.to_s
+            str << ')'
+        end
+    end
+end
+
+
+class Function_Call_Expr < Ast
+    attr_accessor :name, :arguments
+
+
+    def initialize
+        super
+        @arguments = []
+    end
+
+
+    def pretty
+        "#{short_form ? '' : 'fun_call'}(name: #{name}".tap do |str|
+            str << ", #{arguments.map(&:pretty)}" if arguments
+            str << ')'
+        end
+    end
+
 end
 
 
@@ -235,63 +304,6 @@ class Comma_Separated_Expr < Ast
             str << ')'
         end
     end
-end
-
-
-class Function_Param_Expr < Ast
-    attr_accessor :name, :label, :type, :default_value, :composition
-
-
-    def initialize
-        super
-        @composition = false
-    end
-
-
-    def pretty
-        "#{short_form ? '' : 'Param'}(".tap do |str|
-            str << '&' if composition
-            str << "#{name}"
-            str << "=#{default_value&.to_s || 'nil'}"
-            str << ", type: #{type}" if type
-            str << ", label: #{label}" if label
-            str << ')'
-        end
-    end
-end
-
-
-class Function_Arg_Expr < Ast
-    attr_accessor :expression, :label
-
-
-    def pretty
-        "#{short_form ? '' : 'Arg'}(".tap do |str|
-            str << "label: #{label}, " if label
-            str << expression.to_s
-            str << ')'
-        end
-    end
-end
-
-
-class Function_Call_Expr < Ast
-    attr_accessor :name, :arguments
-
-
-    def initialize
-        super
-        @arguments = []
-    end
-
-
-    def pretty
-        "#{short_form ? '' : 'fun_call'}(name: #{name}".tap do |str|
-            str << ", #{arguments.map(&:pretty)}" if arguments
-            str << ')'
-        end
-    end
-
 end
 
 
