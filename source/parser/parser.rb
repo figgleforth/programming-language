@@ -323,7 +323,7 @@ class Parser
             # Expr (,)
             [].tap do |params|
                 while curr?(Token) and curr != ')'
-                    params << Function_Arg_Expr.new.tap do |param|
+                    params << Block_Arg_Expr.new.tap do |param|
                         if curr? Identifier_Token, ':' #, Token
                             param.label = eat Identifier_Token
                             eat ':'
@@ -344,7 +344,7 @@ class Parser
         end
 
 
-        Function_Call_Expr.new.tap do |node|
+        Block_Call_Expr.new.tap do |node|
             node.name = eat Identifier_Token
             eat '('
             node.arguments = parse_args
@@ -392,7 +392,7 @@ class Parser
     def parse_params
         [].tap do |params|
             while curr? Identifier_Token or curr? '&', Identifier_Token
-                params << Function_Param_Expr.new.tap do |it|
+                params << Block_Param_Decl_Expr.new.tap do |it|
                     if curr? Identifier_Token and curr.composition?
                         it.composition = true
                         ident          = eat.string
@@ -586,7 +586,7 @@ class Parser
             make_if_else_ast
 
         elsif curr? Keyword_Token and curr.at_operator? and curr == '@before'
-            Function_Hook_Operator_Expr.new.tap do |it|
+            Block_Hook_Expr.new.tap do |it|
                 it.identifier = eat.string
                 raise 'Expected target function identifier after @before keyword' unless curr? Identifier_Token
                 it.target_function_identifier = eat(Identifier_Token).string

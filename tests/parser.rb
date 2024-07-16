@@ -400,23 +400,23 @@ t 'while a > b
 end
 
 t 'call()' do |it|
-    it.is_a? Function_Call_Expr and it.arguments.empty?
+    it.is_a? Block_Call_Expr and it.arguments.empty?
 end
 
 t 'call(a)' do |it|
-    it.is_a? Function_Call_Expr and it.arguments.one?
+    it.is_a? Block_Call_Expr and it.arguments.one?
 end
 
 t 'call(a, 1, "asf")' do |it|
-    it.is_a? Function_Call_Expr and it.arguments.count == 3
+    it.is_a? Block_Call_Expr and it.arguments.count == 3
 end
 
 t 'call(with: a, 1, "asf")' do |it|
-    it.is_a? Function_Call_Expr and it.arguments.count == 3 and it.arguments[0].label == 'with'
+    it.is_a? Block_Call_Expr and it.arguments.count == 3 and it.arguments[0].label == 'with'
 end
 
 t 'call(a: 1, b, c: "str", 42)' do |it|
-    it.is_a? Function_Call_Expr and
+    it.is_a? Block_Call_Expr and
       it.arguments.count == 4 and
       it.arguments[0].label == 'a' and
       it.arguments[1].label.nil? and
@@ -425,7 +425,7 @@ t 'call(a: 1, b, c: "str", 42)' do |it|
 end
 
 t 'imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, nothing, {})' do |it|
-    it.is_a? Function_Call_Expr and it.arguments.count == 5 and it.arguments[0].label and it.arguments[1].label and it.arguments[2].label and it.arguments[3].label.nil? and it.arguments.last.expression.is_a? Dictionary_Literal_Expr
+    it.is_a? Block_Call_Expr and it.arguments.count == 5 and it.arguments[0].label and it.arguments[1].label and it.arguments[2].label and it.arguments[3].label.nil? and it.arguments.last.expression.is_a? Dictionary_Literal_Expr
 end
 
 t ':test' do |it|

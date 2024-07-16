@@ -30,7 +30,7 @@ class Block_Expr < Ast
 
     def before_hook_expressions # any expressions that are `@before some_function`
         expressions.select do |s|
-            s.is_a? Function_Hook_Operator_Expr
+            s.is_a? Block_Hook_Expr
         end
     end
 
@@ -78,7 +78,7 @@ class Block_Expr < Ast
 end
 
 
-class Function_Param_Expr < Ast
+class Block_Param_Decl_Expr < Ast
     attr_accessor :name, :label, :type, :default_value, :composition
 
 
@@ -101,7 +101,7 @@ class Function_Param_Expr < Ast
 end
 
 
-class Function_Arg_Expr < Ast
+class Block_Arg_Expr < Ast
     attr_accessor :expression, :label
 
 
@@ -115,7 +115,7 @@ class Function_Arg_Expr < Ast
 end
 
 
-class Function_Call_Expr < Ast
+class Block_Call_Expr < Ast
     attr_accessor :name, :arguments
 
 
@@ -450,7 +450,7 @@ class At_Operator_Expr < Ast
 end
 
 
-class Function_Hook_Operator_Expr < At_Operator_Expr
+class Block_Hook_Expr < At_Operator_Expr
     attr_accessor :target_function_identifier
 end
 

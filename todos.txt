@@ -4,8 +4,6 @@ Generalize parsing expressions between parens. I think the function call ast par
 
 Figure out string interpolation. See String_Literal_Expr#string=
 
-Rename Function_Param/Arg/Call to Block_* for consistency
-
 Add support for else conditional because it reads nicely: `move() if xy else stop()`
 
 Why are there two arrays storing ascii symbols? Ascii_Token::BINARY_OPERATORS and Ascii_Token::UNARY_OPERATORS, and in Lexer::SYMBOLS. When you change one, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS

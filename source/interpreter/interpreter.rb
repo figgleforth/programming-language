@@ -228,7 +228,7 @@ class Interpreter # evaluates AST and returns the result
                 end
                 last_statement
 
-            when Function_Call_Expr
+            when Block_Call_Expr
                 last_statement = nil # is the default return value of all blocks
 
                 construct = get_construct :functions, expr.name
