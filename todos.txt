@@ -20,9 +20,9 @@ extract documentation comments and todos from lexed tokens
 
 generate references into a /references folder somewhere, creating directories to match the code that was lexed. eg controllers/users_controller.e documents to references/controllers/users_controller.md
 
- should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
+Should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
 
- the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
+The double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
 
 compositions and args/params at Interpreter#evaluate when Block_Expr
 
