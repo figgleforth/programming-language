@@ -219,16 +219,16 @@ class Lexer
 
     def eat_identifier
         ''.tap do |ident|
-            valid = %w(! ? :)
+            valid = %w(! ?)
             while curr.identifier? or valid.include?(curr.string)
                 ident << eat
+                last_char = ident[-1]
 
-                if curr == ':' and peek(1) == ':'
-                    ident << eat
-                    ident << eat_identifier
+                if valid.include? last_char and curr.identifier?
+                    raise 'Cannot have ? or ! or : in the middle of an identifier'
                 end
 
-                break if curr == ident.chars.last and valid.include? ident.chars.last # prevent consecutive !! or ??
+                break if curr == last_char and valid.include? last_char # prevent consecutive !! or ??
                 break if curr == ':'
                 break unless chars?
             end

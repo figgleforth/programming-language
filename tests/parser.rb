@@ -124,6 +124,14 @@ t '{ x, y }' do |it|
     it.is_a? Dictionary_Literal_Expr and it.keys.count == 2 and it.values.none?
 end
 
+t '{ x, y: 0 }' do |it|
+    it.is_a? Dictionary_Literal_Expr and it.keys.count == 2 and it.values.count == 2 and it.values[0].nil? and it.values[1].is_a? Number_Literal_Expr
+end
+
+t '{ x, y: 0, z = "oo" }' do |it|
+    it.is_a? Dictionary_Literal_Expr and it.keys.count == 3 and it.values.count == 3 and it.values[0].nil? and it.values[1].is_a? Number_Literal_Expr and it.values[2].is_a? String_Literal_Expr
+end
+
 t '{ a:
     "value on the next line"
 }' do |it|

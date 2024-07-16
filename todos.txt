@@ -8,8 +8,6 @@ Why are there two arrays storing ascii symbols? Ascii_Token::BINARY_OPERATORS an
 
 Pop last ast and replace with new ast to make conditionals (unless while if) work at the end of an expression. Pop last expression, it becomes the when_true of a Conditional_Expr
 
-? and ! can be in the middle of identifiers
-
 Implement, a ? b : c or is that unnecessary? I kind of like the `expr if expr else expr` syntax.
 
 abc ?? xyz (abc if abc, otherwise xyz). This is basically how Ruby's || works. Maybe I don't need this since the interpreter uses Ruby's || when interpreting Em's ||
@@ -51,3 +49,5 @@ If calling func without parens, think about how to handle collisions between var
 I like how Ruby has classes for builtin types, like TrueClass, FalseClass, Integer, etc. Reading through true_class.rb, it dawned on me that there's probably some preload.rb-like file that would declare `true = TrueClass.new` or something like that. I'm currently lexing a Boolean_Token when an identifier is 'true' or 'false', then parsing that into a Boolean_Literal_Expr, and finally interpreting Boolean_Literal_Expr using Boolean_Literal_Expr#to_bool
 
 Clean up Lexer#LEX – there's a mix of methods and some inline creations right at the conditional. It would be nice to be consistent.
+
+Two identifier expressions are valid syntax. For example, `ab = 12 cd = 34` evaluates to 12. This might involve lexing whitespace again? I'm not really sure

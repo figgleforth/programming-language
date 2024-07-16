@@ -558,6 +558,8 @@ class Parser
                 if curr? %w(: =) and eat
                     eat_past_newlines
                     it.values << parse_expression
+                else
+                    it.values << nil
                 end
 
                 eat if curr? ','
@@ -678,7 +680,7 @@ class Parser
         elsif curr? Comment_Token
             eat and nil
 
-        elsif curr? %W(, ; \n) # ignoring the comma allows for expressions separated by commas
+        elsif curr? %W(, ; \n) # ignoring the comma allows for expressions separated by commas. aka Delimiter_Token
             eat and nil
 
         elsif curr? Symbol_Token

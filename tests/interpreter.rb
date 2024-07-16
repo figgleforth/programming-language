@@ -194,10 +194,10 @@ end
 
 t "
 func { -> 4 }
-func2 { 5 }
+func2 { 6 }
 func() + func2()
 " do |it|
-    it == 9
+    it == 10
 end
 
 t 'func { 1 }' do |it|
@@ -212,3 +212,14 @@ t '1.<10' do |it|
     it.is_a? Range_Construct
 end
 
+t 'abc?def' do |it|
+    it.is_a? RuntimeError and it.message == 'Cannot have ? or ! or : in the middle of an identifier'
+end
+
+t 'abc!def' do |it|
+    it.is_a? RuntimeError and it.message == 'Cannot have ? or ! or : in the middle of an identifier'
+end
+
+t 'abc:def' do |it|
+    it.is_a? RuntimeError and it.message == 'Undefined `abc`'
+end
