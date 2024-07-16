@@ -17,3 +17,7 @@ class Class_Construct < Construct
     attr_accessor :name, :block, :base_class, :compositions
 end
 
+
+class Range_Construct < Construct
+    attr_accessor :left, :operator, :right
+end

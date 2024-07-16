@@ -8,7 +8,7 @@ def t code, &block
     raise ArgumentError, '#t requires a block' unless block_given?
 
     begin
-        exception = nil # store it so that I can check against the error message below. todo: make some kind of error message object, similar to localization? Would be cool to allow you to customize the error messages
+        exception = nil # store it so that I can check against the error message below
         tokens    = Lexer.new(code).lex
         ast       = Parser.new(tokens).to_ast
         output    = Interpreter.new(ast).interpret!
@@ -27,10 +27,6 @@ def t code, &block
     @tests_ran += 1
 end
 
-
-t File.read('tests/sandbox.em').to_s do |it|
-    true
-end
 
 t '' do |it|
     it.nil?
@@ -185,7 +181,7 @@ t "'b in a string', b, 4+2, nil" do |it|
 end
 
 t "'`b` interpolated into the string'" do |it|
-    it.is_a? String # todo: implement interpolation
+    it.is_a? String
 end
 
 t "x = 'the island'" do |it|
@@ -197,9 +193,22 @@ t '{ -> true }' do |it|
 end
 
 t "
-method { -> 4 }
-method2 { 5 }
-method() + method2()
+func { -> 4 }
+func2 { 5 }
+func() + func2()
 " do |it|
     it == 9
 end
+
+t 'func { 1 }' do |it|
+    it.is_a? Function_Construct
+end
+
+t '0..87' do |it|
+    it.is_a? Range_Construct
+end
+
+t '1.<10' do |it|
+    it.is_a? Range_Construct
+end
+

@@ -27,10 +27,6 @@ def t code, &block
 end
 
 
-t File.read('tests/sandbox.em').to_s do |it|
-    true
-end
-
 t '42' do |it|
     it.is_a? Number_Literal_Expr and
       it.string == '42' and
@@ -323,7 +319,7 @@ t 'Abc { * Xyz, ~ Xyz }' do |it|
     it.is_a? Class_Expr and it.block.compositions.count == 2 and it.block.compositions.all? { |c| c.name.nil? }
 end
 
-t 'self./something' do |it|
+t 'self.?something' do |it|
     it.is_a? Binary_Expr
 end
 
@@ -528,4 +524,20 @@ end
 
 t 'true || false' do |it|
     it.is_a? Binary_Expr and it.left.is_a? Boolean_Literal_Expr and it.right.is_a? Boolean_Literal_Expr
+end
+
+t '0..87' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Number_Literal_Expr and it.left.string == '0' and it.right.is_a? Number_Literal_Expr and it.right.string == '87' and it.operator == '..'
+end
+
+t '1.<10' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Number_Literal_Expr and it.left.string == '1' and it.right.is_a? Number_Literal_Expr and it.right.string == '10' and it.operator == '.<'
+end
+
+t '0.1..0.5' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Number_Literal_Expr and it.left.string == '0.1' and it.right.is_a? Number_Literal_Expr and it.right.string == '0.5' and it.operator == '..'
+end
+
+t '.7..7.8' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Number_Literal_Expr and it.left.string == '.7' and it.right.is_a? Number_Literal_Expr and it.right.string == '7.8' and it.operator == '..'
 end

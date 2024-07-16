@@ -1,12 +1,12 @@
 class Runtime_Scope
     @@block_depth = 0
-    attr_accessor :depth, :variables, :functions, :classes
+    attr_accessor :depth, :variables, :functions, :objects
 
 
     def initialize
         @variables    = {}
         @functions    = {}
-        @classes      = {}
+        @objects      = {}
         @depth        = @@block_depth
         @@block_depth += 1
     end

@@ -1,7 +1,3 @@
-# bug: ? and ! can be in the middle of identifiers
-# todo: a ? b : c
-# todo: abc ?? xyz # abc if abc, otherwise xyz
-
 CHARACTER {
 	GUY
 	ENEMY
@@ -9,10 +5,10 @@ CHARACTER {
 
 Thing {
 	# compositions
-	* Atom # merges all of Atom's declarations into Thing, does not become of type Atom
-	& Atom # merges all of Atom's declarations into Thing, also becomes of type Atom
+	* Atom # merges all of Atom's declarations into Thing, does not inherit type Atom
+	& Atom # merges all of Atom's declarations into Thing, inherits type Atom
 
-	~ Transform # removes Transform's declarations, like when they merged through another comp like Atom
+	~ Transform # removes Transform's declarations, if present
 
 	& CHARACTER # works with enums. No need to prefix GUY or ENEMY with CHARACTER dot
 
@@ -440,3 +436,18 @@ tap {} # valid, but pointless
 { x: 1 }
 { x = 1 }
 
+
+span = 1..23 # inclusive end, starts at left expression
+less = 5.<67 # exclusive end, starts at left expression
+
+
+#Nice {
+#	new { # executes before the .tap call below
+#	}
+#}
+
+Atom.new()
+Atom.new
+
+Atom.tap {}
+Atom.tap }

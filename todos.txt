@@ -1,0 +1,51 @@
+Generalize parsing expressions between parens. I think the function call ast parses parameters between parens, so go look there. When abstracted it can be reused for tuples. Also where Parser#make_ast checks curr? '(' I'm calling parse_expression again. But I think this is where I want to use #make_comma_separated_ast
+
+Figure out string interpolation. See String_Literal_Expr#string=
+
+Rename Function_Param/Arg/Call to Block_* for consistency
+
+Add support for else conditional because it reads nicely: `move() if xy else stop()`
+
+Why are there two arrays storing ascii symbols? Ascii_Token::BINARY_OPERATORS and Ascii_Token::UNARY_OPERATORS, and in Lexer::SYMBOLS. When you change one, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
+
+Pop last ast and replace with new ast to make conditionals (unless while if) work at the end of an expression. Pop last expression, it becomes the when_true of a Conditional_Expr
+
+? and ! can be in the middle of identifiers
+
+a ? b : c
+
+abc ?? xyz (abc if abc, otherwise xyz). This is basically how Ruby's || works. Maybe I don't need this since the interpreter uses Ruby's || when interpreting Em's ||
+
+extract documentation comments and todos from lexed tokens
+
+generate references into a /references folder somewhere, creating directories to match the code that was lexed. eg controllers/users_controller.e documents to references/controllers/users_controller.md
+
+ should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
+
+ the double reverse is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
+
+compositions and args/params at Interpreter#evaluate when Block_Expr
+
+use function signature in #get_construct and #set_construct? But I'm not sure how, since Function_Call_Expr only knows a function's name.
+
+Double check why Identifier_Expr and Identifier_Token both have identical #constant?, #object?, and #member?
+
+Clarity issue. Identifier_Expr/Identifier_Token #member? because it's not clear. Add #variable? and #function? and make #member? return `variable? or function?`
+
+Consider identifiers starting with a number again like 1st, 2nd, 3rd?, 4th!, etc
+
+Figure out how to call functions without parens like in Ruby. See Parser#make_function_call_ast
+
+Parsing issue? `go(wtf =;)` parses to `fun_call(name: go, ["Arg(set(wtf=))"])`. This is an old comment from Parser#make_function_call_ast
+
+Figure out Class_Construct. How is that used to initialize an instance? See Interpreter#evaluate when Class_Expr
+
+Parser returns Nil_Expr when it parses `nil`. Should it work differently? I'm not sure yet
+
+In both Lexer and Parser, create some kind of error message object that functions similarly to localization. Would be cool to allow you to customize the error messages. ERRORS(:some_error) could read errors from a custom file based on the current language, like errors/en.yml or something like that
+
+Repl: prevent ctrl+c from terminating, and make it cancel the current input. Currently it cancels the input but preserves the input prior to cancelling.
+
+Consider composition with members. Parser#make_ast prevents it
+
+If calling func without parens, think about how to handle collisions between variable and func names

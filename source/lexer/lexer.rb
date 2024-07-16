@@ -14,7 +14,7 @@ class Lexer
     TYPES           = %w(int float array dictionary hash dict bool string any)
 
     TRIPLE_SYMBOLS = %w(<<= >>= ||= !== === ...)
-    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ** ?? ./ .? .. =;)
+    DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ** ?? .? .. .< =;)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
     MACROS = %w(%s %S %v %V %w %W %d)
@@ -203,8 +203,14 @@ class Lexer
 
             while chars? and (curr.numeric? or valid.include?(curr.string))
                 number << eat
-                decimal_found = true if number[-1] == '.'
-                raise "Number #{number} already contains a period" if decimal_found and curr == '.'
+                last_number_char = number[-1]
+                decimal_found    = true if last_number_char == '.'
+
+                if curr == '.' and (peek(1) == '.' or peek(1) == '<')
+                    break # because these are the range operators .. and .<
+                end
+
+                raise "Number #{number} already contains a period. curr #{curr.inspect}" if decimal_found and curr == '.'
                 break if curr.newline? or curr.whitespace?
             end
         end
@@ -229,18 +235,6 @@ class Lexer
         end
     end
 
-
-    # todo) Maybe support this again in the future. I like the idea of this.
-    # def eat_number_or_numeric_identifier
-    # number = eat_number
-    #
-    # # support 1st, 2nd, 3rd?, 4th!, etc identifier syntax
-    # if curr.alpha?
-    #     IdentifierToken.new(number + eat_identifier)
-    # else
-    # end
-    # Number_Token.new(eat_number)
-    # end
 
     def eat_oneline_comment
         ''.tap do |comment|

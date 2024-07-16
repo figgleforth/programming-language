@@ -34,7 +34,7 @@ class Parser
     end
 
 
-    # array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. todo: audit operators
+    # Array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned.
     def precedence_for token
         [
           [0, %w(( ))],
@@ -55,7 +55,7 @@ class Parser
           # [15, %w(?:)], # Ternary
           [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
           [18, %w(,)],
-          [20, %w(. ./ .?)],
+          [20, %w(. .? .. .<)],
         ].find do |_, chars|
             chars.include?(token.string)
         end&.at(0)
@@ -344,9 +344,6 @@ class Parser
         end
 
 
-        # todo: should not be parsing a =; like in `go(wtf =;)` it parses to `fun_call(name: go, ["Arg(set(wtf=))"])`. this makes no sense
-
-        # todo) how to handle spaces in place of parens like Ruby?
         Function_Call_Expr.new.tap do |node|
             node.name = eat Identifier_Token
             eat '('
@@ -380,7 +377,6 @@ class Parser
     end
 
 
-    # todo: do I need this?
     def make_comma_separated_ast
         Comma_Separated_Expr.new.tap do |node|
             node.expressions << parse_block(%w[, )])
@@ -568,8 +564,6 @@ class Parser
             end
 
         elsif curr? '('
-            # make_comma_separated_ast
-
             paren      = eat '('
             precedence = precedence_for paren
             parse_expression(precedence).tap do
@@ -620,7 +614,7 @@ class Parser
             end
 
         elsif curr? '&', Identifier_Token and peek(1).member?
-            raise 'Cannot compose a class with members, only other classes and enums' # todo: why not?
+            raise 'Cannot compose a class with members, only other classes and enums'
 
         elsif curr? Identifier_Token, '=;'
             if curr.constant?
@@ -642,7 +636,7 @@ class Parser
         elsif (curr? Identifier_Token, '{' or curr? Identifier_Token, '=') and curr.constant? # UPPERCASE identifier
             make_enum_ast
 
-        elsif curr? Identifier_Token, '(' # todo: function calls
+        elsif curr? Identifier_Token, '('
             make_function_call_ast
 
         elsif curr? Ascii_Token and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)

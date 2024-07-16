@@ -44,12 +44,10 @@ class REPL
     end
 
 
-    # note: I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean
-    def repl
+    def repl # I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean
         interpreter = Interpreter.new
 
         trap('INT') do
-            # todo: prevent ctrl+c from terminating, and make it cancel the current input. Currently it cancels the input but preserves the input prior to cancelling.
             Readline.refresh_line
             puts; print(prompt)
         end
@@ -65,17 +63,14 @@ class REPL
                 tokens = Lexer.new(input).lex
                 ast    = Parser.new(tokens).to_ast
                 output = interpreter.evaluate ast.first
-            rescue Exception => e # todo: commented for now so I can catch errors
+            rescue Exception => e
                 output = e
                 color  = 'red'
             end
 
-            # ■
             print colorize(color, '  ')
-            # puts "output: #{output.inspect}"
             output ||= 'nil' if output.nil?
             puts colorize(color, output.to_s)
-            # print colorize(color, '■')
         end
     end
 

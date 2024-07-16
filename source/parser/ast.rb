@@ -78,7 +78,6 @@ class Block_Expr < Ast
 end
 
 
-# todo: rename these to Block_* for consistency
 class Function_Param_Expr < Ast
     attr_accessor :name, :label, :type, :default_value, :composition
 
@@ -239,7 +238,7 @@ class String_Literal_Expr < Ast
 
     def string= val
         @string       = val
-        @interpolated = val.include? '`' # todo: this is naive
+        @interpolated = val.include? '`' # todo: is there a better way?
     end
 
 
@@ -284,7 +283,6 @@ class Array_Literal_Expr < Ast
 end
 
 
-# todo: make use of this eventually rather than putting just an array into the :expressions attribute that some classes declared
 class Comma_Separated_Expr < Ast
     attr_accessor :expressions
 
