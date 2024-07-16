@@ -53,7 +53,7 @@ t '16.' do |it|
 end
 
 t '.23' do |it|
-    it.is_a? Float
+    it == 0.23 and it.is_a? Float
 end
 
 t '2 + 3' do |it|
