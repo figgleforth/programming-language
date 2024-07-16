@@ -307,6 +307,27 @@ class Parser
     end
 
 
+    def make_composition_ast
+        Composition_Expr.new.tap do |node|
+            node.operator   = eat # * & ~
+            node.identifier = eat.string
+
+            if curr? 'as' and eat
+                node.name = eat(Identifier_Token).string
+            end
+        end
+    end
+
+
+    def make_inline_composition_ast
+        Composition_Expr.new.tap do |it|
+            ident         = eat.string
+            it.operator   = ident[0]
+            it.identifier = ident[1..] # excludes the &
+        end
+    end
+
+
     def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
         Macro_Expr.new.tap do |it|
             it.name = eat(Macro_Token).string
@@ -466,6 +487,16 @@ class Parser
     end
 
 
+    def make_block_hook_ast
+        Block_Hook_Expr.new.tap do |it|
+            it.identifier = eat.string
+            raise 'Expected target function identifier after @before keyword' unless curr? Identifier_Token
+            it.target_function_identifier = eat(Identifier_Token).string
+            eat_past_newlines
+        end
+    end
+
+
     def make_if_else_ast
         Conditional_Expr.new.tap do |it|
             eat 'if' if curr? 'if'
@@ -538,10 +569,37 @@ class Parser
     end
 
 
+    def make_array_literal_ast
+        Array_Literal_Expr.new.tap do |it|
+            eat '['
+            it.elements << parse_block(%w(, \) ])).expressions[0]
+            while curr? ','
+                eat ','
+                it.elements << parse_block(%w(, \) ])).expressions[0]
+            end
+            it.elements.compact! # parse_block can return nil, so this could be an array of nil values.
+            eat ']'
+        end
+    end
+
+
+    def make_functional_expression_ast # these are where, map, tap, each
+        Functional_Expr.new.tap do |it|
+            it.name = eat.string
+
+            eat '{' if curr? '{'
+            it.block = parse_block
+            eat '}'
+        end
+    end
+
+
     def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
         add_comp    = (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?))
         remove_comp = (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
         merge_comp  = (curr? '*', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        inline_comp = (curr? Identifier_Token and curr.composition?)
+
         if curr? '{'
             if peek_until('}').any? { |t| t == '->' } # whether the contents between the braces contains an arrow, indicating that it's a block
                 make_block_ast
@@ -552,16 +610,7 @@ class Parser
             end
 
         elsif curr? '['
-            Array_Literal_Expr.new.tap do |it|
-                eat '['
-                it.elements << parse_block(%w(, \) ])).expressions[0]
-                while curr? ','
-                    eat ','
-                    it.elements << parse_block(%w(, \) ])).expressions[0]
-                end
-                it.elements.compact! # parse_block can return nil, so this could be an array of nil values.
-                eat ']'
-            end
+            make_array_literal_ast
 
         elsif curr? '('
             paren      = eat '('
@@ -571,13 +620,7 @@ class Parser
             end
 
         elsif curr? %w(where map tap each)
-            Functional_Expr.new.tap do |it|
-                it.name = eat.string
-
-                eat '{' if curr? '{'
-                it.block = parse_block
-                eat '}'
-            end
+            make_functional_expression_ast
 
         elsif curr? 'while'
             make_while_ast
@@ -586,32 +629,16 @@ class Parser
             make_if_else_ast
 
         elsif curr? Keyword_Token and curr.at_operator? and curr == '@before'
-            Block_Hook_Expr.new.tap do |it|
-                it.identifier = eat.string
-                raise 'Expected target function identifier after @before keyword' unless curr? Identifier_Token
-                it.target_function_identifier = eat(Identifier_Token).string
-                eat_past_newlines
-            end
+            make_block_hook_ast
 
         elsif curr? Keyword_Token and curr == 'nil'
             eat and Nil_Expr.new
 
         elsif add_comp or remove_comp or merge_comp
-            Composition_Expr.new.tap do |node|
-                node.operator   = eat # * & ~
-                node.identifier = eat.string
+            make_composition_ast
 
-                if curr? 'as' and eat
-                    node.name = eat(Identifier_Token).string
-                end
-            end
-
-        elsif curr? Identifier_Token and curr.composition?
-            Composition_Expr.new.tap do |it|
-                ident         = eat.string
-                it.operator   = ident[0]
-                it.identifier = ident[1..] # excludes the &
-            end
+        elsif inline_comp # this is parsed a tiny bit differently than the other comps, so it's okay to have a separate implementation. If I want to avoid this, I might have to change how this specific identifier is parsed. But this is okay for now
+            make_inline_composition_ast
 
         elsif curr? '&', Identifier_Token and peek(1).member?
             raise 'Cannot compose a class with members, only other classes and enums'

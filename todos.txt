@@ -1,5 +1,3 @@
-Create a test to run all the test I usually run
-
 Generalize parsing expressions between parens. I think the function call ast parses parameters between parens, so go look there. When abstracted it can be reused for tuples. Also where Parser#make_ast checks curr? '(' I'm calling parse_expression again. But I think this is where I want to use #make_comma_separated_ast
 
 Figure out string interpolation. See String_Literal_Expr#string=
@@ -52,6 +50,4 @@ If calling func without parens, think about how to handle collisions between var
 
 I like how Ruby has classes for builtin types, like TrueClass, FalseClass, Integer, etc. Reading through true_class.rb, it dawned on me that there's probably some preload.rb-like file that would declare `true = TrueClass.new` or something like that. I'm currently lexing a Boolean_Token when an identifier is 'true' or 'false', then parsing that into a Boolean_Literal_Expr, and finally interpreting Boolean_Literal_Expr using Boolean_Literal_Expr#to_bool
 
-Clean up Parser#make_ast – apparently there's a mix of methods (make_*_ast) and some inline creations right at the conditional. It would be nice to be consistent. I bet the same is true for Lexer#lex
-
-
+Clean up Lexer#LEX – there's a mix of methods and some inline creations right at the conditional. It would be nice to be consistent.
