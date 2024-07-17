@@ -1,14 +1,16 @@
 class Runtime_Scope
     @@block_depth = 0
-    attr_accessor :depth, :variables, :functions, :objects
-
+    attr_accessor :depth,
+                  :variables, # hash of values or expressions by identifier
+                  :functions, # hash of Block_Constructs
+                  :classes # hash of Class_Constructs
 
     def initialize
-        @variables    = {}
-        @functions    = {}
-        @objects      = {}
         @depth        = @@block_depth
         @@block_depth += 1
+        @variables    = {}
+        @functions    = {}
+        @classes      = {}
     end
 
 
@@ -19,10 +21,5 @@ class Runtime_Scope
 
     def decrease_depth
         @@block_depth -= 1
-    end
-
-
-    def to_s
-        "Scope<functions #{functions}>"
     end
 end

@@ -330,6 +330,10 @@ t 'Abc { * Xyz, ~ Xyz }' do |it|
     it.is_a? Class_Expr and it.block.compositions.count == 2 and it.block.compositions.all? { |c| c.name.nil? }
 end
 
+t 'Abc.new' do |it|
+    it.is_a? Binary_Expr
+end
+
 t 'self.?something' do |it|
     it.is_a? Binary_Expr
 end

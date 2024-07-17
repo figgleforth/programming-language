@@ -379,6 +379,8 @@ end
 
 
 class Identifier_Expr < Ast
+    attr_accessor :is_keyword
+
 
     def identifier
         string

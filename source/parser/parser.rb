@@ -652,7 +652,7 @@ class Parser
             end
             make_assignment_ast
 
-        elsif curr? Identifier_Token and curr.object? and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
+        elsif curr? Identifier_Token and curr.object? and (curr? Identifier_Token, '{' or curr? Identifier_Token, '>') # and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_class_ast
 
         elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
@@ -691,14 +691,20 @@ class Parser
 
         elsif curr? [Identifier_Token, '@']
             Identifier_Expr.new.tap do |node|
-                node.string = eat.string
+                ident           = eat
+                node.string     = ident.string
+                node.is_keyword = ident.is_a? Keyword_Token
             end
 
         elsif curr? ':', '+' or curr? ':', '-'
             raise "You used #{curr}#{peek(1)} but probably meant #{peek(1)}#{curr}"
 
+        elsif curr? EOF_Token
+            raise "Parser expected an expression but reached EOF"
+
         else
             raise "Parsing not implemented for #{curr}"
+
         end
     end
 

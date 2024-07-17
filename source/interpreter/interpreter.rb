@@ -52,7 +52,7 @@ class Interpreter # evaluates AST and returns the result
 
     # region Get constructs
 
-    def get_construct type, identifier
+    def get_from_scope type, identifier
         value = curr_scope.send(type)[identifier.to_s]
 
         if not value
@@ -72,9 +72,10 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def set_construct type, identifier, construct
-        curr_scope.send(type)[identifier.to_s] = construct
-        construct
+    # Sets a value (likely a Construct or literal value) on the current scope
+    # @return [any] The value passed in
+    def set_on_scope type, identifier, value
+        curr_scope.send(type)[identifier.to_s] = value
     end
 
 
@@ -160,6 +161,8 @@ class Interpreter # evaluates AST and returns the result
                             it.right    = right
                             it.operator = expr.operator
                         end
+                    when '.'
+                        #
                     else
                         begin
                             left.send expr.operator, right
@@ -175,32 +178,42 @@ class Interpreter # evaluates AST and returns the result
                 Hash[expr.keys.zip(value_results)]
 
             when Identifier_Expr
-                # Walk up the different types of constructs. Basically check for variable first, then function, then object. todo: I think this can be improved in a way that we don't have to walk up, and instead check expr.string.member? or .object?. But I don't know, just a hunch
+                # Walk up the different types of constructs – check for variable first, then function, then class. Alternate way of looking up, just an idea:
+                #   if identifier is member, look up in variables first then functions
+                #   if identifier is class, look up classes
 
-                types     = %i(variables functions objects)
-                construct = nil
-                while construct.nil?
-                    type = types.shift
-                    break unless type
-                    construct = get_construct type, expr.string
+                lookup_hash = %i(variables functions classes) # used in #get_from_scope to Runtime_Scope.send lookup_hash
+                value       = nil
+                while value.nil?
+                    hash = lookup_hash.shift
+                    break unless hash
+                    value = get_from_scope hash, expr.string
                 end
 
-                if construct.nil?
-                    raise "Undefined `#{expr.string}`" # todo: improve error messaging
-                end
-
-                if construct.is_a? Variable_Construct
-                    if construct.result != nil # construct.result can be boolean true or false, so check if nil instead
-                        construct.result
-                    elsif construct.expression.is_a? Block_Expr
-                        construct.expression
+                if value.nil?
+                    # Some identifiers will be undefined by default, like the #new function on classes.
+                    # todo: improve error messaging
+                    if expr.member?
+                        raise "Undefined variable or function `#{expr.string}`"
+                    elsif expr.constant?
+                        raise "Undefined constant `#{expr.string}`"
+                    else
+                        raise "Undefined class `#{expr.string}`"
                     end
-                elsif construct.is_a? Block_Construct or construct.is_a? Class_Construct
-                    construct
-                elsif construct.is_a? Construct
-                    evaluate construct.expression
+                end
+
+                if value.is_a? Variable_Construct
+                    if value.result != nil # value.result can be boolean true or false, so check if nil instead
+                        value.result
+                    elsif value.expression.is_a? Block_Expr
+                        value.expression
+                    end
+                elsif value.is_a? Block_Construct or value.is_a? Class_Construct
+                    value
+                elsif value.is_a? Construct
+                    evaluate value.expression
                 else
-                    construct
+                    value
                 end
 
             when Assignment_Expr
@@ -219,7 +232,7 @@ class Interpreter # evaluates AST and returns the result
                         it.is_constant = expr.expression.constant?
                     end
 
-                    set_construct :variables, it.name, it
+                    set_on_scope :variables, it.name, it
                 end
                 return_value
 
@@ -231,7 +244,7 @@ class Interpreter # evaluates AST and returns the result
                         it.name      = expr.name
                         it.signature = expr.signature
 
-                        set_construct :functions, it.name, it
+                        set_on_scope :functions, it.name, it
                     end
                 else
                     # evaluate the block since it wasn't named, and therefor isn't being stored
@@ -239,7 +252,7 @@ class Interpreter # evaluates AST and returns the result
                     push_scope Runtime_Scope.new
                     expr.parameters.each do |it|
                         # Block_Param_Decl_Expr
-                        set_construct :variables, it.name, evaluate(it.default_value)
+                        set_on_scope :variables, it.name, evaluate(it.default_value)
                     end
 
                     expr.expressions.map do |expr_inside_block|
@@ -254,7 +267,7 @@ class Interpreter # evaluates AST and returns the result
 
                 last_statement = nil # is the default return value of all blocks
 
-                construct = get_construct :functions, expr.name
+                construct = get_from_scope :functions, expr.name
                 if construct # is a Block_Construct
                     push_scope Runtime_Scope.new
 
@@ -267,7 +280,7 @@ class Interpreter # evaluates AST and returns the result
                             evaluate param.default_value
                         end
 
-                        set_construct :variables, param.name, value
+                        set_on_scope :variables, param.name, value
                     end
 
                     construct.block.expressions.each do |expr_inside_block|
@@ -276,7 +289,7 @@ class Interpreter # evaluates AST and returns the result
                     pop_scope
                 else
                     # when blocks are stored in variables, they can be evaluated later as long as a method by the same name doesn't already exist? This doesn't seem right
-                    construct = get_construct :variables, expr.name
+                    construct = get_from_scope :variables, expr.name
                     if construct and construct.expression.is_a? Block_Expr
                         push_scope Runtime_Scope.new
                         construct.expression.expressions.map do |block_expr|
@@ -292,12 +305,15 @@ class Interpreter # evaluates AST and returns the result
                 last_statement
 
             when Class_Expr
+                # Class_Expr and Class_Construct attributes
+                # :name, :block, :base_class, :compositions
+
                 Class_Construct.new.tap do |it|
                     it.name         = expr.name
                     it.block        = expr.block
                     it.base_class   = expr.base_class
                     it.compositions = expr.compositions
-                    set_construct :objects, it.name, it
+                    set_on_scope :classes, it.name, it
                 end
 
             when Nil_Expr, nil

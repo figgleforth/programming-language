@@ -366,7 +366,7 @@ class Lexer
                 end
                 @tokens << Keyword_Token.new(ident)
 
-            elsif curr.identifier? or (curr == '_' and peek&.alphanumeric?)
+            elsif curr.identifier? or (curr == '_' and peek&.identifier?)
                 ident = eat_identifier
 
                 if KEYWORDS.include? ident

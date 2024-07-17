@@ -165,7 +165,7 @@ b = a" do |it|
 end
 
 t 'boo' do |it|
-    it.is_a? RuntimeError and it.message == 'Undefined `boo`'
+    it.is_a? RuntimeError and it.message == 'Undefined variable or function `boo`'
 end
 
 t "b = nil" do |it|
@@ -177,7 +177,7 @@ t "1, nil, 3" do |it|
 end
 
 t "'b in a string', b, 4+2, nil" do |it|
-    it.is_a? RuntimeError and it.message == "Undefined `b`"
+    it.is_a? RuntimeError and it.message == "Undefined variable or function `b`"
 end
 
 t "'`b` interpolated into the string'" do |it|
@@ -221,7 +221,7 @@ t 'abc!def' do |it|
 end
 
 t 'abc:def' do |it|
-    it.is_a? RuntimeError and it.message == 'Undefined `abc`'
+    it.is_a? RuntimeError and it.message == 'Undefined variable or function `abc`'
 end
 
 t 'f { x = 3 -> x*3 }
@@ -269,3 +269,28 @@ f(4)
 ' do |it|
     it == 4
 end
+
+t 'SOME_CONSTANT' do |it|
+    it.is_a? RuntimeError and it.message == 'Undefined constant `SOME_CONSTANT`'
+end
+
+t 'Random' do |it|
+    it.is_a? RuntimeError and it.message == 'Undefined class `Random`'
+end
+
+t 'Random {}' do |it|
+    it.is_a? Class_Construct and it.name == 'Random'
+end
+
+t 'Random {}
+Random
+' do |it|
+    it.is_a? Class_Construct and it.name == 'Random'
+end
+
+t 'Random {}
+Random.new
+' do |it|
+    it.is_a? Class_Construct and it.name == 'Random'
+end
+
