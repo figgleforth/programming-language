@@ -13,7 +13,7 @@
 
 ```bash
 # requires ruby 3.2.2 or newer
-$ ruby source/repl/repl_old.rb # WIP interactive repl
+$ ruby source/repl/repl.rb # WIP interactive repl
 $ ruby tests/test.rb # parsing and interpreting tests
 ```
 
