@@ -120,40 +120,53 @@ class Interpreter # evaluates AST and returns the result
             when Binary_Expr
                 left  = evaluate expr.left
                 right = evaluate expr.right
+                left  = nil if left.is_a? Nil_Construct # this has to handle Nil_Construct as well because Ruby doesn't allow `nil.send('||', right)'. FYI, setting it to nil here because Nil_Construct || right will always return Nil_Construct.
 
-                # I think Ruby metaprogramming is the ideal implementation here, to avoid a giant case expression for every single operator. So the general solution is `left.send expr.operator, right`, but booleans (TrueClass/FalseClass) do not respond to #send so that won't work as is. So the new solution is to handle booleans and ranges manually, and metaprogram the rest.
-                if left.is_a? TrueClass or left.is_a? FalseClass or right.is_a? TrueClass or right.is_a? FalseClass
-                    # manual bool evaluations, like a switch on expr.operator
-                    case expr.operator
-                        when '==='
-                            left === right
-                        when '=='
-                            left == right
-                        when '||'
-                            left || right
-                        when '|'
-                            left | right
-                        when '&&'
-                            left && right
-                        when '&'
-                            left & right
-                        when '^'
-                            left ^ right
-                        else
-                            raise "Interpreter#evaluate when Binary_Expr and left or right is a boolean: unknown operator #{expr.operator}"
-                    end
-                elsif %w(.. .<).include? expr.operator
-                    Range_Construct.new.tap do |it|
-                        it.left     = left
-                        it.right    = right
-                        it.operator = expr.operator
-                    end
-                else
-                    begin
-                        left.send expr.operator, right
-                    rescue Exception => e
-                        raise "Interpreter#evaluate when Binary_Expr: unknown operator #{expr.operator}"
-                    end
+                # I think Ruby metaprogramming is the ideal implementation here, to avoid a giant case expression for every single operator. So the general solution is `left.send expr.operator, right`, but booleans (TrueClass/FalseClass) do not respond to #send so that won't work as is. So the new solution is to handle booleans and ranges manually, and metaprogram the rest. See scratch_59.txt
+                case expr.operator
+                    when '+'
+                        left + right
+                    when '-'
+                        left - right
+                    when '*'
+                        left * right
+                    when '/'
+                        left / right
+                    when '%'
+                        left % right
+                    when '**'
+                        left ** right
+                    when '<<'
+                        left << right
+                    when '>>'
+                        left >> right
+                    when '<='
+                        left <= right
+                    when '>='
+                        left >= right
+                    when '<'
+                        left < right
+                    when '>'
+                        left > right
+                    when '=='
+                        left == right
+                    when '||'
+                        left || right
+                    when '&&'
+                        left && right
+                    when '.<', '..'
+                        Range_Construct.new.tap do |it|
+                            it.left     = left
+                            it.right    = right
+                            it.operator = expr.operator
+                        end
+                    else
+                        begin
+                            left.send expr.operator, right
+                        rescue Exception => e
+                            raise "Interpreter#evaluate when Binary_Expr, Ruby exception: #{e}"
+                        end
+
                 end
 
             when Dictionary_Literal_Expr

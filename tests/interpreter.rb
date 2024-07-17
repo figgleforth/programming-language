@@ -249,3 +249,23 @@ x()' do |it|
     it == 1
 end
 
+t 'x = nil
+f { in -> in || x }
+f()
+' do |it|
+    it.is_a? Nil_Construct
+end
+
+t 'x = 3
+f { in -> in || x }
+f()
+' do |it|
+    it == 3
+end
+
+t 'x = 3
+f { in -> in || x }
+f(4)
+' do |it|
+    it == 4
+end
