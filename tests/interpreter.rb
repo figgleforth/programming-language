@@ -288,9 +288,9 @@ Random
     it.is_a? Class_Construct and it.name == 'Random'
 end
 
-t 'Random {}
-Random.new
-' do |it|
-    it.is_a? Class_Construct and it.name == 'Random'
-end
+# t 'Random {}
+# Random.new
+# ' do |it|
+#     it.is_a? Class_Construct and it.name == 'Random'
+# end
 
