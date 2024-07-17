@@ -55,7 +55,7 @@ class Block_Expr < Ast
 
 
     def signature # to support multiple methods with the same name, each method needs to be able to be represented as a signature. Naive idea: name+block.parameters.names.join(,)
-        @signature ||= name.tap do |it|
+        @signature ||= "#{name}".tap do |it|
             parameters.each do |param|
                 # it: Function_Param_Expr
                 # maybe also use compositions in the signature for better control over signature equality
@@ -84,7 +84,11 @@ class Block_Param_Decl_Expr < Ast
 
     def initialize
         super
-        @composition = false
+        @composition   = false
+        @default_value = nil
+        @name          = nil
+        @label         = nil
+        @type          = nil
     end
 
 
@@ -92,7 +96,7 @@ class Block_Param_Decl_Expr < Ast
         "#{short_form ? '' : 'Param'}(".tap do |str|
             str << '&' if composition
             str << "#{name}"
-            str << "=#{default_value&.to_s || 'nil'}"
+            str << "=#{default_value&.pretty || 'nil'}"
             str << ", type: #{type}" if type
             str << ", label: #{label}" if label
             str << ')'

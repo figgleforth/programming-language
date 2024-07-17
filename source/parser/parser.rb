@@ -339,36 +339,10 @@ class Parser
 
 
     def make_function_call_ast
-        def parse_args
-            # Ident: Expr (,)
-            # Expr (,)
-            [].tap do |params|
-                while curr?(Token) and curr != ')'
-                    params << Block_Arg_Expr.new.tap do |param|
-                        if curr? Identifier_Token, ':' #, Token
-                            param.label = eat Identifier_Token
-                            eat ':'
-                        end
-
-                        param.expression = if curr? Token, ','
-                            parse_block ','
-                        elsif curr? Token, ')'
-                            parse_block ')'
-                        else
-                            parse_block %w[, )]
-                        end.expressions[0]
-                    end
-
-                    eat if curr? ','
-                end
-            end
-        end
-
-
         Block_Call_Expr.new.tap do |node|
             node.name = eat Identifier_Token
             eat '('
-            node.arguments = parse_args
+            node.arguments = make_array_of_block_argument_exprs
             eat ')'
         end
     end
@@ -410,7 +384,31 @@ class Parser
     end
 
 
-    def parse_params
+    def make_array_of_block_argument_exprs
+        [].tap do |args|
+            while not curr? ')'
+                args << Block_Arg_Expr.new.tap do |param|
+                    if curr? Identifier_Token, ':' #, Token
+                        param.label = eat Identifier_Token
+                        eat ':'
+                    end
+
+                    param.expression = if curr? Token, ','
+                        parse_block ','
+                    elsif curr? Token, ')'
+                        parse_block ')'
+                    else
+                        parse_block %w[, )]
+                    end.expressions[0]
+                end
+
+                eat if curr? ','
+            end
+        end
+    end
+
+
+    def make_array_of_block_param_declaration_exprs
         [].tap do |params|
             while curr? Identifier_Token or curr? '&', Identifier_Token
                 params << Block_Param_Decl_Expr.new.tap do |it|
@@ -452,7 +450,9 @@ class Parser
 
 
     def make_block_ast
-        # ident { (params -> or ::) ... }
+        # ident { ... }
+        # ident { -> ... }
+        # ident { in, in -> ... }
         Block_Expr.new.tap do |it|
             if curr? Identifier_Token
                 it.name = eat(Identifier_Token, '{')[0].string
@@ -465,7 +465,7 @@ class Parser
             end
 
             eat_past_newlines
-            it.parameters = parse_params if has_params
+            it.parameters = make_array_of_block_param_declaration_exprs if has_params
 
             # make sure function expr also knows about the compositions in the parameters
             it.compositions = it.parameters.select do |param|
@@ -615,6 +615,7 @@ class Parser
             make_array_literal_ast
 
         elsif curr? '('
+            # note: this parenthesized expression differs from the one for function calls in at least one way where the function call expressions will be iterated using a while loop, and this one here will recursively call #parse_expression
             paren      = eat '('
             precedence = precedence_for paren
             parse_expression(precedence).tap do

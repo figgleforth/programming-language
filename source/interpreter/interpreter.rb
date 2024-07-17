@@ -74,6 +74,7 @@ class Interpreter # evaluates AST and returns the result
 
     def set_construct type, identifier, construct
         curr_scope.send(type)[identifier.to_s] = construct
+        construct
     end
 
 
@@ -181,10 +182,12 @@ class Interpreter # evaluates AST and returns the result
                     elsif construct.expression.is_a? Block_Expr
                         construct.expression
                     end
-                elsif construct.is_a? Function_Construct or construct.is_a? Class_Construct
+                elsif construct.is_a? Block_Construct or construct.is_a? Class_Construct
                     construct
-                else
+                elsif construct.is_a? Construct
                     evaluate construct.expression
+                else
+                    construct
                 end
 
             when Assignment_Expr
@@ -208,10 +211,9 @@ class Interpreter # evaluates AST and returns the result
                 return_value
 
             when Block_Expr
-
                 last_statement = nil # the default return value of all blocks
                 if expr.named? # store the block on the current scope
-                    last_statement = Function_Construct.new.tap do |it|
+                    last_statement = Block_Construct.new.tap do |it|
                         it.block     = expr
                         it.name      = expr.name
                         it.signature = expr.signature
@@ -220,30 +222,54 @@ class Interpreter # evaluates AST and returns the result
                     end
                 else
                     # evaluate the block since it wasn't named, and therefor isn't being stored
+                    # todo: generalize Block_Call_Expr then use here instead for consistency
                     push_scope Runtime_Scope.new
-                    expr.expressions.map do |block_expr|
-                        last_statement = evaluate block_expr
+                    expr.parameters.each do |it|
+                        # Block_Param_Decl_Expr
+                        set_construct :variables, it.name, evaluate(it.default_value)
+                    end
+
+                    expr.expressions.map do |expr_inside_block|
+                        last_statement = evaluate expr_inside_block
                     end
                     pop_scope
                 end
                 last_statement
 
             when Block_Call_Expr
+                # Come up with a way to create block signatures. This should allow for functions to share names but declare different params. The signature is not a hash, it could be a string like func1 { a -> } to 'func1->a'. Or something like that, not sure yet.
+
                 last_statement = nil # is the default return value of all blocks
 
                 construct = get_construct :functions, expr.name
-                # The idea behind the signature is so that there can be two functions with the same name but different arguments. The signature is not a hash, it's a string. So like func1 { a -> } might have a signature like 'func1->a'. Or something like that, not sure yet.
-                if construct
-                    construct.block.expressions.each do |block_expr|
-                        last_statement = evaluate block_expr # expressions.first
+                if construct # is a Block_Construct
+                    push_scope Runtime_Scope.new
+
+                    # evaluates argument expression if present, otherwise the declared param expression
+                    construct.block.parameters.zip(expr.arguments).each do |(param, argument)|
+                        # Block_Param_Decl_Expr and Block_Arg_Expr
+                        value = if argument
+                            evaluate argument.expression
+                        else
+                            evaluate param.default_value
+                        end
+
+                        set_construct :variables, param.name, value
                     end
+
+                    construct.block.expressions.each do |expr_inside_block|
+                        last_statement = evaluate expr_inside_block # expressions.first
+                    end
+                    pop_scope
                 else
                     # when blocks are stored in variables, they can be evaluated later as long as a method by the same name doesn't already exist? This doesn't seem right
                     construct = get_construct :variables, expr.name
                     if construct and construct.expression.is_a? Block_Expr
+                        push_scope Runtime_Scope.new
                         construct.expression.expressions.map do |block_expr|
                             last_statement = evaluate block_expr
                         end
+                        pop_scope
                     else
                         raise "Undefined `#{expr.name}`"
                     end
@@ -262,7 +288,7 @@ class Interpreter # evaluates AST and returns the result
                 end
 
             when Nil_Expr, nil
-                nil
+                Nil_Construct.new
 
             else
                 raise "Interpreting not implemented for #{expr.class}"

@@ -193,21 +193,22 @@ end
 
 t 'x { in -> }' do |it|
     it.is_a? Block_Expr and
+      it.named? and
       it.expressions.empty? and
       it.compositions.empty? and
       it.parameters.one? and
-      it.named?
+      it.parameters[0].is_a? Block_Param_Decl_Expr and it.parameters[0].name == 'in'
 end
 
 t 'x { in, out -> 42, 24 }' do |it|
     it.is_a? Block_Expr and
+      it.named? and
       it.expressions.count == 2 and
       it.compositions.empty? and
-      it.parameters.count == 2 and
-      it.named?
+      it.parameters.count == 2 and it.parameters[1].name == 'out'
 end
 
-t 'x { & in -> }' do |it|
+t 'x { &in -> }' do |it|
     it.is_a? Block_Expr and
       it.expressions.empty? and
       it.compositions.one? and
@@ -217,12 +218,14 @@ t 'x { & in -> }' do |it|
 end
 
 t '
-test { abc &this = 1, def that, like = 2, &whatever  -> }
+test { abc &this = 1, def that, like = "dharma", &whatever  -> }
 ' do |it|
     it.is_a? Block_Expr and
       it.expressions.empty? and
       it.compositions.count == 2 and
       it.parameters.count == 4 and
+      it.parameters[0].default_value.is_a? Number_Literal_Expr and it.parameters[0].default_value.string == '1' and
+      it.parameters[2].default_value.is_a? String_Literal_Expr and it.parameters[2].default_value.string == 'dharma' and
       it.parameters[0].composition and
       not it.parameters[1].composition and
       not it.parameters[2].composition and
@@ -230,9 +233,9 @@ test { abc &this = 1, def that, like = 2, &whatever  -> }
       it.named?
 end
 
-t 'func { param1, param2 -> }' do |it|
+t 'func { param1, param2 = 14 * 3 / 16.09 -> }' do |it|
     it.is_a? Block_Expr and
-      it.parameters.count == 2 and
+      it.parameters.count == 2 and it.parameters[1].default_value.is_a? Binary_Expr and
       it.expressions.empty? and
       it.named?
 end
@@ -412,7 +415,8 @@ t 'call()' do |it|
 end
 
 t 'call(a)' do |it|
-    it.is_a? Block_Call_Expr and it.arguments.one?
+    it.is_a? Block_Call_Expr and it.arguments.one? and
+      it.arguments[0].expression.is_a? Identifier_Expr and it.arguments[0].expression.string == 'a'
 end
 
 t 'call(a, 1, "asf")' do |it|

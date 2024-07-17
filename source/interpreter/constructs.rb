@@ -8,7 +8,7 @@ class Variable_Construct < Construct
 end
 
 
-class Function_Construct < Construct
+class Block_Construct < Construct
     attr_accessor :name, :block, :signature
 end
 
@@ -20,4 +20,9 @@ end
 
 class Range_Construct < Construct
     attr_accessor :left, :operator, :right
+end
+
+
+class Nil_Construct < Construct
+    attr_accessor :expression
 end

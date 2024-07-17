@@ -20,7 +20,7 @@ def t code, &block
     block_result = block.call block_param
 
     if not block_result
-        raise "\n\n——————————— FAILED TEST\n#{code}\n——————————— PROGRAM OUTPUT\n#{output.inspect}\n———————————\nBlock called with: #{block_param.inspect}"
+        raise "\n\n——————————— FAILED TEST\n#{code}\n——————————— PROGRAM OUTPUT\n#{output.inspect}\n——————————— Block called with:\n#{block_param.inspect}\n———————————\n"
     end
 
     @tests_ran ||= 0
@@ -169,7 +169,7 @@ t 'boo' do |it|
 end
 
 t "b = nil" do |it|
-    it == nil
+    it.is_a? Nil_Construct
 end
 
 t "1, nil, 3" do |it|
@@ -188,7 +188,7 @@ t "x = 'the island'" do |it|
     it.is_a? String
 end
 
-t '{ -> true }' do |it|
+t '{ a = 4 + 8, x, y = 1, z = "2" -> true }' do |it|
     it == true
 end
 
@@ -201,7 +201,7 @@ func() + func2()
 end
 
 t 'func { 1 }' do |it|
-    it.is_a? Function_Construct
+    it.is_a? Block_Construct
 end
 
 t '0..87' do |it|
@@ -223,3 +223,29 @@ end
 t 'abc:def' do |it|
     it.is_a? RuntimeError and it.message == 'Undefined `abc`'
 end
+
+t 'f { x = 3 -> x*3 }
+f()' do |it|
+    it == 9
+end
+
+t 'f { x = 3 -> x*3 }
+f(4)' do |it|
+    it == 12
+end
+
+t 'x { in -> in }
+x()' do |it|
+    it.is_a? Nil_Construct
+end
+
+t 'x { in = nil -> in }
+x()' do |it|
+    it.is_a? Nil_Construct
+end
+
+t 'x { in = 1 -> in }
+x()' do |it|
+    it == 1
+end
+

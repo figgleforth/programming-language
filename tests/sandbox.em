@@ -451,3 +451,15 @@ Atom.new
 
 Atom.tap {}
 Atom.tap }
+
+f { x = 3*4 -> x*3 }
+f(4)
+
+x { in -> in }
+x()
+
+x { in = nil -> in }
+x()
+
+x { in = 1 -> in }
+x()
