@@ -125,11 +125,11 @@ t "x = 1" do |it|
 end
 
 t ":lost" do |it|
-    it == :lost
+    it == ':lost'
 end
 
 t "'lost'" do |it|
-    it.is_a? String
+    it.is_a? String and it == '"lost"'
 end
 
 t "'lost' == :lost" do |it|

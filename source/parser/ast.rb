@@ -139,11 +139,6 @@ class Block_Call_Expr < Ast
 end
 
 
-class Functional_Expr < Ast # where, map, tap, each
-    attr_accessor :name, :block
-end
-
-
 class Class_Expr < Ast
     attr_accessor :name, :block, :base_class, :compositions
 
@@ -214,8 +209,8 @@ class Symbol_Literal_Expr < Ast
     end
 
 
-    def to_ruby_symbol
-        string.to_sym
+    def to_symbol
+        ":#{string}"
     end
 end
 
@@ -243,6 +238,11 @@ class String_Literal_Expr < Ast
     def string= val
         @string       = val
         @interpolated = val.include? '`' # todo: is there a better way?
+    end
+
+
+    def to_string
+        "\"#{string}\""
     end
 
 

@@ -3,7 +3,7 @@ require 'benchmark'
 
 puts
 
-Benchmark.bm(15) do |x|
+Benchmark.bm(14) do |x|
     x.report('parser.rb') { require_relative 'parser' }
     x.report('interpreter.rb') { require_relative 'interpreter' }
     x.report('sandbox.em') do

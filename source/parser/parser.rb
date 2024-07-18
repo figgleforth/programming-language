@@ -585,17 +585,6 @@ class Parser
     end
 
 
-    def make_functional_expression_ast # these are where, map, tap, each
-        Functional_Expr.new.tap do |it|
-            it.name = eat.string
-
-            eat '{' if curr? '{'
-            it.block = parse_block
-            eat '}'
-        end
-    end
-
-
     def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
         add_comp    = (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?))
         remove_comp = (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
@@ -621,9 +610,6 @@ class Parser
             parse_expression(precedence).tap do
                 eat ')'
             end
-
-        elsif curr? %w(where map tap each)
-            make_functional_expression_ast
 
         elsif curr? 'while'
             make_while_ast

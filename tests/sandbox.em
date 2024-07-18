@@ -359,7 +359,7 @@ Readonly > Record {
 }
 
 records = Record.where { it.something == true }
-records = Readonly.where it.something == true } # opening brace optional
+records = Readonly.where { it.something == true }
 
 test { with &a = 1, where b = 2, c, d = variable= 1 ->
 	# params with & are going to have their variables and functions merged into this scope, meaning instead of a.some_variable, you can just use some_variable
@@ -405,18 +405,18 @@ test = false
 
 Atom > What {}
 
-[].each
+[].each {
 }
 
-"boo".tap
+"boo".tap {
 	it += 'oo'
 }
 
-"".map
+"".map {
 	it += 'nice'
 }
 
-[1, 2].where
+[1, 2].where {
 	it == 2
 }
 
@@ -450,7 +450,7 @@ Atom.new()
 Atom.new
 
 Atom.tap {}
-Atom.tap }
+Atom.tap {}
 
 f { x = 3*4 -> x*3 }
 f(4)
@@ -463,3 +463,6 @@ x()
 
 x { in = 1 -> in }
 x()
+
+
+Atom.new

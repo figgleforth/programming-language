@@ -11,7 +11,7 @@ def t code, &block
         tokens = Lexer.new(code).lex
         ast    = Parser.new(tokens).to_ast
     rescue Exception => e
-        puts "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n———————————\n\n"
+        puts "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n\n"
         raise e
     end
 
@@ -334,6 +334,10 @@ t 'Abc.new' do |it|
     it.is_a? Binary_Expr
 end
 
+t 'Abc.what { 123 }' do |it|
+    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.named?
+end
+
 t 'self.?something' do |it|
     it.is_a? Binary_Expr
 end
@@ -475,51 +479,42 @@ t '{ ->
 end
 
 t '[].each {}' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'each' and it.left.is_a? Array_Literal_Expr
-end
-
-t '[].each # opening curly is optional
-}' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'each' and it.left.is_a? Array_Literal_Expr
+    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'each' and it.left.is_a? Array_Literal_Expr
 end
 
 t '"".each {}' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'each' and it.left.is_a? String_Literal_Expr
+    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'each' and it.left.is_a? String_Literal_Expr
 end
 
 t '[].tap {
     it
     at
 }' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'tap' and it.left.is_a? Array_Literal_Expr and it.right.block.expressions.count == 2
+    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'tap' and it.left.is_a? Array_Literal_Expr and it.right.expressions.count == 2
 end
 
 t '[].map {}' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'map' and it.left.is_a? Array_Literal_Expr and it.right.block.expressions.count == 0
+    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'map' and it.left.is_a? Array_Literal_Expr and it.right.expressions.count == 0
 end
 
 t '[].where { it == nil }' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Functional_Expr and it.right.name == 'where' and it.left.is_a? Array_Literal_Expr and it.right.block.expressions.count == 1 and it.right.block.expressions[0].is_a? Binary_Expr
+    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'where' and it.left.is_a? Array_Literal_Expr and it.right.expressions.count == 1 and it.right.expressions[0].is_a? Binary_Expr
 end
 
 t 'tap {}' do |it|
-    it.is_a? Functional_Expr and it.name == 'tap'
+    it.is_a? Block_Expr and it.name == 'tap'
 end
 
-t "where\n}" do |it|
-    it.is_a? Functional_Expr and it.name == 'where'
+t "where {}" do |it|
+    it.is_a? Block_Expr and it.name == 'where'
 end
 
-t "each\n}" do |it|
-    it.is_a? Functional_Expr and it.name == 'each'
+t "each {}" do |it|
+    it.is_a? Block_Expr and it.name == 'each'
 end
 
-t "map\n}" do |it|
-    it.is_a? Functional_Expr and it.name == 'map'
-end
-
-t "tap\n}" do |it|
-    it.is_a? Functional_Expr and it.name == 'tap'
+t "map {}" do |it|
+    it.is_a? Block_Expr and it.name == 'map'
 end
 
 t '%s(boo hoo)' do |it|
@@ -556,4 +551,8 @@ end
 
 t '.7..7.8' do |it|
     it.is_a? Binary_Expr and it.left.is_a? Number_Literal_Expr and it.left.string == '.7' and it.right.is_a? Number_Literal_Expr and it.right.string == '7.8' and it.operator == '..'
+end
+
+t '(1..2).each {}' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Binary_Expr and it.operator == '.' and it.right.is_a? Block_Expr and it.right.named?
 end

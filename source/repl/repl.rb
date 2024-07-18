@@ -68,9 +68,9 @@ class REPL
                 color  = 'red'
             end
 
-            print colorize(color, '  ')
+            print '  '
             output ||= 'nil' if output.nil?
-            puts colorize(color, output.to_s)
+            puts colorize(color, output)
         end
     end
 
