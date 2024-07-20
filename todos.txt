@@ -1,11 +1,30 @@
-When eating tokens, always store the token in the name, never just .string. I need it sometimes, and also Token probably has cursor position info
+Figure out string interpolation. See String_Literal_Expr#string=
+This might be tricky. I can pull out all expressions
+	"Testing `a + b * c` or `boo`".scan(/`([^`]+)`/).flatten # => ["a + b * c", "boo"]
+So I think the interpreter needs to put each of these into a new lex+parse instance. then when it gets those results back, it can call #evaluate with each one to get the value.
+The interpreter should also make a dictionary out of the extracted expressions. Then when each one is evaluated, store the output as its value. Later when they're being replaced into the string, it will be easy to replace even the complex expressions by string. Example of replacing:
+	replacements = {
+	  'name' => 'Locke',
+	  'day' => 'tomorrow'
+	}
+	"`name`, today is `day`".gsub(/`([^`]+)`/) { replacements[$1] } # => "Locke, today is tomorrow"
+
+Cannot escape strings.
+'Test\'ing'
+◼︎ Expected ''' but got ''
+"Test\"ing"
+◼︎ Expected '"' but got ''
+
+Concatenating strings still broken for two strings.
+@p 'Test ' + 'this'
+"Test "this""
 
 Operator overloading. Add new Operator_Token keyword, I need operators to be identifiable by pattern so that I can check for [Keyword_Token(operator), Operator_Token([] or other binary operator)]. Store it as a named Block_Expr aka function. The name is the operator. For Subscript should be named `[]`. So when interpreter encounters a Subscript_Expr, treat that as a Binary_Expr where left is subscript.left and the operator is dot, and the right is get_from_scope :functions, '[]'.
 Any operator should be able to be overloaded, even ranges. Even `.`? That might be wild. So you can't change it on a global scope but you can on a class
 Abc {
 	operator . { other ->
 		if other == 'new'
-			%p 'called .new on `self`'
+			@p 'called .new on `self`'
 		}
 	}
 }
@@ -14,9 +33,13 @@ Thoughts today (without reading above thoughts): override operator with `operato
 2) interpreter should store this under functions['=='] = Block_Construct or whatever
 3) interpreter should call these functions when encountering them while parsing Binary_Exprs, since that's really the only place these operators will ever be present.
 
-Apparently you can add members to an instance at any time by doing instance.whatever {} or instance.whatever = 'boo'. I kinda like that with functions so you can quickly create new ones, but not with variables?
+Apparently you can add members to an instance at any time by doing instance.whatever {} or instance.whatever = 'boo'. I kinda like that but it feels wrong, actually. Consider whether to keep this behavior.
 
-Weird issue in REPL. I wonder if that's just
+Parser: when eating tokens into expressions that have a :name attribute, always store the token and not just token.string. That's currently how it is, but I need the actual, especially because Token has or should have cursor position info
+
+Rethink how CONSTANTS are stored. Would it make sense for them to extend Assignment_Expr? Right now they're their own construct Enum_Constant_Expr and Enum_Collection_Expr
+
+Issue interpreting. I wonder what to do about this. I plan to support .0, .1, etc as a binary expression to be able to easily access arrays by index (arr.1, arr.2, etc). That would be so nice. Once operator overloading works, you could overload . on Array and have it call through to []. Something like `operator . { right -> self.[right] }`.
 Abc { boo = 'boo' }.new.boo
 ◼︎ "boo"
 Abc { boo = 'boo' }.new.boo.1
@@ -29,8 +52,6 @@ Implement builtin functions and variables for instances, those should be accessi
 Generalize Interpreter#evaluate when Block_Call_Expr so that Block_Expr evaluation uses the same code to call the block inline
 
 Generalize parsing expressions between parens. I think the function call ast parses parameters between parens, so go look there. When abstracted it can be reused for tuples. Also where Parser#make_ast checks curr? '(' I'm calling parse_expression again. But I think this is where I want to use #make_comma_separated_ast
-
-Figure out string interpolation. See String_Literal_Expr#string=
 
 Add support for inline conditional at end of lines because they reads nicely: `move() if xy else stop()`
 

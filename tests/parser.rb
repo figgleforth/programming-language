@@ -347,7 +347,7 @@ t 'ENUM {
 end
 
 t 'ENUM = 1' do |it|
-    it.is_a? Enum_Constant_Expr
+    it.is_a? Assignment_Expr
 end
 
 t 'Abc {}' do |it|

@@ -393,19 +393,19 @@ class Identifier_Expr < Ast
 
 
     def constant? # all upper, LIKE_THIS
-        test = string.gsub('_', '').gsub('&', '')
+        test = string&.gsub('_', '')&.gsub('&', '')
         test&.chars&.all? { |c| c.upcase == c }
     end
 
 
     def class? # capitalized, Like_This or This
-        test = string.gsub('_', '').gsub('&', '')
+        test = string&.gsub('_', '')&.gsub('&', '')
         test[0]&.upcase == test[0] and not constant?
     end
 
 
     def member? # all lower, some_method or some_variable
-        test = string.gsub('_', '').gsub('&', '')
+        test = string&.gsub('_', '')&.gsub('&', '')
         test&.chars&.all? { |c| c.downcase == c }
     end
 
@@ -545,7 +545,7 @@ end
 
 
 class Macro_Command_Expr < Macro_Expr
-    attr_accessor :name, # %p for puts
+    attr_accessor :name, # @p for puts
                   :expression
 end
 

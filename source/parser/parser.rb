@@ -232,7 +232,7 @@ class Parser
 
     def make_assignment_ast
         Assignment_Expr.new.tap do |node|
-            node.name = eat(Identifier_Token).string
+            node.name = eat(Identifier_Token).string # @todo store the Token and not just the string
 
             if curr? '=;'
                 eat '=;'
@@ -330,7 +330,7 @@ class Parser
 
 
     def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
-        if curr? '%p'
+        if curr? '@p'
             Macro_Command_Expr.new.tap do |it|
                 it.name       = eat(Macro_Token).string
                 it.expression = parse_expression
@@ -705,7 +705,7 @@ class Parser
         elsif curr? Identifier_Token, '{' and peek_until_contains? '}', '->'
             make_block_ast
 
-        elsif curr? Identifier_Token, '=' and curr.member? # lowercase identifier
+        elsif curr? Identifier_Token, '=' # and curr.member? # lowercase identifier
             make_assignment_ast
 
         elsif (curr? Identifier_Token, '{' or curr? Identifier_Token, '=') and curr.constant? # UPPERCASE identifier

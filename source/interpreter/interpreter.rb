@@ -85,12 +85,6 @@ class Interpreter # evaluates AST and returns the result
 
     # endregion
 
-    def get_scope_name_from_instance instance
-        return 'Global' if instance.scope.global?
-        instance.scope.name
-    end
-
-
     def evaluate expr # note: issues are raised here because the REPL catches these errors and prints them nicely in color
         case expr
             when Number_Literal_Expr
@@ -162,7 +156,16 @@ class Interpreter # evaluates AST and returns the result
                 # I think Ruby metaprogramming is the ideal implementation here, to avoid a giant case expression for every single operator. So the general solution is `left.send expr.operator, right`, but booleans (TrueClass/FalseClass) do not respond to #send so that won't work for that specific case. So then the new solution is to handle booleans and ranges manually, and metaprogram the rest. See scratch_59.txt
                 case expr.operator
                     when '+'
-                        left + right
+                        if expr.left.is_a? String_Literal_Expr # because I'm relying on Ruby to concat strings, the right hand must be a string as well. So when we encounter a left that's a string, then let's just automatically convert the right to a string
+                            "\"#{expr.left.string}#{right}\""
+
+                        elsif expr.right.is_a? String_Literal_Expr
+                            "\"#{left}#{expr.right.string}\""
+
+                        else
+                            left + right
+                        end
+
                     when '-'
                         left - right
                     when '*'
@@ -332,6 +335,7 @@ class Interpreter # evaluates AST and returns the result
                     end
 
                     expr.expressions.map do |expr_inside_block|
+                        next if expr_inside_block.is_a? Composition_Expr # todo: don't skip, actually implement
                         last_statement = evaluate expr_inside_block
                     end
                 end
@@ -392,7 +396,11 @@ class Interpreter # evaluates AST and returns the result
                 end
 
             when Macro_Command_Expr
-                puts evaluate(expr.expression)
+                if expr.expression
+                    puts evaluate(expr.expression)
+                else
+                    puts ''
+                end
 
             when Nil_Expr, nil
                 Nil_Construct.new

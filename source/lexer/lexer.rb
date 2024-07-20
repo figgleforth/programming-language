@@ -18,7 +18,7 @@ class Lexer
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ** ?? .? .. .< =;)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
-    MACROS = %w(%s %S %v %V %w %W %d %p)
+    MACROS = %w(%s %S %v %V %w %W %d @p)
 
     # in this specific order so multi character operators are matched first
     SYMBOLS = [
