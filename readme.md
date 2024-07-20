@@ -21,21 +21,49 @@ $ ruby tests/test.rb # parsing and interpreting tests
 *A few samples of the syntax*
 
 ```
-variable_without_value =;
-with_value = 0.1
-interpolation = 'version `with_value`'
+x = 1;
 
-CONSTANT = 48151
-ENUM {
-  CONSTANT = 62342
+result = if x == 2 {
+  'yes'
+else
+  'no'
 }
 
-greet_method { 'hello' }
+%p result # prints 'no'
+
+boo = 'does interpolation work yet? `result`'
+
+while x < 5 {
+  x = x + 1
+elswhile x < 10 {
+  x = x + 2
+}
+
+CONSTANT = 42
+DHARMA {
+  EXPERIMENT = 4815162342
+}
+
+numbers = DHARMA.EXPERIMENT
+
+greet_method { -> 'hello' }
 greet_with_args { name -> 'hello `name`' }
+greeting { for name -> 'Mister `name`' } 
+
+greeting(for: 'Eko') # 'Mister Eko'
 
 Some_Class {
-  # same syntax for variables, constants, and methods
+  nothing =;
+  
+  something = { x y z }
+  
+  inspect { ->
+    "I am some class"
+  }
 }
+
+some = Some_Class.new
+some.something # { x: nil, y: nil, z: nil }
 ```
 
 *See `tests/parser.rb` or `tests/interpreter.rb` for more.*
