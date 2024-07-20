@@ -164,6 +164,7 @@ class Parser
         if sequence.nil? or sequence.empty? or sequence.one?
             eaten = curr
             if sequence&.one? and eaten != sequence[0]
+                puts debug
                 raise "Parser expected token(s): #{sequence} but got: #{eaten}" # todo: improve this error
             end
             @i    += 1
@@ -309,11 +310,11 @@ class Parser
 
     def make_composition_ast
         Composition_Expr.new.tap do |node|
-            node.operator   = eat # * & ~
+            node.operator   = eat.string # * & ~
             node.identifier = eat.string
 
             if curr? 'as' and eat
-                node.name = eat(Identifier_Token).string
+                node.alias_identifier = eat(Identifier_Token).string
             end
         end
     end
@@ -329,11 +330,19 @@ class Parser
 
 
     def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
-        Macro_Expr.new.tap do |it|
-            it.name = eat(Macro_Token).string
-            eat '('
-            it.identifiers << eat(Identifier_Token).string while curr? Identifier_Token
-            eat ')'
+        if curr? '%p'
+            Macro_Command_Expr.new.tap do |it|
+                it.name       = eat(Macro_Token).string
+                it.expression = parse_expression
+            end
+        else
+            Macro_Expr.new.tap do |it|
+                it.name = eat(Macro_Token).string
+
+                eat '('
+                it.identifiers << eat(Identifier_Token).string while curr? Identifier_Token
+                eat ')'
+            end
         end
     end
 
@@ -439,7 +448,7 @@ class Parser
 
                     if curr? '='
                         eat '='
-                        it.default_value = parse_block(%W(, \n ->)).expressions[0]
+                        it.default_expression = parse_block(%W(, \n ->)).expressions[0]
                     end
 
                     eat ',' if curr? ','
@@ -454,8 +463,8 @@ class Parser
         # ident { -> ... }
         # ident { in, in -> ... }
         Block_Expr.new.tap do |it|
-            if curr? Identifier_Token
-                it.name = eat(Identifier_Token, '{')[0].string
+            if curr? Identifier_Token, '{'
+                it.name = eat(Identifier_Token, '{')[0]
             elsif curr? '{' # anonymous function
                 eat '{'
             end
@@ -497,11 +506,41 @@ class Parser
     end
 
 
-    def make_if_else_ast
-        Conditional_Expr.new.tap do |it|
-            eat 'if' if curr? 'if'
-            it.condition = parse_block("\n").expressions[0]
-            it.when_true = parse_block %w(} else elsif elif ef)
+    def make_conditional_ast is_while_conditional = false
+        klass = if is_while_conditional
+            While_Expr
+        else
+            Conditional_Expr
+        end
+        klass.new.tap do |it|
+            eat if curr? 'if' or curr? 'while'
+
+            if curr? Identifier_Token, '{'
+                identifier   = eat Identifier_Token
+                it.condition = Identifier_Expr.new.tap do |id|
+                    id.string = identifier.string
+                    # id.tokens << identifier
+                end
+                eat '{'
+            else
+                potential = parse_expression
+                if potential.is_a? Block_Expr and potential.named?
+                    it.condition = Identifier_Expr.new.tap do |id|
+                        id.string = potential.name.string
+                    end
+                elsif potential.is_a? Binary_Expr and potential.operator == '.' and potential.right.is_a? Block_Expr and potential.right.named?
+                    it.condition = Identifier_Expr.new.tap do |id|
+                        id.string = potential.right.name.string
+                    end
+                else
+                    it.condition = potential
+                end
+
+                eat '{' if curr? '{'
+            end
+
+            eat_past_newlines
+            it.when_true = parse_block %w(} else elsif elif ef elswhile)
 
             if curr? 'else'
                 eat 'else'
@@ -509,11 +548,11 @@ class Parser
                 eat '}'
             elsif curr? '}'
                 eat '}'
-            elsif curr? 'elsif' or curr? 'elif'
-                while curr? 'elsif' or curr? 'elif'
+            elsif curr? 'elsif' or curr? 'elif' or curr? 'elswhile'
+                while curr? 'elsif' or curr? 'elif' or curr? 'elswhile'
                     eat # elsif or elif
-                    raise 'Expected condition in the elsif' if curr? "\n" or curr? ";"
-                    it.when_false = make_if_else_ast
+                    raise 'Expected condition in the elsif' if curr? "\n" or curr? ';' or curr? '}'
+                    it.when_false = make_conditional_ast is_while_conditional
                 end
             else
                 raise "\n\nYou messed your if/elsif/else up\n" + debug
@@ -585,20 +624,38 @@ class Parser
     end
 
 
+    def make_operator_overload_ast
+        raise 'Operator overloading not implemented in Parser'
+    end
+
+
+    def peek_until_contains? until_token, contains
+        peek_until(until_token).any? { |t| t == contains }
+    end
+
+
+    def peek_until_all? until_token, contains
+        peek_until(until_token)[1..].all? { |t| t == contains }
+    end
+
+
     def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
         add_comp    = (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?))
         remove_comp = (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
         merge_comp  = (curr? '*', Identifier_Token and (peek(1).constant? or peek(1).object?))
         inline_comp = (curr? Identifier_Token and curr.composition?)
 
-        if curr? '{'
-            if peek_until('}').any? { |t| t == '->' } # whether the contents between the braces contains an arrow, indicating that it's a block
-                make_block_ast
-            else
-                # { key, key, key }
-                # { key key key }
-                make_dictionary_ast
-            end
+        if curr? '{' and peek_until_contains? '}', '->'
+            make_block_ast
+
+        elsif curr? '{', '}'
+            make_dictionary_ast
+
+        elsif curr? '{' and peek_until_all? '}', Identifier_Token
+            make_dictionary_ast
+
+        elsif curr? '{' # all other { possibilities are exhausted, or handled inside other make_*_ast so this must be a dictionary
+            make_dictionary_ast
 
         elsif curr? '['
             make_array_literal_ast
@@ -612,16 +669,20 @@ class Parser
             end
 
         elsif curr? 'while'
-            make_while_ast
+            # make_while_ast
+            make_conditional_ast true
 
         elsif curr? 'if'
-            make_if_else_ast
+            make_conditional_ast
 
         elsif curr? Keyword_Token and curr.at_operator? and curr == '@before'
             make_block_hook_ast
 
         elsif curr? Keyword_Token and curr == 'nil'
             eat and Nil_Expr.new
+
+        elsif curr? Keyword_Token and curr == 'operator'
+            make_operator_overload_ast
 
         elsif add_comp or remove_comp or merge_comp
             make_composition_ast
@@ -641,13 +702,11 @@ class Parser
         elsif curr? Identifier_Token and curr.object? and (curr? Identifier_Token, '{' or curr? Identifier_Token, '>') # and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
             make_class_ast
 
-        elsif curr? Identifier_Token, %w({ =) and curr.member? # lowercase identifier
+        elsif curr? Identifier_Token, '{' and peek_until_contains? '}', '->'
+            make_block_ast
 
-            if curr? Identifier_Token, '{'
-                make_block_ast
-            elsif curr? Identifier_Token, '=' # and not curr? Identifier_Token, '=', '&'
-                make_assignment_ast
-            end
+        elsif curr? Identifier_Token, '=' and curr.member? # lowercase identifier
+            make_assignment_ast
 
         elsif (curr? Identifier_Token, '{' or curr? Identifier_Token, '=') and curr.constant? # UPPERCASE identifier
             make_enum_ast
@@ -689,6 +748,7 @@ class Parser
             raise "Parser expected an expression but reached EOF"
 
         else
+            puts debug
             raise "Parsing not implemented for #{curr}"
 
         end

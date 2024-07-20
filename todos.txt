@@ -1,4 +1,30 @@
-Rename Block_Param_Decl_Expr.default_value to default_value_expression
+When eating tokens, always store the token in the name, never just .string. I need it sometimes, and also Token probably has cursor position info
+
+Operator overloading. Add new Operator_Token keyword, I need operators to be identifiable by pattern so that I can check for [Keyword_Token(operator), Operator_Token([] or other binary operator)]. Store it as a named Block_Expr aka function. The name is the operator. For Subscript should be named `[]`. So when interpreter encounters a Subscript_Expr, treat that as a Binary_Expr where left is subscript.left and the operator is dot, and the right is get_from_scope :functions, '[]'.
+Any operator should be able to be overloaded, even ranges. Even `.`? That might be wild. So you can't change it on a global scope but you can on a class
+Abc {
+	operator . { other ->
+		if other == 'new'
+			%p 'called .new on `self`'
+		}
+	}
+}
+Thoughts today (without reading above thoughts): override operator with `operator` keyword. All operators have built in implementations by default but can be overloaded with `operator == { other -> }`, which gets executed on the receiver. To achieve that:
+1) update parser to create named Block_Expr where name is the operator token
+2) interpreter should store this under functions['=='] = Block_Construct or whatever
+3) interpreter should call these functions when encountering them while parsing Binary_Exprs, since that's really the only place these operators will ever be present.
+
+Apparently you can add members to an instance at any time by doing instance.whatever {} or instance.whatever = 'boo'. I kinda like that with functions so you can quickly create new ones, but not with variables?
+
+Weird issue in REPL. I wonder if that's just
+Abc { boo = 'boo' }.new.boo
+◼︎ "boo"
+Abc { boo = 'boo' }.new.boo.1
+◼︎ 0.1
+
+Add autocomplete to REPL. See https://ruby-doc.org/stdlib-2.5.1/libdoc/readline/rdoc/Readline.html#method-c-completion_proc-3D-label-Examples
+
+Implement builtin functions and variables for instances, those should be accessible by @member. eg) all classes might have `id =;`, to access it use `@id`. That way the internal members don't pollute the instance(aka the current runtime_scope). The end result is that you can use any name for members, even internal ones. And the internal ones can be accessed only by prepending the member with @
 
 Generalize Interpreter#evaluate when Block_Call_Expr so that Block_Expr evaluation uses the same code to call the block inline
 
@@ -6,7 +32,7 @@ Generalize parsing expressions between parens. I think the function call ast par
 
 Figure out string interpolation. See String_Literal_Expr#string=
 
-Add support for else conditional because it reads nicely: `move() if xy else stop()`
+Add support for inline conditional at end of lines because they reads nicely: `move() if xy else stop()`
 
 Why are there two arrays storing ascii symbols? Ascii_Token::BINARY_OPERATORS and Ascii_Token::UNARY_OPERATORS, and in Lexer::SYMBOLS. When you change one, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
 
@@ -38,8 +64,6 @@ Figure out how to call functions without parens like in Ruby. See Parser#make_fu
 
 Parsing issue? `go(wtf =;)` parses to `fun_call(name: go, ["Arg(set(wtf=))"])`. This is an old comment from Parser#make_function_call_ast
 
-Figure out Class_Construct. How is that used to initialize an instance? See Interpreter#evaluate when Class_Expr
-
 Parser returns Nil_Expr when it parses `nil`. Should it work differently? I'm not sure yet
 
 In both Lexer and Parser, create some kind of error message object that functions similarly to localization. Would be cool to allow you to customize the error messages. ERRORS(:some_error) could read errors from a custom file based on the current language, like errors/en.yml or something like that
@@ -54,4 +78,4 @@ I like how Ruby has classes for builtin types, like TrueClass, FalseClass, Integ
 
 Clean up Lexer#LEX – there's a mix of methods and some inline creations right at the conditional. It would be nice to be consistent.
 
-Two identifier expressions are valid syntax. For example, `ab = 12 cd = 34` evaluates to 12. This might involve lexing whitespace again? I'm not really sure
+When interpreting from a main file, if encountering an undefined thing then maybe flag it somehow to be interpreted at the end when there is no more of the program to interpret

@@ -8,6 +8,7 @@ class Lexer
         do if else for skip stop it is self when while
         where map tap
         return nil
+        operator
     )
 
     UNUSED_KEYWORDS = %w(api obj def fun new end arg imp)
@@ -17,7 +18,7 @@ class Lexer
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ** ?? .? .. .< =;)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
-    MACROS = %w(%s %S %v %V %w %W %d)
+    MACROS = %w(%s %S %v %V %w %W %d %p)
 
     # in this specific order so multi character operators are matched first
     SYMBOLS = [
@@ -386,6 +387,9 @@ class Lexer
             elsif SYMBOLS.include? curr.string
                 symbol = eat_symbol
                 @tokens << Ascii_Token.new(symbol)
+
+            elsif curr == '\\'
+                eat
 
             else
                 raise_unknown_char # displays some source code with a caret pointing to the unknown character

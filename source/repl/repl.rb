@@ -58,7 +58,7 @@ class REPL
         help0 = "#{BULLET} exit with \\q or \\x or exit"
         help1 = "#{BULLET} continue on next line with \\"
         help2 = "#{BULLET} end multiline with ; or an expression"
-        help3 = "#{BULLET} print current scope with `@s`"
+        help3 = "#{BULLET} print current scope with @"
         puts colorize('gray', "#{help0}\n#{help1}\n#{help2}\n#{help3}\n")
 
         interpreter = Interpreter.new

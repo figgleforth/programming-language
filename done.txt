@@ -1,0 +1,25 @@
+After much trouble trying to parse conditional if `xyz {}` vs `member {}` vs `{ dict_key }', I now know there's too much ambiguity here. I need to redesign this syntax so each construct is easily identifiable by its tokens. That would really make it a lot easier to parse.
+So what's more important? member {} or if xyz {}?
+I could make arrows mandatory for functions, so then they cannot be confused with the conditional braces since those will not have the arrow
+But then what about dictionaries? { x=1 } is valid, but it's with the -> requirement it won't ever be confused for a block.
+if abc {
+	x = 1
+}
+The only ambiguity remaining is that {x=1} could be a dictionary. If I make dictionary only work with colon, then this should be fine? Possibly?
+if abc {
+	x: 1
+} # I find it hard to believe this would ever happen. It would have to be some kind of syntax error in this case.
+Or what if I make dictionaries require %d{}? That might be overkill, I might hate working with dictionaries then
+Find todo 'syntax rewrite' for places that need to be updated
+- #make_ast currently lump ident { and ident = together. those need to be separate.
+
+Interpreting issue when calling .member on a Class_Construct. I think to fix this, parse for class methods [self, '.', identifier ... func] and add those to the scope
+Abc { what { 123 }}.what
+◼︎ undefined variable or function `what` in Abc scope
+Abc { what { 123 }}.new.what
+◼︎ 123
+
+Figure out Class_Construct. How is that used to initialize an instance? See Interpreter#evaluate when Class_Expr
+
+Two identifier expressions are valid syntax. For example, `ab = 12 cd = 34` evaluates to 12. This might involve lexing whitespace again? I'm not really sure
+

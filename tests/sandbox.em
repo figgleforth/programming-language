@@ -54,15 +54,17 @@ Entity {
 	self.references.count = 0
 
 	# class func
-	self.do_something {}
+	self.do_something { -> }
 
-	self.inspect { "Entity(`self.refs`)" }
+	self.inspect { -> "Entity(`self.refs`)" }
+
+#	inspect: string { -> }
 }
 
 
 player.?current_level = 1 # .? is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible.
 
-if player.?current_level # also works like ruby's #respond_to?
+if player.?current_level { # also works like ruby's #respond_to?
 }
 
 nice { param, param_with_default = 1 -> "body" }
@@ -73,11 +75,11 @@ cool { param, param_with_default = 1 ->
 
 yolo = { -> 96 + 12 / -123 * 4 % 6 }
 
-func_without_params {
+func_without_params { ->
 	"body!"
 }
 
-empty {}
+empty { -> }
 Empty {}
 
 lost = { in = 42 -> }
@@ -128,7 +130,7 @@ a.b.c = 0
 1 & 1
 
 
-next_level { player
+next_level { player ->
 	player.level += 1
 }
 
@@ -145,7 +147,7 @@ Emerald {
    bugs = 1_000_000
    status = STATUS.WORKING_ON_IT
 
-   info {
+   info { ->
       "Emerald version `version`"
    }
 
@@ -168,7 +170,7 @@ _Emerald {
 	& Atom
 }
 
-_function {
+_function { ->
 	& Atom
 	 _ANOTHER_ENUM = 5
 	_ANOTHER_ENUM {}
@@ -196,7 +198,7 @@ Entity {
 
 Lilly_Pad {
 	speed = 1.0
-	inspect { "Lilly(at: `position`, speed: `speed` units" }
+	inspect { -> "Lilly(at: `position`, speed: `speed` units" }
 }
 
 this? = :test # Ruby's symbol literals
@@ -207,13 +209,13 @@ Enum_Collection_Expr {
 	name =;
 	constants =;
 
-	to_s {
+	to_s { ->
 	}
 }
 
 
 # multiple keywords for else-if
-if 1 > 2
+if 1 > 2 {
 	aaa
 	bbb
 elsif 4 > 3
@@ -249,8 +251,8 @@ Entity > Object {
 
 go(to: 123) # the label being used. Should it be required when the function is defined with it?
 
-method {}
-method2 { 48 }
+method { -> }
+method2 {  -> 48 }
 method3 { input -> "`input`" }
 method4 { in1, in2, in3, in4, in5 -> "boo!" }
 method5 { on input -> "`input`" }
@@ -263,7 +265,7 @@ method5(on: 'bwah')
 imaginary(object: Xyz {}, enum: BWAH {}, func: whatever {}, member: nice)
 
 
-if 1 > 2
+if 1 > 2 {
 	aaa
 	bbb
 elif 4 > 3
@@ -290,8 +292,6 @@ while a > 0
 	abra
 elswhile a < 0
 	ca
-else
-	dabra
 }
 
 # separate statements because they are comma-separated
@@ -311,7 +311,7 @@ a[1+2][b[c[3]]][d+e][f-g]
 }, while false
 }, while
 	nice
-}, Abc{}, DEF{}, def{}, {}, [], a[0], Player > Atom {
+}, Abc{}, DEF{}, def{ -> }, {}, [], a[0], Player > Atom {
 	& Transform # & will merge Transform into this object
 	number = -1
 	player = 96 + 12 / -123 * 4 % 6
@@ -358,8 +358,8 @@ Readonly > Record {
 	~ Validations
 }
 
-records = Record.where { it.something == true }
-records = Readonly.where { it.something == true }
+records = Record.where { -> it.something == true }
+records = Readonly.where { -> it.something == true }
 
 test { with &a = 1, where b = 2, c, d = variable= 1 ->
 	# params with & are going to have their variables and functions merged into this scope, meaning instead of a.some_variable, you can just use some_variable
@@ -378,11 +378,11 @@ test { abc &this = 1, def that, like = 2, &whatever  ->
 &test
 &Test
 
-User.where {
+User.where { ->
 	it.created_at > Date_Time.today
 }
 
-User.where {
+User.where { ->
 	created_at > Date_Time.today and posts.count > 0
 }
 
@@ -405,22 +405,22 @@ test = false
 
 Atom > What {}
 
-[].each {
+[].each { ->
 }
 
-"boo".tap {
+"boo".tap { ->
 	it += 'oo'
 }
 
-"".map {
+"".map { ->
 	it += 'nice'
 }
 
-[1, 2].where {
+[1, 2].where { ->
 	it == 2
 }
 
-tap {} # valid, but pointless
+tap { -> } # valid, but pointless
 
 %s(boo hoo moo) # [:boo,  :hoo,  :moo]
 %S(boo hoo moo) # [:BOO,  :HOO,  :MOO]
@@ -466,3 +466,9 @@ x()
 
 
 Atom.new
+
+Atom {
+	&Atom
+	& Atoms as atoms
+	func { &this, & that = true -> } # composition valid with or without whitespace after &
+}

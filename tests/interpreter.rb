@@ -165,7 +165,7 @@ b = a" do |it|
 end
 
 t 'boo' do |it|
-    it.is_a? RuntimeError and it.message == 'Undefined variable or function `boo`'
+    it.is_a? RuntimeError and it.message == 'undefined variable or function `boo` in Global scope'
 end
 
 t "b = nil" do |it|
@@ -177,7 +177,7 @@ t "1, nil, 3" do |it|
 end
 
 t "'b in a string', b, 4+2, nil" do |it|
-    it.is_a? RuntimeError and it.message == "Undefined variable or function `b`"
+    it.is_a? RuntimeError and it.message == "undefined variable or function `b` in Global scope"
 end
 
 t "'`b` interpolated into the string'" do |it|
@@ -194,13 +194,13 @@ end
 
 t "
 func { -> 4 }
-func2 { 6 }
+func2 { -> 6 }
 func() + func2()
 " do |it|
     it == 10
 end
 
-t 'func { 1 }' do |it|
+t 'func { -> 1 }' do |it|
     it.is_a? Block_Construct
 end
 
@@ -221,7 +221,7 @@ t 'abc!def' do |it|
 end
 
 t 'abc:def' do |it|
-    it.is_a? RuntimeError and it.message == 'Undefined variable or function `abc`'
+    it.is_a? RuntimeError and it.message == 'undefined variable or function `abc` in Global scope'
 end
 
 t 'f { x = 3 -> x*3 }
@@ -271,11 +271,11 @@ f(4)
 end
 
 t 'SOME_CONSTANT' do |it|
-    it.is_a? RuntimeError and it.message == 'Undefined constant `SOME_CONSTANT`'
+    it.is_a? RuntimeError and it.message == 'undefined constant `SOME_CONSTANT` in Global scope'
 end
 
 t 'Random' do |it|
-    it.is_a? RuntimeError and it.message == 'Undefined class `Random`'
+    it.is_a? RuntimeError and it.message == 'undefined class `Random` in Global scope'
 end
 
 t 'Random {}' do |it|
@@ -288,9 +288,102 @@ Random
     it.is_a? Class_Construct and it.name == 'Random'
 end
 
-# t 'Random {}
-# Random.new
-# ' do |it|
-#     it.is_a? Class_Construct and it.name == 'Random'
-# end
+t '{ x = 4 }' do |it|
+    it == { 'x' => 4 }
+end
 
+t '{ x: 4 }' do |it|
+    it == { 'x' => 4 }
+end
+
+t '{ x = { y = 48} }' do |it|
+    it == { 'x' => { 'y' => 48 } }
+end
+
+t 'Random {}
+Random.new
+' do |it|
+    it.is_a? Instance_Construct and it.class_construct.name == 'Random'
+end
+
+t 'x=1
+if x > 2 {
+    "yep"
+else
+    "nope"
+}
+' do |it|
+    it == "\"nope\""
+end
+
+t 'x=1
+if x == 1 {
+    "yep"
+elsif x == 2
+    "boo"
+else
+    "nope"
+}
+' do |it|
+    it == "\"yep\""
+end
+
+t 'x=2
+y = if x == 1 {
+    "yep"
+elsif x == 2
+    "boo"
+else
+    "nope"
+}
+y
+' do |it|
+    it == "\"boo\""
+end
+
+t 'x=2
+z = 4
+y = if x == 1 {
+    "yep"
+elsif x == 2
+    if z == 4 { 1234 else 5678 }
+else
+    "nope"
+}
+y
+' do |it|
+    it == 1234
+end
+
+t 'x=2
+z = 3
+y = if x == 1 {
+    "yep"
+elsif x == 2
+    if z == 4 { 1234 else 5678 }
+else
+    "nope"
+}
+y
+' do |it|
+    it == 5678
+end
+
+t 'x=1
+if x == 4 { "no" elsif x == 2 "maybe" else "yes" }
+' do |it|
+    it == "\"yes\""
+end
+
+t '
+x = 0
+while x < 3 {
+    x = x + 1
+elswhile x < 6
+    x = x + 2
+else
+    9
+}
+' do |it|
+    it == 3
+end

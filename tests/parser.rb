@@ -1,6 +1,7 @@
 require_relative '../source/lexer/lexer'
 require_relative '../source/parser/parser'
 require_relative '../source/parser/ast'
+require 'pp'
 
 
 def t code, &block
@@ -18,14 +19,70 @@ def t code, &block
     block_result = block.call ast.first # test only the first expression parse since this test only cares about single expressions
 
     if not block_result
-        parser_output = [ast].flatten.map { |a| a.inspect }
-        raise "\n\nFAILED TEST\n———————————\n#{code}\n———————————\n#{parser_output}"
+        parser_output = [ast].flatten.map { |a| PP.pp(a, "").chomp }
+        puts "\n\n——————————— FAILED TEST\n#{code}\n——————————— #to_ast\n", parser_output, "———————————"
+        raise 'Failed parse test'
     end
 
     @tests_ran ||= 0
     @tests_ran += 1
 end
 
+
+t 'if abc {
+}' do |it|
+    it === Conditional_Expr and it.condition === Identifier_Expr and it.when_true === Block_Expr
+end
+
+t 'if abc {
+    def
+}' do |it|
+    it === Conditional_Expr and it.condition === Identifier_Expr and it.when_true === Block_Expr and it.when_true.expressions.one?
+end
+
+t 'if abc {
+else
+    whatever
+}' do |it|
+    # puts "it #{it.inspect}"
+    it === Conditional_Expr and it.condition === Identifier_Expr and it.when_true === Block_Expr and it.when_false === Block_Expr and it.when_false.expressions.one?
+end
+
+t 'if abc {
+    boo
+    hoo
+    moo
+elsif whatever
+    yay
+    nay
+else
+    123
+}' do |it|
+    # puts "it #{it.inspect}"
+    it === Conditional_Expr and it.condition === Identifier_Expr and it.when_true === Block_Expr and it.when_false === Conditional_Expr and it.when_false.condition === Identifier_Expr and it.when_false.condition.string == 'whatever' and it.when_false.when_false.expressions.one? and it.when_false.when_true.expressions.count == 2 and it.when_true.expressions.count == 3
+end
+
+t 'if 4 + 8 {
+}' do |it|
+    it === Conditional_Expr and it.condition === Binary_Expr and it.when_true === Block_Expr
+end
+
+t 'if abc {
+    xyz
+elsif 100
+    yay!
+else
+}' do |it|
+    it.is_a? Conditional_Expr and
+      it.condition.is_a? Identifier_Expr and
+      it.when_true.is_a? Block_Expr and
+      it.when_false.is_a? Conditional_Expr and
+      it.when_false.condition.is_a? Number_Literal_Expr and
+      it.when_false.when_true.is_a? Block_Expr and
+      it.when_false.when_true.expressions.one? and
+      it.when_false.when_false.expressions.none? and
+      it.when_false.when_false.is_a? Block_Expr
+end
 
 t '42' do |it|
     it.is_a? Number_Literal_Expr and
@@ -164,7 +221,7 @@ t 'x = Abc {}' do |it|
       it.expression.compositions.empty?
 end
 
-t 'x {}' do |it|
+t 'x { -> }' do |it|
     it.is_a? Block_Expr and
       it.expressions.empty? and
       it.compositions.empty? and
@@ -172,7 +229,7 @@ t 'x {}' do |it|
       it.named?
 end
 
-t 'x {
+t 'x { ->
     @before check_x
 }' do |it|
     it.is_a? Block_Expr and
@@ -182,7 +239,7 @@ t 'x {
       it.named? and it.before_hook_expressions.one?
 end
 
-t 'x { 42 }' do |it|
+t 'x { -> 42 }' do |it|
     it.is_a? Block_Expr and
       it.expressions.one? and
       it.expressions.first.is_a? Number_Literal_Expr and
@@ -224,8 +281,8 @@ test { abc &this = 1, def that, like = "dharma", &whatever  -> }
       it.expressions.empty? and
       it.compositions.count == 2 and
       it.parameters.count == 4 and
-      it.parameters[0].default_value.is_a? Number_Literal_Expr and it.parameters[0].default_value.string == '1' and
-      it.parameters[2].default_value.is_a? String_Literal_Expr and it.parameters[2].default_value.string == 'dharma' and
+      it.parameters[0].default_expression.is_a? Number_Literal_Expr and it.parameters[0].default_expression.string == '1' and
+      it.parameters[2].default_expression.is_a? String_Literal_Expr and it.parameters[2].default_expression.string == 'dharma' and
       it.parameters[0].composition and
       not it.parameters[1].composition and
       not it.parameters[2].composition and
@@ -235,7 +292,7 @@ end
 
 t 'func { param1, param2 = 14 * 3 / 16.09 -> }' do |it|
     it.is_a? Block_Expr and
-      it.parameters.count == 2 and it.parameters[1].default_value.is_a? Binary_Expr and
+      it.parameters.count == 2 and it.parameters[1].default_expression.is_a? Binary_Expr and
       it.expressions.empty? and
       it.named?
 end
@@ -318,23 +375,27 @@ t '~ Xyz' do |it|
     it.is_a? Composition_Expr and it.operator == '~'
 end
 
+t '&Boo' do |it|
+    it.is_a? Composition_Expr and it.operator == '&'
+end
+
 t 'Abc { * Xyz }' do |it|
     it.is_a? Class_Expr and it.block.compositions.one?
 end
 
 t 'Abc { * Xyz as xyz }' do |it|
-    it.is_a? Class_Expr and it.block.compositions.one? and it.block.compositions[0].name
+    it.is_a? Class_Expr and it.block.compositions.one? and it.block.compositions[0].alias_identifier
 end
 
 t 'Abc { * Xyz, ~ Xyz }' do |it|
-    it.is_a? Class_Expr and it.block.compositions.count == 2 and it.block.compositions.all? { |c| c.name.nil? }
+    it.is_a? Class_Expr and it.block.compositions.count == 2 and it.block.compositions.all? { |c| c.alias_identifier.nil? }
 end
 
 t 'Abc.new' do |it|
     it.is_a? Binary_Expr
 end
 
-t 'Abc.what { 123 }' do |it|
+t 'Abc.what { -> 123 }' do |it|
     it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.named?
 end
 
@@ -342,15 +403,16 @@ t 'self.?something' do |it|
     it.is_a? Binary_Expr
 end
 
-t 'if a
+t 'if 1234 {
+    5678
 }' do |it|
     it.is_a? Conditional_Expr and
-      it.condition.is_a? Identifier_Expr and
+      it.condition.is_a? Number_Literal_Expr and
       it.when_true.is_a? Block_Expr and
       it.when_false.nil?
 end
 
-t 'if a
+t 'if a {
 else
 }' do |it|
     it.is_a? Conditional_Expr and
@@ -359,7 +421,7 @@ else
       it.when_false.is_a? Block_Expr
 end
 
-t 'if a
+t 'if a {
 elsif 100
     yay!
 else
@@ -375,7 +437,7 @@ else
       it.when_false.when_false.is_a? Block_Expr
 end
 
-t 'while a
+t 'while a {
 }' do |it|
     it.is_a? While_Expr and
       it.condition.is_a? Identifier_Expr and
@@ -383,7 +445,15 @@ t 'while a
       it.when_false.nil?
 end
 
-t 'while a
+t 'while 4 * 8 {
+}' do |it|
+    it.is_a? While_Expr and
+      it.condition.is_a? Binary_Expr and
+      it.when_true.is_a? Block_Expr and
+      it.when_false.nil?
+end
+
+t 'while a {
 elswhile "b"
 }' do |it|
     it.is_a? While_Expr and
@@ -393,10 +463,14 @@ elswhile "b"
       it.when_false.condition.is_a? String_Literal_Expr
 end
 
-t 'while a
+t 'while a {
 elswhile 100
     yay!
 else
+    1
+    2
+    3
+    4
 }' do |it|
     it.is_a? While_Expr and
       it.condition.is_a? Identifier_Expr and
@@ -405,11 +479,11 @@ else
       it.when_false.condition.is_a? Number_Literal_Expr and
       it.when_false.when_true.is_a? Block_Expr and
       it.when_false.when_true.expressions.one? and
-      it.when_false.when_false.expressions.none? and
+      it.when_false.when_false.expressions.count == 4 and
       it.when_false.when_false.is_a? Block_Expr
 end
 
-t 'while a > b
+t 'while a > b {
     x + y
 }' do |it|
     it.is_a? While_Expr and
@@ -478,42 +552,44 @@ t '{ ->
       not it.named?
 end
 
-t '[].each {}' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'each' and it.left.is_a? Array_Literal_Expr
+t '[].each { -> }' do |it|
+    it.is_a? Binary_Expr and it.left.is_a? Array_Literal_Expr and
+      it.right.is_a? Block_Expr and it.right.name == 'each'
 end
 
-t '"".each {}' do |it|
+t '"".each { -> }' do |it|
     it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'each' and it.left.is_a? String_Literal_Expr
 end
 
-t '[].tap {
+t '[].tap { ->
     it
     at
 }' do |it|
-    it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'tap' and it.left.is_a? Array_Literal_Expr and it.right.expressions.count == 2
+    it.is_a? Binary_Expr and it.left.is_a? Array_Literal_Expr and
+      it.right.is_a? Block_Expr and it.right.name == 'tap' and it.right.expressions.count == 2
 end
 
-t '[].map {}' do |it|
+t '[].map { -> }' do |it|
     it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'map' and it.left.is_a? Array_Literal_Expr and it.right.expressions.count == 0
 end
 
-t '[].where { it == nil }' do |it|
+t '[].where { -> it == nil }' do |it|
     it.is_a? Binary_Expr and it.right.is_a? Block_Expr and it.right.name == 'where' and it.left.is_a? Array_Literal_Expr and it.right.expressions.count == 1 and it.right.expressions[0].is_a? Binary_Expr
 end
 
-t 'tap {}' do |it|
+t 'tap { -> }' do |it|
     it.is_a? Block_Expr and it.name == 'tap'
 end
 
-t "where {}" do |it|
+t "where { -> }" do |it|
     it.is_a? Block_Expr and it.name == 'where'
 end
 
-t "each {}" do |it|
+t "each { -> }" do |it|
     it.is_a? Block_Expr and it.name == 'each'
 end
 
-t "map {}" do |it|
+t "map { -> }" do |it|
     it.is_a? Block_Expr and it.name == 'map'
 end
 
@@ -553,6 +629,15 @@ t '.7..7.8' do |it|
     it.is_a? Binary_Expr and it.left.is_a? Number_Literal_Expr and it.left.string == '.7' and it.right.is_a? Number_Literal_Expr and it.right.string == '7.8' and it.operator == '..'
 end
 
-t '(1..2).each {}' do |it|
+t '(1..2).each { -> }' do |it|
     it.is_a? Binary_Expr and it.left.is_a? Binary_Expr and it.operator == '.' and it.right.is_a? Block_Expr and it.right.named?
+end
+
+t 'if abc {
+else
+}' do |it|
+    it.is_a? Conditional_Expr and
+      it.condition.is_a? Identifier_Expr and
+      it.when_true.is_a? Block_Expr and
+      it.when_false.is_a? Block_Expr
 end

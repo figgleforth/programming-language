@@ -1,10 +1,10 @@
 # :short_form, :string
 class Ast
-    attr_accessor :short_form, :string
+    attr_accessor :short_form, :string, :tokens
 
 
-    def initialize
-        @short_form = false
+    def tokens
+        @tokens ||= []
     end
 
 
@@ -12,12 +12,17 @@ class Ast
     def == other
         other == self.class or self.is_a?(other)
     end
+
+
+    def === other
+        other == self.class or self.is_a?(other)
+    end
 end
 
 
 # { .. } is always a block, whether its a class body, function body, or just a block just in the middle of a bunch of statements using {}. I think a block in the middle that declares params should probably fail because nothing is calling the block, it's essentially just grouping code together/
 class Block_Expr < Ast
-    attr_accessor :name, :expressions, :compositions, :parameters, :signature
+    attr_accessor :name, :expressions, :compositions, :parameters, :signature, :is_operator_overload, :force_evaluation
 
 
     def initialize
@@ -59,7 +64,7 @@ class Block_Expr < Ast
             parameters.each do |param|
                 # it: Function_Param_Expr
                 # maybe also use compositions in the signature for better control over signature equality
-                it << "#{param.label}:#{param.name}=#{param.default_value}"
+                it << "#{param.label}:#{param.name}=#{param.default_expression}"
             end
         end
     end
@@ -79,16 +84,16 @@ end
 
 
 class Block_Param_Decl_Expr < Ast
-    attr_accessor :name, :label, :type, :default_value, :composition
+    attr_accessor :name, :label, :type, :default_expression, :composition
 
 
     def initialize
         super
-        @composition   = false
-        @default_value = nil
-        @name          = nil
-        @label         = nil
-        @type          = nil
+        @composition        = false
+        @default_expression = nil
+        @name               = nil
+        @label              = nil
+        @type               = nil
     end
 
 
@@ -96,7 +101,7 @@ class Block_Param_Decl_Expr < Ast
         "#{short_form ? '' : 'Param'}(".tap do |str|
             str << '&' if composition
             str << "#{name}"
-            str << "=#{default_value&.pretty || 'nil'}"
+            str << "=#{default_expression&.pretty || 'nil'}"
             str << ", type: #{type}" if type
             str << ", label: #{label}" if label
             str << ')'
@@ -462,7 +467,7 @@ end
 
 
 class Composition_Expr < Identifier_Expr
-    attr_accessor :operator, :identifier, :name
+    attr_accessor :operator, :identifier, :alias_identifier
 
 
     def initialize
@@ -473,9 +478,9 @@ class Composition_Expr < Identifier_Expr
 
     def pretty
         if short_form
-            "#{operator}#{identifier}#{name ? " = #{name}" : ''}"
+            "#{operator}#{identifier}#{alias_identifier ? " = #{alias_identifier}" : ''}"
         else
-            "comp(#{operator}#{identifier}#{name ? " = #{name}" : ''})"
+            "comp(#{operator}#{identifier}#{alias_identifier ? " = #{alias_identifier}" : ''})"
         end
     end
 end
@@ -536,6 +541,12 @@ class Macro_Expr < Ast
     def pretty
         "#{name}(#{identifiers.join(' ')})"
     end
+end
+
+
+class Macro_Command_Expr < Macro_Expr
+    attr_accessor :name, # %p for puts
+                  :expression
 end
 
 

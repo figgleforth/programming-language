@@ -1,5 +1,5 @@
 require_relative '../parser/ast'
-require_relative 'runtime_scope'
+require_relative 'scope'
 require_relative 'constructs'
 
 
@@ -9,14 +9,14 @@ class Interpreter # evaluates AST and returns the result
 
     def initialize expressions = []
         @expressions = expressions
-        @scopes      = [Runtime_Scope.new] # default runtime scope
+        @scopes      = [Scope.new.tap { |it| it.name = 'Global' }] # default scope
     end
 
 
     def interpret!
         output = nil
         expressions.each do |expr|
-            output = evaluate expr # expressions.first
+            output = evaluate expr
         end
         output
     end
@@ -38,21 +38,24 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    # @return [Runtime_Scope, nil]
+    # @return [Scope, nil]
+
     def curr_scope
         @scopes.last
     end
 
 
-    # @return [Runtime_Scope]
+    # @return [Scope]
+
     def global_scope
-        @scopes.first || Runtime_Scope.new
+        @scopes.first
     end
 
 
     # region Get constructs
 
     def get_from_scope type, identifier
+        raise "Interpreter#get_from_scope `type` argument expected to be :variables or :functions or :classes, but got `#{type.inspect}`" unless %w(variables functions classes).include? type.to_s
         value = curr_scope.send(type)[identifier.to_s]
 
         if not value
@@ -75,11 +78,18 @@ class Interpreter # evaluates AST and returns the result
     # Sets a value (likely a Construct or literal value) on the current scope
     # @return [any] The value passed in
     def set_on_scope type, identifier, value
+        raise "Interpreter#set_on_scope `type` argument expected to be :variables or :functions or :classes, but got `#{type.inspect}`" unless %w(variables functions classes).include? type.to_s
         curr_scope.send(type)[identifier.to_s] = value
     end
 
 
     # endregion
+
+    def get_scope_name_from_instance instance
+        return 'Global' if instance.scope.global?
+        instance.scope.name
+    end
+
 
     def evaluate expr # note: issues are raised here because the REPL catches these errors and prints them nicely in color
         case expr
@@ -118,8 +128,34 @@ class Interpreter # evaluates AST and returns the result
                         raise "#evaluate Unary_Expr(#{operator.inspect}) is not implemented"
                 end
 
-            when Binary_Expr
-                left  = evaluate expr.left
+            when Binary_Expr # create instances when dot operator with `new`
+                left = evaluate expr.left
+
+                # instantiate when Class_Construct . 'new'
+                if left.is_a? Class_Construct and expr.right.string == 'new'
+                    return Instance_Construct.new.tap do |it|
+                        it.class_construct = left
+
+                        push_scope Scope.new # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
+
+                        evaluate left.block
+                        it.scope      = pop_scope
+                        it.scope.name = left.name
+                    end
+                end
+
+                if left.is_a? Class_Construct and expr.operator == '.'
+                    raise 'Calling class functions or variables is not implemented'
+                end
+
+                # if left is an Instance_Construct, it should have a scope to push and evaluate on
+                if left.is_a? Instance_Construct and expr.operator == '.'
+                    push_scope left.scope
+                    result = evaluate expr.right
+                    pop_scope
+                    return result
+                end
+
                 right = evaluate expr.right
                 left  = nil if left.is_a? Nil_Construct # this has to handle Nil_Construct as well because Ruby doesn't allow `nil.send('||', right)'. FYI, setting it to nil here because `Nil_Construct || right` will always return Nil_Construct.
 
@@ -162,7 +198,7 @@ class Interpreter # evaluates AST and returns the result
                             it.operator = expr.operator
                         end
                     when '.'
-
+                        raise "Interpreter#evaluate not implemented when Binary_Expr operator is '.'"
                     else
                         begin
                             left.send expr.operator, right
@@ -176,11 +212,33 @@ class Interpreter # evaluates AST and returns the result
                 # reference: https://rosettacode.org/wiki/Hash_from_two_arrays#Ruby
                 value_results = expr.values.map { |val| evaluate val }
                 Hash[expr.keys.zip(value_results)]
+            when Conditional_Expr
+                if evaluate expr.condition
+                    evaluate expr.when_true
+                else
+                    evaluate expr.when_false
+                end
+            when While_Expr
+                # these are kinda trippy. They loop until the condition is satisfied, and also return the last expression that was evaluated as a return value.
+                output = nil
+                while evaluate expr.condition
+                    output = evaluate expr.when_true
+                end
+
+                if expr.when_false.is_a? Conditional_Expr and output.nil?
+                    output = evaluate expr.when_false
+                end
+
+                output
 
             when Identifier_Expr
-                # Walk up the different types of constructs – check for variable first, then function, then class. Alternate way of looking up, just an idea:
+                # walk up the different types of constructs – check for variable first, then function, then class. Alternate way of looking up, just an idea:
                 #   if identifier is member, look up in variables first then functions
                 #   if identifier is class, look up classes
+
+                if expr.string == '@'
+                    return curr_scope.inspect
+                end
 
                 lookup_hash = %i(variables functions classes) # used in #get_from_scope to Runtime_Scope.send lookup_hash
                 value       = nil
@@ -194,21 +252,38 @@ class Interpreter # evaluates AST and returns the result
                     # Some identifiers will be undefined by default, like the #new function on classes.
                     # todo: improve error messaging
                     if expr.member?
-                        raise "Undefined variable or function `#{expr.string}`"
+                        raise "undefined variable or function `#{expr.string}` in #{curr_scope.name} scope"
                     elsif expr.constant?
-                        raise "Undefined constant `#{expr.string}`"
+                        raise "undefined constant `#{expr.string}` in #{curr_scope.name} scope"
                     else
-                        raise "Undefined class `#{expr.string}`"
+                        raise "undefined class `#{expr.string}` in #{curr_scope.name} scope"
                     end
                 end
 
+                # todo: operator overloading! if `.` then get_from_scope(left, right). if `[]` or any other binary operator, get_from_scope(left, :functions, operator) otherwise fall back to internal implementation of those functions. Maybe we should skip the middleman and just have it be a runtime scope
+
                 if value.is_a? Variable_Construct
-                    if value.result != nil # value.result can be boolean true or false, so check if nil instead
-                        value.result
+                    if value.interpreted_value != nil # value.interpreted_value can be boolean true or false, so check if nil instead
+                        value.interpreted_value
                     elsif value.expression.is_a? Block_Expr
                         value.expression
+                    else
+                        value
                     end
-                elsif value.is_a? Block_Construct or value.is_a? Class_Construct
+                elsif value.is_a? Block_Construct
+                    needs_args = value.block.parameters.any? do |param|
+                        param.default_expression.nil?
+                    end
+
+                    if value.block.parameters.none? or not needs_args
+                        value.block.force_evaluation = true
+                        result                       = evaluate value.block
+                        value.block.force_evaluation = false
+                        result
+                    else
+                        raise "Block expects arguments\n#{value.inspect}"
+                    end
+                elsif value.is_a? Class_Construct
                     value
                 elsif value.is_a? Construct
                     evaluate value.expression
@@ -223,9 +298,11 @@ class Interpreter # evaluates AST and returns the result
                     it.expression = expr.expression
                     return_value  = expr.expression
 
-                    if not expr.expression.is_a? Block_Expr # only evaluate non-blocks
-                        it.result    = evaluate(expr.expression)
-                        return_value = it.result
+                    # only evaluate expressions that are not blocks. blocks can be executed later
+                    if not expr.expression.is_a? Block_Expr
+                        it.interpreted_value = evaluate(expr.expression)
+
+                        return_value = it.interpreted_value
                     end
 
                     if expr.expression.is_a? Identifier_Expr # in case the variable is a all caps constant
@@ -238,7 +315,7 @@ class Interpreter # evaluates AST and returns the result
 
             when Block_Expr
                 last_statement = nil # the default return value of all blocks
-                if expr.named? # store the block on the current scope
+                if expr.named? and not expr.force_evaluation # store the block on the current scope
                     last_statement = Block_Construct.new.tap do |it|
                         it.block     = expr
                         it.name      = expr.name
@@ -249,16 +326,14 @@ class Interpreter # evaluates AST and returns the result
                 else
                     # evaluate the block since it wasn't named, and therefor isn't being stored
                     # todo: generalize Block_Call_Expr then use here instead for consistency
-                    push_scope Runtime_Scope.new
                     expr.parameters.each do |it|
                         # Block_Param_Decl_Expr
-                        set_on_scope :variables, it.name, evaluate(it.default_value)
+                        set_on_scope :variables, it.name, evaluate(it.default_expression)
                     end
 
                     expr.expressions.map do |expr_inside_block|
                         last_statement = evaluate expr_inside_block
                     end
-                    pop_scope
                 end
                 last_statement
 
@@ -269,7 +344,7 @@ class Interpreter # evaluates AST and returns the result
 
                 construct = get_from_scope :functions, expr.name
                 if construct # is a Block_Construct
-                    push_scope Runtime_Scope.new
+                    push_scope Scope.new
 
                     # evaluates argument expression if present, otherwise the declared param expression
                     construct.block.parameters.zip(expr.arguments).each do |(param, argument)|
@@ -277,7 +352,7 @@ class Interpreter # evaluates AST and returns the result
                         value = if argument
                             evaluate argument.expression
                         else
-                            evaluate param.default_value
+                            evaluate param.default_expression
                         end
 
                         set_on_scope :variables, param.name, value
@@ -291,13 +366,13 @@ class Interpreter # evaluates AST and returns the result
                     # when blocks are stored in variables, they can be evaluated later as long as a method by the same name doesn't already exist? This doesn't seem right
                     construct = get_from_scope :variables, expr.name
                     if construct and construct.expression.is_a? Block_Expr
-                        push_scope Runtime_Scope.new
+                        push_scope Scope.new
                         construct.expression.expressions.map do |block_expr|
                             last_statement = evaluate block_expr
                         end
                         pop_scope
                     else
-                        raise "Undefined `#{expr.name}`"
+                        raise "undefined `#{expr.name}`"
                     end
 
                 end
@@ -316,9 +391,14 @@ class Interpreter # evaluates AST and returns the result
                     set_on_scope :classes, it.name, it
                 end
 
+            when Macro_Command_Expr
+                evaluate(expr.expression)
+
             when Nil_Expr, nil
                 Nil_Construct.new
 
+            when Nil_Construct
+                'nil'
             else
                 raise "Interpreting not implemented for #{expr.class}"
         end
