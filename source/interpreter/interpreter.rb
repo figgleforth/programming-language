@@ -392,7 +392,7 @@ class Interpreter # evaluates AST and returns the result
                 end
 
             when Macro_Command_Expr
-                evaluate(expr.expression)
+                puts evaluate(expr.expression)
 
             when Nil_Expr, nil
                 Nil_Construct.new
