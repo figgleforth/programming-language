@@ -1,18 +1,9 @@
+Block_Expr.compositions are just strings, I think they should be Identifier_Exprs
+Parser: when eating tokens into expressions that have a :name attribute, always store the token and not just token.string. That's currently how it is, but I need the actual, especially because Token has or should have cursor position info
+Generalization: Think about whether I really need Tokens stored on Asts
+
 REPL needs to call inspect or whatever on the output so that the interpreter isn't making those transformations. That would solve my issue of trying to `!> some_instance` where it prints <Instance:#13241234> or whatever the object prints like in Ruby.
 I tried having #evaluate return an inspect-like string for Instance_Construct, but that breaks interpretation because #evaluate should really be dealing with constructs to product a value, not string representations of a construct
-
-Interpreter class is becoming very messy. Cleanup.
-
-Block_Expr.compositions are just strings, I think they should be Identifier_Exprs
-
-Scope depth when reaches the 70s. Is that wrong? It feels wrong. That means I'm constantly pushing scope, but not popping? I wonder if it has something to do with how I'm currently re-evaluating the expression that was used as an argument. So Boo.new is evaluated, then during composition it's expression is re-evaluated to add its guts to the current scope.
-Here's the example program
-Boo { scary = true }
-moo { boo -> boo.scary }
-moo(Boo.new)
-moo_with_comp { &boo_param -> scary }
-moo_with_comp(Boo.new)
-
 
 Figure out string interpolation. See String_Literal_Expr#string=
 This might be tricky. I can pull out all expressions
@@ -25,7 +16,7 @@ The interpreter should also make a dictionary out of the extracted expressions. 
 	}
 	"`name`, today is `day`".gsub(/`([^`]+)`/) { replacements[$1] } # => "Locke, today is tomorrow"
 
-Cannot escape strings.
+Cannot escape strings. Probably should be lumped with string interpolation work.
 'Test\'ing'
 ◼︎ Expected ''' but got ''
 "Test\"ing"
@@ -51,11 +42,9 @@ Thoughts today (without reading above thoughts): override operator with `operato
 2) interpreter should store this under functions['=='] = Block_Construct or whatever
 3) interpreter should call these functions when encountering them while parsing Binary_Exprs, since that's really the only place these operators will ever be present.
 
-Apparently you can add members to an instance at any time by doing instance.whatever {} or instance.whatever = 'boo'. I kinda like that but it feels wrong, actually. Consider whether to keep this behavior.
+Apparently you can add members to an instance at any time by doing instance.whatever {} or instance.whatever = 'boo'. I kinda like that but it feels wrong, actually. Consider whether to keep this behavior. I just thought of a useful case for this – interpreter could have debug and release modes. In debug mode, you can add instances like this to make building the thing easier. In release mode, it would fail to interpret. I like this a lot.
 
-Parser: when eating tokens into expressions that have a :name attribute, always store the token and not just token.string. That's currently how it is, but I need the actual, especially because Token has or should have cursor position info
-
-Rethink how CONSTANTS are stored. Would it make sense for them to extend Assignment_Expr? Right now they're their own construct Enum_Constant_Expr and Enum_Collection_Expr
+Rethink how CONSTANTS are stored. Would it make sense for them to extend Assignment_Expr? Right now they're their own construct Enum_Constant_Expr and Enum_Collection_Expr. At least the Enum_Constant_Expr could be Assignment_Expr, especially once (may already be in place) Exprs are getting Tokens instead of just plain strings, we can then check token#constant? instead of needing a class to represent it
 
 Issue interpreting. I wonder what to do about this. I plan to support .0, .1, etc as a binary expression to be able to easily access arrays by index (arr.1, arr.2, etc). That would be so nice. Once operator overloading works, you could overload . on Array and have it call through to []. Something like `operator . { right -> self.[right] }`.
 Abc { boo = 'boo' }.new.boo
@@ -63,32 +52,25 @@ Abc { boo = 'boo' }.new.boo
 Abc { boo = 'boo' }.new.boo.1
 ◼︎ 0.1
 
-Add autocomplete to REPL. See https://ruby-doc.org/stdlib-2.5.1/libdoc/readline/rdoc/Readline.html#method-c-completion_proc-3D-label-Examples
-
-Implement builtin functions and variables for instances, those should be accessible by @member. eg) all classes might have `id =;`, to access it use `@id`. That way the internal members don't pollute the instance(aka the current runtime_scope). The end result is that you can use any name for members, even internal ones. And the internal ones can be accessed only by prepending the member with @
+Implement '@' context operator, for accessing functions and variables internal to an instances, for example, @some_member. eg) all classes might have `id =;`, to access it use `@id`. That way the internal members don't pollute the instance(aka the current runtime_scope). The end result is that you can use any name for members, even internal ones. And the internal ones can be accessed only by prepending the member with @
 
 Generalize Interpreter#evaluate when Block_Call_Expr so that Block_Expr evaluation uses the same code to call the block inline
 
 Generalize parsing expressions between parens. I think the function call ast parses parameters between parens, so go look there. When abstracted it can be reused for tuples. Also where Parser#make_ast checks curr? '(' I'm calling parse_expression again. But I think this is where I want to use #make_comma_separated_ast
+#tuples
 
 Add support for inline conditional at end of lines because they reads nicely: `move() if xy else stop()`
+Possible strategy: pop last ast and replace with new ast to make conditionals (unless while if) work at the end of an expression. Pop last expression, it becomes the when_true of a Conditional_Expr
 
 Why are there two arrays storing ascii symbols? Ascii_Token::BINARY_OPERATORS and Ascii_Token::UNARY_OPERATORS, and in Lexer::SYMBOLS. When you change one, you have to update the operator precedence in parser, and also lexer DOUBLE_SYMBOLS
-
-Pop last ast and replace with new ast to make conditionals (unless while if) work at the end of an expression. Pop last expression, it becomes the when_true of a Conditional_Expr
 
 Implement, a ? b : c or is that unnecessary? I kind of like the `expr if expr else expr` syntax.
 
 abc ?? xyz (abc if abc, otherwise xyz). This is basically how Ruby's || works. Maybe I don't need this since the interpreter uses Ruby's || when interpreting Em's ||
 
-Extract documentation comments and todos from lexed tokens
-
-Generate references into a /references folder somewhere, creating directories to match the code that was lexed. eg controllers/users_controller.e documents to references/controllers/users_controller.md
-
-Should nil be a static object or just a string from the POV of the user? should it crash when something is nil?
+Should nil be an object or just a string?
 
 The double reversing of @scopes in Interpreter#get_construct is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
-
 
 Use function signature in #get_construct and #set_construct? But I'm not sure how, since Function_Call_Expr only knows a function's name.
 
@@ -98,22 +80,46 @@ Clarity issue. Identifier_Expr/Identifier_Token #member? because it's not clear.
 
 Consider identifiers starting with a number again like 1st, 2nd, 3rd?, 4th!, etc
 
-Figure out how to call functions without parens like in Ruby. See Parser#make_function_call_ast
-
-Parsing issue? `go(wtf =;)` parses to `fun_call(name: go, ["Arg(set(wtf=))"])`. This is an old comment from Parser#make_function_call_ast
-
 Parser returns Nil_Expr when it parses `nil`. Should it work differently? I'm not sure yet
 
-In both Lexer and Parser, create some kind of error message object that functions similarly to localization. Would be cool to allow you to customize the error messages. ERRORS(:some_error) could read errors from a custom file based on the current language, like errors/en.yml or something like that
+In both Lexer and Parser, create some kind of error message object that functions similarly to localization. Would be cool to allow you to customize the error messages. ERRORS(:some_error) could read errors from a custom file based on the current language, like errors/en.yml or something like that. So you could define your own error messages for the language. Pointless but probably fun
 
-Repl: prevent ctrl+c from terminating, and make it cancel the current input. Currently it cancels the input but preserves the input prior to cancelling.
+Repl: make ctrl+c cancel the current input. Currently it cancels the current line on screen but preserves the input prior to cancelling. So when you start typing the next line, even though it doesn't show the previous line, the previous characters are still part of some internal state that tracks typed characters.
 
 Consider composition with members. Parser#make_ast prevents it
 
-If calling func without parens, think about how to handle collisions between variable and func names
+Figure out how to call functions without parens like in Ruby. See Parser#make_function_call_ast
 
-I like how Ruby has classes for builtin types, like TrueClass, FalseClass, Integer, etc. Reading through true_class.rb, it dawned on me that there's probably some preload.rb-like file that would declare `true = TrueClass.new` or something like that. I'm currently lexing a Boolean_Token when an identifier is 'true' or 'false', then parsing that into a Boolean_Literal_Expr, and finally interpreting Boolean_Literal_Expr using Boolean_Literal_Expr#to_bool
+When calling func without parens, think about how to handle collisions between variable and func names. Currently the interpreter lets you call a func without parens only if it takes no arguments. If it does, it prints a message stating the block expects args.
+
+I like how Ruby has classes for builtin types, like TrueClass, FalseClass, Integer, etc. Reading through true_class.rb, it dawned on me that there's probably some preload.rb-like file that would declare `true = TrueClass.new` or something like that. For example, I'm currently lexing a Boolean_Token when an identifier is 'true' or 'false', then parsing that into a Boolean_Literal_Expr, and finally interpreting Boolean_Literal_Expr using Boolean_Literal_Expr#to_bool.
+But maybe that would be ugly? Once I add types, do I really want to type `Int` instead of `int`? I feel like the capitalization will get annoying, plus it's ugly. So maybe foundational types like int, float, array, dict, etc should all be lowercase? Idk yet
 
 Clean up Lexer#LEX – there's a mix of methods and some inline creations right at the conditional. It would be nice to be consistent.
 
-When interpreting from a main file, if encountering an undefined thing then maybe flag it somehow to be interpreted at the end when there is no more of the program to interpret
+Think about how to "interpret" the entire program before actually interpreting, even across multiple files, such that code doesn't have to be in a specific order, so that I can reference an identifier before it is declared.
+
+multiline strings with ```
+x = ```
+a multiline string!
+```
+
+Annotation comments that start with special words or characters. They should be used somehow, like when parsed, add them to some generated file or something along those lines, then they are ignored and the parser moves on.
+x =; # note: blah blah
+Then in `docs/notes/whatever_file_it_came_from.txt|md`, or maybe just `docs/notes.txt|md` with aggregated notes. It should work for todo, bug, and anything else I can think of later
+Maybe docs should mimic the structure of the application like, docs/app/models, docs/app/controllers, etc, or whatever structure it ends up being
+Along these lines, documentation comments should have their own pattern at the beginning of the string so that they can be identified as documentation. Maybe documentation should be multiline (but this looks ugly):
+###
+Something, something, something
+###
+something { -> }
+
+bug: Assignment_Expr when passed as argument is evaluated in the scope of the function. So in this case, wtf becomes available inside the go function
+go { x-> wtf }
+◼︎ #<Block_Construct:0x00000001025b1a28>
+go(wtf =;)
+◼︎ nil
+wtf
+◼︎ undefined variable or function `wtf` in scope: Global
+
+Add autocomplete to REPL. See https://ruby-doc.org/stdlib-2.5.1/libdoc/readline/rdoc/Readline.html#method-c-completion_proc-3D-label-Examples

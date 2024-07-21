@@ -30,3 +30,14 @@ x()
 ◼︎ undefined variable or function `in` in  scope
 
 Compositions and args/params at Interpreter#evaluate when Block_Expr
+
+Interpreter class is becoming very messy. Cleanup.
+
+Scope depth when reaches the 70s. Is that wrong? It feels wrong. That means I'm constantly pushing scope, but not popping? I wonder if it has something to do with how I'm currently re-evaluating the expression that was used as an argument. So Boo.new is evaluated, then during composition it's expression is re-evaluated to add its guts to the current scope.
+Here's the example program
+Boo { scary = true }
+moo { boo -> boo.scary }
+moo(Boo.new)
+moo_with_comp { &boo_param -> scary }
+moo_with_comp(Boo.new)
+^ this turned out to be the number of scopes instantiated, rather than actual depth. I made #push_scope set the depth to number of scopes + 1

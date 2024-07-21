@@ -731,6 +731,7 @@ class Parser
             eat and nil
 
         elsif curr? %W(, ; \n) # ignoring the comma allows for expressions separated by commas. aka Delimiter_Token
+            # todo) this might be the location where conditionals at the end of an expression are parsed? At this point, it is assumed that the previous expression was parsed, and it is the last thing in @expressions
             eat and nil
 
         elsif curr? Symbol_Token
