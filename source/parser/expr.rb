@@ -1,5 +1,5 @@
 # :short_form, :string
-class Ast
+class Expr
     attr_accessor :short_form, :string, :tokens
 
 
@@ -21,7 +21,7 @@ end
 
 
 # { .. } is always a block, whether its a class body, function body, or just a block just in the middle of a bunch of statements using {}. I think a block in the middle that declares params should probably fail because nothing is calling the block, it's essentially just grouping code together/
-class Block_Expr < Ast
+class Block_Expr < Expr
     attr_accessor :name, :expressions, :compositions, :parameters, :signature, :is_operator_overload, :force_evaluation
 
 
@@ -83,7 +83,7 @@ class Block_Expr < Ast
 end
 
 
-class Block_Param_Decl_Expr < Ast
+class Block_Param_Decl_Expr < Expr
     attr_accessor :name, :label, :type, :default_expression, :composition
 
 
@@ -110,7 +110,7 @@ class Block_Param_Decl_Expr < Ast
 end
 
 
-class Block_Arg_Expr < Ast
+class Block_Arg_Expr < Expr
     attr_accessor :expression, :label
 
 
@@ -124,7 +124,7 @@ class Block_Arg_Expr < Ast
 end
 
 
-class Block_Call_Expr < Ast
+class Block_Call_Expr < Expr
     attr_accessor :name, :arguments
 
 
@@ -144,7 +144,7 @@ class Block_Call_Expr < Ast
 end
 
 
-class Class_Expr < Ast
+class Class_Expr < Expr
     attr_accessor :name, :block, :base_class, :compositions
 
 
@@ -166,7 +166,7 @@ class Class_Expr < Ast
 end
 
 
-class Number_Literal_Expr < Ast
+class Number_Literal_Expr < Expr
     attr_accessor :type, :decimal_position
 
 
@@ -206,7 +206,7 @@ class Number_Literal_Expr < Ast
 end
 
 
-class Symbol_Literal_Expr < Ast
+class Symbol_Literal_Expr < Expr
     def pretty
         long  = "Sym(:#{string})"
         short = ":#{string}"
@@ -220,7 +220,7 @@ class Symbol_Literal_Expr < Ast
 end
 
 
-class Boolean_Literal_Expr < Ast
+class Boolean_Literal_Expr < Expr
     def pretty
         long  = "Bool(:#{string})"
         short = ":#{string}"
@@ -236,7 +236,7 @@ class Boolean_Literal_Expr < Ast
 end
 
 
-class String_Literal_Expr < Ast
+class String_Literal_Expr < Expr
     attr_accessor :interpolated
 
 
@@ -259,7 +259,7 @@ class String_Literal_Expr < Ast
 end
 
 
-class Dictionary_Literal_Expr < Ast
+class Dictionary_Literal_Expr < Expr
     attr_accessor :keys, :values
 
 
@@ -276,7 +276,7 @@ class Dictionary_Literal_Expr < Ast
 end
 
 
-class Array_Literal_Expr < Ast
+class Array_Literal_Expr < Expr
     attr_accessor :elements
 
 
@@ -292,7 +292,7 @@ class Array_Literal_Expr < Ast
 end
 
 
-class Comma_Separated_Expr < Ast
+class Comma_Separated_Expr < Expr
     attr_accessor :expressions
 
 
@@ -314,7 +314,7 @@ class Comma_Separated_Expr < Ast
 end
 
 
-class Assignment_Expr < Ast
+class Assignment_Expr < Expr
     attr_accessor :name, :type, :expression
 
 
@@ -329,7 +329,7 @@ class Assignment_Expr < Ast
 end
 
 
-class Unary_Expr < Ast
+class Unary_Expr < Expr
     require_relative '../lexer/tokens'
     attr_accessor :operator, :expression
 
@@ -348,7 +348,7 @@ class Unary_Expr < Ast
 end
 
 
-class Subscript_Expr < Ast
+class Subscript_Expr < Expr
     attr_accessor :left, :index_expression
 
 
@@ -362,7 +362,7 @@ class Subscript_Expr < Ast
 end
 
 
-class Binary_Expr < Ast
+class Binary_Expr < Expr
     attr_accessor :operator, :left, :right
 
 
@@ -383,7 +383,7 @@ class Binary_Expr < Ast
 end
 
 
-class Identifier_Expr < Ast
+class Identifier_Expr < Expr
     attr_accessor :is_keyword
 
 
@@ -421,7 +421,7 @@ class Identifier_Expr < Ast
 end
 
 
-class Enum_Collection_Expr < Ast
+class Enum_Collection_Expr < Expr
     attr_accessor :name, :constants
 
 
@@ -441,7 +441,7 @@ class Enum_Collection_Expr < Ast
 end
 
 
-class Enum_Constant_Expr < Ast
+class Enum_Constant_Expr < Expr
     attr_accessor :name, :value
 
 
@@ -451,7 +451,7 @@ class Enum_Constant_Expr < Ast
 end
 
 
-class At_Operator_Expr < Ast
+class At_Operator_Expr < Expr
     attr_accessor :identifier, :expression
 
 
@@ -486,7 +486,7 @@ class Composition_Expr < Identifier_Expr
 end
 
 
-class Conditional_Expr < Ast
+class Conditional_Expr < Expr
     attr_accessor :condition, :when_true, :when_false
 
 
@@ -507,7 +507,7 @@ class Conditional_Expr < Ast
 end
 
 
-class While_Expr < Ast
+class While_Expr < Expr
     attr_accessor :condition, :when_true, :when_false
 
 
@@ -528,7 +528,7 @@ class While_Expr < Ast
 end
 
 
-class Macro_Expr < Ast
+class Macro_Expr < Expr
     attr_accessor :name, # %s, %S, %v, %V, etc
                   :identifiers # the body between the parens
 
@@ -550,5 +550,5 @@ class Macro_Command_Expr < Macro_Expr
 end
 
 
-class Nil_Expr < Ast
+class Nil_Expr < Expr
 end

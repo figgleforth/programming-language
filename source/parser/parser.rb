@@ -1,7 +1,7 @@
 # Turns string of code into tokens
 class Parser
     require_relative '../lexer/tokens'
-    require_relative 'ast'
+    require_relative 'expr'
 
     attr_accessor :i, :buffer, :expressions, :eaten_this_iteration
 

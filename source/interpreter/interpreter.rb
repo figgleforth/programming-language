@@ -1,4 +1,4 @@
-require_relative '../parser/ast'
+require_relative '../parser/expr'
 require_relative 'scope'
 require_relative 'constructs'
 require 'pp'

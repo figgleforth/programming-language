@@ -1,6 +1,6 @@
 require_relative '../source/lexer/lexer'
 require_relative '../source/parser/parser'
-require_relative '../source/parser/ast'
+require_relative '../source/parser/expr'
 require 'pp'
 
 
