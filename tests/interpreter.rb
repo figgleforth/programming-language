@@ -171,7 +171,7 @@ b = a" do |it|
 end
 
 t 'boo' do |it|
-    it.is_a? RuntimeError and it.message == 'undefined variable or function `boo` in Global scope'
+    it.is_a? RuntimeError and it.message == 'undefined variable or function `boo` in scope: Global'
 end
 
 t "b = nil" do |it|
@@ -183,7 +183,7 @@ t "1, nil, 3" do |it|
 end
 
 t "'b in a string', b, 4+2, nil" do |it|
-    it.is_a? RuntimeError and it.message == "undefined variable or function `b` in Global scope"
+    it.is_a? RuntimeError and it.message == "undefined variable or function `b` in scope: Global"
 end
 
 t "'`b` interpolated into the string'" do |it|
@@ -227,7 +227,7 @@ t 'abc!def' do |it|
 end
 
 t 'abc:def' do |it|
-    it.is_a? RuntimeError and it.message == 'undefined variable or function `abc` in Global scope'
+    it.is_a? RuntimeError and it.message == 'undefined variable or function `abc` in scope: Global'
 end
 
 t 'f { x = 3 -> x*3 }
@@ -277,11 +277,11 @@ f(4)
 end
 
 t 'SOME_CONSTANT' do |it|
-    it.is_a? RuntimeError and it.message == 'undefined constant `SOME_CONSTANT` in Global scope'
+    it.is_a? RuntimeError and it.message == 'undefined constant `SOME_CONSTANT` in scope: Global'
 end
 
 t 'Random' do |it|
-    it.is_a? RuntimeError and it.message == 'undefined class `Random` in Global scope'
+    it.is_a? RuntimeError and it.message == 'undefined class `Random` in scope: Global'
 end
 
 t 'Random {}' do |it|

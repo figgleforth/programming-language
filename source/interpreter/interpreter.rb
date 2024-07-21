@@ -29,12 +29,12 @@ class Interpreter # evaluates AST and returns the result
 
 
     def push_scope scope
+        scope.depth = scopes.count + 1
         @scopes << scope
     end
 
 
     def pop_scope
-        curr_scope.decrease_depth if curr_scope
         @scopes.pop
     end
 
@@ -413,11 +413,11 @@ class Interpreter # evaluates AST and returns the result
             # Some identifiers will be undefined by default, like the #new function on classes.
             # todo: improve error messaging
             if expr.member?
-                raise "undefined variable or function `#{expr.string}` in #{curr_scope.name} scope"
+                raise "undefined variable or function `#{expr.string}` in scope: #{curr_scope.name}"
             elsif expr.constant?
-                raise "undefined constant `#{expr.string}` in #{curr_scope.name} scope"
+                raise "undefined constant `#{expr.string}` in scope: #{curr_scope.name}"
             else
-                raise "undefined class `#{expr.string}` in #{curr_scope.name} scope"
+                raise "undefined class `#{expr.string}` in scope: #{curr_scope.name}"
             end
         end
 
