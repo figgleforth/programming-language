@@ -46,7 +46,7 @@ elswhile x < 10 {
 CONSTANT = 42
 
 get_constant { multiplier = 1 ->
-	CONSTANT * multiplier
+  CONSTANT * multiplier
 }
 
 @@ get_constant + '!'

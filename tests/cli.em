@@ -1,25 +1,16 @@
-Transform {
-	position = {x y z}
-	rotation = 0
+Boo {
+    scary = 1234
 }
 
-@@ Transform.new
-
-
-Atom { id =; }
-Element { id = 42 }
-
-Object > Atom {
-	&Element
+moo { boo ->
+	boo.scary
 }
+@@ moo(Boo.new) == 1234
 
-Object2 {
-
+moo_with_comp { &boo_param ->
+    scary * 2
 }
-
-#@@ 'atom id ' + Atom.new.id
-#@@ 'element id ' + Element.new.id
-#@@ 'object id ' + Object.new.id
+@@ moo_with_comp(Boo.new) == 2468
 
 x = 1;
 
@@ -30,7 +21,7 @@ else
 }
 
 boo = 'does interpolation work yet? `result`'
-@@ 'Apparently not\n' + boo
+@@ boo + ' .. apparently not'
 
 @@ 'x before while loop ' + x
 while x < 5 {
