@@ -334,7 +334,7 @@ class Parser
 
 
     def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
-        if curr? '@@'
+        if curr? '!>' or curr? '!!>' or curr? '!!!>'
             Macro_Command_Expr.new.tap do |it|
                 it.name       = eat(Macro_Token).string
                 it.expression = parse_expression

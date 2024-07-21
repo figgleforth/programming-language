@@ -446,7 +446,13 @@ class Interpreter # evaluates AST and returns the result
 
             when Macro_Command_Expr
                 if expr.expression
-                    puts evaluate(expr.expression)
+                    if expr.name == '!>' # log level
+                        puts evaluate(expr.expression)
+                    elsif expr.name == '!!>' # warning
+                        puts "WARNING: #{evaluate(expr.expression)}"
+                    elsif expr.name == '!!!>' # error
+                        puts "ERROR: #{evaluate(expr.expression)}"
+                    end
                 else
                     puts ''
                 end

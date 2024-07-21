@@ -18,7 +18,8 @@ class Lexer
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ** ?? .? .. .< =;)
     SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
 
-    MACROS = %w(%s %S %v %V %w %W %d @@)
+    MACROS       = %w(%s %S %v %V %w %W %d)
+    PRINT_MACROS = %w(!> !!> !!!>)
 
     # in this specific order so multi character operators are matched first
     SYMBOLS = [
@@ -336,8 +337,17 @@ class Lexer
 
                 end
 
-            elsif MACROS.include? peek(0, 2)&.string # %s, %S, etc
+            elsif MACROS.include? peek(0, 2)&.string or PRINT_MACROS.include? peek(0, 2)&.string
+                # %s, %S, !>, etc
                 @tokens << Macro_Token.new(eat_many(2))
+
+            elsif PRINT_MACROS.include? peek(0, 3)&.string
+                # !!>
+                @tokens << Macro_Token.new(eat_many(3))
+
+            elsif PRINT_MACROS.include? peek(0, 4)&.string
+                # !!!>
+                @tokens << Macro_Token.new(eat_many(4))
 
             elsif curr == '#'
                 if peek(0, 3) == '###'

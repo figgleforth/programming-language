@@ -1,4 +1,4 @@
-REPL needs to call inspect or whatever on the output so that the interpreter isn't making those transformations. That would solve my issue of trying to `@@ some_instance` where it prints <Instance:#13241234> or whatever the object prints like in Ruby.
+REPL needs to call inspect or whatever on the output so that the interpreter isn't making those transformations. That would solve my issue of trying to `!> some_instance` where it prints <Instance:#13241234> or whatever the object prints like in Ruby.
 I tried having #evaluate return an inspect-like string for Instance_Construct, but that breaks interpretation because #evaluate should really be dealing with constructs to product a value, not string representations of a construct
 
 Interpreter class is becoming very messy. Cleanup.
@@ -34,7 +34,7 @@ Cannot escape strings.
 > "Apparently not\n"does interpolation work yet? `result`""
 
 Concatenating strings still broken for two strings.
-@@ 'Test ' + 'this'
+!> 'Test ' + 'this'
 "Test "this""
 
 Operator overloading. Add new Operator_Token keyword, I need operators to be identifiable by pattern so that I can check for [Keyword_Token(operator), Operator_Token([] or other binary operator)]. Store it as a named Block_Expr aka function. The name is the operator. For Subscript should be named `[]`. So when interpreter encounters a Subscript_Expr, treat that as a Binary_Expr where left is subscript.left and the operator is dot, and the right is get_from_scope :functions, '[]'.
@@ -42,7 +42,7 @@ Any operator should be able to be overloaded, even ranges. Even `.`? That might 
 Abc {
 	operator . { other ->
 		if other == 'new'
-			@@ 'called .new on `self`'
+			!> 'called .new on `self`'
 		}
 	}
 }
