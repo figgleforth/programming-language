@@ -7,14 +7,16 @@ require_relative '../interpreter/interpreter'
 class REPL
     COLORS = {
       black:         0,
-      red:           1,
+      red:           197,
       green:         2,
       yellow:        3,
       blue:          4,
       magenta:       5,
       cyan:          6,
       white:         7,
-      gray:          8,
+      gray:          236,
+      light_gray:    240,
+      lighter_gray:  244,
       light_red:     9,
       light_green:   10,
       light_yellow:  11,
@@ -49,7 +51,7 @@ class REPL
 
 
     def prompt
-        colorize('gray', '')
+        colorize('light_gray', '')
     end
 
 
@@ -59,7 +61,7 @@ class REPL
         help1 = "#{BULLET} continue on next line with \\"
         help2 = "#{BULLET} end multiline with ; or an expression"
         help3 = "#{BULLET} print current scope with @"
-        puts colorize('gray', "#{help0}\n#{help1}\n#{help2}\n#{help3}\n")
+        puts colorize('light_gray', "#{help0}\n#{help1}\n#{help2}\n#{help3}\n")
 
         interpreter = Interpreter.new
 
@@ -87,7 +89,7 @@ class REPL
                 end
             end
 
-            color  = 'gray' # for output foreground
+            foreground = 'light_gray' # for output foreground
             begin
                 tokens            = Lexer.new(input).lex
                 ast               = Parser.new(tokens).to_ast
@@ -95,14 +97,12 @@ class REPL
                 block.expressions = ast
                 output            = interpreter.evaluate block
             rescue Exception => e
-                output = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
-                color  = 'red'
+                output     = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
+                foreground = 'red'
             end
 
-            output = 'nil' if output.is_a? Nil_Construct
-            output = colorize(color, output.to_s)
-
-            puts colorize(color, "#{BULLET} #{output}")
+            output     = 'nil' if output.is_a? Nil_Construct
+            puts colorize(foreground, "#{BULLET} #{output}")
         end
     end
 
