@@ -7,7 +7,7 @@
 - Integrated documentation where a documentation directory and pages are automatically created from specific comment
   syntax
 - Web app focused, so server and MVC constructs as standard features
-    - The ultimate goal is to create web apps without external libraries like how one might use Rails with Ruby
+	- The ultimate goal is to create web apps without external libraries like how one might use Rails with Ruby
 
 ---
 
@@ -26,9 +26,9 @@ A few samples of the syntax from `tests/cli.em`.
 x = 1;
 
 result = if x == 2 {
-  'yes'
+    'yes'
 else
-  'no'
+    'no'
 }
 
 boo = 'does interpolation work yet? `result`'
@@ -36,17 +36,17 @@ boo = 'does interpolation work yet? `result`'
 
 @@ 'x before while loop ' + x
 while x < 5 {
-  x = x + 1
+    x = x + 1
 elswhile x < 10 {
-  x = x + 2
-  @@ "This won't print!"
+    x = x + 2
+    @@ "This won't print!"
 }
 @@ 'x after ' + x
 
 CONSTANT = 42
 
 get_constant { multiplier = 1 ->
-  CONSTANT * multiplier
+    CONSTANT * multiplier
 }
 
 @@ get_constant + '!'
@@ -59,13 +59,12 @@ greet_with_label { for name -> 'Mister `name`' }
 @@ greet_with_label(for: 'Eko')
 
 Some_Class {
-  nothing =;
+    nothing =;
+    something = { x y z }
 
-  something = { x y z }
-
-  inspect { ->
-    "I am some class"
-  }
+    inspect { ->
+        "I am some class"
+    }
 }
 
 some = Some_Class.new
