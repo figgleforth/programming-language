@@ -1,3 +1,26 @@
+Transform {
+	position = {x y z}
+	rotation = 0
+}
+
+@@ Transform.new
+
+
+Atom { id =; }
+Element { id = 42 }
+
+Object > Atom {
+	&Element
+}
+
+Object2 {
+
+}
+
+#@@ 'atom id ' + Atom.new.id
+#@@ 'element id ' + Element.new.id
+#@@ 'object id ' + Object.new.id
+
 x = 1;
 
 result = if x == 2 {
@@ -7,32 +30,33 @@ else
 }
 
 boo = 'does interpolation work yet? `result`'
-@p boo
-@p 'Apparently ' + result
+@@ 'Apparently not\n' + boo
 
-@p 'x before while loop ' + x
+@@ 'x before while loop ' + x
 while x < 5 {
   x = x + 1
+  @@ 'x became ' + x
 elswhile x < 10 {
   x = x + 2
-  @p "This won't print!"
+  @@ "This won't print!"
 }
-@p 'x after ' + x
+@@ 'x after while loop ' + x
 
 CONSTANT = 42
 
-get_constant { multiplier = 1 ->
-	CONSTANT * multiplier
+get_constant { multiplier = 1.6 ->
+	multiplier ** multiplier * CONSTANT
 }
 
-@p get_constant + '!'
-@p get_constant(2)
+@@ 1.6 ** 1.6 * 42
+@@ 'constant: ' + get_constant
+@@ get_constant(2)
 
 greet_with_arg { name -> 'hello `name`' }
 greet_with_label { for name -> 'Mister `name`' }
 
-@p greet_with_arg('Eko')
-@p greet_with_label(for: 'Eko')
+@@ greet_with_arg('Eko')
+@@ greet_with_label(for: 'Eko')
 
 Some_Class {
   nothing =;
@@ -45,5 +69,5 @@ Some_Class {
 }
 
 some = Some_Class.new
-@p some.something # { x: nil, y: nil, z: nil }
-@p some.inspect
+@@ some.something # { x: nil, y: nil, z: nil }
+@@ some.inspect

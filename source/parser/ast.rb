@@ -545,7 +545,7 @@ end
 
 
 class Macro_Command_Expr < Macro_Expr
-    attr_accessor :name, # @p for puts
+    attr_accessor :name, # @@ for puts
                   :expression
 end
 

@@ -6,9 +6,13 @@ class Scope
                   :functions, # hash of Block_Constructs
                   :classes # hash of Class_Constructs
 
-    def initialize
+    def initialize name = nil
         @depth        = @@block_depth
-        @name         = 'Global' if @depth == 0
+        @name         = if @depth == 0
+            'Global'
+        elsif name
+            name
+        end
         @@block_depth += 1
         @variables    = {}
         @functions    = {}

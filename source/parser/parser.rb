@@ -41,8 +41,8 @@ class Parser
           [1, %w([ ])],
           [2, %w(!)],
           [3, %w(- +)], # Additive
-          [4, %w(**)], # Exponentiation
-          [5, %w(* / %)], # Multiplicative
+          # [4, %w(**)], # Exponentiation. note: I don't know enough about operators right now, but, I don't think the exponential operator should have its own precedence. For example, x**y*z gave a different result in Ruby than in this language when it has its own precedence. Therefore, I believe it should have the same precedence as the other multiplicative operators. All tests still pass, and at least this gives me the same output that Ruby does
+          [5, %w(** * / %)], # Multiplicative
           # 6 is reserved for unary + -
           [7, %w(<< >>)], # Shift
           [8, %w(< <= > >=)], # Relational
@@ -232,7 +232,7 @@ class Parser
 
     def make_assignment_ast
         Assignment_Expr.new.tap do |node|
-            node.name = eat(Identifier_Token).string # @todo store the Token and not just the string
+            node.name = eat(Identifier_Token).string # todo) store the Token and not just the string
 
             if curr? '=;'
                 eat '=;'
@@ -309,12 +309,14 @@ class Parser
 
 
     def make_composition_ast
-        Composition_Expr.new.tap do |node|
-            node.operator   = eat.string # * & ~
-            node.identifier = eat.string
+        Composition_Expr.new.tap do |it|
+            it.operator   = eat.string # * & ~
+            it.identifier = Identifier_Expr.new.tap do |id|
+                id.string = eat.string
+            end
 
             if curr? 'as' and eat
-                node.alias_identifier = eat(Identifier_Token).string
+                it.alias_identifier = eat(Identifier_Token).string
             end
         end
     end
@@ -323,14 +325,16 @@ class Parser
     def make_inline_composition_ast
         Composition_Expr.new.tap do |it|
             ident         = eat.string
+            it.identifier = Identifier_Expr.new.tap do |id|
+                id.string = ident[1..]
+            end
             it.operator   = ident[0]
-            it.identifier = ident[1..] # excludes the &
         end
     end
 
 
     def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
-        if curr? '@p'
+        if curr? '@@'
             Macro_Command_Expr.new.tap do |it|
                 it.name       = eat(Macro_Token).string
                 it.expression = parse_expression

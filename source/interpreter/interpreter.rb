@@ -1,6 +1,7 @@
 require_relative '../parser/ast'
 require_relative 'scope'
 require_relative 'constructs'
+require 'pp'
 
 
 class Interpreter # evaluates AST and returns the result
@@ -85,6 +86,13 @@ class Interpreter # evaluates AST and returns the result
 
     # endregion
 
+    def merge_scope_into_current scope
+        curr_scope.variables.merge scope.variables
+        curr_scope.functions.merge scope.functions
+        curr_scope.classes.merge scope.classes
+    end
+
+
     def evaluate expr # note: issues are raised here because the REPL catches these errors and prints them nicely in color
         case expr
             when Number_Literal_Expr
@@ -127,15 +135,21 @@ class Interpreter # evaluates AST and returns the result
 
                 # instantiate when Class_Construct . 'new'
                 if left.is_a? Class_Construct and expr.right.string == 'new'
-                    return Instance_Construct.new.tap do |it|
+                    instance = Instance_Construct.new.tap do |it|
                         it.class_construct = left
 
                         push_scope Scope.new # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
+
+                        if left.base_class
+                            guts = get_from_scope :classes, left.base_class
+                            evaluate guts.block
+                        end
 
                         evaluate left.block
                         it.scope      = pop_scope
                         it.scope.name = left.name
                     end
+                    return instance
                 end
 
                 if left.is_a? Class_Construct and expr.operator == '.'
@@ -288,6 +302,8 @@ class Interpreter # evaluates AST and returns the result
                     end
                 elsif value.is_a? Class_Construct
                     value
+                elsif value.is_a? Instance_Construct
+                    value
                 elsif value.is_a? Construct
                     evaluate value.expression
                 else
@@ -334,9 +350,25 @@ class Interpreter # evaluates AST and returns the result
                         set_on_scope :variables, it.name, evaluate(it.default_expression)
                     end
 
-                    expr.expressions.map do |expr_inside_block|
-                        next if expr_inside_block.is_a? Composition_Expr # todo: don't skip, actually implement
-                        last_statement = evaluate expr_inside_block
+                    expr.compositions.map do |it|
+                        ident = it.identifier.string
+                        if it.operator == '&'
+                            if it.identifier.string[0]&.chars&.all? { |c| c.downcase == c }
+                                raise 'Cannot compose with members yet'
+                            elsif it.identifier.string[0]&.chars&.all? { |c| c.upcase == c }
+                                guts = get_from_scope :classes, ident
+                                evaluate guts.block
+                            end
+                            # todo) error message when composition doesn't exist in any scope
+                        elsif it.operator == '~'
+                        else
+                            raise "Interpreter#evaluate: Unknown composition operator #{it.inspect}"
+                        end
+                    end
+
+                    expr.expressions.map do |it|
+                        next if it.is_a? Composition_Expr # these are explicitly handled above because expressions might depend compositions being present
+                        last_statement = evaluate it
                     end
                 end
                 last_statement
@@ -348,22 +380,39 @@ class Interpreter # evaluates AST and returns the result
 
                 construct = get_from_scope :functions, expr.name
                 if construct # is a Block_Construct
-                    push_scope Scope.new
+                    push_scope Scope.new(expr.name.string)
 
                     # evaluates argument expression if present, otherwise the declared param expression
-                    construct.block.parameters.zip(expr.arguments).each do |(param, argument)|
+                    construct.block.parameters.zip(expr.arguments).each do |(param, arg)|
                         # Block_Param_Decl_Expr and Block_Arg_Expr
-                        value = if argument
-                            evaluate argument.expression
+                        value = if arg
+                            evaluate arg.expression
                         else
                             evaluate param.default_expression
                         end
 
-                        set_on_scope :variables, param.name, value
+                        # if an arg like Boo.new is evaluated, it's value is an Instance_Construct so I need to merge its guts, which are located at instance_construct.scope
+                        # todo) currently though, I'm re-evaluating the block that was originally used to evaluate `value` here. So this seems bad. I want the actual instance to be in this scope, not a copy of it. So this needs to really use that #merge_scope_into_current function
+                        if value.is_a? Instance_Construct
+                            # merge_scope_into_current value.scope
+                            evaluate value.class_construct.block
+                        end
+
+                        # todo: why is this here? I commented it out and all tests still pass. This could explain the high scope depth count?
+                        # if param.composition and arg
+                        #     existing_declaration = get_from_scope :variables, arg.expression.string
+                        #
+                        #     if existing_declaration
+                        #         # note) here I'm evaluating the block that was used to interpret the existing declaration.
+                        #         evaluate existing_declaration.interpreted_value.class_construct.block
+                        #     end
+                        # end
+
+                        set_on_scope :variables, param.name, value # || Nil_Construct.new
                     end
 
                     construct.block.expressions.each do |expr_inside_block|
-                        last_statement = evaluate expr_inside_block # expressions.first
+                        last_statement = evaluate expr_inside_block
                     end
                     pop_scope
                 else
@@ -405,8 +454,6 @@ class Interpreter # evaluates AST and returns the result
             when Nil_Expr, nil
                 Nil_Construct.new
 
-            when Nil_Construct
-                'nil'
             else
                 raise "Interpreting not implemented for #{expr.class}"
         end

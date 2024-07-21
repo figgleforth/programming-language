@@ -23,3 +23,10 @@ Figure out Class_Construct. How is that used to initialize an instance? See Inte
 
 Two identifier expressions are valid syntax. For example, `ab = 12 cd = 34` evaluates to 12. This might involve lexing whitespace again? I'm not really sure
 
+Interpreter issue: Looks like params are not declared in the scope of the block
+x { in -> in }
+◼︎ #<Block_Construct:0x0000000103f2c110>
+x()
+◼︎ undefined variable or function `in` in  scope
+
+Compositions and args/params at Interpreter#evaluate when Block_Expr

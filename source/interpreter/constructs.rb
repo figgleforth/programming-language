@@ -21,8 +21,20 @@ end
 
 
 class Instance_Construct < Construct
+    @@ids = 0
     attr_accessor :scope, :class_construct
+    attr_reader :id
     # todo: don't store the class_construct here. It's already stored in the scope under :classes, so just look it up when needed
+    def initialize
+        super
+        @id   = @@ids
+        @@ids += 1
+    end
+
+
+    def name
+        class_construct&.name
+    end
 end
 
 

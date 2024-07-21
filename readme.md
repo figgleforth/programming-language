@@ -32,16 +32,16 @@ else
 }
 
 boo = 'does interpolation work yet? `result`'
-@p boo
+@@ boo
 
-@p 'x before while loop ' + x
+@@ 'x before while loop ' + x
 while x < 5 {
   x = x + 1
 elswhile x < 10 {
   x = x + 2
-  @p "This won't print!"
+  @@ "This won't print!"
 }
-@p 'x after ' + x
+@@ 'x after ' + x
 
 CONSTANT = 42
 
@@ -49,14 +49,14 @@ get_constant { multiplier = 1 ->
 	CONSTANT * multiplier
 }
 
-@p get_constant + '!'
-@p get_constant(2)
+@@ get_constant + '!'
+@@ get_constant(2)
 
 greet_with_arg { name -> 'hello `name`' }
 greet_with_label { for name -> 'Mister `name`' }
 
-@p greet_with_arg('Eko')
-@p greet_with_label(for: 'Eko')
+@@ greet_with_arg('Eko')
+@@ greet_with_label(for: 'Eko')
 
 Some_Class {
   nothing =;
@@ -69,8 +69,8 @@ Some_Class {
 }
 
 some = Some_Class.new
-@p some.something # { x: nil, y: nil, z: nil }
-@p some.inspect
+@@ some.something # { x: nil, y: nil, z: nil }
+@@ some.inspect
 ```
 
 *See `tests/parser.rb` or `tests/interpreter.rb` for more of the syntax.*

@@ -1,6 +1,7 @@
 require_relative '../source/parser/parser'
 require_relative '../source/lexer/lexer'
 require_relative '../source/interpreter/interpreter'
+require 'pp'
 
 
 def t code, &block
@@ -27,6 +28,11 @@ def t code, &block
     @tests_ran += 1
 end
 
+
+t 'x { in -> in }
+x()' do |it|
+    it.is_a? Nil_Construct
+end
 
 t '' do |it|
     it.nil?
@@ -387,3 +393,87 @@ else
 ' do |it|
     it == 3
 end
+
+t '
+Boo {
+    id =;
+    boo! { -> "boo!" }
+}
+
+Moo {
+    &Boo
+}
+
+Moo.new
+' do |it|
+    it.is_a? Instance_Construct and it.scope.variables.keys.include? 'id' and it.scope.functions.keys.include? 'boo!'
+end
+
+t '
+Boo {
+    id =;
+    boo! { -> "boo!" }
+}
+
+Moo > Boo {
+}
+
+Moo.new
+' do |it|
+    it.is_a? Instance_Construct and it.scope.variables.keys.include? 'id' and it.scope.functions.keys.include? 'boo!'
+end
+
+t '
+Boo {
+    bwah = "boo0!"
+}
+
+scare { &boo ->
+    bwah
+}
+
+b = Boo.new
+scare(b)
+' do |it|
+    it == '"boo0!"'
+end
+
+t '
+Boo {
+    full_scare! { times = 6 ->
+        scream = "b"
+        i = 0
+        while i < times {
+            scream = scream + "o"
+            i = i + 1
+        }
+        scream
+    }
+}
+
+scare { &boo ->
+    full_scare!
+}
+
+b = Boo.new
+scare(b)
+' do |it|
+    it == "\"\"\"\"\"\"\"b\"o\"o\"o\"o\"o\"o\"" # todo) update this test when
+end
+
+t '
+Boo {
+    scary = 1234
+}
+
+moo { boo -> boo.scary }
+first = moo(Boo.new)
+
+moo_with_comp { &boo_param ->
+    scary
+}
+moo_with_comp(Boo.new) + moo_with_comp(b = Boo.new)
+' do |it|
+    it == 2468
+end
+
