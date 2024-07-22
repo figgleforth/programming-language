@@ -3,7 +3,7 @@ require_relative '../source/parser/parser'
 require_relative '../source/parser/exprs'
 require_relative '../source/interpreter/interpreter'
 
-tokens = Lexer.new(File.read('tests/sandbox.em').to_s).lex
+tokens = Lexer.new(File.read('examples/sandbox.em').to_s).lex
 ast    = Parser.new(tokens).to_ast
 
 if ARGV.include? 'interpret'
