@@ -7,25 +7,25 @@ require_relative '../interpreter/interpreter'
 class REPL
     # see https://github.com/fidian/ansi for a nice table of colors with their codes
     COLORS = {
-      black:         0,
-      red:           197,
-      green:         2,
-      yellow:        3,
-      blue:          4,
-      magenta:       5,
-      cyan:          6,
-      white:         7,
-      gray:          236,
-      light_gray:    240,
-      lighter_gray:  244,
-      light_red:     9,
-      light_green:   10,
-      light_yellow:  11,
-      light_blue:    12,
-      light_magenta: 13,
-      light_cyan:    14,
-      light_white:   15
-    }.freeze
+               black:         0,
+               red:           197,
+               green:         2,
+               yellow:        3,
+               blue:          4,
+               magenta:       5,
+               cyan:          6,
+               white:         7,
+               gray:          236,
+               light_gray:    240,
+               lighter_gray:  244,
+               light_red:     9,
+               light_green:   10,
+               light_yellow:  11,
+               light_blue:    12,
+               light_magenta: 13,
+               light_cyan:    14,
+               light_white:   15
+             }.freeze
 
     BULLET = '◼︎'.freeze
 
@@ -93,11 +93,11 @@ class REPL
 
             foreground = 'lighter_gray' # for output foreground
             begin
-                tokens            = Lexer.new(input).lex
-                ast               = Parser.new(tokens).to_ast
-                block             = Block_Expr.new
-                block.expressions = ast
-                output            = interpreter.evaluate block
+                tokens = Lexer.new(input).lex
+                ast    = Parser.new(tokens).to_ast
+                # block             = Block_Expr.new
+                # block.expressions = ast
+                output = interpreter.evaluate ast[0]
             rescue Exception => e
                 output     = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
                 foreground = 'red'
