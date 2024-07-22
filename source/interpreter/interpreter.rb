@@ -235,7 +235,8 @@ class Interpreter # evaluates AST and returns the result
             instance = Instance_Construct.new.tap do |it|
                 it.class_construct = left
 
-                push_scope Scope.new # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
+                push_scope Instance_Scope.new # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
+                # todo) should this here be a Class_Scope?
 
                 if left.base_class
                     guts = get_from_scope left.base_class

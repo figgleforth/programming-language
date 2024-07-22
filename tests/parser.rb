@@ -29,9 +29,9 @@ def t code, &block
 end
 
 
-t File.read('./tests/sandbox.em').to_s do |it|
+t File.read('./examples/sandbox.em').to_s do |it|
     # note) it param is the last expression parsed from sandbox.em
-    it.is_a? Binary_Expr
+    it.is_a? Class_Expr
 end
 
 t 'if abc {
@@ -645,4 +645,14 @@ else
       it.condition.is_a? Identifier_Expr and
       it.when_true.is_a? Block_Expr and
       it.when_false.is_a? Block_Expr
+end
+
+t 'curse -> 4815162342' do |it|
+    it.is_a? Block_Expr and it.expressions.one? and it.expressions[0].is_a? Number_Literal_Expr
+end
+
+t 'Dog {
+    bark -> "woof"
+}' do |it|
+    it.is_a? Class_Expr
 end

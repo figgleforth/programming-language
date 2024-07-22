@@ -24,6 +24,8 @@ Atom {
 	~ Rot
 
 	whatever =;
+
+	inline_func -> 'inline!'
 }
 
 Player { & Atom as atom }
@@ -476,3 +478,7 @@ Atom {
 }
 
 Atom.new
+
+Atom {
+	inline_func -> 'inline!'
+}

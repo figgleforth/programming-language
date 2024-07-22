@@ -462,6 +462,16 @@ class Parser
     end
 
 
+    def make_inline_block_ast
+        # ident -> expression
+        Block_Expr.new.tap do |it|
+            it.name = eat Identifier_Token
+            eat '->'
+            it.expressions = [parse_expression]
+        end
+    end
+
+
     def make_block_ast
         # ident { ... }
         # ident { -> ... }
@@ -708,6 +718,9 @@ class Parser
 
         elsif curr? Identifier_Token, '{' and peek_until_contains? '}', '->'
             make_block_ast
+
+        elsif curr? Identifier_Token, '->'
+            make_inline_block_ast
 
         elsif curr? Identifier_Token, '=' # and curr.member? # lowercase identifier
             make_assignment_ast

@@ -30,7 +30,7 @@ def t code, &block
 end
 
 
-t File.read('./tests/sandbox.em').to_s do |it|
+t File.read('./examples/sandbox.em').to_s do |it|
     # todo) update this test once this hurdle is crossed.
     it.is_a? RuntimeError and it.message == 'Interpreting not implemented for Enum_Collection_Expr'
 end
@@ -494,4 +494,26 @@ scare = Boo.new.scream
 scare()
 ' do |it|
     it == "\"Boo!\""
+end
+
+t 'Dog {
+    bark -> "woof"
+}' do |it|
+    it.is_a? Class_Construct and it.block.expressions.one? and it.block.expressions.first.is_a? Block_Expr and it.block.expressions.first.name == 'bark'
+end
+
+t 'Dog {
+    bark -> "woof"
+}
+Dog.new.bark
+' do |it|
+    it.is_a? Block_Construct
+end
+
+t 'Dog {
+    bark -> "woof"
+}
+Dog.new.bark()
+' do |it|
+    it == "\"woof\""
 end
