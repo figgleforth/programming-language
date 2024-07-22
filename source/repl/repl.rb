@@ -2,9 +2,19 @@ require 'readline'
 require_relative '../lexer/lexer'
 require_relative '../parser/parser'
 require_relative '../interpreter/interpreter'
+require_relative '../interpreter/scopes'
+
+BULLET_COLOR       = 236
+OUTPUT_COLOR       = 240
+BULLET_COLOR_ERROR = 88
+OUTPUT_COLOR_ERROR = 196
+BULLET_COLOR_INTRO = 238
+OUTPUT_COLOR_INTRO = 242
 
 
 class REPL
+    attr_accessor :instructions
+
     # see https://github.com/fidian/ansi for a nice table of colors with their codes
     COLORS = {
                black:         0,
@@ -37,8 +47,16 @@ class REPL
 
 
     def colorize(foreground, string, background = nil)
-        fg_code = COLORS[foreground&.downcase&.to_sym]
-        bg_code = COLORS[background&.downcase&.to_sym]
+        fg_code = if foreground.is_a? Integer
+            foreground
+        else
+            COLORS[foreground&.downcase&.to_sym]
+        end
+        bg_code = if background.is_a? Integer
+            background
+        else
+            COLORS[background&.downcase&.to_sym]
+        end
 
         ansi_fg = fg_code ? "\e[38;5;#{fg_code}m" : ""
         ansi_bg = bg_code ? "\e[48;5;#{bg_code}m" : ""
@@ -57,13 +75,19 @@ class REPL
     end
 
 
-    def repl # I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean – the square bullet basically represents output from the REPL
-
-        instructions = %Q(#{BULLET} exit with \\q or \\x or exit
-#{BULLET} continue on next line with
+    def help_instructions
+        @instructions ||= %Q(#{BULLET} exit with \\q or \\x or exit
+#{BULLET} continue on next line with \\
 #{BULLET} end multiline with ; or an expression
-#{BULLET} print current scope with @)
-        puts colorize('lighter_gray', "#{instructions}\n")
+#{BULLET} print current scope with @
+#{BULLET} errors print in red
+#{BULLET} output prints in gray)
+    end
+
+
+    def repl # I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean – the square bullet basically represents output from the REPL
+        print colorize('blue', BULLET) + colorize('blue', " \e[1mEmerald REPL\e[0m")
+        print colorize('blue', ", type help for tips\n")
 
         interpreter = Interpreter.new
 
@@ -80,7 +104,10 @@ class REPL
                 line  = Readline.readline('', true)
                 input += line + "\n"
 
-                if %w(\q \x exit).include?(line.strip.downcase)
+                if line.strip.downcase == 'help'
+                    break
+
+                elsif %w(\q \x exit).include?(line.strip.downcase)
                     # break
                     exit
 
@@ -91,20 +118,32 @@ class REPL
                 end
             end
 
-            foreground = 'lighter_gray' # for output foreground
-            begin
-                tokens = Lexer.new(input).lex
-                ast    = Parser.new(tokens).to_ast
-                # block             = Block_Expr.new
-                # block.expressions = ast
-                output = interpreter.evaluate ast[0]
-            rescue Exception => e
-                output     = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
-                foreground = 'red'
+            if input.strip.downcase == 'help'
+                puts colorize 'blue', help_instructions
+                next
             end
 
-            output     = 'nil' if output.is_a? Nil_Construct
-            puts colorize(foreground, "#{BULLET} #{output}")
+            bullet = BULLET_COLOR
+            text   = OUTPUT_COLOR
+            begin
+                tokens            = Lexer.new(input).lex
+                ast               = Parser.new(tokens).to_ast
+                block             = Block_Expr.new
+                block.expressions = ast
+                output            = interpreter.evaluate block
+            rescue Exception => e
+                output = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
+                text   = OUTPUT_COLOR_ERROR
+                bullet = BULLET_COLOR_ERROR
+            end
+
+            output = 'nil' if output.is_a? Nil_Construct
+            if output.is_a? Scopes::Scope # to pretty print the scope from the @ command
+                output = PP.pp(output.declarations, '').chomp
+            end
+            print colorize(bullet, "#{BULLET} ")
+            print colorize(text, output)
+            puts
         end
     end
 

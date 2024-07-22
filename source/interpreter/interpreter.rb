@@ -165,25 +165,9 @@ class Interpreter # evaluates AST and returns the result
                 set_on_scope it.name, it
             end
         else
-            # push scope unless it's a conditional block
-
-            # puts "ANON BLOCK"
-            # puts PP.pp(expr, '').chomp
             # anonymous block
-            # evaluate the block since it wasn't named, and therefor isn't being stored
-            # todo: generalize Block_Call_Expr then use here instead for consistency
-            # push_scope Scope.new('Anonymous')
-            # previous scope has x=0
-            # new scope has assignment x = x + 1.
-            # this anonymous scope needs access to the previous scope, so should I?
-            # a) merge previous scope into anonymous scope
-            # b) stay in current scope, but delete any declarations afterwards
-            # Jai pushes a new scope
-            # ideas
-            # - get_from_scope should tell you whether the value it gives you is from this scope or outside this scope
 
             # evaluate the block since it wasn't named, and therefor isn't being stored
-            # todo: generalize Block_Call_Expr then use here instead for consistency
             expr.parameters.each do |it|
                 # Block_Param_Decl_Expr
                 set_on_scope it.name, evaluate(it.default_expression)
@@ -360,11 +344,6 @@ class Interpreter # evaluates AST and returns the result
                 it.is_constant = expr.expression.constant?
             end
 
-            shadow = get_from_scope it.name
-            if shadow # means the variable trying to be assigned exists
-                puts "EXISTS!!! #{shadow.inspect}"
-            else
-            end
             set_on_scope it.name, it
         end
         return_value
@@ -392,7 +371,7 @@ class Interpreter # evaluates AST and returns the result
         #   if identifier is class, look up classes
 
         if expr.string == '@'
-            return curr_scope.inspect
+            return curr_scope
         end
 
         lookup_hash = %i(variables functions classes) # used in #get_from_scope to Runtime_Scope.send lookup_hash

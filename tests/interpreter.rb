@@ -389,17 +389,17 @@ end
 
 t '
 x = 1
-while x < 3 {
+while x < 4 {
     x = x + 1
 elswhile x < 6
     x = x + 2
 else
     9
 }
-x
+
+x + 1
 ' do |it|
-    puts "it? WTF #{it.inspect}"
-    it == 3
+    it == 5
 end
 
 t '
