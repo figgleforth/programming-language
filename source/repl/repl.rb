@@ -13,7 +13,7 @@ OUTPUT_COLOR_INTRO = 242
 
 
 class REPL
-    attr_accessor :instructions
+    attr_accessor :instructions, :total_executed, :total_errors
 
     # see https://github.com/fidian/ansi for a nice table of colors with their codes
     COLORS = {
@@ -38,6 +38,12 @@ class REPL
              }.freeze
 
     BULLET = '◼︎'.freeze
+
+
+    def initialize
+        @total_executed = 0
+        @total_errors   = 0
+    end
 
 
     def ansi_color_from_hex hex
@@ -71,17 +77,20 @@ class REPL
 
 
     def for_fun_error_expr_percentage_this_session # just returns % of expressions that did not return an error
-        @total_errors.to_f / @total_executed.to_f
+        return "no expressions evaluated yet" if total_executed == 0
+        percent = Integer((total_errors.to_f / total_executed.to_f) * 100).round
+        "#{percent}% expressions failed (#{total_errors} of #{total_executed})"
     end
 
 
     def help_instructions
         @instructions ||= %Q(#{BULLET} exit with \\q or \\x or exit
 #{BULLET} continue on next line with \\
-#{BULLET} end multiline with ; or an expression
-#{BULLET} print current scope with @
+#{BULLET} end multiline with ; or complete an expression
+#{BULLET} output prints in gray
 #{BULLET} errors print in red
-#{BULLET} output prints in gray)
+#{BULLET} print current scope with @
+#{BULLET} print fun stats with %)
     end
 
 
@@ -99,6 +108,9 @@ class REPL
         trap('INT') { exit }
 
         loop do
+            bullet = BULLET_COLOR
+            text   = OUTPUT_COLOR
+
             input = ''
             loop do
                 line  = Readline.readline('', true)
@@ -118,13 +130,19 @@ class REPL
                 end
             end
 
+            @total_executed += 1
+
             if input.strip.downcase == 'help'
                 puts colorize 'blue', help_instructions
                 next
             end
 
-            bullet = BULLET_COLOR
-            text   = OUTPUT_COLOR
+            if input.strip.downcase == '%'
+                print colorize(bullet, "#{BULLET} ")
+                puts colorize(text, for_fun_error_expr_percentage_this_session)
+                next
+            end
+
             begin
                 tokens            = Lexer.new(input).lex
                 ast               = Parser.new(tokens).to_ast
@@ -132,12 +150,13 @@ class REPL
                 block.expressions = ast
                 output            = interpreter.evaluate block
             rescue Exception => e
-                output = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
-                text   = OUTPUT_COLOR_ERROR
-                bullet = BULLET_COLOR_ERROR
+                @total_errors += 1
+                output        = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
+                text          = OUTPUT_COLOR_ERROR
+                bullet        = BULLET_COLOR_ERROR
             end
 
-            output = 'nil' if output.is_a? Nil_Construct
+            output          = 'nil' if output.is_a? Nil_Construct
             if output.is_a? Scopes::Scope # to pretty print the scope from the @ command
                 output = PP.pp(output.declarations, '').chomp
             end
