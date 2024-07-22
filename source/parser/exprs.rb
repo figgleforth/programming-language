@@ -22,7 +22,7 @@ end
 
 # { .. } is always a block, whether its a class body, function body, or just a block just in the middle of a bunch of statements using {}. I think a block in the middle that declares params should probably fail because nothing is calling the block, it's essentially just grouping code together/
 class Block_Expr < Expr
-    attr_accessor :name, :expressions, :compositions, :parameters, :signature, :is_operator_overload, :force_evaluation
+    attr_accessor :name, :expressions, :compositions, :parameters, :signature, :is_operator_overload
 
 
     def initialize

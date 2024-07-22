@@ -388,7 +388,7 @@ if x == 4 { "no" elsif x == 2 "maybe" else "yes" }
 end
 
 t '
-x = 0
+x = 1
 while x < 3 {
     x = x + 1
 elswhile x < 6
@@ -396,7 +396,9 @@ elswhile x < 6
 else
     9
 }
+x
 ' do |it|
+    puts "it? WTF #{it.inspect}"
     it == 3
 end
 

@@ -156,7 +156,7 @@ class Interpreter # evaluates AST and returns the result
 
     def eval_block expr
         last_statement = nil # the default return value of all blocks
-        if expr.named? and not expr.force_evaluation # store the block on the current scope
+        if expr.named? # store the block on the current scope so it can be called later
             last_statement = Block_Construct.new.tap do |it|
                 it.block     = expr
                 it.name      = expr.name
@@ -165,6 +165,23 @@ class Interpreter # evaluates AST and returns the result
                 set_on_scope it.name, it
             end
         else
+            # push scope unless it's a conditional block
+
+            # puts "ANON BLOCK"
+            # puts PP.pp(expr, '').chomp
+            # anonymous block
+            # evaluate the block since it wasn't named, and therefor isn't being stored
+            # todo: generalize Block_Call_Expr then use here instead for consistency
+            # push_scope Scope.new('Anonymous')
+            # previous scope has x=0
+            # new scope has assignment x = x + 1.
+            # this anonymous scope needs access to the previous scope, so should I?
+            # a) merge previous scope into anonymous scope
+            # b) stay in current scope, but delete any declarations afterwards
+            # Jai pushes a new scope
+            # ideas
+            # - get_from_scope should tell you whether the value it gives you is from this scope or outside this scope
+
             # evaluate the block since it wasn't named, and therefor isn't being stored
             # todo: generalize Block_Call_Expr then use here instead for consistency
             expr.parameters.each do |it|
@@ -343,6 +360,11 @@ class Interpreter # evaluates AST and returns the result
                 it.is_constant = expr.expression.constant?
             end
 
+            shadow = get_from_scope it.name
+            if shadow # means the variable trying to be assigned exists
+                puts "EXISTS!!! #{shadow.inspect}"
+            else
+            end
             set_on_scope it.name, it
         end
         return_value
