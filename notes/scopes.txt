@@ -6,7 +6,7 @@
 # say there's this code `a = 42`. That Assignment_Expr gets added to the current scope
 {
   '!>': Print_To_Console,
-  hello: Block_Construct(Block_Expr([String_Literal_Expr('hi!')]))
+  a: 42
 }
 
 # say there's `hello { -> 'hi!' }. That Block_Decl also gets added to the scope
