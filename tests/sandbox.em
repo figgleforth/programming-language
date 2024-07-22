@@ -1,7 +1,4 @@
-CHARACTER {
-	GUY
-	ENEMY
-}
+Atom {}
 
 Thing {
 	# compositions
@@ -13,6 +10,11 @@ Thing {
 	& CHARACTER # works with enums. No need to prefix GUY or ENEMY with CHARACTER dot
 
 	# Objects can simultaneously be as many types as they want to compose with. I think I want that to work with enums as well.
+}
+
+CHARACTER {
+	GUY
+	ENEMY
 }
 
 
@@ -465,10 +467,12 @@ x { in = 1 -> in }
 x()
 
 
-Atom.new
+
 
 Atom {
 	&Atom
 	& Atoms as atoms
 	func { &this, & that = true -> } # composition valid with or without whitespace after &
 }
+
+Atom.new

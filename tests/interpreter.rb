@@ -30,6 +30,11 @@ def t code, &block
 end
 
 
+t File.read('./tests/sandbox.em').to_s do |it|
+    # todo) update this test once this hurdle is crossed.
+    it.is_a? RuntimeError and it.message == 'Interpreting not implemented for Enum_Collection_Expr'
+end
+
 t 'x { in -> in }
 x()' do |it|
     it.is_a? Nil_Construct
@@ -478,3 +483,15 @@ moo_with_comp(Boo.new) + moo_with_comp(b = Boo.new)
     it == 2468
 end
 
+t '
+Boo {
+    scream { ->
+        "Boo!"
+    }
+}
+
+scare = Boo.new.scream
+scare()
+' do |it|
+    it == "\"Boo!\""
+end

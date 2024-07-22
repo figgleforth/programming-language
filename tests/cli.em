@@ -22,7 +22,8 @@ else
 }
 
 boo = 'does interpolation work yet? `result`'
-!> boo + ' .. apparently not'
+!!> boo
+!!!> 'no it does not'
 
 !> 'x before while loop ' + x
 while x < 5 {

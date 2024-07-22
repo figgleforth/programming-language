@@ -16,7 +16,7 @@ def t code, &block
         raise e
     end
 
-    block_result = block.call ast.first # test only the first expression parse since this test only cares about single expressions
+    block_result = block.call ast.last # test only the first expression parse since this test only cares about single expressions
 
     if not block_result
         parser_output = [ast].flatten.map { |a| PP.pp(a, "").chomp }
@@ -28,6 +28,11 @@ def t code, &block
     @tests_ran += 1
 end
 
+
+t File.read('./tests/sandbox.em').to_s do |it|
+    # note) it param is the last expression parsed from sandbox.em
+    it.is_a? Binary_Expr
+end
 
 t 'if abc {
 }' do |it|

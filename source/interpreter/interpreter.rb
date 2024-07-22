@@ -109,12 +109,18 @@ class Interpreter # evaluates AST and returns the result
 
 
     def eval_block_call expr
-        # Come up with a way to create block signatures. This should allow for functions to share names but declare different params. The signature is not a hash, it could be a string like func1 { a -> } to 'func1->a'. Or something like that, not sure yet.
+        # todo) Come up with a way to create block signatures. This should allow for functions to share names but declare different params. The signature is not a hash, it could be a string like `greeting { name -> name }` to 'greeting(name)'.
+        # Since we know the strings of the param identifiers, they should be used in the signature. So can labels, so for example `greeting { for name -> name }` could be `greeting(for)`. The label should be used in place of the param name since that is the externally visible identifier for this param anyway, so it should be in the signature.
+        # This would allow for methods with shared names but different params, so `greeting { from name -> name }` becomes `greeting(from)`. And now there are two funcs with the same name greeting(for) and greeting(from). The interpreter can decide which to call based on the label. greeting(for: 'Locke') or greeting(from: 'Locke)'
 
         last_statement = nil # is the default return value of all blocks
 
         construct = get_from_scope expr.name
-        if construct # is a Block_Construct
+        if construct.is_a? Variable_Construct # eval_block_call is called when a Block_Construct needs to be evaluated. In this case, a variable's value is a Block_Construct that needs evaluating, so we have to get the Block_Construct directly from the Variable_Construct:
+            construct = construct.interpreted_value
+        end
+
+        if construct.is_a? Block_Construct
             push_scope Scope.new(expr.name.string)
 
             # evaluates argument expression if present, otherwise the declared param expression
@@ -141,18 +147,7 @@ class Interpreter # evaluates AST and returns the result
             end
             pop_scope
         else
-            # when blocks are stored in variables, they can be evaluated later as long as a method by the same name doesn't already exist? This doesn't seem right
-            construct = get_from_scope expr.name
-            if construct and construct.expression.is_a? Block_Expr
-                push_scope Scope.new
-                construct.expression.expressions.map do |block_expr|
-                    last_statement = evaluate block_expr
-                end
-                pop_scope
-            else
-                raise "undefined `#{expr.name}`"
-            end
-
+            raise 'This will never get raised. If it does, check your logic for calling blocks'
         end
 
         last_statement
