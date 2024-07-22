@@ -5,6 +5,7 @@ require_relative '../interpreter/interpreter'
 
 
 class REPL
+    # see https://github.com/fidian/ansi for a nice table of colors with their codes
     COLORS = {
       black:         0,
       red:           197,
@@ -29,12 +30,8 @@ class REPL
     BULLET = '◼︎'.freeze
 
 
-    def hex_to_rgb(hex)
-        hex.scan(/../).map { |color| color.to_i(16) }
-    end
-
-
-    def rgb_to_ansi(rgb)
+    def ansi_color_from_hex hex
+        rgb = hex.scan(/../).map { |color| color.to_i(16) }
         "\e[38;2;#{rgb[0]};#{rgb[1]};#{rgb[2]}m"
     end
 
@@ -51,17 +48,22 @@ class REPL
 
 
     def prompt
-        colorize('light_gray', '')
+        colorize('lighter_gray', '')
+    end
+
+
+    def for_fun_error_expr_percentage_this_session # just returns % of expressions that did not return an error
+        @total_errors.to_f / @total_executed.to_f
     end
 
 
     def repl # I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean – the square bullet basically represents output from the REPL
 
-        help0 = "#{BULLET} exit with \\q or \\x or exit"
-        help1 = "#{BULLET} continue on next line with \\"
-        help2 = "#{BULLET} end multiline with ; or an expression"
-        help3 = "#{BULLET} print current scope with @"
-        puts colorize('light_gray', "#{help0}\n#{help1}\n#{help2}\n#{help3}\n")
+        instructions = %Q(#{BULLET} exit with \\q or \\x or exit
+#{BULLET} continue on next line with
+#{BULLET} end multiline with ; or an expression
+#{BULLET} print current scope with @)
+        puts colorize('lighter_gray', "#{instructions}\n")
 
         interpreter = Interpreter.new
 
@@ -89,7 +91,7 @@ class REPL
                 end
             end
 
-            foreground = 'light_gray' # for output foreground
+            foreground = 'lighter_gray' # for output foreground
             begin
                 tokens            = Lexer.new(input).lex
                 ast               = Parser.new(tokens).to_ast

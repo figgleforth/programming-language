@@ -41,3 +41,10 @@ moo(Boo.new)
 moo_with_comp { &boo_param -> scary }
 moo_with_comp(Boo.new)
 ^ this turned out to be the number of scopes instantiated, rather than actual depth. I made #push_scope set the depth to number of scopes + 1
+
+Make functions not callable without (). I originally wanted them to be, but I changed my mind for one reason – you cannot pass blocks around in variables since `greet` evaluates the block.
+greet {->}
+◼︎ #<Block_Construct:0x0000000103658660>
+greet
+◼︎
+^

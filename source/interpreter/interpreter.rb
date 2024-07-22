@@ -432,19 +432,7 @@ class Interpreter # evaluates AST and returns the result
                 value
             end
         elsif value.is_a? Block_Construct
-            needs_args = value.block.parameters.any? do |param|
-                param.default_expression.nil?
-            end
-
-            if value.block.parameters.none? or not needs_args
-                value.block.force_evaluation = true
-                result                       = evaluate value.block
-                value.block.force_evaluation = false
-                result
-            else
-                raise "Block expects arguments\n#{value.inspect}"
-            end
-
+            value
         elsif value.is_a? Class_Construct
             value
         elsif value.is_a? Instance_Construct

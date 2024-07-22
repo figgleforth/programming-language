@@ -440,23 +440,23 @@ end
 
 t '
 Boo {
-    full_scare! { times = 6 ->
-        scream = "b"
+    scream { length = 6 ->
+        phrase = "b"
         i = 0
-        while i < times {
-            scream = scream + "o"
+        while i < length {
+            phrase = phrase + "o"
             i = i + 1
         }
-        scream
+        phrase
     }
 }
 
-scare { &boo ->
-    full_scare!
+go_boo { &boo ->
+    scream()
 }
 
 b = Boo.new
-scare(b)
+go_boo(b)
 ' do |it|
     it == "\"\"\"\"\"\"\"b\"o\"o\"o\"o\"o\"o\"" # todo) update this test when
 end

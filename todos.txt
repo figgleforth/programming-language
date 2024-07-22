@@ -1,3 +1,13 @@
+Upgrade the entire language pipeline. Currently each time I need to parse/interpret, I have to create a local instance of Lexer, then Parser, then Interpreter. Maybe there should be some class that handles the entire pipeline, and you could specify what stages you want (lex, parse, interpret). Obviously parse requires lex and interpret requires lex and parse. But this should definitely be an option.
+This would also allow other options, like documenting and server stuff.
+Don't just replace all places where these are locally created, do that methodically. For example, parser sometimes calls a new instance of itself, so that doesn't need an entire pipeline.
+
+Consider combining scope.variables and scope.functions and scope.classes into scope.declarations. That would allow simplification of Scope, it could become just a dictionary. This should be done AFTER signature is implemented because if it's just one dictionary, it will need signatures to allow var x and func x to coexist.
+
+Investigate parser creating a new instance of itself and having it parse output. I can't remember why I did that, maybe because Parser has @expressions and the #parse loop adds to expressions each time it runs once. So you could end up in a situation where you are mid parsing something where you have to call #parse in a nested manner, the inner #parse call will append to @expressions before the outer #parse call does, which would lead to incorrect parsing. So maybe this isn't a problem at all?
+
+Improve error messaging. It is currently a pain in the ass to figure out error messages. It doesn't even return a location for the offending code – that would be a good place to start.
+
 Block_Expr.compositions are just strings, I think they should be Identifier_Exprs
 Parser: when eating tokens into expressions that have a :name attribute, always store the token and not just token.string. That's currently how it is, but I need the actual, especially because Token has or should have cursor position info
 Generalization: Think about whether I really need Tokens stored on Asts
@@ -123,3 +133,10 @@ wtf
 ◼︎ undefined variable or function `wtf` in scope: Global
 
 Add autocomplete to REPL. See https://ruby-doc.org/stdlib-2.5.1/libdoc/readline/rdoc/Readline.html#method-c-completion_proc-3D-label-Examples
+
+Loading other files, like Ruby's require and require_relative.
+@load tests/sandbox.em
+How to load into a specific scope, aka named?
+@load tests/sandbox.em as sandbox
+The idea is that this would load the contents of the file into the current scope. It could pollute the scope, so this would allow you to put it in its own scope, like a variable assignment
+Jai allows passing arguments to the loaded file, like @import 'library'(some_flag = false), then this library can evaluate based on this flag. Think about how to allow files to specify params
