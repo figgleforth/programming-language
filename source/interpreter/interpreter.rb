@@ -1,16 +1,17 @@
-require_relative '../parser/expr'
-require_relative 'scope'
+require_relative '../parser/exprs'
+require_relative 'scopes'
 require_relative 'constructs'
 require 'pp'
 
 
 class Interpreter # evaluates AST and returns the result
+    include Scopes
     attr_accessor :expressions, :scopes
 
 
     def initialize expressions = []
         @expressions = expressions
-        @scopes      = [Scope.new.tap { |it| it.name = 'Global' }] # default scope
+        @scopes      = [Global_Scope.new] # default scope
     end
 
 
@@ -23,13 +24,8 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def depth
-        @scopes.count
-    end
-
-
     def push_scope scope
-        scope.depth = scopes.count + 1
+        scope.parent_scope = curr_scope
         @scopes << scope
     end
 
@@ -55,21 +51,14 @@ class Interpreter # evaluates AST and returns the result
 
     # region Get constructs
 
-    def get_from_scope type, identifier
-        raise "Interpreter#get_from_scope `type` argument expected to be :variables or :functions or :classes, but got `#{type.inspect}`" unless %w(variables functions classes).include? type.to_s
-        value = curr_scope.send(type)[identifier.to_s]
+    def get_from_scope identifier
+        value = curr_scope.declarations[identifier.to_s]
 
-        if not value
-            # start at the next scope and reverse the scopes array so we can traverse up the stack easier
-            depth = 0
-            scopes.reverse!
-            while value.nil?
-                depth      += 1
-                next_scope = scopes[depth]
-                break unless next_scope
-                value = next_scope.send(type)[identifier.to_s]
+        if not value # start at the next scope and traverse up the stack of scopes
+            scopes.reverse_each do |next_scope|
+                value = next_scope.declarations[identifier.to_s]
+                break if value
             end
-            scopes.reverse! # put it back in the proper order
         end
 
         value
@@ -78,18 +67,15 @@ class Interpreter # evaluates AST and returns the result
 
     # Sets a value (likely a Construct or literal value) on the current scope
     # @return [any] The value passed in
-    def set_on_scope type, identifier, value
-        raise "Interpreter#set_on_scope `type` argument expected to be :variables or :functions or :classes, but got `#{type.inspect}`" unless %w(variables functions classes).include? type.to_s
-        curr_scope.send(type)[identifier.to_s] = value
+    def set_on_scope identifier, value
+        curr_scope.declarations[identifier.to_s] = value
     end
 
 
     # endregion
 
     def merge_scope_into_current scope
-        curr_scope.variables.merge scope.variables
-        curr_scope.functions.merge scope.functions
-        curr_scope.classes.merge scope.classes
+        curr_scope.declarations.merge scope.declarations
     end
 
 
@@ -117,7 +103,7 @@ class Interpreter # evaluates AST and returns the result
             it.block        = expr.block
             it.base_class   = expr.base_class
             it.compositions = expr.compositions
-            set_on_scope :classes, it.name, it
+            set_on_scope it.name, it
         end
     end
 
@@ -127,7 +113,7 @@ class Interpreter # evaluates AST and returns the result
 
         last_statement = nil # is the default return value of all blocks
 
-        construct = get_from_scope :functions, expr.name
+        construct = get_from_scope expr.name
         if construct # is a Block_Construct
             push_scope Scope.new(expr.name.string)
 
@@ -147,17 +133,7 @@ class Interpreter # evaluates AST and returns the result
                     evaluate value.class_construct.block
                 end
 
-                # todo: why is this here? I commented it out and all tests still pass. This could explain the high scope depth count?
-                # if param.composition and arg
-                #     existing_declaration = get_from_scope :variables, arg.expression.string
-                #
-                #     if existing_declaration
-                #         # note) here I'm evaluating the block that was used to interpret the existing declaration.
-                #         evaluate existing_declaration.interpreted_value.class_construct.block
-                #     end
-                # end
-
-                set_on_scope :variables, param.name, value # || Nil_Construct.new
+                set_on_scope param.name, value # || Nil_Construct.new
             end
 
             construct.block.expressions.each do |expr_inside_block|
@@ -166,7 +142,7 @@ class Interpreter # evaluates AST and returns the result
             pop_scope
         else
             # when blocks are stored in variables, they can be evaluated later as long as a method by the same name doesn't already exist? This doesn't seem right
-            construct = get_from_scope :variables, expr.name
+            construct = get_from_scope expr.name
             if construct and construct.expression.is_a? Block_Expr
                 push_scope Scope.new
                 construct.expression.expressions.map do |block_expr|
@@ -191,14 +167,14 @@ class Interpreter # evaluates AST and returns the result
                 it.name      = expr.name
                 it.signature = expr.signature
 
-                set_on_scope :functions, it.name, it
+                set_on_scope it.name, it
             end
         else
             # evaluate the block since it wasn't named, and therefor isn't being stored
             # todo: generalize Block_Call_Expr then use here instead for consistency
             expr.parameters.each do |it|
                 # Block_Param_Decl_Expr
-                set_on_scope :variables, it.name, evaluate(it.default_expression)
+                set_on_scope it.name, evaluate(it.default_expression)
             end
 
             expr.compositions.map do |it|
@@ -207,7 +183,7 @@ class Interpreter # evaluates AST and returns the result
                     if it.identifier.string[0]&.chars&.all? { |c| c.downcase == c }
                         raise 'Cannot compose with members yet'
                     elsif it.identifier.string[0]&.chars&.all? { |c| c.upcase == c }
-                        guts = get_from_scope :classes, ident
+                        guts = get_from_scope ident
                         evaluate guts.block
                     end
                     # todo) error message when composition doesn't exist in any scope
@@ -267,7 +243,7 @@ class Interpreter # evaluates AST and returns the result
                 push_scope Scope.new # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
 
                 if left.base_class
-                    guts = get_from_scope :classes, left.base_class
+                    guts = get_from_scope left.base_class
                     evaluate guts.block
                 end
 
@@ -371,7 +347,7 @@ class Interpreter # evaluates AST and returns the result
                 it.is_constant = expr.expression.constant?
             end
 
-            set_on_scope :variables, it.name, it
+            set_on_scope it.name, it
         end
         return_value
     end
@@ -406,7 +382,7 @@ class Interpreter # evaluates AST and returns the result
         while value.nil?
             hash = lookup_hash.shift
             break unless hash
-            value = get_from_scope hash, expr.string
+            value = get_from_scope expr.string
         end
 
         if value.nil?

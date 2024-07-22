@@ -3,64 +3,64 @@
   '!>': Print_To_Console(expr),
 }
 
-# say there's this code `a = 42`. That Assignment_Expr gets added to the current scope
+say there's this code `a = 42`. That Assignment_Expr gets added to the current scope
 {
   '!>': Print_To_Console,
   a: 42
 }
 
-# say there's `hello { -> 'hi!' }. That Block_Decl also gets added to the scope
+say there's `hello { -> 'hi!' }. That Block_Decl also gets added to the scope
 {
   '!>': Print_To_Console,
   a: 42,
   hello: Block_Construct(Block_Expr([String_Literal_Expr('hi!')]))
 }
 
-# now the interpreter can easily look up the code to run when `a` or `hello` identifiers come up
+now the interpreter can easily look up the code to run when `a` or `hello` identifiers come up
 hello_func = get_from_scope 'hello' # returns Block_Construct
 result = evaluate hello_func.block
 
-# Now declare a class like
-# Boo {
-#   name = 'Boo'
-#   greet {
-#     'Hi `name`'
-#   }
-# }
+Now declare a class like
+Boo {
+  name = 'Boo'
+    greet {
+        'Hi `name`'
+          }
+          }
 
-# when #evaluate sees Class_Expr Boo{}, create a new scope and evaluate its body. Things like var assignments will evaluate right away. Funcs will only be declared, but they won't evaluate.
+when #evaluate sees Class_Expr Boo{}, create a new scope and evaluate its body. Things like var assignments will evaluate right away. Funcs will only be declared, but they won't evaluate.
 boo_scope = Scope.new
 scope[expr.name] = boo_scope # expr.name is 'Boo'. create a new scope for 'Boo' and set it to the current scope
 push_scope boo_scope # push the Boo scope on the stack so the evaluated code is evaluated into that scope
 evaluate expr.block # which will eval all of the declarations into the Boo scope, which we pushed right before
 pop_scope # Now we pop out of the scope, so the curr_scope is back to the scope it was in before this one (like Global).
 
-# we end up with this, which kind of resembles a class "Template"
+we end up with this, which kind of resembles a class "Template"
 scope['Boo'] = {
   name: 'Boo',
   new: Block_Construct(Block_Expr([])), # added by the interpreter even though it wasn't declared, that's because all classes have to have one. I could have the interp automatically respond to #new without having this block declared, but I also want to be able to print out all of a scope's members without having to remember to add #new for completeness
   greet: Block_Construct(Block_Expr([String_Literal_Expr('Hi `name`')])) # added by the evals above. But not executed
 }
 
-# so then when it sees Assigment_expr like b = Boo.new
+so then when it sees Assigment_expr like b = Boo.new
 scope['b'] = evaluate expr.expression # which is Binary_Expr Boo.new, and will go through the eval_binary method, which looks up 'Boo' and calls #new on it. Boo exists since the template was declared above, and #new exists as well.
 
-# we end up with this, created from the Template
+we end up with this, created from the Template
 scope['b'] = {
   name: 'Boo',
   new: Block_Construct(Block_Expr([])),
   greet: Block_Construct(Block_Expr([String_Literal_Expr('Hi `name`')]))
 }
 
-# curious, why keep repeating the new and greet methods? Can't the scope somehow link to the global scope? What if instead it stores { new: Reference(Boo.new) } which the eval should understand to mean that it has to go find the Boo.new initializer.
-# With that system we end up with References instead
+curious, why keep repeating the new and greet methods? Can't the scope somehow link to the global scope? What if instead it stores { new: Reference(Boo.new) } which the eval should understand to mean that it has to go find the Boo.new initializer.
+With that system we end up with References instead
 scope['b'] = {
   name: 'Boo',
   new: Reference(Boo.new),
   greet: Reference(Boo.greet)
 }
 
-# the full global scope, with `Boo` and `b`
+the full global scope, with `Boo` and `b`
 {
   '!>': Print_To_Console,
   a: 42,
@@ -79,7 +79,7 @@ scope['b'] = {
   }
 }
 
-# to make this clearer, a new Scope class
+to make this clearer, a new Scope class
 class Scope
   attr_reader :declarations
 
@@ -99,11 +99,11 @@ class Scope
   # but also, I'm trying to use a data oriented approach so these functions will actually live in the interpreter as Interpreter#get_from_scope and Interpreter#set_on_scope
 end
 
-# And so the final scope looks like
+And so the final scope looks like
 Scope({
   '!>': Print_To_Console,
   a: 42,
-  hello: Block_Construct(Block_Expr([String_Literal_Expr('hi!')]))
+  hello: Block_Construct(Block_Expr([String_Literal_Expr('hi!')])),
 
   Boo: Scope({
     name: 'Boo',
@@ -118,11 +118,13 @@ Scope({
   })
 })
 
-# to make it even easier: Instance > Scope and Class > Scope, and sure even Global > Scope
-Scope({
+to make it even easier: Instance > Scope and Class > Scope, and sure even Global > Scope
+Global({
   '!>': Print_To_Console,
+  '@': Print_Current_Scope,
+
   a: 42,
-  hello: Block_Construct(Block_Expr([String_Literal_Expr('hi!')]))
+  hello: Block_Construct(Block_Expr([String_Literal_Expr('hi!')])),
 
   Boo: Class({
     name: 'Boo',
@@ -137,5 +139,5 @@ Scope({
   })
 })
 
-# Comparison between types of scopes will be easier instead of all being the same Scope type.
-# Instance scopes will have a smaller memory footprint because Reference doesn't store the actual block, and interp can look it up outside of the current scope
+Comparison between types of scopes will be easier instead of all being the same Scope type.
+Instance scopes will have a smaller memory footprint because Reference doesn't store the actual block, and interp can look it up outside of the current scope

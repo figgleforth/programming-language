@@ -15,6 +15,7 @@ def t code, &block
         output    = Interpreter.new(ast).interpret!
     rescue Exception => e
         exception = e
+        # raise e
     end
 
     block_param  = exception || output
@@ -406,7 +407,7 @@ Moo {
 
 Moo.new
 ' do |it|
-    it.is_a? Instance_Construct and it.scope.variables.keys.include? 'id' and it.scope.functions.keys.include? 'boo!'
+    it.is_a? Instance_Construct and it.scope.declarations.keys.include? 'id' and it.scope.declarations.keys.include? 'boo!'
 end
 
 t '
@@ -420,7 +421,7 @@ Moo > Boo {
 
 Moo.new
 ' do |it|
-    it.is_a? Instance_Construct and it.scope.variables.keys.include? 'id' and it.scope.functions.keys.include? 'boo!'
+    it.is_a? Instance_Construct and it.scope.declarations.keys.include? 'id' and it.scope.declarations.keys.include? 'boo!'
 end
 
 t '

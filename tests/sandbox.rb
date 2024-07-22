@@ -1,6 +1,6 @@
 require_relative '../source/lexer/lexer'
 require_relative '../source/parser/parser'
-require_relative '../source/parser/expr'
+require_relative '../source/parser/exprs'
 require_relative '../source/interpreter/interpreter'
 
 tokens = Lexer.new(File.read('tests/sandbox.em').to_s).lex

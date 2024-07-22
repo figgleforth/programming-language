@@ -47,4 +47,5 @@ greet {->}
 ◼︎ #<Block_Construct:0x0000000103658660>
 greet
 ◼︎
-^
+
+The double reversing of @scopes in Interpreter#get_construct is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
