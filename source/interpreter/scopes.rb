@@ -1,6 +1,6 @@
 module Scopes
     class Scope
-        attr_accessor :name, :declarations, :parent_scope # based on notes/scope.txt
+        attr_accessor :name, :declarations # based on notes/scope.txt
 
         def initialize name = nil
             @name         = name

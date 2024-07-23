@@ -25,7 +25,6 @@ class Interpreter # evaluates AST and returns the result
 
 
     def push_scope scope
-        scope.parent_scope = curr_scope
         @scopes << scope
     end
 
@@ -95,60 +94,74 @@ class Interpreter # evaluates AST and returns the result
 
 
     def eval_class_declaration expr
-        # Class_Expr and Class_Construct attributes
-        # :name, :block, :base_class, :compositions
-
-        Class_Construct.new.tap do |it|
-            it.name         = expr.name
-            it.block        = expr.block
-            it.base_class   = expr.base_class
-            it.compositions = expr.compositions
-            set_on_scope it.name, it
-        end
+        set_on_scope expr.name, expr
     end
 
 
-    def eval_block_call expr
-        # todo) Come up with a way to create block signatures. This should allow for functions to share names but declare different params. The signature is not a hash, it could be a string like `greeting { name -> name }` to 'greeting(name)'.
-        # Since we know the strings of the param identifiers, they should be used in the signature. So can labels, so for example `greeting { for name -> name }` could be `greeting(for)`. The label should be used in place of the param name since that is the externally visible identifier for this param anyway, so it should be in the signature.
-        # This would allow for methods with shared names but different params, so `greeting { from name -> name }` becomes `greeting(from)`. And now there are two funcs with the same name greeting(for) and greeting(from). The interpreter can decide which to call based on the label. greeting(for: 'Locke') or greeting(from: 'Locke)'
+    def eval_assignment expr
+        return_value = nil
+        Assignment_Construct.new.tap do |it|
+            it.name       = expr.name
+            it.expression = expr.expression
+            return_value  = expr.expression
 
+            # only evaluate expressions that are not blocks. blocks can be executed later
+            if not expr.expression.is_a? Block_Expr
+                it.interpreted_value = evaluate(expr.expression)
+
+                return_value = it.interpreted_value
+            end
+
+            if expr.expression.is_a? Identifier_Expr # in case the variable is a all caps constant
+                it.is_constant = expr.expression.constant?
+            end
+
+            set_on_scope it.name, return_value
+        end
+        return_value
+    end
+
+
+    # note) Come up with a way to create block signatures. This should allow for functions to share names but declare different params. The signature is not a hash, it could be a string like `greeting { name -> name }` to 'greeting(name)'.
+    # Since we know the strings of the param identifiers, they should be used in the signature. So can labels, so for example `greeting { for name -> name }` could be `greeting(for)`. The label should be used in place of the param name since that is the externally visible identifier for this param anyway, so it should be in the signature.
+    # This would allow for methods with shared names but different params, so `greeting { from name -> name }` becomes `greeting(from)`. And now there are two funcs with the same name greeting(for) and greeting(from). The interpreter can decide which to call based on the label. greeting(for: 'Locke') or greeting(from: 'Locke)'
+    def eval_block_call expr # Block_Call_Expr :name, :arguments
         last_statement = nil # is the default return value of all blocks
 
-        construct = get_from_scope expr.name
-        if construct.is_a? Variable_Construct # eval_block_call is called when a Block_Construct needs to be evaluated. In this case, a variable's value is a Block_Construct that needs evaluating, so we have to get the Block_Construct directly from the Variable_Construct:
-            construct = construct.interpreted_value
+        block = get_from_scope expr.name
+        raise "#eval_block_call expected #get_from_scope to give Block_Expr, got #{block.inspect}" unless block.is_a? Block_Expr
+        push_scope Scope.new
+
+        block.compositions.each do |comp|
+            set_on_scope comp, get_from_scope(comp)
         end
 
-        if construct.is_a? Block_Construct
-            push_scope Scope.new(expr.name.string)
+        # evaluates argument expression if present, otherwise the declared param expression
+        block.parameters.zip(expr.arguments).each do |(param, arg)|
+            # Block_Param_Decl_Expr and Block_Arg_Expr
+            default_value = evaluate param.default_expression
+            set_on_scope param.name, default_value
 
-            # evaluates argument expression if present, otherwise the declared param expression
-            construct.block.parameters.zip(expr.arguments).each do |(param, arg)|
-                # Block_Param_Decl_Expr and Block_Arg_Expr
-                value = if arg
-                    evaluate arg.expression
-                else
-                    evaluate param.default_expression
-                end
-
-                # if an arg like Boo.new is evaluated, it's value is an Instance_Construct so I need to merge its guts, which are located at instance_construct.scope
-                # todo) currently though, I'm re-evaluating the block that was originally used to evaluate `value` here. So this seems bad. I want the actual instance to be in this scope, not a copy of it. So this needs to really use that #merge_scope_into_current function
-                if value.is_a? Instance_Construct
-                    # merge_scope_into_current value.scope
-                    evaluate value.class_construct.block
-                end
-
-                set_on_scope param.name, value # || Nil_Construct.new
+            value = if arg
+                evaluate arg.expression
+            else
+                default_value
             end
 
-            construct.block.expressions.each do |expr_inside_block|
-                last_statement = evaluate expr_inside_block
+            # if an arg like Boo.new is evaluated, it's value is an Instance_Construct so I need to merge its guts, which are located at instance_construct.scope
+            # currently though, I'm re-evaluating the block that was originally used to evaluate `value` here. So this seems bad. I want the actual instance to be in this scope, not a copy of it. So this needs to probably merge scopes or something.
+            if value.is_a? Instance_Construct
+                # merge_scope_into_current value.scope
+                evaluate value.class_construct.block
             end
-            pop_scope
-        else
-            raise 'This will never get raised. If it does, check your logic for calling blocks'
+
+            set_on_scope param.name, value
         end
+
+        block.expressions.each do |expr_inside_block|
+            last_statement = evaluate expr_inside_block
+        end
+        pop_scope
 
         last_statement
     end
@@ -157,16 +170,11 @@ class Interpreter # evaluates AST and returns the result
     def eval_block expr
         last_statement = nil # the default return value of all blocks
         if expr.named? # store the block on the current scope so it can be called later
-            last_statement = Block_Construct.new.tap do |it|
-                it.block     = expr
-                it.name      = expr.name
-                it.signature = expr.signature
-
+            last_statement = expr.tap do |it|
                 set_on_scope it.name, it
             end
         else
             # anonymous block
-
             # evaluate the block since it wasn't named, and therefor isn't being stored
             expr.parameters.each do |it|
                 # Block_Param_Decl_Expr
@@ -182,8 +190,8 @@ class Interpreter # evaluates AST and returns the result
                         guts = get_from_scope ident
                         evaluate guts.block
                     end
-                    # todo) error message when composition doesn't exist in any scope
                 elsif it.operator == '~'
+                    # todo) implement ~, and raise error message when composition doesn't exist
                 else
                     raise "Interpreter#evaluate: Unknown composition operator #{it.inspect}"
                 end
@@ -236,15 +244,15 @@ class Interpreter # evaluates AST and returns the result
             result = get_from_scope expr.right.string
             pop_scope
 
-            if result.is_a? Variable_Construct
+            if result.is_a? Assignment_Construct
                 result = result.interpreted_value
             end
 
             return result
         end
 
-        # instantiate when Class_Construct . 'new'
-        if left.is_a? Class_Construct and expr.right.string == 'new'
+        # instantiate when Class_Expr . 'new'
+        if left.is_a? Class_Expr and expr.right.string == 'new'
             instance = Instance_Construct.new.tap do |it|
                 it.class_construct = left
 
@@ -263,11 +271,11 @@ class Interpreter # evaluates AST and returns the result
             return instance
         end
 
-        if left.is_a? Class_Construct and expr.operator == '.'
+        if left.is_a? Class_Expr and expr.operator == '.'
             raise 'Calling class functions or variables is not implemented'
         end
 
-        # if left is an Instance_Construct, it should have a scope to push and evaluate on
+        # if left is an Instance_Construct, it should have a scope to push and evaluate on. By pushing its existing scope, the changes made to the instance are permanent.
         if left.is_a? Instance_Construct and expr.operator == '.'
             push_scope left.scope
             result = evaluate expr.right
@@ -354,30 +362,6 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
-    def eval_assignment expr
-        return_value = nil
-        Variable_Construct.new.tap do |it|
-            it.name       = expr.name
-            it.expression = expr.expression
-            return_value  = expr.expression
-
-            # only evaluate expressions that are not blocks. blocks can be executed later
-            if not expr.expression.is_a? Block_Expr
-                it.interpreted_value = evaluate(expr.expression)
-
-                return_value = it.interpreted_value
-            end
-
-            if expr.expression.is_a? Identifier_Expr # in case the variable is a all caps constant
-                it.is_constant = expr.expression.constant?
-            end
-
-            set_on_scope it.name, it
-        end
-        return_value
-    end
-
-
     def eval_while expr
         # these are kinda trippy. They loop until the condition is satisfied, and also return the last expression that was evaluated as a return value.
         output = nil
@@ -399,7 +383,7 @@ class Interpreter # evaluates AST and returns the result
         #   if identifier is class, look up classes
 
         if expr.string == '@'
-            return curr_scope
+            return PP.pp(curr_scope.declarations.keys.zip(curr_scope.declarations.values), '').chomp
         end
 
         lookup_hash = %i(variables functions classes) # used in #get_from_scope to Runtime_Scope.send lookup_hash
@@ -424,7 +408,7 @@ class Interpreter # evaluates AST and returns the result
 
         # todo: operator overloading! if `.` then get_from_scope(left, right). if `[]` or any other binary operator, get_from_scope(left, :functions, operator) otherwise fall back to internal implementation of those functions. Maybe we should skip the middleman and just have it be a runtime scope
 
-        if value.is_a? Variable_Construct
+        if value.is_a? Assignment_Construct
             if value.interpreted_value != nil # value.interpreted_value can be boolean true or false, so check if nil instead
                 value.interpreted_value
             elsif value.expression.is_a? Block_Expr
@@ -434,9 +418,9 @@ class Interpreter # evaluates AST and returns the result
             end
         elsif value.is_a? Enum_Construct
             value
-        elsif value.is_a? Block_Construct
+        elsif value.is_a? Block_Expr
             value
-        elsif value.is_a? Class_Construct
+        elsif value.is_a? Class_Expr
             value
         elsif value.is_a? Instance_Construct
             value

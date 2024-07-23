@@ -1,6 +1,5 @@
-# :short_form, :string
 class Expr
-    attr_accessor :short_form, :string, :tokens
+    attr_accessor :string, :tokens
 
 
     def tokens
@@ -29,7 +28,6 @@ class Block_Expr < Expr
         @parameters   = []
         @expressions  = []
         @compositions = []
-        @short_form   = true
     end
 
 
@@ -71,13 +69,13 @@ class Block_Expr < Expr
 
 
     def pretty
-        base = short_form ? '' : 'block'
+        base = false ? '' : 'block'
         "#{base}".tap do |str|
-            str << '{' unless short_form
+            str << '{' unless false
             str << "params(#{parameters.count}): #{parameters.map(&:pretty)}, " unless parameters.empty?
             str << "comps(#{composition_expressions.count}): #{composition_expressions.map(&:pretty)}, " unless composition_expressions.empty?
             str << "exprs(#{non_composition_expressions.count}): #{non_composition_expressions.map(&:pretty)}" unless non_composition_expressions.empty?
-            str << '}' unless short_form
+            str << '}' unless false
         end
     end
 end
@@ -98,7 +96,7 @@ class Block_Param_Decl_Expr < Expr
 
 
     def pretty
-        "#{short_form ? '' : 'Param'}(".tap do |str|
+        "#{false ? '' : 'Param'}(".tap do |str|
             str << '&' if composition
             str << "#{name}"
             str << "=#{default_expression&.pretty || 'nil'}"
@@ -115,7 +113,7 @@ class Block_Arg_Expr < Expr
 
 
     def pretty
-        "#{short_form ? '' : 'Arg'}(".tap do |str|
+        "#{false ? '' : 'Arg'}(".tap do |str|
             str << "label: #{label}, " if label
             str << expression.to_s
             str << ')'
@@ -135,7 +133,7 @@ class Block_Call_Expr < Expr
 
 
     def pretty
-        "#{short_form ? '' : 'fun_call'}(name: #{name}".tap do |str|
+        "#{false ? '' : 'fun_call'}(name: #{name}".tap do |str|
             str << ", #{arguments.map(&:pretty)}" if arguments
             str << ')'
         end
@@ -157,7 +155,7 @@ class Class_Expr < Expr
     def pretty
         "obj{#{name}".tap do |str|
             str << " > #{base_class}" if base_class
-            if not short_form
+            if not false
                 str << ", " + block.to_s if block
             end
             str << '}'
@@ -172,7 +170,6 @@ class Number_Literal_Expr < Expr
 
     def initialize
         super
-        @short_form = true
     end
 
 
@@ -196,7 +193,7 @@ class Number_Literal_Expr < Expr
     def pretty
         long  = "Num(#{string})"
         short = "#{string}"
-        short_form ? short : long
+        false ? short : long
     end
 
 
@@ -210,7 +207,7 @@ class Symbol_Literal_Expr < Expr
     def pretty
         long  = "Sym(:#{string})"
         short = ":#{string}"
-        short_form ? short : long
+        false ? short : long
     end
 
 
@@ -224,7 +221,7 @@ class Boolean_Literal_Expr < Expr
     def pretty
         long  = "Bool(:#{string})"
         short = ":#{string}"
-        short_form ? short : long
+        false ? short : long
     end
 
 
@@ -254,7 +251,7 @@ class String_Literal_Expr < Expr
     def pretty
         long  = "Str(#{string})"
         short = "#{string}"
-        short_form ? short : long
+        false ? short : long
     end
 end
 
@@ -334,16 +331,10 @@ class Unary_Expr < Expr
     attr_accessor :operator, :expression
 
 
-    def initialize
-        super
-        @short_form = true
-    end
-
-
     def pretty
         long  = "UE(#{operator}#{expression})"
         short = "(#{operator}#{expression})"
-        short_form ? short : long
+        false ? short : long
     end
 end
 
@@ -368,14 +359,13 @@ class Binary_Expr < Expr
 
     def initialize
         super
-        # @short_form = true
     end
 
 
     def pretty
         long  = "BE(#{left} '#{operator}' #{right}"
         short = "(#{left} #{operator} #{right}"
-        str   = short_form ? short : long
+        str   = false ? short : long
         str   += ']' if operator == '['
         str   += ')'
         str
@@ -416,7 +406,7 @@ class Identifier_Expr < Expr
 
 
     def pretty
-        short_form ? string : "id(#{string})"
+        false ? string : "id(#{string})"
     end
 end
 
@@ -432,7 +422,7 @@ class Enum_Expr < Expr
 
 
     def pretty
-        if short_form
+        if false
             "enum{#{name}, consts(#{constants.count})}"
         else
             "enum{#{name}, consts(#{constants.count}): #{constants.map(&:pretty)}"
@@ -470,14 +460,8 @@ class Composition_Expr < Identifier_Expr
     attr_accessor :operator, :identifier, :alias_identifier
 
 
-    def initialize
-        super
-        @short_form = false
-    end
-
-
     def pretty
-        if short_form
+        if false
             "#{operator}#{identifier}#{alias_identifier ? " = #{alias_identifier}" : ''}"
         else
             "comp(#{operator}#{identifier}#{alias_identifier ? " = #{alias_identifier}" : ''})"

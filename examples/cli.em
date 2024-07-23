@@ -63,4 +63,25 @@ Some_Class {
 
 some = Some_Class.new
 !> some.something # { x: nil, y: nil, z: nil }
-!> some.inspect
+!> some.inspect # Block_Expr
+
+ENV {
+	DEV,
+	PROD
+}
+
+
+s = Server {
+	port = 1000
+}.new
+
+set_port { &server, the_port = 2000 ->
+	!> '-- before change ' + port
+	port = the_port
+	!> '-- after  change ' + port
+}
+
+!> 'before func call ' + s.port
+set_port(s, 3000) # prints port 3000
+!> 'after  func call ' + s.port
+

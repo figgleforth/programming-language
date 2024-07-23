@@ -1,3 +1,21 @@
+Implement class functions. #new is reserved for inits. Also make #new() work, check #eval_block_call
+d = Dog.new
+◼︎ #<Instance_Construct:0x00000001006174d8>
+d = Dog.new()
+◼︎ Calling class functions or variables is not implemented
+
+Cleanup Expr, after removing @short_form I replaced each instance of that to `false`.
+
+Functional and while blocks builtin variables it, at, skip, stop. Later I'd like to add a delete keyword for arrays so you could do something like
+[1, 2, 3].each { ->
+	if it == 2 { remove }
+}
+# => [1, 3]
+An alternate version, which I like. I actually like them both, I'm sure there's a use case for the remove keyword
+[1, 2, 3].remove { ->
+	it == 2
+}
+
 Upgrade the entire language pipeline. Currently each time I need to parse/interpret, I have to create a local instance of Lexer, then Parser, then Interpreter. Maybe there should be some class that handles the entire pipeline, and you could specify what stages you want (lex, parse, interpret). Obviously parse requires lex and interpret requires lex and parse. But this should definitely be an option.
 This would also allow other options, like documenting and server stuff.
 Don't just replace all places where these are locally created, do that methodically. For example, parser sometimes calls a new instance of itself, so that doesn't need an entire pipeline.
@@ -139,3 +157,7 @@ The idea is that this would load the contents of the file into the current scope
 Jai allows passing arguments to the loaded file, like @import 'library'(some_flag = false), then this library can evaluate based on this flag. Think about how to allow files to specify params
 
 Parser issue — cannot set blocks as values on a dictionary. `{ x = {->} }` fails saying parser doesn't know how to parse `}`. I think this has something to do with the way that #parse_until parses until the specified token
+
+Make print !!!> functions take comma separated expressions because it feels nicer to type a comma than a plus, because the plus requires holding shift
+
+Come up with something better than !> !!> !!!>, mostly because that's an ugly operator

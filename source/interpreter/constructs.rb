@@ -2,7 +2,7 @@ class Construct
 end
 
 
-class Variable_Construct < Construct
+class Assignment_Construct < Construct
     attr_accessor :name, :expression, :interpreted_value, :is_constant
     # @expression could be a Block_Expr or any other Ast
 end
@@ -10,6 +10,7 @@ end
 
 class Block_Construct < Construct
     attr_accessor :name, :block, :signature
+
 end
 
 
@@ -35,6 +36,7 @@ class Instance_Construct < Construct
     def name
         class_construct&.name
     end
+
 end
 
 

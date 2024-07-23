@@ -3,12 +3,14 @@ if ARGV.empty?
     exit 1
 end
 
-require_relative '../lexer/lexer'
-require_relative '../parser/parser'
-require_relative '../interpreter/interpreter'
-
 
 class CLI_Interpreter
+    require_relative '../lexer/lexer'
+    require_relative '../parser/parser'
+    require_relative '../interpreter/interpreter'
+    require 'pp'
+
+
     def initialize input_file
         @input = File.read input_file
     end
@@ -17,6 +19,13 @@ class CLI_Interpreter
     def output
         tokens = Lexer.new(@input).lex
         ast    = Parser.new(tokens).to_ast
+        if ARGV.include? 'parse_only'
+            puts "Parsed expressions:\n"
+            ast.each do |expr|
+                puts PP.pp(expr, '').chomp
+            end
+            return
+        end
         Interpreter.new(ast).interpret!
     end
 end

@@ -213,7 +213,7 @@ func() + func2()
 end
 
 t 'func { -> 1 }' do |it|
-    it.is_a? Block_Construct
+    it.is_a? Block_Expr
 end
 
 t '0..87' do |it|
@@ -291,13 +291,13 @@ t 'Random' do |it|
 end
 
 t 'Random {}' do |it|
-    it.is_a? Class_Construct and it.name == 'Random'
+    it.is_a? Class_Expr and it.name == 'Random'
 end
 
 t 'Random {}
 Random
 ' do |it|
-    it.is_a? Class_Construct and it.name == 'Random'
+    it.is_a? Class_Expr and it.name == 'Random'
 end
 
 t '{ x = 4 }' do |it|
@@ -501,7 +501,7 @@ end
 t 'Dog {
     bark -> "woof"
 }' do |it|
-    it.is_a? Class_Construct and it.block.expressions.one? and it.block.expressions.first.is_a? Block_Expr and it.block.expressions.first.name == 'bark'
+    it.is_a? Class_Expr and it.block.expressions.one? and it.block.expressions.first.is_a? Block_Expr and it.block.expressions.first.name == 'bark'
 end
 
 t 'Dog {
@@ -509,7 +509,7 @@ t 'Dog {
 }
 Dog.new.bark
 ' do |it|
-    it.is_a? Block_Construct
+    it.is_a? Block_Expr
 end
 
 t 'Dog {

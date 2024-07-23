@@ -339,7 +339,7 @@ class Parser
         if curr? '!>' or curr? '!!>' or curr? '!!!>'
             Macro_Command_Expr.new.tap do |it|
                 it.name       = eat(Macro_Token).string
-                it.expression = parse_expression
+                it.expression = parse_expression # todo) it would be cool to be able to comma separate expressions here. it feels nicer to type a comma than a plus, because the plus requires holding shift
             end
         else
             Macro_Expr.new.tap do |it|
