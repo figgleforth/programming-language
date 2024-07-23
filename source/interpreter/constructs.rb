@@ -38,6 +38,17 @@ class Instance_Construct < Construct
 end
 
 
+class Enum_Construct < Construct
+    attr_accessor :name, :lookup_table, :scope
+
+
+    def initialize
+        super
+        @lookup_table = []
+    end
+end
+
+
 class Range_Construct < Construct
     attr_accessor :left, :operator, :right
 end

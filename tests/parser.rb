@@ -31,7 +31,7 @@ end
 
 t File.read('./examples/sandbox.em').to_s do |it|
     # note) it param is the last expression parsed from sandbox.em
-    it.is_a? Class_Expr
+    it.is_a? Enum_Expr
 end
 
 t 'if abc {
@@ -322,21 +322,21 @@ t 'SOME_CONSTANT' do |it|
 end
 
 t 'ENUM {}' do |it|
-    it.is_a? Enum_Collection_Expr
+    it.is_a? Enum_Expr
 end
 
 t 'ENUM {
     ONE
 }' do |it|
-    it.is_a? Enum_Collection_Expr and it.constants.one?
+    it.is_a? Enum_Expr and it.constants.one?
 end
 
 t 'ENUM {
     ONE = 1
 }' do |it|
-    it.is_a? Enum_Collection_Expr and
+    it.is_a? Enum_Expr and
       it.constants.one? and
-      it.constants[0].value.is_a? Number_Literal_Expr
+      it.constants[0].is_a? Assignment_Expr and it.constants[0].expression.is_a? Number_Literal_Expr
 end
 
 t 'ENUM {
@@ -344,11 +344,11 @@ t 'ENUM {
         TWO = 2
     }
 }' do |it|
-    it.is_a? Enum_Collection_Expr and
+    it.is_a? Enum_Expr and
       it.constants.one? and
-      it.constants[0].is_a? Enum_Collection_Expr and
+      it.constants[0].is_a? Enum_Expr and
       it.constants[0].constants.one? and
-      it.constants[0].constants[0].is_a? Enum_Constant_Expr
+      it.constants[0].constants[0].is_a? Assignment_Expr
 end
 
 t 'ENUM = 1' do |it|

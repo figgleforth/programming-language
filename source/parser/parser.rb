@@ -255,32 +255,34 @@ class Parser
 
 
     def make_enum_ast
-        # if = then Enum_Constant_Expr   -> eat the smallest unit CONST = val
-        # if { then Enum_Collection_Expr -> eat { then make_enum_ast until }
         if curr? Identifier_Token, '{'
-            Enum_Collection_Expr.new.tap do |node|
-                node.name = eat(Identifier_Token).string
+            Enum_Expr.new.tap do |it|
+                it.name = eat(Identifier_Token).string
                 eat '{'
                 eat_past_newlines
                 until curr? '}'
-                    node.constants << make_enum_ast
-                    node.constants.compact!
+                    it.constants << make_enum_ast
+                    it.constants.compact!
                 end
                 eat '}'
                 eat_past_newlines
             end
-        elsif curr? Identifier_Token
-            Enum_Constant_Expr.new.tap do |node|
-                node.name = eat(Identifier_Token).string
 
-                if curr? '=' and eat '='
-                    # note: allow stateless methods as well?
-                    node.value = parse_expression # parse_block(%W(, \n)).expressions[0]
-                end
+        elsif curr? Identifier_Token, '='
+            constant_assignment = make_assignment_ast
+            eat_past_newlines
+            constant_assignment
+
+        elsif curr? Identifier_Token
+            # these are enum constants without a value. eg) ENV { DEV, PROD } which can still be used as constants ENV.DEV and ENV.PROD, but they don't have a value set.
+            Assignment_Expr.new.tap do |it|
+                it.name = eat(Identifier_Token).string
                 eat_past_newlines
             end
+
         elsif curr? ',' and eat ','
             eat_past_newlines
+
         else
             raise "Parser#make_enum_ast not sure about #{curr.inspect}"
         end
@@ -407,12 +409,12 @@ class Parser
                     end
 
                     param.expression = if curr? Token, ','
-                        parse_block ','
-                    elsif curr? Token, ')'
-                        parse_block ')'
-                    else
-                        parse_block %w[, )]
-                    end.expressions[0]
+                                           parse_block ','
+                                       elsif curr? Token, ')'
+                                           parse_block ')'
+                                       else
+                                           parse_block %w[, )]
+                                       end.expressions[0]
                 end
 
                 eat if curr? ','
@@ -488,7 +490,7 @@ class Parser
             end
 
             eat_past_newlines
-            it.parameters = make_array_of_block_param_declaration_exprs if has_params
+            it.parameters = make_array_of_block_param_declaration_exprs if has_params and not curr? '->'
 
             # make sure function expr also knows about the compositions in the parameters
             it.compositions = it.parameters.select do |param|
@@ -500,7 +502,7 @@ class Parser
             eat '->' if curr? '->'
             eat '::' if curr? '::'
 
-            block = parse_block '}'
+            block = parse_block
             eat '}'
 
             it.compositions << block.compositions
@@ -766,8 +768,7 @@ class Parser
             raise "Parser expected an expression but reached EOF"
 
         else
-            puts debug
-            raise "Parsing not implemented for #{curr}"
+            raise "Parsing not implemented for #{curr.inspect}"
 
         end
     end

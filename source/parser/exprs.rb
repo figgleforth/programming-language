@@ -421,7 +421,7 @@ class Identifier_Expr < Expr
 end
 
 
-class Enum_Collection_Expr < Expr
+class Enum_Expr < Expr
     attr_accessor :name, :constants
 
 

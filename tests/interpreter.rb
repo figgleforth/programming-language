@@ -32,7 +32,7 @@ end
 
 t File.read('./examples/sandbox.em').to_s do |it|
     # todo) update this test once this hurdle is crossed.
-    it.is_a? RuntimeError and it.message == 'Interpreting not implemented for Enum_Collection_Expr'
+    it.is_a? RuntimeError and it.message == "Interpreter#evaluate when Binary_Expr, Ruby exception: undefined method `+=' for 2:Integer"
 end
 
 t 'x { in -> in }

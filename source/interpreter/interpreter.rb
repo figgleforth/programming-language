@@ -231,6 +231,18 @@ class Interpreter # evaluates AST and returns the result
     def eval_binary expr
         left = evaluate expr.left
 
+        if left.is_a? Enum_Construct and expr.operator == '.' # enum constructs have their own scope so the scope is pushed on the stack before evaluating the enum expressions
+            push_scope left.scope
+            result = get_from_scope expr.right.string
+            pop_scope
+
+            if result.is_a? Variable_Construct
+                result = result.interpreted_value
+            end
+
+            return result
+        end
+
         # instantiate when Class_Construct . 'new'
         if left.is_a? Class_Construct and expr.right.string == 'new'
             instance = Instance_Construct.new.tap do |it|
@@ -261,6 +273,16 @@ class Interpreter # evaluates AST and returns the result
             result = evaluate expr.right
             pop_scope
             return result
+        end
+
+        if left.is_a? Hash and expr.operator == '.' # allowing for dot access on a hash
+            # todo) hashes might have builtin funcs, so those should probably take precedence
+
+            if left.has_key? expr.right.string
+                return left[expr.right.string]
+            end
+
+            raise "Dictionary does not have key #{expr.right.string}"
         end
 
         right = evaluate expr.right
@@ -307,6 +329,12 @@ class Interpreter # evaluates AST and returns the result
                 left || right
             when '&&'
                 left && right
+            when '.?'
+                if left.respond_to? expr.right.string
+                    left.send expr.right.string
+                else
+                    Nil_Construct.new
+                end
             when '.<', '..'
                 Range_Construct.new.tap do |it|
                     it.left     = left
@@ -404,6 +432,8 @@ class Interpreter # evaluates AST and returns the result
             else
                 value
             end
+        elsif value.is_a? Enum_Construct
+            value
         elsif value.is_a? Block_Construct
             value
         elsif value.is_a? Class_Construct
@@ -418,8 +448,31 @@ class Interpreter # evaluates AST and returns the result
     end
 
 
+    def eval_enum expr # Enum_Expr :name, :constants
+        Enum_Construct.new.tap do |it|
+            it.name  = expr.name
+            it.scope = Scope.new it.name
+
+            push_scope it.scope
+            expr.constants.each do |constant|
+                raise "#eval_enum expected Assignment_Expr or Enum_Expr, but got #{constant.inspect}" unless constant.is_a? Assignment_Expr or constant.is_a? Enum_Expr
+                evaluate constant # note) these are evaluated/declared on the Enum_Construct's scope
+            end
+            pop_scope
+
+            set_on_scope it.name, it
+        end
+    end
+
+
     def evaluate expr # note: issues are raised here because the REPL catches these errors and prints them nicely in color
         case expr
+            when Binary_Expr # create instances when dot operator with `new`
+                eval_binary expr
+
+            when Identifier_Expr
+                eval_identifier expr
+
             when Number_Literal_Expr
                 eval_number_literal expr
 
@@ -434,9 +487,6 @@ class Interpreter # evaluates AST and returns the result
 
             when Unary_Expr
                 eval_unary expr
-
-            when Binary_Expr # create instances when dot operator with `new`
-                eval_binary expr
 
             when Dictionary_Literal_Expr
                 # reference: https://rosettacode.org/wiki/Hash_from_two_arrays#Ruby
@@ -453,9 +503,6 @@ class Interpreter # evaluates AST and returns the result
             when While_Expr
                 eval_while expr
 
-            when Identifier_Expr
-                eval_identifier expr
-
             when Assignment_Expr
                 eval_assignment expr
 
@@ -470,6 +517,9 @@ class Interpreter # evaluates AST and returns the result
 
             when Macro_Command_Expr
                 eval_macro_command expr
+
+            when Enum_Expr
+                eval_enum expr
 
             when Nil_Expr, nil
                 Nil_Construct.new

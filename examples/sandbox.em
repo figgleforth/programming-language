@@ -1,5 +1,7 @@
 Atom {}
 
+player =;
+
 Thing {
 	# compositions
 	* Atom # merges all of Atom's declarations into Thing, does not inherit type Atom
@@ -66,10 +68,10 @@ Entity {
 }
 
 
-player.?current_level = 1 # .? is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible.
+#player.?current_level = 1 # .? is like  &. in Ruby. I want the dot to go first since that feels more like accessing a member or whatever. the / is just the next key on the keyboard so it flows. I want this language to feel as smooth as possible.
 
-if player.?current_level { # also works like ruby's #respond_to?
-}
+#if player.?current_level { # also works like ruby's #respond_to?
+#}
 
 nice { param, param_with_default = 1 -> "body" }
 
@@ -87,6 +89,7 @@ empty { -> }
 Empty {}
 
 lost = { in = 42 -> }
+whatever = 123
 
 {
 	-> whatever
@@ -100,6 +103,12 @@ GAME_LOOP_STATE {
 
 TESTING {}
 
+a = 1
+b = 2
+c = 3
+d = 4
+e = 5
+
 (a + b) * c
 !a
 -a + +b
@@ -107,8 +116,8 @@ a ** b
 a * b / c % d
 a + b - c
 a << b >> c
-a < b <= c > d >= e
-a == b != c === d !== e
+#a < b <= c > d >= e # todo) this doesn't make sense. a < b will be a boolean which cannot be compared with the following <=. So either this doesn't belong in the language, or I need a new construct for this type of expression. Or maybe the way the expressions are grouped is the problem, eg) BE(BE(a < b) <= c)
+#a == b != c === d !== e # todo) implement === and !== (!== doesn't exist in Ruby)
 a & b
 a ^ b
 a | b
@@ -482,3 +491,13 @@ Atom.new
 Atom {
 	inline_func -> 'inline!'
 }
+
+{ a, b = 1, c = 'c', x = 12 * 12, y = Abc{} }
+
+PLAYER = 0
+
+CHARACTER {
+	FRIEND = 1
+	ENEMY {}
+}
+

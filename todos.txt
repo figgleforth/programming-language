@@ -2,8 +2,7 @@ Upgrade the entire language pipeline. Currently each time I need to parse/interp
 This would also allow other options, like documenting and server stuff.
 Don't just replace all places where these are locally created, do that methodically. For example, parser sometimes calls a new instance of itself, so that doesn't need an entire pipeline.
 
-Consider combining scope.variables and scope.functions and scope.classes into scope.declarations. That would allow simplification of Scope, it could become just a dictionary. This should be done AFTER signature is implemented because if it's just one dictionary, it will need signatures to allow var x and func x to coexist.
-Update: see notes/scopes.txt where I go into detail on how I think scopes should work. It is actually just a single dictionary.
+Use signature for declaration setting and lookups
 
 Investigate parser creating a new instance of itself and having it parse output. I can't remember why I did that, maybe because Parser has @expressions and the #parse loop adds to expressions each time it runs once. So you could end up in a situation where you are mid parsing something where you have to call #parse in a nested manner, the inner #parse call will append to @expressions before the outer #parse call does, which would lead to incorrect parsing. So maybe this isn't a problem at all?
 
@@ -55,8 +54,6 @@ Thoughts today (without reading above thoughts): override operator with `operato
 
 Apparently you can add members to an instance at any time by doing instance.whatever {} or instance.whatever = 'boo'. I kinda like that but it feels wrong, actually. Consider whether to keep this behavior. I just thought of a useful case for this – interpreter could have debug and release modes. In debug mode, you can add instances like this to make building the thing easier. In release mode, it would fail to interpret. I like this a lot.
 
-Rethink how CONSTANTS are stored. Would it make sense for them to extend Assignment_Expr? Right now they're their own construct Enum_Constant_Expr and Enum_Collection_Expr. At least the Enum_Constant_Expr could be Assignment_Expr, especially once (may already be in place) Exprs are getting Tokens instead of just plain strings, we can then check token#constant? instead of needing a class to represent it
-
 Issue interpreting. I wonder what to do about this. I plan to support .0, .1, etc as a binary expression to be able to easily access arrays by index (arr.1, arr.2, etc). That would be so nice. Once operator overloading works, you could overload . on Array and have it call through to []. Something like `operator . { right -> self.[right] }`.
 Abc { boo = 'boo' }.new.boo
 ◼︎ "boo"
@@ -98,7 +95,6 @@ Repl: make ctrl+c cancel the current input. Currently it cancels the current lin
 Consider composition with members. Parser#make_ast prevents it
 
 Figure out how to call functions without parens like in Ruby. See Parser#make_function_call_ast
-
 When calling func without parens, think about how to handle collisions between variable and func names. Currently the interpreter lets you call a func without parens only if it takes no arguments. If it does, it prints a message stating the block expects args.
 
 I like how Ruby has classes for builtin types, like TrueClass, FalseClass, Integer, etc. Reading through true_class.rb, it dawned on me that there's probably some preload.rb-like file that would declare `true = TrueClass.new` or something like that. For example, I'm currently lexing a Boolean_Token when an identifier is 'true' or 'false', then parsing that into a Boolean_Literal_Expr, and finally interpreting Boolean_Literal_Expr using Boolean_Literal_Expr#to_bool.
@@ -125,11 +121,13 @@ something { -> }
 
 bug: Assignment_Expr when passed as argument is evaluated in the scope of the function. So in this case, wtf becomes available inside the go function
 go { x-> wtf }
-◼︎ #<Block_Construct:0x00000001025b1a28>
+◼︎ #<Block_Construct:0x000000010228e4b8>
 go(wtf =;)
 ◼︎ nil
 wtf
 ◼︎ undefined variable or function `wtf` in scope: Global
+go()
+◼︎ undefined variable or function `wtf` in scope: go
 
 Add autocomplete to REPL. See https://ruby-doc.org/stdlib-2.5.1/libdoc/readline/rdoc/Readline.html#method-c-completion_proc-3D-label-Examples
 
@@ -139,3 +137,5 @@ How to load into a specific scope, aka named?
 @load tests/sandbox.em as sandbox
 The idea is that this would load the contents of the file into the current scope. It could pollute the scope, so this would allow you to put it in its own scope, like a variable assignment
 Jai allows passing arguments to the loaded file, like @import 'library'(some_flag = false), then this library can evaluate based on this flag. Think about how to allow files to specify params
+
+Parser issue — cannot set blocks as values on a dictionary. `{ x = {->} }` fails saying parser doesn't know how to parse `}`. I think this has something to do with the way that #parse_until parses until the specified token
