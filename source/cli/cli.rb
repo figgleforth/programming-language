@@ -7,7 +7,7 @@ end
 class CLI_Interpreter
     require_relative '../lexer/lexer'
     require_relative '../parser/parser'
-    require_relative '../interpreter/interpreter'
+    require_relative '../interpreter/interpreter_old'
     require 'pp'
 
 
