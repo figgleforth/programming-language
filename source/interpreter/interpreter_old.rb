@@ -6,12 +6,13 @@ require 'pp'
 
 class Interpreter # evaluates AST and returns the result
     include Scopes
-    attr_accessor :expressions, :scopes
+    attr_accessor :expressions, :scopes, :scope_by_identifier
 
 
     def initialize expressions = []
-        @expressions = expressions
-        @scopes      = [Global_Scope.new] # default scope
+        @expressions         = expressions
+        @scopes              = [Global_Scope.new] # default scope
+        @scope_by_identifier = {}
     end
 
 
@@ -50,11 +51,29 @@ class Interpreter # evaluates AST and returns the result
 
     # region Get constructs
 
+    # Works just like #get_from_scope but it returns a tuple [value, scope]
+    def get_scope_info_for_ident identifier
+        value = curr_scope.declarations[identifier.to_s]
+        scope = curr_scope
+
+        if not value # start at the next scope and traverse up the stack of scopes
+            scopes.reverse_each.with_index do |next_scope, index|
+                value = next_scope.declarations[identifier.to_s]
+                if value
+                    scope = next_scope
+                end
+            end
+        end
+
+        [value, scope]
+    end
+
+
     def get_from_scope identifier
         value = curr_scope.declarations[identifier.to_s]
 
         if not value # start at the next scope and traverse up the stack of scopes
-            scopes.reverse_each do |next_scope|
+            scopes.reverse_each.with_index do |next_scope, index|
                 value = next_scope.declarations[identifier.to_s]
                 break if value
             end
@@ -66,8 +85,14 @@ class Interpreter # evaluates AST and returns the result
 
     # Sets a value (likely a Construct or literal value) on the current scope
     # @return [any] The value passed in
-    def set_on_scope identifier, value
-        curr_scope.declarations[identifier.to_s] = value
+    def set_on_scope identifier, value, desired_scope = nil
+        if desired_scope
+            @scope_by_identifier[identifier]            = desired_scope
+            desired_scope.declarations[identifier.to_s] = value
+        else
+            @scope_by_identifier[identifier]         = curr_scope
+            curr_scope.declarations[identifier.to_s] = value
+        end
     end
 
 
@@ -116,7 +141,20 @@ class Interpreter # evaluates AST and returns the result
                 it.is_constant = expr.expression.constant?
             end
 
-            set_on_scope it.name, return_value
+            existing = @scope_by_identifier[it.name]
+            if existing
+                push_scope existing
+                set_on_scope it.name, return_value
+                pop_scope
+                # end
+                # value, scope = get_scope_info_for_ident it.name
+                # if value and scope != curr_scope
+                #     # set_on_scope return_value, scope_of(existing)
+                #     scope.declarations[it.name] = return_value
+                #     puts "#{it.name} already exists with value #{value}"
+            else
+                set_on_scope it.name, return_value
+            end
         end
         return_value
     end
@@ -126,19 +164,37 @@ class Interpreter # evaluates AST and returns the result
     # Since we know the strings of the param identifiers, they should be used in the signature. So can labels, so for example `greeting { for name -> name }` could be `greeting(for)`. The label should be used in place of the param name since that is the externally visible identifier for this param anyway, so it should be in the signature.
     # This would allow for methods with shared names but different params, so `greeting { from name -> name }` becomes `greeting(from)`. And now there are two funcs with the same name greeting(for) and greeting(from). The interpreter can decide which to call based on the label. greeting(for: 'Locke') or greeting(from: 'Locke)'
     def eval_block_call expr # Block_Call_Expr :name, :arguments
-        last_statement = nil # is the default return value of all blocks
-
         block = get_from_scope expr.name
         raise "#eval_block_call expected #get_from_scope to give Block_Expr, got #{block.inspect}" unless block.is_a? Block_Expr
-        push_scope Scope.new
 
-        block.compositions.each do |comp|
-            set_on_scope comp, get_from_scope(comp)
-        end
+        # puts "\n\n#{expr.name}: #{block.inspect}"
+        # puts "args: #{expr.arguments.inspect}"
+        # push_scope Scope.new(expr.name)
+        last_statement = nil # is the default return value of all blocks
 
+        # block.compositions.each do |comp|
+        #     puts "get #{get_from_scope(comp).inspect}"
+        #     set_on_scope comp, get_from_scope(comp)
+        # end
+
+        params_and_args = block.parameters.zip(expr.arguments)
+        # if any param is composition, and it has an arg
+        #   arg looks like #<Block_Arg_Expr: @expression=#<Identifier_Expr: @string="b", @is_keyword=false>>
+
+        push_scope Scope.new(expr.name) # for the block being called
         # evaluates argument expression if present, otherwise the declared param expression
-        block.parameters.zip(expr.arguments).each do |(param, arg)|
+        params_and_args.each do |(param, arg)|
             # Block_Param_Decl_Expr and Block_Arg_Expr
+
+            arg_value = if arg
+                get_from_scope arg.expression.string
+            end
+
+            if param.composition and arg_value
+                # puts "existing and its comp #{arg_value.inspect}"
+                set_on_scope arg.expression.string, arg_value
+            end
+
             default_value = evaluate param.default_expression
             set_on_scope param.name, default_value
 
@@ -171,11 +227,12 @@ class Interpreter # evaluates AST and returns the result
         last_statement = nil # the default return value of all blocks
         if expr.named? # store the block on the current scope so it can be called later
             last_statement = expr.tap do |it|
-                set_on_scope it.name, it
+                set_on_scope it.name, it # Block_Expr
             end
         else
             # anonymous block
             # evaluate the block since it wasn't named, and therefor isn't being stored
+            # push_scope Scope.new
             expr.parameters.each do |it|
                 # Block_Param_Decl_Expr
                 set_on_scope it.name, evaluate(it.default_expression)
@@ -201,6 +258,7 @@ class Interpreter # evaluates AST and returns the result
                 next if it.is_a? Composition_Expr # these are explicitly handled above because expressions might depend compositions being present
                 last_statement = evaluate it
             end
+            # pop_scope
         end
         last_statement
     end
@@ -253,10 +311,9 @@ class Interpreter # evaluates AST and returns the result
 
         # instantiate when Class_Expr . 'new'
         if left.is_a? Class_Expr and expr.right.string == 'new'
-            instance = Instance_Construct.new.tap do |it|
-                it.class_construct = left
-
-                push_scope Instance_Scope.new # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
+            return Instance_Scope.new.tap do |it|
+                it.name = left.name
+                push_scope it # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
                 # todo) should this here be a Class_Scope?
 
                 if left.base_class
@@ -265,10 +322,11 @@ class Interpreter # evaluates AST and returns the result
                 end
 
                 evaluate left.block
-                it.scope      = pop_scope
-                it.scope.name = left.name
+                pop_scope
+                # it.scope      = pop_scope
+                # it.scope.name = left.name
+                set_on_scope left.name, it
             end
-            return instance
         end
 
         if left.is_a? Class_Expr and expr.operator == '.'

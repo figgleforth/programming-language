@@ -1,7 +1,7 @@
 require 'readline'
 require_relative '../lexer/lexer'
 require_relative '../parser/parser'
-require_relative '../interpreter/interpreter'
+require_relative '../interpreter/interpreter_old'
 require_relative '../interpreter/scopes'
 
 BULLET_COLOR       = 236
@@ -85,12 +85,12 @@ class REPL
 
     def help_instructions
         @instructions ||= %Q(#{BULLET} exit with \\q or \\x or exit
-#{BULLET} continue on next line with \\
-#{BULLET} end multiline with ; or complete an expression
-#{BULLET} output prints in gray
+#{BULLET} press enter to interpret expression
+#{BULLET} type \\ then press enter to continue on next line
+#{BULLET} outputs print in gray
 #{BULLET} errors print in red
-#{BULLET} print current scope with @
-#{BULLET} print fun stats with %)
+#{BULLET} run @ to see the current scope
+#{BULLET} run % for fun stats)
     end
 
 

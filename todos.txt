@@ -1,3 +1,6 @@
+I think I need to differentiate between var assignment and var declaration. It would help, especially when assigning variables from within nested blocks. Currently if there's an `x = 1` in the global scope, and in a block `x = 2`, the global scope x stays unchanged.
+A related BUG: in #eval_block for anonymous blocks, if I push a scope then it breaks while loops. I think while loop's anon block evals on the current scope, so by pushing a scope, the x = 2 is declared on that scope and not over
+
 Implement class functions. #new is reserved for inits. Also make #new() work, check #eval_block_call
 d = Dog.new
 ◼︎ #<Instance_Construct:0x00000001006174d8>
@@ -161,3 +164,5 @@ Parser issue — cannot set blocks as values on a dictionary. `{ x = {->} }` fai
 Make print !!!> functions take comma separated expressions because it feels nicer to type a comma than a plus, because the plus requires holding shift
 
 Come up with something better than !> !!> !!!>, mostly because that's an ugly operator
+
+Previous scope operator `../` like `../puck.bounce` to get `puck` from the previous scope
