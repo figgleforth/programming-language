@@ -56,3 +56,5 @@ Update: see notes/scopes.txt where I go into detail on how I think scopes should
 Implement dot access for dictionaries, and for enums
 
 Rethink how CONSTANTS are stored. Would it make sense for them to extend Assignment_Expr? Right now they're their own construct Enum_Constant_Expr and Enum_Collection_Expr. At least the Enum_Constant_Expr could be Assignment_Expr, especially once (may already be in place) Exprs are getting Tokens instead of just plain strings, we can then check token#constant? instead of needing a class to represent it
+
+Updated Parser so that it returns a Binary_Expr instead of Subscript_Expr

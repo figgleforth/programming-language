@@ -11,7 +11,7 @@ class Interpreter # evaluates AST and returns the result
 
     def initialize expressions = []
         @expressions         = expressions
-        @scopes              = [Global_Scope.new] # default scope
+        @scopes              = [Instance.new] # default scope
         @scope_by_identifier = {}
     end
 
@@ -53,12 +53,12 @@ class Interpreter # evaluates AST and returns the result
 
     # Works just like #get_from_scope but it returns a tuple [value, scope]
     def get_scope_info_for_ident identifier
-        value = curr_scope.declarations[identifier.to_s]
+        value = curr_scope[identifier.to_s]
         scope = curr_scope
 
         if not value # start at the next scope and traverse up the stack of scopes
             scopes.reverse_each.with_index do |next_scope, index|
-                value = next_scope.declarations[identifier.to_s]
+                value = next_scope[identifier.to_s]
                 if value
                     scope = next_scope
                 end
@@ -70,11 +70,11 @@ class Interpreter # evaluates AST and returns the result
 
 
     def get_from_scope identifier
-        value = curr_scope.declarations[identifier.to_s]
+        value = curr_scope[identifier.to_s]
 
         if not value # start at the next scope and traverse up the stack of scopes
             scopes.reverse_each.with_index do |next_scope, index|
-                value = next_scope.declarations[identifier.to_s]
+                value = next_scope[identifier.to_s]
                 break if value
             end
         end
@@ -87,11 +87,11 @@ class Interpreter # evaluates AST and returns the result
     # @return [any] The value passed in
     def set_on_scope identifier, value, desired_scope = nil
         if desired_scope
-            @scope_by_identifier[identifier]            = desired_scope
-            desired_scope.declarations[identifier.to_s] = value
+            @scope_by_identifier[identifier] = desired_scope
+            desired_scope[identifier.to_s]   = value
         else
-            @scope_by_identifier[identifier]         = curr_scope
-            curr_scope.declarations[identifier.to_s] = value
+            @scope_by_identifier[identifier] = curr_scope
+            curr_scope[identifier.to_s]      = value
         end
     end
 
@@ -99,17 +99,20 @@ class Interpreter # evaluates AST and returns the result
     # endregion
 
     def merge_scope_into_current scope
-        curr_scope.declarations.merge scope.declarations
+        curr_scope.merge scope
     end
 
 
     def eval_macro_command expr
         if expr.expression
-            if expr.name == '!>' # log level
+            if expr.name == '>~' # breakpoint snake
+                # I think a REPL needs to be started here, in the current scope. the repl should be identical to the repl.rb from the em cli. any code you run in this repl, is running in the actual workspace (the instance of the app), so you can make permanent changes. Powerful but dangerous.
+                puts "~ PRETEND BREAKPOINT ~"
+            elsif expr.name == '>!' # log level
                 puts evaluate(expr.expression)
-            elsif expr.name == '!!>' # warning
+            elsif expr.name == '>!!' # warning
                 puts "WARNING: #{evaluate(expr.expression)}"
-            elsif expr.name == '!!!>' # error
+            elsif expr.name == '>!!!' # error
                 puts "ERROR: #{evaluate(expr.expression)}"
             end
         else
@@ -150,7 +153,7 @@ class Interpreter # evaluates AST and returns the result
                 # value, scope = get_scope_info_for_ident it.name
                 # if value and scope != curr_scope
                 #     # set_on_scope return_value, scope_of(existing)
-                #     scope.declarations[it.name] = return_value
+                #     scope[it.name] = return_value
                 #     puts "#{it.name} already exists with value #{value}"
             else
                 set_on_scope it.name, return_value
@@ -311,10 +314,10 @@ class Interpreter # evaluates AST and returns the result
 
         # instantiate when Class_Expr . 'new'
         if left.is_a? Class_Expr and expr.right.string == 'new'
-            return Instance_Scope.new.tap do |it|
+            return Instance.new.tap do |it|
                 it.name = left.name
                 push_scope it # because #evaluate operates on the current scope, so this ensures that the block/body of the class is evaluated in its own scope
-                # todo) should this here be a Class_Scope?
+                # todo) should this here be a Static?
 
                 if left.base_class
                     guts = get_from_scope left.base_class
@@ -441,7 +444,7 @@ class Interpreter # evaluates AST and returns the result
         #   if identifier is class, look up classes
 
         if expr.string == '@'
-            return PP.pp(curr_scope.declarations.keys.zip(curr_scope.declarations.values), '').chomp
+            return PP.pp(curr_scope.keys.zip(curr_scope.values), '').chomp
         end
 
         lookup_hash = %i(variables functions classes) # used in #get_from_scope to Runtime_Scope.send lookup_hash
@@ -456,11 +459,11 @@ class Interpreter # evaluates AST and returns the result
             # Some identifiers will be undefined by default, like the #new function on classes.
             # todo: improve error messaging
             if expr.member?
-                raise "undefined variable or function `#{expr.string}` in scope: #{curr_scope.name}"
+                raise "undefined variable or function `#{expr.string}` in scope: #{curr_scope.inspect}"
             elsif expr.constant?
-                raise "undefined constant `#{expr.string}` in scope: #{curr_scope.name}"
+                raise "undefined constant `#{expr.string}` in scope: #{curr_scope.inspect}"
             else
-                raise "undefined class `#{expr.string}` in scope: #{curr_scope.name}"
+                raise "undefined class `#{expr.string}` in scope: #{curr_scope.inspect}"
             end
         end
 

@@ -34,34 +34,6 @@ class Parser
     end
 
 
-    # Array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned.
-    def precedence_for token
-        [
-          [0, %w(( ))],
-          [1, %w([ ])],
-          [2, %w(!)],
-          [3, %w(- +)], # Additive
-          # [4, %w(**)], # Exponentiation. note: I don't know enough about operators right now, but, I don't think the exponential operator should have its own precedence. For example, x**y*z gave a different result in Ruby than in this language when it has its own precedence. Therefore, I believe it should have the same precedence as the other multiplicative operators. All tests still pass, and at least this gives me the same output that Ruby does
-          [5, %w(** * / %)], # Multiplicative
-          # 6 is reserved for unary + -
-          [7, %w(<< >>)], # Shift
-          [8, %w(< <= > >=)], # Relational
-          [9, %w(== != === !==)], # Equality
-          [10, %w(&)], # Bitwise AND
-          [11, %w(^)], # Bitwise XOR
-          [12, %w(|)], # Bitwise OR
-          [13, %w(&&)], # Logical AND
-          [14, %w(||)], # Logical OR
-          # [15, %w(?:)], # Ternary
-          [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # Assignment
-          [18, %w(,)],
-          [20, %w(. .? .. .<)],
-        ].find do |_, chars|
-            chars.include?(token.string)
-        end&.at(0)
-    end
-
-
     # buffer[i - 1]
     def prev
         peek -1
@@ -231,17 +203,18 @@ class Parser
     # end
 
     def make_assignment_ast
-        Assignment_Expr.new.tap do |node|
-            node.name = eat(Identifier_Token).string # todo) store the Token and not just the string
+        Assignment_Expr.new.tap do |it|
+            it.name = eat(Identifier_Token) # todo) store the Token and not just the string
 
             if curr? '=;'
                 eat '=;'
+                it.expression = Nil_Expr.new
             elsif curr? '=' and eat '='
                 if curr? "\n"
                     code = (buffer << curr).join(' ')
                     raise "Expected expression after `#{buffer[1]}` but got `#{curr}` in\n\n```\n#{code}\n```"
                 else
-                    node.expression = parse_expression
+                    it.expression = parse_expression
                 end
             else
                 current   = "Expected = with an expression or ; to terminate the var declaration"
@@ -257,7 +230,7 @@ class Parser
     def make_enum_ast
         if curr? Identifier_Token, '{'
             Enum_Expr.new.tap do |it|
-                it.name = eat(Identifier_Token).string
+                it.name = eat(Identifier_Token)
                 eat '{'
                 eat_past_newlines
                 until curr? '}'
@@ -276,7 +249,7 @@ class Parser
         elsif curr? Identifier_Token
             # these are enum constants without a value. eg) ENV { DEV, PROD } which can still be used as constants ENV.DEV and ENV.PROD, but they don't have a value set.
             Assignment_Expr.new.tap do |it|
-                it.name = eat(Identifier_Token).string
+                it.name = eat(Identifier_Token)
                 eat_past_newlines
             end
 
@@ -312,13 +285,14 @@ class Parser
 
     def make_composition_ast
         Composition_Expr.new.tap do |it|
-            it.operator   = eat.string # * & ~
-            it.identifier = Identifier_Expr.new.tap do |id|
-                id.string = eat.string
-            end
+            it.operator = eat.string # > + - # * & ~
+            # puts "what if we eat expression"
+            # expr = parse_expression
+            # puts "expr #{expr.inspect}"
+            it.expression = parse_expression
 
             if curr? 'as' and eat
-                it.alias_identifier = eat(Identifier_Token).string
+                it.alias_identifier = eat(Identifier_Token)
             end
         end
     end
@@ -336,7 +310,7 @@ class Parser
 
 
     def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
-        if curr? '!>' or curr? '!!>' or curr? '!!!>'
+        if curr? '>~' or curr? '>!' or curr? '>!!' or curr? '>!!!'
             Macro_Command_Expr.new.tap do |it|
                 it.name       = eat(Macro_Token).string
                 it.expression = parse_expression # todo) it would be cool to be able to comma separate expressions here. it feels nicer to type a comma than a plus, because the plus requires holding shift
@@ -346,7 +320,34 @@ class Parser
                 it.name = eat(Macro_Token).string
 
                 eat '('
-                it.identifiers << eat(Identifier_Token).string while curr? Identifier_Token
+                while curr? Identifier_Token
+                    it.identifiers << eat(Identifier_Token).string
+                    eat if curr? ','
+                end
+
+                case it.name
+                    when '%S'
+                        it.identifiers.map!(&:upcase)
+                    when '%s'
+                        it.identifiers.map!(&:downcase)
+                    when '%V'
+                        # ['BOO', 'HOO']
+                    when '%v'
+                        # ['boo', 'hoo']
+                    when '%W'
+                        # ["BOO", "HOO"]
+                    when '%w'
+                        # ["boo", "hoo"]
+                    when '%d'
+                        # {boo: nil, hoo: nil}
+                    when '%D'
+                        # {BOO: nil, HOO: nil}
+                    when '%'
+                        # %(1, 2, 3) tuples
+                    else
+                        raise "Parse#make_macro_ast unknown macro #{it.name}"
+                end
+
                 eat ')'
             end
         end
@@ -367,11 +368,11 @@ class Parser
     #   { ... }
     def make_class_ast is_api_decl = false
         Class_Expr.new.tap do |it|
-            it.name = eat(Identifier_Token).string
+            it.name = eat(Identifier_Token)
 
             if curr? '>' and eat '>'
                 raise 'Parent must be a Class' unless curr.object?
-                it.base_class = eat(Identifier_Token).string
+                it.base_class = eat(Identifier_Token)
             end
 
             eat '{'
@@ -433,23 +434,23 @@ class Parser
                         it.name        = ident[1..] # excludes the & or ~
                     elsif curr? Identifier_Token and not curr.composition? and peek(1) == Identifier_Token and peek(1).composition?
                         it.composition = true
-                        it.label       = eat(Identifier_Token).string
+                        it.label       = eat(Identifier_Token)
                         ident          = eat.string
                         it.name        = ident[1..]
                     elsif curr? Identifier_Token, '&', Identifier_Token
                         it.composition = true
-                        it.label       = eat(Identifier_Token).string
+                        it.label       = eat(Identifier_Token)
                         eat '&'
-                        it.name = eat(Identifier_Token).string
+                        it.name = eat(Identifier_Token)
                     elsif curr? '&', Identifier_Token
                         it.composition = true
                         eat '&'
-                        it.name = eat(Identifier_Token).string
+                        it.name = eat(Identifier_Token)
                     elsif curr? Identifier_Token, Identifier_Token
-                        it.label = eat(Identifier_Token).string
-                        it.name  = eat(Identifier_Token).string
+                        it.label = eat(Identifier_Token)
+                        it.name  = eat(Identifier_Token)
                     elsif curr? Identifier_Token
-                        it.name = eat(Identifier_Token).string
+                        it.name = eat(Identifier_Token)
                     end
 
                     if curr? '='
@@ -516,7 +517,7 @@ class Parser
         Block_Hook_Expr.new.tap do |it|
             it.identifier = eat.string
             raise 'Expected target function identifier after @before keyword' unless curr? Identifier_Token
-            it.target_function_identifier = eat(Identifier_Token).string
+            it.target_function_identifier = eat(Identifier_Token)
             eat_past_newlines
         end
     end
@@ -629,13 +630,16 @@ class Parser
     def make_array_literal_ast
         Array_Literal_Expr.new.tap do |it|
             eat '['
-            it.elements << parse_block(%w(, \) ])).expressions[0]
+            if curr? ']' and eat
+                return it
+            end
+            it.elements << parse_expression
             while curr? ','
                 eat ','
-                it.elements << parse_block(%w(, \) ])).expressions[0]
+                it.elements << parse_expression
             end
             it.elements.compact! # parse_block can return nil, so this could be an array of nil values.
-            eat ']'
+            eat ']' if curr? ']'
         end
     end
 
@@ -655,13 +659,42 @@ class Parser
     end
 
 
-    def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
-        add_comp    = (curr? '&', Identifier_Token and (peek(1).constant? or peek(1).object?))
-        remove_comp = (curr? '~', Identifier_Token and (peek(1).constant? or peek(1).object?))
-        merge_comp  = (curr? '*', Identifier_Token and (peek(1).constant? or peek(1).object?))
+    # Array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. Nice reference: https://rosettacode.org/wiki/Operator_precedence
+    def precedence_for token
+        # note) this can be improved. for example, just order them in an array. I don't think I need any explicit number control, as long as the order is what it is currently
+        # Lame explanation –
+        # If the current prec is lower than the previously parsed operator, then that ends the previous expression
+        # If the current prec is higher than the previously parsed operator, then that is a continuation of the expression
+        [
+          [0, %w(( ))],
+          [1, %w([ ])],
+          [1, %w(!)],
+          [2, %w(< <= > >= == != === !==)],
+          [4, %w(- +)],
+          [5, %w(** * / %)],
+          [7, %w(<< >>)],
+          [10, %w(&)],
+          [11, %w(^)],
+          [12, %w(|)],
+          [13, %w(&&)],
+          [14, %w(||)],
+          [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)],
+          [18, %w(,)],
+          [20, %w(. .? .. .<)],
+        ].find do |_, chars|
+            chars.include?(token.string)
+        end&.at(0)
+    end
+
+
+    def parse_expression starting_precedence = 0
+        # def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
+        merge_comp  = (curr? '>', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        add_comp    = (curr? '+', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        remove_comp = (curr? '-', Identifier_Token and (peek(1).constant? or peek(1).object?))
         inline_comp = (curr? Identifier_Token and curr.composition?)
 
-        if curr? '{' and peek_until_contains? '}', '->'
+        ast = if curr? '{' and peek_until_contains? '}', '->'
             make_block_ast
 
         elsif curr? '{', '}'
@@ -683,7 +716,6 @@ class Parser
             parse_expression(precedence).tap do
                 eat ')'
             end
-
         elsif curr? 'while'
             # make_while_ast
             make_conditional_ast true
@@ -767,46 +799,37 @@ class Parser
         elsif curr? EOF_Token
             raise "Parser expected an expression but reached EOF"
 
+            # elsif curr? ']'
+            #     eat
+
         else
             raise "Parsing not implemented for #{curr.inspect}"
-
         end
-    end
 
+        return if not ast
 
-    # endregion
+        # \n are eaten and return nil, so we have to terminate this expression early. Otherwise negative numbers are sometimes parsed as BE( - NUM) insteadof UE(-NUM)
 
-    def parse_expression starting_precedence = 0
-        left = make_ast
-        return if not left # \n are eaten and return nil, so we have to terminate this expression early. Otherwise negative numbers are sometimes parsed as BE( - NUM) insteadof UE(-NUM)
-
-        # if token after left is a binary operator, then we build a binary expression
+        # if token after ast is a binary operator, then we build a binary expression
         while tokens?
-            if curr? Ascii_Token and curr.binary?
+            if curr? Ascii_Token and curr.binary? # or curr? '['
                 curr_operator_prec = precedence_for(curr)
-                break if curr_operator_prec <= starting_precedence
+                break if curr_operator_prec <= starting_precedence # <= originally
 
-                left = Binary_Expr.new.tap do |node|
-                    node.left     = left
-                    node.operator = eat(Ascii_Token).string
-
-                    raise 'Expected expression' if curr? "\n"
-
-                    node.right = parse_expression curr_operator_prec
+                ast = Binary_Expr.new.tap do |it|
+                    it.left     = ast
+                    it.operator = eat(Ascii_Token).string
+                    # raise 'Expected expression' if curr? "\n"
+                    it.right    = parse_expression(curr_operator_prec) unless curr? ']'
+                    eat if curr? ']'
                 end
-            elsif curr? '['
-                eat '['
-                left = Subscript_Expr.new.tap do |node|
-                    node.left             = left
-                    node.index_expression = parse_expression unless curr? ']'
-                end
-                eat ']'
             else
+                eat ']' if curr? ']'
                 break
             end
         end
 
-        left
+        ast
     end
 
 
@@ -822,6 +845,7 @@ class Parser
                 end
 
                 if (expr = parse_expression)
+                    # puts "\nexpr #{expr.inspect}"
                     s << expr
                 end
             end

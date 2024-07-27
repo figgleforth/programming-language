@@ -7,7 +7,7 @@ end
 class CLI_Interpreter
     require_relative '../lexer/lexer'
     require_relative '../parser/parser'
-    require_relative '../interpreter/interpreter_old'
+    require_relative '../interpreter/runtime'
     require 'pp'
 
 
@@ -26,7 +26,7 @@ class CLI_Interpreter
             end
             return
         end
-        Interpreter.new(ast).interpret!
+        Runtime.new(ast).evaluate
     end
 end
 
