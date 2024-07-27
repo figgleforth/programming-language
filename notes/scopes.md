@@ -3,8 +3,8 @@ Rules for scopes:
 - Named functions push a `block` scope onto the stack at evaluation
 - Anon functions push a `block` scope onto the stack at evaluation
 - Anon functions declared in a variable push a `block` scope onto the stack at evaluation
-- Instances push a `local` scope onto the stack at evaluation
-- All `block` scopes can see `global` scope, and up the scope stack to the nearest `local` scope
+- Instances push a `instance` scope onto the stack at evaluation
+- All `block` scopes can see `global` scope, and up the scope stack to the nearest `instance scope
 ---
 Every scope has this format
 ```ruby
@@ -39,7 +39,7 @@ Emerald {
   Dog:     Class_Expr,
 
   floof:   {
-    '@':  { id: 1, kind: :local },
+    '@':  { id: 1, kind: :instance },
     name: 'Cooper'
   },
 
@@ -48,10 +48,10 @@ Emerald {
 ```
 ---
 Say we want to evaluate `floof = Dog.new`. The `Class_Expr` stored in `Dog` tells the interpreter what declarations to
-put into the `local` scope created for the instance. So #evaluate Class_Expr(Dog) produces
+put into the `instance` scope created for the instance. So #evaluate Class_Expr(Dog) produces
 ```ruby
 {
-  '@':  { id: 1, kind: :local },
+  '@':  { id: 1, kind: :instance },
   name: 'Cooper',
   bark: Block_Expr
 }
@@ -61,7 +61,7 @@ which gets declared as the `floof` variable in the enclosing scope
 {
   # the enclosing scope
   floof: {
-    '@':  { id: 1, kind: :local },
+    '@':  { id: 1, kind: :instance },
     name: 'Cooper',
     bark: Block_Expr
   }

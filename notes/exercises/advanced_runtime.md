@@ -1,0 +1,105 @@
+Convert the code into a runtime. Runtime is just a global scope, with other scopes. It is basically the program.
+```
+Inventory {
+	gold = 0
+}
+
+Player {
+	inventory = Inventory.new
+}
+
+player = Player.new
+
+add_money { &player ->
+	inventory.gold += 1
+}
+
+add_money(player)
+```
+```
+Stack[
+  Global {
+    Inventory: Static.Inventory {
+      gold: 0 
+    }
+  
+    Player: Static.Player {
+      inventory: Instance.Inventory {
+        gold: 0
+      }
+    }
+    
+    player: Instance.Player {
+      inventory: Instance.Inventory {
+        gold: 0
+      }
+    }
+    
+    add_money: Block_Expr
+  }
+]
+```  
+Evaluating `add_money(player)`
+- any compositions?
+  - push their scopes (which later might be like [Global, [Block, Instance]] where an item in the stack is actually
+	a collection of scopes. This might be ideal.
+  - `push &player`
+- `push temp`
+- eval #add_money body
+  - only expr there is Assigment_Expr inventory.gold += 1
+  - so we need to look up inventory.gold, which happens to be in our stack now because of the comp 
+  - make the assignment += 1 so the gold is updated in Instance.&player
+- pop Temp.add_money
+- pop compositions
+- And we're left with the original stack, with player.inventory.gold having been incremented 
+```
+Stack[
+  Global { Inventory, Player, player, add_money } # verbose above
+  
+  Instance.&player{ # instance is pushed onto the scope before the Block it is being composed into. In Ruby, this will actually be a reference to player from the Global scope so changes to it are reflected in the Global scope
+	inventory: Instance.Inventory {
+	  gold: 1 # which is reflected in the global scope
+	}
+  }
+
+  Block.add_money {
+  	# when looking up inventory.gold, it is directly behind us!
+  	# if it didn't exist in our stack, we would init it here or whatever
+  }
+
+]
+```
+
+Composition is just making the current scope of the stack into an array of scopes
+
+	# see #add_money
+	# push Temp scope for it
+	# see &player
+	# replace curr scope with [&player, Temp]
+		# so the final stack went from [Global, Temp] to [Global, [&player, Temp]]
+	# #get should know that when it sees an array in the stack, look for declarations in the order of the array
+		# in this case, first look in &player, then in Temp, then in Global.
+
+	# todos:
+		# update #get to know that if it's not a Scope, then it must be array of scopes. And it should also iterate the scopes in the correct order
+		# any time I need to inline compose, it should push an array of scopes
+	
+	# non composition does not need to do this because params are desired to be declarations of the Temp scope
+	
+	# class composition is a different mechanism, I think. This here is only for inline
+ 
+
+A modified stack, which works better with compositions:
+
+[Scope, [Scope, Scope]]
+
+Add `#compose` function that will prepend the scope passed in
+def compose scope
+  if curr_scope.is_a? Array
+    curr_scope.prepend scope
+  else
+    push_scope [scope, pop_scope]
+  end
+end
+
+Then `#get` needs to

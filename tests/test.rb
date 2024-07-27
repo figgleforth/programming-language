@@ -1,20 +1,29 @@
+require_relative '../source/lexer/lexer'
+require_relative '../source/parser/parser'
+require_relative '../source/interpreter/runtime'
 require 'benchmark'
 @tests_ran = 0
 
-puts
+# Load all example files from the ./examples directory
+example_files = Dir['./examples/*.em']
 
-Benchmark.bm(19) do |x|
-    x.report('parser.rb') { require_relative 'parser' }
-    x.report('interpreter.rb') { require_relative 'interpreter' }
-    x.report('examples/sandbox.em') do
-        tokens     = Lexer.new(File.read('examples/sandbox.em').to_s).lex
-        ast        = Parser.new(tokens).to_ast
-        @tests_ran += 1
-    end
-    x.report('examples/cli.em') do
-        tokens     = Lexer.new(File.read('examples/cli.em').to_s).lex
-        ast        = Parser.new(tokens).to_ast
-        @tests_ran += 1
+max_width = example_files.max do |a, b|
+    a.length <=> b.length
+end.length
+
+Benchmark.bm(max_width) do |x|
+    example_files.each do |file|
+        x.report(file) do
+            tokens     = Lexer.new(File.read(file).to_s).lex
+            ast        = Parser.new(tokens).to_ast
+            begin
+                Runtime.new(ast).evaluate
+            rescue Exception => e
+                puts e.message
+                raise e
+            end
+            @tests_ran += 1
+        end
     end
 end
 

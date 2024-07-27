@@ -157,7 +157,7 @@ class REPL
             end
 
             output          = 'nil' if output.is_a? Nil_Construct
-            if output.is_a? Scopes::Scope # to pretty print the scope from the @ command
+            if output.is_a? Scopes::Base_Scope # to pretty print the scope from the @ command
                 output = PP.pp(output.declarations, '').chomp
             end
             print colorize(bullet, "#{BULLET} ")

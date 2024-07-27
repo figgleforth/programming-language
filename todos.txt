@@ -1,3 +1,37 @@
+Class composition shortcut should be user choice.
+Class > Other {} means Class inherits Other type as well as declarations
+Class + Other {} means class inherits only declarations
+The compositions are comma separated so you can add many
+Class > Other, Other2, Other3 {}
+Class + Other, Other2, Other3 {}
+BUT, you can only use < or + in this inline version, not both. You can use both inside the class
+Class {
+	> Other
+	+ Other2
+}
+
+Exercise: list out all Exprs. Hand draw what the scope tree would look like for evaluating each type of Expr. Really understand each one of the evaluations before we code it.
+
+Is Global part of the stack [Global, Scope, Scope, etc] or is Global a separate scope outside of the stack?
+
+Parse for `()` and make that the operator to "call" the previous expression.
+ident, () means to call that ident
+number, () should give syntax error
+This would be the new version of Block_Call_Expr. Where if the parser parses a () operator, it should create a new Call_Expr(expr = previous parsed expr). This is a more generic Block_Call_Expr. Think about how ( with params ) differs. Maybe it's also a Call_Expr. As far as Runtime is concerned, it doesn't care. All it needs to know if if Call_Expr, what is the identifier, what are the arguments to pass in. So
+Call_Expr(receiver, identifier, arguments)
+
+I want to be able to give a block to any expression, and have that block's `it` be the expression.
+I'm thinking like
+funk { -> }
+funk() {
+	it # is the result of the call
+}
+Woof{}.new {
+	it # is the instance of Woof
+}
+
+It would be cool to be able to pause execution, serialize the global Static_Scope into some output file. Then you could resume the program fresh from the command line by supplying it the output file
+
 I think I need to differentiate between var assignment and var declaration. It would help, especially when assigning variables from within nested blocks. Currently if there's an `x = 1` in the global scope, and in a block `x = 2`, the global scope x stays unchanged.
 A related BUG: in #eval_block for anonymous blocks, if I push a scope then it breaks while loops. I think while loop's anon block evals on the current scope, so by pushing a scope, the x = 2 is declared on that scope and not over
 
@@ -33,7 +67,7 @@ Block_Expr.compositions are just strings, I think they should be Identifier_Expr
 Parser: when eating tokens into expressions that have a :name attribute, always store the token and not just token.string. That's currently how it is, but I need the actual, especially because Token has or should have cursor position info
 Generalization: Think about whether I really need Tokens stored on Asts
 
-REPL needs to call inspect or whatever on the output so that the interpreter isn't making those transformations. That would solve my issue of trying to `!> some_instance` where it prints <Instance:#13241234> or whatever the object prints like in Ruby.
+REPL needs to call inspect or whatever on the output so that the interpreter isn't making those transformations. That would solve my issue of trying to `>! some_instance` where it prints <Instance:#13241234> or whatever the object prints like in Ruby.
 I tried having #evaluate return an inspect-like string for Instance_Construct, but that breaks interpretation because #evaluate should really be dealing with constructs to product a value, not string representations of a construct
 
 Figure out string interpolation. See String_Literal_Expr#string=
@@ -56,7 +90,7 @@ Cannot escape strings. Probably should be lumped with string interpolation work.
 > "Apparently not\n"does interpolation work yet? `result`""
 
 Concatenating strings still broken for two strings.
-!> 'Test ' + 'this'
+>! 'Test ' + 'this'
 "Test "this""
 
 Operator overloading. Add new Operator_Token keyword, I need operators to be identifiable by pattern so that I can check for [Keyword_Token(operator), Operator_Token([] or other binary operator)]. Store it as a named Block_Expr aka function. The name is the operator. For Subscript should be named `[]`. So when interpreter encounters a Subscript_Expr, treat that as a Binary_Expr where left is subscript.left and the operator is dot, and the right is get_from_scope :functions, '[]'.
@@ -64,7 +98,7 @@ Any operator should be able to be overloaded, even ranges. Even `.`? That might 
 Abc {
 	operator . { other ->
 		if other == 'new'
-			!> 'called .new on `self`'
+			>! 'called .new on `self`'
 		}
 	}
 }
@@ -161,8 +195,18 @@ Jai allows passing arguments to the loaded file, like @import 'library'(some_fla
 
 Parser issue — cannot set blocks as values on a dictionary. `{ x = {->} }` fails saying parser doesn't know how to parse `}`. I think this has something to do with the way that #parse_until parses until the specified token
 
-Make print !!!> functions take comma separated expressions because it feels nicer to type a comma than a plus, because the plus requires holding shift
+Make print >!!! functions take comma separated expressions because it feels nicer to type a comma than a plus, because the plus requires holding shift
 
-Come up with something better than !> !!> !!!>, mostly because that's an ugly operator
+Come up with something better than >! >!! >!!!, mostly because that's an ugly operator
 
 Previous scope operator `../` like `../puck.bounce` to get `puck` from the previous scope
+
+Idea – comma separated expressions should parse as an array
+x = 1, 2, 3 #> [1,2,3]
+funk { -> 1, 2, 3 }
+funk() #> [1,2,3]
+
+ Symbol for tuples? It would be cool for them to have their own unique symbols but {} and () and [] are all taken.
+<1,2>
+|1, 2|
+%(1, 2)

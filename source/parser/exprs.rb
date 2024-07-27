@@ -1,3 +1,6 @@
+require 'pp'
+
+
 class Expr
     attr_accessor :string, :tokens
 
@@ -31,6 +34,10 @@ class Block_Expr < Expr
     end
 
 
+    # def pretty_print(pp)
+    #     pp.text "Block_Expr"
+    # end
+
     def before_hook_expressions # any expressions that are `@before some_function`
         expressions.select do |s|
             s.is_a? Block_Hook_Expr
@@ -53,6 +60,11 @@ class Block_Expr < Expr
 
 
     def named?
+        not name.nil?
+    end
+
+
+    def function_declaration?
         not name.nil?
     end
 
@@ -144,13 +156,17 @@ end
 
 class Class_Expr < Expr
     attr_accessor :name, :block, :base_class, :compositions
-
+    # todo) remove base_class because a class can be a collection of types, so `Player > Input, Renderer, Inventory {}` means this class is simultaneously Player, Input, Renderer, and Inventory. That's because by composing, these classes are able to respond to methods that Input, Renderer, etc are normally able to.
 
     def initialize
         super
         @compositions = []
     end
 
+
+    # def pretty_print(pp)
+    #     pp.text "Class_Expr"
+    # end
 
     def pretty
         "obj{#{name}".tap do |str|
@@ -315,6 +331,12 @@ class Assignment_Expr < Expr
     attr_accessor :name, :type, :expression
 
 
+    def initialize
+        super
+        @expression = nil
+    end
+
+
     def pretty
         "#{name}=#{expression&.pretty || 'nil'}"
     end
@@ -457,14 +479,14 @@ end
 
 
 class Composition_Expr < Identifier_Expr
-    attr_accessor :operator, :identifier, :alias_identifier
+    attr_accessor :operator, :expression, :alias_identifier
 
 
     def pretty
         if false
-            "#{operator}#{identifier}#{alias_identifier ? " = #{alias_identifier}" : ''}"
+            "#{operator}#{expression}#{alias_identifier ? " = #{alias_identifier}" : ''}"
         else
-            "comp(#{operator}#{identifier}#{alias_identifier ? " = #{alias_identifier}" : ''})"
+            "comp(#{operator}#{expression}#{alias_identifier ? " = #{alias_identifier}" : ''})"
         end
     end
 end
@@ -529,10 +551,27 @@ end
 
 
 class Macro_Command_Expr < Macro_Expr
-    attr_accessor :name,
-                  :expression
+    attr_accessor :name, :expression
 end
 
 
 class Nil_Expr < Expr
+end
+
+
+# Tuples take the form of (x, y) or (x: xx, y: yy)
+class Tuple_Expr < Expr
+    attr_accessor :labels, :expressions
+
+
+    def initialize
+        super
+        @labels      = []
+        @expressions = []
+    end
+
+
+    def singular?
+        expressions.size == 1
+    end
 end

@@ -94,6 +94,11 @@ class Identifier_Token < Token
     end
 
 
+    def to_sym
+        string.to_sym
+    end
+
+
     def pretty
         string
     end
