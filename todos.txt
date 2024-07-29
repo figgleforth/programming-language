@@ -1,3 +1,208 @@
+Bug assigning blocks
+% = { -> 12 }
+◼︎ 12
+%
+◼︎ 12
+Only in this case, when assigned, the block is instantly evaluated. It doesn't affect passing func declarations around though
+
+I'm removing Macro_Token, and Macro_Expr and Macro_Command bullshit. Instead parser should have only one Token type for a complex symbol. That's what these symbols would do:
+%S()
+   it.identifiers.map!(&:upcase)
+%s()
+   it.identifiers.map!(&:downcase)
+%V()
+   ['BOO', 'HOO']
+%v()
+   ['boo', 'hoo']
+%W()
+   ["BOO", "HOO"]
+%w()
+   ["boo", "hoo"]
+%d()
+   {boo: nil, hoo: nil}
+%D()
+   {BOO: nil, HOO: nil}
+%()
+   %(1, 2, 3) tuples
+
+REPL ls output is incorrect
+House { Mac {} }
+◼︎ {"types"=>["House"], "Mac"=>{"types"=>["Mac"]}}
+Mac
+◼︎ Undeclared 'Mac' in Global { String, Array, Hash, House }
+cd House
+◼︎ Peek { types, String, Array, Hash, House }
+Mac
+◼︎ {"types"=>["Mac"]}
+ls
+◼︎ Peek { types, String, Array, Hash, House }
+Why is Mac available but not visible with ls?
+
+Idea – some kind of class that receives all the output, kind of like REPL does. And catches for custom exceptions. Like Log, Warning_Log, etc. So when runtime sees >!! it could raise Warning_Log. Then REPL and this output receiver could rescue against Warning_Log and handle it as they need to
+
+I added the raise keyboard to raise and exit the program. Not totally sold on it, but it's fine for now. It currently only raises the message, but I want it to behave like an assert
+raise message unless condition
+raise message
+This will be an example on inline conditionals but just when parsing this keyword.
+Anyway, something about this syntax bothers me. Is there a set of symbols that can be used? Can the language be changed? The order of message vs condition?
+
+
+I think I figured out the block composition problem. I used to think that I need to push the composed object onto the stack, then a thin block scope on top. But this is way too complicated. Instead, any parameter that is designated as a composition, if it responds to a member that you are using in the block,Then push the object, evaluate, then pop the object. It doesn't need to be permanently in the stack, only when you need it.
+As for class composition, that has to remain as is. Composed classes, definitely need to have their guts modified based on the composition. Whereas a block is only temporary.
+This system removes the need for layers of the stack that are in array. I can't imagine any other scenario where I would want that.
+Additionally, I think block composition should be valid both in the parameter declaration, and in the body. When it is used in the body, the composition doesn't happen until it is evaluated.
+It would be great to also have the ability to remove the composition, For that, I want to use ~ident. This one can only be used in the body.
+So the main differentiator between class and block compositions are the symbols and their abilities. While they are both compositions, class is permanent while block is temporary.
+GET RID OF SCOPE as ARRAY of SCOPES
+
+Also, I think the Scope structure should change to reflect compositions
+	Class {
+		> One
+		+ Two
+		+ Three
+	}
+should look like
+	Static {
+		@ = {
+			compositions = {
+				> = [One]
+				+ = [Two, Three]
+			}
+		# methods from One, Two, and Three, and other declarations
+	}
+And the scope structure for blocks
+	Transient/Temporary {
+		@ = {
+			compositions = {
+				% = []
+				# I want it to use the same structure as Static even though I don't envision more than the % composition operator. But in case I do, this is the prefect structure.
+			}
+		}
+		# composition has no effect on the declarations of this scope
+	}
+The pattern is that
+
+See notes/init_edge_cases for issue with instance creation. This has to do with how Statics and Instances are stored, and how an instance is created, using what data. I think Instances should not share the same members as Statics, it should make a copy of each member instead, where every member of the Static is initialized again.
+
+Classes with all capitalized names are being parsed as constants. I think the answer here is that constants need to be assigned like dictionaries. Sorry, but I kinda wanna reserve expr {} for blocks and classes. Constants are assignments anyway, have them use =. Once this is fixed, update examples/declarations.em
+
+When I design stacktrace output, please make it useful. Why does Ruby print it out in reverse? There's probably a reason but the stack trace is always so long that I end up having to scroll up to find the error. I want it to be reverse
+Stack trace:
+	oldest calls
+	...
+	newest calls
+	...
+	current error
+	END OF PROGRAM OUTPUT
+
+BUG) Composition is still bugged.
+Maybe the issue is the stack sometimes having an array instead of a scope. Maybe for composition I need to think of a different way to do composition
+This time:
+	f { %what -> what }
+	◼︎ %{f228a}
+	f(Array.new)
+	◼︎ undefined method `key?' for nil:NilClass
+		`block in set': undefined method `key?' for nil:NilClass (NoMethodError)
+		if scope.key? identifier
+              ^^^^^
+		from /Users/bp/Code/ruby/em/source/interpreter/runtime.rb:217:in `reverse_each'
+		from /Users/bp/Code/ruby/em/source/interpreter/runtime.rb:217:in `set'
+		from /Users/bp/Code/ruby/em/source/interpreter/runtime.rb:640:in `block in block_call'
+		from /Users/bp/Code/ruby/em/source/interpreter/runtime.rb:620:in `each'
+		from /Users/bp/Code/ruby/em/source/interpreter/runtime.rb:620:in `with_index'
+		from /Users/bp/Code/ruby/em/source/interpreter/runtime.rb:620:in `block_call'
+Last time:
+	f { %what -> what }
+	◼︎ %{512.c8c}
+	ls
+	◼︎ Global{String,Array,Dictionary,f}
+	f(Array.new)
+	◼︎ {"types"=>["Array"]}
+	ls
+	◼︎ Global{String,Array,Dictionary,f,what}
+See how the `what` identifier from the function was declared in the global scope? It should only have been declared in the Block scope
+
+Todo, rethink literal macro shortcut. I need to use % for composition. See lexer.rb:21
+
+REPL issue – cd'ing into a scope, then ls'ing shows Hash{ ... }. I want it to show whatever you cd into.
+cd String
+ls
+String{ ... }
+
+Some languages use the words standard and core for the builtin library. I want it to be universe.
+universe/
+	- string.em
+	- number.em
+	- array.em
+	- dictionary.em or hash.em
+	- etc
+The idea is that each of these classes will be added to the global scope at runtime. Then in #eval, when we encounter a String_Literal_Expr, we can replace returning #to_s with our own internal String class. So now my name = 'boo' variable is holding an instance of String {}.
+Same goes for the other Exprs, Dictionary_Literal -> Dict/Hash. Array_Literal -> Array. "" -> String, etc
+They should also correspond to metaprogram classes with the same, or similar, name.
+source/universe
+	- string.rb
+	- etc
+Since these are going to be hashes anyway at runtime, why not make these universe classes extend Hash. That way on program start we can do #set 'String', source/universe/string.rb which is a Universe hash. Or whatever the terminology is. These hashes are going to be Static declared in the global scope, but a "" will evaluate to the Instance version of String.
+
+
+All major keywords should be defined in Global. cd is one of them. It can be empty, maybe a new like Builtin_Ref or something. It needs to be present so that when we list out members in any scope, even the builtin ones are present.
+
+Global alias ../ allows you to reference anything in global explicitly
+../String
+../Number
+etc
+
+Current instance alias ./ which is the equivalent of `self` in ruby.
+Island {
+	../ # refers to the scope outside Island
+	./ # refers to the Island
+	open { ->
+		../ # global
+		./ # Island
+	}
+}
+
+Temporary scope that gets cleared at every program exit. .../
+.../temp = 123
+.../make = { -> } # .../make is just an identifier so this doesn't need to be a one-line declaration
+
+Breakpoint snake >~. It should pause execution, push a temporary Block scope, start REPL and allow entering any expressions. And it can even interact with the current program. Just figure out how, if the program is paused.
+Anyway, I want to implement the export command. `>~ export` or `>~` then `export` once at the breakpoint. The oneliner should do the export then put you in the REPL right there
+It should export the entire Global scope to a json file, which should be possible since the entire program is just a hash of Ruby objects, most of which, if not all, are serializable. So this should be easy.
+After that, I want to load up the program and continue evaluating it from where the export happened. It should enter the REPL in that place and let you continue. This would make debugging so easy – >~ export right before your bug. Then start the program with the exported file to immediately start at the >~ without having to wait for things to execute to get to that point.
+
+Improve test system such that each test run of a file stores the final runtime/interpreted value of the program. and it has to == true. Run each test one by one and record failures of all the ones that don't evaluate to true. This way it can do all tests
+
+Add slimmer form of if-else statements. I don't want to type curlies all the time. I would prefer:
+if condition: do_some_expr
+if condition do_some_expr # this should be possible because after :if we parse_expression so it should only get 1 expression. At which point we can parse the next thing. If it isn't a { or :, then it has to be an inline expression. In this case we don't even need to parse for } cause we know it won't have one
+Same for while
+while condition expr
+while condition: expr
+Eventually implement that inline else syntax. if condition expr else expr
+
+Thought – consider the mutability of an inline composed object, like funk { %comp -> }. Its guts are local to the block so can be edited. But comp is what, a copy?
+
+Inline composition has a new symbol. %. It looks like two circles touching, separated by a diagonal line. Two sets touching. Two scopes touching.
+func { %input, other ->
+	# access input's declarations here without prefixing with input
+	%other # works in the body as well, and won't be composed until the line is evaluated
+	%Math # works with classes as well
+	%some_other_func # I guess with other scopes as well, why not?
+	# all inline compositions, or whatever the feature name becomes, are reverted at the end of the current scope. Unlike class compositions, which are permanent for the class.
+}
+
+Idea for References
+Currently only Block_Exprs are converted into references. The ID of the reference is just SecureRandom.uuid/hex/whatever. Instead I want it to do something like:
+	expr.expressions.map(&:to_some_constant_string_form).join().hash
+As long as the expressions can map to some constant string form, then the hash should be able to catch blocks which are identical. And that's regardless of spacing! Because it goes based on the expressions.
+
+Idea for Scopes
+@ key is the guts that contain all declarations that would come standard on the object.
+	Identifiers inside guts should be accessible via guts shorthand. @ident. @id for @.id, @types for @.types, etc. And it should just work because the Runtime implements dot access on Hashes, and all scopes are hashes so it just works
+_ key contains all private declarations. identifier lookup includes _ depending on where you are evaluating from. Inside a class means you can call the class's private. Inside a class's function or a temp block inside a function means you can also look into _. There's probably a scenario where you can't.
+It would be good to make a concrete chart or something, denoting which scopes can access _.
+
 Class composition shortcut should be user choice.
 Class > Other {} means Class inherits Other type as well as declarations
 Class + Other {} means class inherits only declarations

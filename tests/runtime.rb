@@ -12,7 +12,7 @@ def t code, &block
         exception = nil # store it so that I can check against the error message below
         tokens    = Lexer.new(code).lex
         ast       = Parser.new(tokens).to_ast
-        output    = Runtime.new(ast).evaluate
+        output    = Runtime.new(ast).evaluate_expressions
     rescue Exception => e
         exception = e
         raise e

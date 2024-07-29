@@ -62,25 +62,25 @@ class Identifier_Token < Token
 
 
     def constant? # all upper, LIKE_THIS
-        test = string.gsub('_', '').gsub('&', '')
+        test = string.gsub('_', '').gsub('%', '')
         test&.chars&.all? { |c| c.upcase == c }
     end
 
 
     def object? # capitalized, Like_This or This
-        test = string.gsub('_', '').gsub('&', '')
-        test[0]&.upcase == test[0] and not constant?
+        test = string.gsub('_', '').gsub('%', '')
+        test[0]&.upcase == test[0] # and not constant?
     end
 
 
     def member? # all lower, some_method or some_variable
-        test = string.gsub('_', '').gsub('&', '')
+        test = string.gsub('_', '').gsub('%', '')
         test&.chars&.all? { |c| c.downcase == c }
     end
 
 
     def composition?
-        string[0] == '&'
+        string[0] == '%'
     end
 
 
@@ -198,11 +198,6 @@ class Ascii_Token < Token # special symbols of one or more characters. they are 
     def unary?
         UNARY_OPERATORS.include? string
     end
-
-
-    def composition?
-        %w(+: -:).include? string
-    end
 end
 
 
@@ -228,5 +223,5 @@ class Comment_Token < Token
 end
 
 
-class Macro_Token < Token # %s(), %S(), %d(), etc
+class Command_Token < Token # %s(), %S(), %d(), etc
 end

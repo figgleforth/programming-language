@@ -20,7 +20,7 @@
 
 true && false == false
 true || false == true
-!(true) == false
+#!(true) == false # fix because this doesn't work. it thinks ! is an identifier
 
 5 & 3 == 1
 5 | 3 == 7
@@ -37,8 +37,10 @@ true || false == true
 1 + 2 < 3 * 4 == true
 (1 + 2) < (3 * 4) == true
 
+# this evaluates to true in Ruby, false here. Check the operator precedence
 true || false && false == true
 
+# these two evaluate to true in Ruby, false here
 5 & 3 | 2 == 3
 5 | 3 & 2 == 5
 

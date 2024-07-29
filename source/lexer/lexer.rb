@@ -6,7 +6,7 @@ class Lexer
         new end ini req
         enum const private pri public pub static
         do if else for skip stop it is self when while
-        where map tap
+        where map tap raise and or
         return nil
         operator
     )
@@ -16,10 +16,11 @@ class Lexer
 
     TRIPLE_SYMBOLS = %w(<<= >>= ||= !== === ...)
     DOUBLE_SYMBOLS = %w(<< >> == != <= >= += -= *= /= %= &= |= ^= && || + - -> :: * ** ?? .? .. .< =;)
-    SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ & |)
+    SINGLE_SYMBOLS = %w(! ? ~ ^ = + - * / % < > ( ) : [ ] { } , . ; @ $ & |)
 
-    MACROS       = %w(%s %S %v %V %w %W %d)
-    PRINT_MACROS = %w(>~ >! >!! >!!!)
+    # MACROS       = %w(%s %S %v %V %w %W %d cd ls ls!)
+    # MACROS       = %w(cd ls @ @!)
+    COMMANDS = %w(>!!! >!! >! >~ cd ls! ls) # 2-4 characters
 
     # in this specific order so multi character operators are matched first
     SYMBOLS = [
@@ -288,6 +289,13 @@ class Lexer
             elsif DOUBLE_SYMBOLS.include? peek(0, 2)&.string
                 symbol << eat_many(2)
             else
+                # ident = ''.tap do |it|
+                #     while chars? and not curr.newline?
+                #         it << eat
+                #         break if curr.whitespace?
+                #     end
+                # end
+                # symbol << ident # todo revisit. This eats {} as one token which makes me have to do more work in the parser. I'd rather this return them as separate tokens
                 symbol << eat
             end
         end
@@ -318,7 +326,7 @@ class Lexer
             if curr.delimiter?
                 # parser cares about ; and \n
 
-                if curr == ';'
+                if curr == ';' or curr == '{' or curr == '}'
                     @tokens << Delimiter_Token.new(eat) # ;
                     # reduce_delimiters while last == curr # eat subsequent ;
                     eat while curr.delimiter? # colon?
@@ -337,17 +345,18 @@ class Lexer
 
                 end
 
-            elsif MACROS.include? peek(0, 2)&.string or PRINT_MACROS.include? peek(0, 2)&.string
-                # %s, %S, >!, >~, etc
-                @tokens << Macro_Token.new(eat_many(2))
-
-            elsif PRINT_MACROS.include? peek(0, 3)&.string
-                # >!!
-                @tokens << Macro_Token.new(eat_many(3))
-
-            elsif PRINT_MACROS.include? peek(0, 4)&.string
+                # note remember that commands can be 2-4 characters long right now. See the COMMANDS const above
+            elsif COMMANDS.include? peek(0, 4)&.string
                 # >!!!
-                @tokens << Macro_Token.new(eat_many(4))
+                @tokens << Command_Token.new(eat_many(4))
+
+            elsif COMMANDS.include? peek(0, 3)&.string
+                # >!!
+                @tokens << Command_Token.new(eat_many(3))
+
+            elsif COMMANDS.include? peek(0, 2)&.string
+                # %s, %S, >!, >~, etc
+                @tokens << Command_Token.new(eat_many(2))
 
             elsif curr == '#'
                 if peek(0, 3) == '###'
@@ -365,17 +374,18 @@ class Lexer
             elsif curr == '.' and peek&.numeric?
                 @tokens << Number_Token.new(eat_number)
 
-            elsif curr == '&' and peek.alpha?
-                eat '&'
-                @tokens << Identifier_Token.new("&#{eat_identifier}")
+                # elsif curr == '%' and peek.alpha?
+                #     eat '%'
+                #     @tokens << Identifier_Token.new("%#{eat_identifier}")
 
-            elsif curr == '@' and peek.alpha? # at operators, like @before @after hooks
-                ident = eat '@'
-                ident += eat_identifier
-                if curr == '='
-                    ident += eat
-                end
-                @tokens << Keyword_Token.new(ident)
+                # todo revisit
+                # elsif curr == '@' and peek.alpha? # at operators, like @before @after hooks
+                #     ident = eat '@'
+                #     ident += eat_identifier
+                #     if curr == '='
+                #         ident += eat
+                #     end
+                #     @tokens << Keyword_Token.new(ident)
 
             elsif curr.identifier? or (curr == '_' and peek&.identifier?)
                 ident = eat_identifier
@@ -391,7 +401,7 @@ class Lexer
             elsif curr == ':' and peek.alpha?
                 eat ':'
                 ident = eat_identifier
-                token = Symbol_Token.new(ident)
+                token = Ascii_Token.new(ident)
                 @tokens << token
 
             elsif SYMBOLS.include? curr.string
