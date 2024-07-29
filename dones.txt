@@ -58,3 +58,17 @@ Implement dot access for dictionaries, and for enums
 Rethink how CONSTANTS are stored. Would it make sense for them to extend Assignment_Expr? Right now they're their own construct Enum_Constant_Expr and Enum_Collection_Expr. At least the Enum_Constant_Expr could be Assignment_Expr, especially once (may already be in place) Exprs are getting Tokens instead of just plain strings, we can then check token#constant? instead of needing a class to represent it
 
 Updated Parser so that it returns a Binary_Expr instead of Subscript_Expr
+
+Runtime replaces all Block_Exprs with References. Since Blocks are going to be used often, they should be stored once and shared. Class_Expr on the other hand is transformed into a different Hash and Class_Expr deleted.
+In any case, I don't want to do the same thing with Class_Expr because there could be nested classes which would be obscured by the Reference. I guess the same could be said about Blocks, but I don't care if there are nested blocks, those can be recreated at runtime.
+
+New idea – Peek into scope
+String {
+}
+cd String
+# pushes String scope, pushes empty Block scope
+sponge! { -> } # converts to sponge case
+"hello".sponge! # "HeLlO"
+cd .. # pops String scope. Should not do anything if there wasn't anything manually pushed.
+"hello".sponge! # undefined sponge!
+Anyway, this needs to be a new Scope subclass. Peek or Transient, or whatever. It needs its own class because when setting values inside a Peek, I don't want to overwrite what's in peek. I also don't want to just store it in the temporary Peek scope. I want to assign a variable that I was using before the Peek. So then #set can just ignore Peek/Transient scopes when setting. Problem solved.

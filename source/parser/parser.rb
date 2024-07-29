@@ -137,7 +137,7 @@ class Parser
             eaten = curr
             if sequence&.one? and eaten != sequence[0]
                 puts debug
-                raise "Parser expected token(s): #{sequence} but got: #{eaten}" # todo: improve this error
+                raise "#eat expected token(s): #{sequence} but got: #{eaten}" # todo: improve this error
             end
             @i    += 1
             eaten_this_iteration << eaten
@@ -179,7 +179,7 @@ class Parser
 
             # make sure the block's compositions are derived from the expressions parsed in the block
             it.compositions = stmts.select do |s|
-                s.is_a? Composition_Expr
+                s.is_a? Class_Composition_Expr
             end
         end
     end
@@ -204,17 +204,23 @@ class Parser
 
     def make_assignment_ast
         Assignment_Expr.new.tap do |it|
-            it.name = eat(Identifier_Token) # todo) store the Token and not just the string
+            it.name = eat.string # Identifier_Token or Ascii_Token todo store the Token and not just the string
+
+            # puts "assign to #{it.name.inspect}"
 
             if curr? '=;'
                 eat '=;'
                 it.expression = Nil_Expr.new
             elsif curr? '=' and eat '='
                 if curr? "\n"
-                    code = (buffer << curr).join(' ')
-                    raise "Expected expression after `#{buffer[1]}` but got `#{curr}` in\n\n```\n#{code}\n```"
+                    it.expression = Nil_Expr.new
+                    # todo) either raise here, or allow `abc = \n` to declare abc=nil
+                    # code = (buffer << curr).join(' ')
+                    # raise "Expected expression after `#{buffer[1]}` but got `#{curr}` in\n\n```\n#{code}\n```"
                 else
+                    # puts "about to parse #{curr}"
                     it.expression = parse_expression
+                    # puts "expr:::::: #{it.expression}"
                 end
             else
                 current   = "Expected = with an expression or ; to terminate the var declaration"
@@ -283,25 +289,26 @@ class Parser
     end
 
 
-    def make_composition_ast
-        Composition_Expr.new.tap do |it|
+    def make_class_composition_ast
+        Class_Composition_Expr.new.tap do |it|
             it.operator = eat.string # > + - # * & ~
             # puts "what if we eat expression"
             # expr = parse_expression
             # puts "expr #{expr.inspect}"
             it.expression = parse_expression
 
-            if curr? 'as' and eat
-                it.alias_identifier = eat(Identifier_Token)
+            if curr? 'as' and curr? [Identifier_Token, Ascii_Token]
+                eat # as
+                it.alias_identifier = eat # you can alias compositions as symbols too
             end
         end
     end
 
 
     def make_inline_composition_ast
-        Composition_Expr.new.tap do |it|
+        Class_Composition_Expr.new.tap do |it|
             ident         = eat.string
-            it.identifier = Identifier_Expr.new.tap do |id|
+            it.expression = Identifier_Expr.new.tap do |id|
                 id.string = ident[1..]
             end
             it.operator   = ident[0]
@@ -309,54 +316,18 @@ class Parser
     end
 
 
-    def make_macro_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
-        if curr? '>~' or curr? '>!' or curr? '>!!' or curr? '>!!!'
-            Macro_Command_Expr.new.tap do |it|
-                it.name       = eat(Macro_Token).string
-                it.expression = parse_expression # todo) it would be cool to be able to comma separate expressions here. it feels nicer to type a comma than a plus, because the plus requires holding shift
-            end
-        else
-            Macro_Expr.new.tap do |it|
-                it.name = eat(Macro_Token).string
-
-                eat '('
-                while curr? Identifier_Token
-                    it.identifiers << eat(Identifier_Token).string
-                    eat if curr? ','
-                end
-
-                case it.name
-                    when '%S'
-                        it.identifiers.map!(&:upcase)
-                    when '%s'
-                        it.identifiers.map!(&:downcase)
-                    when '%V'
-                        # ['BOO', 'HOO']
-                    when '%v'
-                        # ['boo', 'hoo']
-                    when '%W'
-                        # ["BOO", "HOO"]
-                    when '%w'
-                        # ["boo", "hoo"]
-                    when '%d'
-                        # {boo: nil, hoo: nil}
-                    when '%D'
-                        # {BOO: nil, HOO: nil}
-                    when '%'
-                        # %(1, 2, 3) tuples
-                    else
-                        raise "Parse#make_macro_ast unknown macro #{it.name}"
-                end
-
-                eat ')'
-            end
+    def make_command_ast # are percent literals, where the body is made of identifiers separated by spaces and enclosed in parens. like %s(boo hoo)
+        Command_Expr.new.tap do |it|
+            it.name       = eat(Command_Token).string
+            it.expression = parse_expression unless curr? Delimiter_Token # todo) it would be cool to be able to comma separate expressions here. it feels nicer to type a comma than a plus, because the plus requires holding shift
         end
+
     end
 
 
     def make_function_call_ast
         Block_Call_Expr.new.tap do |node|
-            node.name = eat Identifier_Token
+            node.name = eat.string # Identifier_Token or Ascii_Token
             eat '('
             node.arguments = make_array_of_block_argument_exprs
             eat ')'
@@ -380,7 +351,7 @@ class Parser
 
             # make sure the class's compositions are derived from the expressions parsed in the block
             it.compositions = it.block.expressions.select do |expr|
-                expr.is_a? Composition_Expr
+                expr.is_a? Class_Composition_Expr
             end
 
             eat '}'
@@ -426,8 +397,9 @@ class Parser
 
     def make_array_of_block_param_declaration_exprs
         [].tap do |params|
-            while curr? Identifier_Token or curr? '&', Identifier_Token
+            while curr? Identifier_Token or curr? '%', Identifier_Token
                 params << Block_Param_Decl_Expr.new.tap do |it|
+                    # this looks scary, but this is just pattern recognition for ident | label ident | % ident | %ident
                     if curr? Identifier_Token and curr.composition?
                         it.composition = true
                         ident          = eat.string
@@ -437,14 +409,14 @@ class Parser
                         it.label       = eat(Identifier_Token)
                         ident          = eat.string
                         it.name        = ident[1..]
-                    elsif curr? Identifier_Token, '&', Identifier_Token
+                    elsif curr? Identifier_Token, '%', Identifier_Token
                         it.composition = true
                         it.label       = eat(Identifier_Token)
-                        eat '&'
+                        eat '%'
                         it.name = eat(Identifier_Token)
-                    elsif curr? '&', Identifier_Token
+                    elsif curr? '%', Identifier_Token
                         it.composition = true
-                        eat '&'
+                        eat '%'
                         it.name = eat(Identifier_Token)
                     elsif curr? Identifier_Token, Identifier_Token
                         it.label = eat(Identifier_Token)
@@ -468,8 +440,8 @@ class Parser
     def make_inline_block_ast
         # ident -> expression
         Block_Expr.new.tap do |it|
-            it.name = eat Identifier_Token
-            eat '->'
+            it.name = eat.string # Identifier_Token, Ascii_Token
+            eat # -> or ::
             it.expressions = [parse_expression]
         end
     end
@@ -480,18 +452,24 @@ class Parser
         # ident { -> ... }
         # ident { in, in -> ... }
         Block_Expr.new.tap do |it|
-            if curr? Identifier_Token, '{'
-                it.name = eat(Identifier_Token, '{')[0]
+            # puts "making block #{curr.inspect}"
+            if curr? [Identifier_Token, Ascii_Token], '{'
+                it.name = eat.string
+                eat '{'
             elsif curr? '{' # anonymous function
                 eat '{'
             end
 
-            has_params = (peek_until '}').any? do |t|
-                t == '->' or t == '::'
-            end
+            # has_params = (peek_until '}').any? do |t|
+            #     t == '->' or t == '::'
+            # end
 
             eat_past_newlines
-            it.parameters = make_array_of_block_param_declaration_exprs if has_params and not curr? '->'
+            it.parameters = make_array_of_block_param_declaration_exprs if not (curr? '->' or curr? '::')
+
+            # if it.parameters.count > 0 and not it.name
+            #     raise "Anonymous blocks cannot have parameter declarations: #{it.parameters.map(&:pretty)}\n\n#{it.inspect}"
+            # end
 
             # make sure function expr also knows about the compositions in the parameters
             it.compositions = it.parameters.select do |param|
@@ -607,13 +585,18 @@ class Parser
         Dictionary_Literal_Expr.new.tap do |it|
             eat '{'
 
+            # puts "curr #{curr.inspect}"
             eat_past_newlines
-            while curr? Identifier_Token
-                it.keys << eat(Identifier_Token).string
+            # puts "curr #{curr.inspect}"
+            # puts "while now"
+            while curr? [Identifier_Token, Ascii_Token] and curr != '}'
+                it.keys << eat.string
+                # puts "keys are #{it.keys}"
 
                 if curr? %w(: =) and eat
                     eat_past_newlines
                     it.values << parse_expression
+                    # puts "parsed expr #{it.values}"
                 else
                     it.values << nil
                 end
@@ -655,7 +638,13 @@ class Parser
 
 
     def peek_until_all? until_token, contains
-        peek_until(until_token)[1..].all? { |t| t == contains }
+        peek_until(until_token)[1..].all? do |t|
+            if t.is_a? Array
+                t.any? { |c| t == c }
+            else
+                t == contains
+            end
+        end
     end
 
 
@@ -676,8 +665,8 @@ class Parser
           [10, %w(&)],
           [11, %w(^)],
           [12, %w(|)],
-          [13, %w(&&)],
-          [14, %w(||)],
+          [13, %w(&& and)],
+          [14, %w(|| or)],
           [17, %w(= += -= *= /= %= &= |= ^= <<= >>=)],
           [18, %w(,)],
           [20, %w(. .? .. .<)],
@@ -689,21 +678,53 @@ class Parser
 
     def parse_expression starting_precedence = 0
         # def make_ast # note: any nils returned are effectively discarded because the array of parsed expressions is later compacted to get rid of nils.
-        merge_comp  = (curr? '>', Identifier_Token and (peek(1).constant? or peek(1).object?))
-        add_comp    = (curr? '+', Identifier_Token and (peek(1).constant? or peek(1).object?))
-        remove_comp = (curr? '-', Identifier_Token and (peek(1).constant? or peek(1).object?))
-        inline_comp = (curr? Identifier_Token and curr.composition?)
+        class_merge_comp  = (curr? '>', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        class_add_comp    = (curr? '+', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        class_remove_comp = (curr? '-', Identifier_Token and (peek(1).constant? or peek(1).object?))
+        wormhole_comp     = (curr? '%', Identifier_Token or curr? '*', Identifier_Token) # note the binary * operator will be handled below this massive if-else. There's no danger in using it as a prefix here, I guess I could also
 
-        ast = if curr? '{' and peek_until_contains? '}', '->'
-            make_block_ast
+        # * {
 
-        elsif curr? '{', '}'
+        # ast = if curr? '{' and (peek_until_contains? '}', '->' or peek_until_contains? '}', '::')
+        #     make_block_ast
+        #
+        # elsif curr? '{', '}'
+
+        # puts "parsing #{curr.inspect}"
+        # puts "curr? Identifier_Token, '{'::::: #{curr? [Ascii_Token, Identifier_Token], '{'}"
+        # bug
+        # ident = { -> } is parsing as
+
+        ast = if curr? '{', '}'
             make_dictionary_ast
 
-        elsif curr? '{' and peek_until_all? '}', Identifier_Token
+        elsif curr? '(', ')'
+            # last = expressions.pop
+            Block_Call_Expr.new.tap do |it|
+
+            end
+            puts "we want to call #{expressions.last.inspect}"
+            eat and eat and nil
+
+        elsif curr? Identifier_Token and curr.object? and (curr? Identifier_Token, '{' or curr? Identifier_Token, '>') # and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
+            # puts "are we not here"
+            make_class_ast
+
+        elsif (curr? Identifier_Token, '{' or curr? Ascii_Token, '{') and
+          (peek_until_contains? '}', '->' or peek_until_contains? '}', '::')
+            make_block_ast
+
+        elsif curr? '{' and (peek_until_contains? '}', '->' or peek_until_contains? '}', '::')
+            # puts "wtfhhh for #{curr.inspect}"
+            make_block_ast
+
+            # since all symbols are now identifiers, the block parsing must come before this dictionary parsing
+        elsif curr? '{' and peek_until_all? '}', [Ascii_Token, Identifier_Token]
+            # puts "A"
             make_dictionary_ast
 
         elsif curr? '{' # all other { possibilities are exhausted, or handled inside other make_*_ast so this must be a dictionary
+            # puts "B"
             make_dictionary_ast
 
         elsif curr? '['
@@ -711,11 +732,19 @@ class Parser
 
         elsif curr? '('
             # note: this parenthesized expression differs from the one for function calls in at least one way where the function call expressions will be iterated using a while loop, and this one here will recursively call #parse_expression
-            paren      = eat '('
+            paren = eat '('
+            eat_past_newlines
             precedence = precedence_for paren
             parse_expression(precedence).tap do
                 eat ')'
             end
+
+        elsif curr? '>>' or curr? 'return'
+            Return_Expr.new.tap do |it|
+                eat # >> or return
+                it.expression = parse_expression
+            end
+
         elsif curr? 'while'
             # make_while_ast
             make_conditional_ast true
@@ -723,53 +752,78 @@ class Parser
         elsif curr? 'if'
             make_conditional_ast
 
-        elsif curr? Keyword_Token and curr.at_operator? and curr == '@before'
-            make_block_hook_ast
+            # todo revisit @identifiers as a shortcut for @. access on a scope
+            # elsif curr? Keyword_Token and curr.at_operator? and curr == '@before'
+            #     make_block_hook_ast
 
+            # todo keywords are just identifiers. get rid of Keyword_Token. The lexer needs to return every word and symbol as an identifier. #parse_expression can then find patterns with those symbols, like
+            # * << wormhole
+            # * >> wormhole
         elsif curr? Keyword_Token and curr == 'nil'
             eat and Nil_Expr.new
 
         elsif curr? Keyword_Token and curr == 'operator'
             make_operator_overload_ast
 
-        elsif add_comp or remove_comp or merge_comp
-            make_composition_ast
+        elsif curr? Keyword_Token and curr == 'raise'
+            Raise_Expr.new.tap do |it|
+                # mess
+                # :name, :condition, :message_expression
+                it.name               = eat(Keyword_Token).string
+                it.message_expression = if not curr? %w(, ; \n })
+                    parse_expression
+                end
+                # puts debug
+                # puts "it.message_expression #{it.message_expression.inspect}"
+                if it.message_expression.is_a? Identifier_Expr and it.message_expression.string == 'unless' # then we parsed the next keyword
+                    # get rid of that keyword
+                    puts "get rid of it!!"
+                    it.message_expression = nil
+                end
 
-        elsif inline_comp # this is parsed a tiny bit differently than the other comps, so it's okay to have a separate implementation. If I want to avoid this, I might have to change how this specific identifier is parsed. But this is okay for now
-            make_inline_composition_ast
+                if curr? 'unless' and eat
+                    raise "`raise #{it.message_expression} unless` expected an expression" if curr? %w(, ; \n })
+                    it.condition = parse_expression
+                end
 
-        elsif curr? '&', Identifier_Token and peek(1).member?
+            end
+
+        elsif class_add_comp or class_remove_comp or class_merge_comp
+            make_class_composition_ast
+
+        elsif wormhole_comp # when the expression you are
+            Wormhole_Composition_Expr.new.tap do |it|
+                it.operator = eat.string # % or *
+                it.name     = eat.string # identifier
+            end
+
+            # elsif inline_comp # this is parsed a tiny bit differently than the other comps, so it's okay to have a separate implementation. If I want to avoid this, I might have to change how this specific identifier is parsed. But this is okay for now
+            #     make_inline_composition_ast
+
+        elsif %w(> + -).include? curr and peek(1) == Identifier_Token and peek(1).member?
             raise 'Cannot compose a class with members, only other classes and enums'
 
-        elsif curr? Identifier_Token, '=;'
-            if curr.constant?
-                raise 'Enums must be initialized as a collection or single value.'
-            end
+        elsif curr? [Ascii_Token, Identifier_Token], '=;' and not curr.constant?
             make_assignment_ast
 
-        elsif curr? Identifier_Token and curr.object? and (curr? Identifier_Token, '{' or curr? Identifier_Token, '>') # and not curr? Identifier_Token, '.' # Capitalized identifier. I'm explicitly ignoring the dot here because otherwise all object identifiers will expect an { next
-            make_class_ast
-
-        elsif curr? Identifier_Token, '{' and peek_until_contains? '}', '->'
-            make_block_ast
-
-        elsif curr? Identifier_Token, '->'
+        elsif curr? [Ascii_Token, Identifier_Token], '->' or curr? [Ascii_Token, Identifier_Token], '::'
             make_inline_block_ast
 
-        elsif curr? Identifier_Token, '=' # and curr.member? # lowercase identifier
+        elsif curr? [Ascii_Token, Identifier_Token], '=' # and curr.member? # lowercase identifier
+            # puts "bitch assign #{curr.inspect}"
             make_assignment_ast
 
-        elsif (curr? Identifier_Token, '{' or curr? Identifier_Token, '=') and curr.constant? # UPPERCASE identifier
+        elsif (curr? Identifier_Token, '=', '{' or curr? Identifier_Token, '=') and curr.constant? # UPPERCASE identifier
             make_enum_ast
 
-        elsif curr? Identifier_Token, '('
+        elsif curr? [Ascii_Token, Identifier_Token], '('
             make_function_call_ast
 
         elsif curr? Ascii_Token and curr.respond_to?(:unary?) and curr.unary? # %w(- + ~ !)
             make_unary_expr_ast
 
-        elsif curr? Macro_Token
-            make_macro_ast
+        elsif curr? Command_Token
+            make_command_ast
 
         elsif curr? String_Token or curr? Number_Token or curr? Boolean_Token
             make_string_or_number_or_boolean_literal_ast
@@ -781,20 +835,22 @@ class Parser
             # todo) this might be the location where conditionals at the end of an expression are parsed? At this point, it is assumed that the previous expression was parsed, and it is the last thing in @expressions
             eat and nil
 
-        elsif curr? Symbol_Token
-            Symbol_Literal_Expr.new.tap do |node|
-                node.string = eat.string
-            end
+            # todo revisit :style symbols later
+            # elsif curr? Symbol_Token
+            #     Symbol_Literal_Expr.new.tap do |node|
+            #         node.string = eat.string
+            #     end
 
-        elsif curr? [Identifier_Token, '@']
+        elsif curr? [Ascii_Token, Identifier_Token] # note this is leftover symbols and tokens that haven't been handled elsewhere, in a more complex ast. So these should be the catchall for any identifier, symbol or not. That way they can be used as function names.
+            if %w( \) ).include? curr.string
+                # let's prevent certain symbols from being made into identifiers.
+                raise "Cannot use #{curr} as an identifier"
+            end
             Identifier_Expr.new.tap do |node|
                 ident           = eat
                 node.string     = ident.string
                 node.is_keyword = ident.is_a? Keyword_Token
             end
-
-        elsif curr? ':', '+' or curr? ':', '-'
-            raise "You used #{curr}#{peek(1)} but probably meant #{peek(1)}#{curr}"
 
         elsif curr? EOF_Token
             raise "Parser expected an expression but reached EOF"
@@ -812,13 +868,13 @@ class Parser
 
         # if token after ast is a binary operator, then we build a binary expression
         while tokens?
-            if curr? Ascii_Token and curr.binary? # or curr? '['
+            if (curr? Ascii_Token and curr.binary?) or (curr? 'or' or curr? 'and') # or curr? '['
                 curr_operator_prec = precedence_for(curr)
                 break if curr_operator_prec <= starting_precedence # <= originally
 
                 ast = Binary_Expr.new.tap do |it|
                     it.left     = ast
-                    it.operator = eat(Ascii_Token).string
+                    it.operator = eat.string
                     # raise 'Expected expression' if curr? "\n"
                     it.right    = parse_expression(curr_operator_prec) unless curr? ']'
                     eat if curr? ']'

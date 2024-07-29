@@ -13,13 +13,13 @@ end.length
 
 Benchmark.bm(max_width) do |x|
     example_files.each do |file|
+        # next unless file == './examples/references.em' # nocheckin
         x.report(file) do
-            tokens     = Lexer.new(File.read(file).to_s).lex
-            ast        = Parser.new(tokens).to_ast
             begin
-                Runtime.new(ast).evaluate
+                tokens = Lexer.new(File.read(file).to_s).lex
+                ast    = Parser.new(tokens).to_ast
+                Runtime.new(ast).evaluate_expressions
             rescue Exception => e
-                puts e.message
                 raise e
             end
             @tests_ran += 1

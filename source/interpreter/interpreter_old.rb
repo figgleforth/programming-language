@@ -258,7 +258,7 @@ class Interpreter # evaluates AST and returns the result
             end
 
             expr.expressions.map do |it|
-                next if it.is_a? Composition_Expr # these are explicitly handled above because expressions might depend compositions being present
+                next if it.is_a? Class_Composition_Expr # these are explicitly handled above because expressions might depend compositions being present
                 last_statement = evaluate it
             end
             # pop_scope
@@ -560,7 +560,7 @@ class Interpreter # evaluates AST and returns the result
             when Class_Expr
                 eval_class_declaration expr
 
-            when Macro_Command_Expr
+            when Command_Expr
                 eval_macro_command expr
 
             when Enum_Expr

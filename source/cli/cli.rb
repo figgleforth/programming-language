@@ -26,7 +26,7 @@ class CLI_Interpreter
             end
             return
         end
-        Runtime.new(ast).evaluate
+        Runtime.new(ast).evaluate_expressions
     end
 end
 

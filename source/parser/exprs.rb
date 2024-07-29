@@ -10,13 +10,21 @@ class Expr
     end
 
 
+    def pp
+        PP.pp(self, '').chomp
+    end
+
+
+    # @todo fuck! I should have had the foresight. #== and #=== break #is_a? calls
     # curr == CommentToken, curr == '#', curr == '=', etc
     def == other
+        return false if other.nil?
         other == self.class or self.is_a?(other)
     end
 
 
     def === other
+        return false if other.nil?
         other == self.class or self.is_a?(other)
     end
 end
@@ -47,14 +55,14 @@ class Block_Expr < Expr
 
     def non_composition_expressions
         expressions.select do |s|
-            s != Composition_Expr
+            s != Class_Composition_Expr
         end
     end
 
 
     def composition_expressions
         expressions.select do |s|
-            s == Composition_Expr
+            s == Class_Composition_Expr
         end
     end
 
@@ -108,8 +116,8 @@ class Block_Param_Decl_Expr < Expr
 
 
     def pretty
-        "#{false ? '' : 'Param'}(".tap do |str|
-            str << '&' if composition
+        "#{false ? '' : ''}(".tap do |str|
+            str << '%' if composition
             str << "#{name}"
             str << "=#{default_expression&.pretty || 'nil'}"
             str << ", type: #{type}" if type
@@ -385,12 +393,11 @@ class Binary_Expr < Expr
 
 
     def pretty
-        long  = "BE(#{left} '#{operator}' #{right}"
+        long  = "BE(#{left.pretty} '#{operator}' #{right.pretty}"
         short = "(#{left} #{operator} #{right}"
         str   = false ? short : long
         str   += ']' if operator == '['
         str   += ')'
-        str
     end
 end
 
@@ -405,19 +412,19 @@ class Identifier_Expr < Expr
 
 
     def constant? # all upper, LIKE_THIS
-        test = string&.gsub('_', '')&.gsub('&', '')
+        test = string&.gsub('_', '')&.gsub('%', '')
         test&.chars&.all? { |c| c.upcase == c }
     end
 
 
     def class? # capitalized, Like_This or This
-        test = string&.gsub('_', '')&.gsub('&', '')
+        test = string&.gsub('_', '')&.gsub('%', '')
         test[0]&.upcase == test[0] and not constant?
     end
 
 
     def member? # all lower, some_method or some_variable
-        test = string&.gsub('_', '')&.gsub('&', '')
+        test = string&.gsub('_', '')&.gsub('%', '')
         test&.chars&.all? { |c| c.downcase == c }
     end
 
@@ -478,8 +485,18 @@ class Block_Hook_Expr < At_Operator_Expr
 end
 
 
-class Composition_Expr < Identifier_Expr
-    attr_accessor :operator, :expression, :alias_identifier
+class Composition_Expr < Expr
+    attr_accessor :operator, :expression
+end
+
+
+class Wormhole_Composition_Expr < Composition_Expr
+    attr_accessor :name
+end
+
+
+class Class_Composition_Expr < Composition_Expr
+    attr_accessor :alias_identifier
 
 
     def pretty
@@ -550,8 +567,13 @@ class Macro_Expr < Expr
 end
 
 
-class Macro_Command_Expr < Macro_Expr
+class Command_Expr < Macro_Expr
     attr_accessor :name, :expression
+end
+
+
+class Raise_Expr < Expr # expressions that can halt the program. Right now that's oops and >~
+    attr_accessor :name, :condition, :message_expression
 end
 
 
@@ -574,4 +596,9 @@ class Tuple_Expr < Expr
     def singular?
         expressions.size == 1
     end
+end
+
+
+class Return_Expr < Expr
+    attr_accessor :expression
 end

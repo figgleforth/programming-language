@@ -1,15 +1,16 @@
 require 'readline'
 require_relative '../lexer/lexer'
 require_relative '../parser/parser'
-require_relative '../interpreter/interpreter_old'
+require_relative '../interpreter/runtime'
 require_relative '../interpreter/scopes'
+require_relative '../interpreter/constructs'
 
-BULLET_COLOR       = 236
-OUTPUT_COLOR       = 240
-BULLET_COLOR_ERROR = 88
-OUTPUT_COLOR_ERROR = 196
-BULLET_COLOR_INTRO = 238
-OUTPUT_COLOR_INTRO = 242
+BULLET_COLOR       = 'blue'
+OUTPUT_COLOR       = 'blue'
+BULLET_COLOR_ERROR = 'red'
+OUTPUT_COLOR_ERROR = 'red'
+BULLET_COLOR_INTRO = 'green'
+OUTPUT_COLOR_INTRO = 'green'
 
 
 class REPL
@@ -18,7 +19,7 @@ class REPL
     # see https://github.com/fidian/ansi for a nice table of colors with their codes
     COLORS = {
                black:         0,
-               red:           197,
+               red:           1,
                green:         2,
                yellow:        3,
                blue:          4,
@@ -71,11 +72,6 @@ class REPL
     end
 
 
-    def prompt
-        colorize('lighter_gray', '')
-    end
-
-
     def for_fun_error_expr_percentage_this_session # just returns % of expressions that did not return an error
         return "no expressions evaluated yet" if total_executed == 0
         percent = Integer((total_errors.to_f / total_executed.to_f) * 100).round
@@ -86,26 +82,37 @@ class REPL
     def help_instructions
         @instructions ||= %Q(#{BULLET} exit with \\q or \\x or exit
 #{BULLET} press enter to interpret expression
-#{BULLET} type \\ then press enter to continue on next line
 #{BULLET} outputs print in gray
 #{BULLET} errors print in red
-#{BULLET} run @ to see the current scope
-#{BULLET} run % for fun stats)
+#{BULLET} type cd Class to enter its scope
+#{BULLET} type cd .. to exit the scope
+#{BULLET} type ``` then enter to enable block mode
+#{BULLET} type ``` again to exit block mode
+#{BULLET} type ls to see your scope
+#{BULLET} type ls! to see the stack
+#{BULLET} type stats for fun
+#{BULLET} type help for tips)
+    end
+
+
+    def print_help
+        puts colorize OUTPUT_COLOR_INTRO, "\e[1m#{help_instructions}\e[0m"
     end
 
 
     def repl # I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean – the square bullet basically represents output from the REPL
-        print colorize('blue', BULLET) + colorize('blue', " \e[1mEmerald REPL\e[0m")
-        print colorize('blue', ", type help for tips\n")
-
-        interpreter = Interpreter.new
+        print colorize(BULLET_COLOR_INTRO, "#{BULLET} \e[1mEmerald REPL, press enter now for tips\e[0m\n") # + colorize('blue', " \e[1mEmerald REPL\e[0m")
+        # print colorize('blue', ", type help for tips\n")
 
         # Pressing tab twice prints the current directory, this prevents that:
         Readline.completion_append_character = nil
-        Readline.completion_proc             = proc { |s| nil }
+        Readline.completion_proc             = proc { |s| "   " }
 
         # Intercept ctrl+c aka interrupt, and exit gracefully without printing a trace
         trap('INT') { exit }
+
+        runtime    = Runtime.new
+        block_mode = false
 
         loop do
             bullet = BULLET_COLOR
@@ -113,56 +120,63 @@ class REPL
 
             input = ''
             loop do
-                line  = Readline.readline('', true)
-                input += line + "\n"
+                line = Readline.readline('', true)
 
                 if line.strip.downcase == 'help'
+                    print_help
                     break
 
                 elsif %w(\q \x exit).include?(line.strip.downcase)
-                    # break
                     exit
 
-                elsif line.strip.end_with?('\\') or line.strip.empty?
-                    next
+                elsif line.strip.end_with?('```')
+                    block_mode = !block_mode
+                    block_mode ? next : break
                 else
-                    break # evaluate
+                    input += line + "\n"
+                    break unless block_mode
                 end
             end
 
             @total_executed += 1
 
-            if input.strip.downcase == 'help'
-                puts colorize 'blue', help_instructions
+            if (total_executed == 1 and input == "\n") or input.strip.downcase == 'help'
+                print_help
                 next
             end
 
-            if input.strip.downcase == '%'
+            if input.strip.downcase == 'stats'
                 print colorize(bullet, "#{BULLET} ")
                 puts colorize(text, for_fun_error_expr_percentage_this_session)
                 next
             end
 
             begin
-                tokens            = Lexer.new(input).lex
-                ast               = Parser.new(tokens).to_ast
-                block             = Block_Expr.new
-                block.expressions = ast
-                output            = interpreter.evaluate block
+                tokens = Lexer.new(input).lex
+                ast    = Parser.new(tokens).to_ast
+                output = runtime.evaluate_expressions ast
             rescue Exception => e
+                # raise e
                 @total_errors += 1
-                output        = e # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
+                output        = e.message # to ensure exceptions are printed without crashing the REPL, whether Ruby exceptions or my own for Em
                 text          = OUTPUT_COLOR_ERROR
                 bullet        = BULLET_COLOR_ERROR
             end
 
-            output          = 'nil' if output.is_a? Nil_Construct
-            if output.is_a? Scopes::Base_Scope # to pretty print the scope from the @ command
-                output = PP.pp(output.declarations, '').chomp
+            output          = 'nil' if output == Nil_Expr
+
+            if output.respond_to? :include? and output.include? "\n"
+                split = output.split("\n")
+                split.each do |part|
+                    print colorize(bullet, "#{BULLET} ")
+                    print colorize(text, part)
+                    puts
+                end
+            else
+                print colorize(bullet, "#{BULLET} ")
+                print colorize(text, output)
+                puts
             end
-            print colorize(bullet, "#{BULLET} ")
-            print colorize(text, output)
-            puts
         end
     end
 

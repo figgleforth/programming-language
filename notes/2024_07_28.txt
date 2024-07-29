@@ -1,0 +1,80 @@
+I was wondering what to name dictionaries. Hash, Map, Hash_Map, Dict, Dictionary, JSON, Set. I want it to be quick and simple to type, it has to flow nicely on the keyboard.
+
+Let's score how these flow. Flow is when neither of your hands has to reach far for the character, and each hand feels like it handles 50% of the identifier.
+
+Hash – feels mostly left hand
+Dict – feels about the same as Hash, but worse
+Hash_Map – forget about it
+Dictionary – nope
+Map – quick to type, really quick
+Set – also really quick to type. All left hand though
+JSON – quick to type
+
+I like Set and Map the best. But does Set make sense? I think so. Set implies two things that go together, like key and value. It also means a set of things, like the programming type of set. So since Set covers both meanings, it could fit.
+
+Set is a Hash in the metaprogram. Its keys behave as the "set" since only one of each key can exist. { x: nil, y: nil } is a set. { x: 1, x: 2 } is a hash. Anyway, this is just to show that Set fits. I actually don't know how the internal storage of a hash is implemented, but it probably doesn't matter since I'll be using Ruby's Hash. I could also roll my own with Ruby's Set.
+
+Set {
+	operator [] { key ->
+		internal[key]
+	}
+
+	operator []= { key, val ->
+		internal[key] = val
+	}
+}
+
+Its implementation will probably be on the metaprogram side, which makes sense, and also means that the Set{} class doesn't need any actual implementation. Declaring a set with its syntax, whatever it ends up being, will create a Set internally.
+
+
+:::::: init edge cases ::::::
+
+
+Mac {
+}
+
+Windows {
+}
+
+House {
+	computer=
+}
+
+Let's say you start with these two classes. When the declaration is evaluated, a single static instance is created in the global scope for Mac, Windows, and House. So the global scope is now
+
+Global{Mac, Windows, House}
+
+home = House.new
+work = House.new
+
+home.computer = Mac.new
+work.computer = Windows.new
+
+Both home and work have their own instance of computer, as expected. But how about a weirder example?
+
+Safari {}
+
+Ruby_Mine {
+	project = 'em'
+}
+
+Mac {
+	app = Ruby_Mine.new
+}
+
+House {
+	mac = Mac.new
+}
+
+home = House.new
+away = House.new
+
+Since Mac assigned app at declaration, any Mac.new instance will share the same app instance. So setting mac.app will reflect in both home and away, and in the House instance. That's because they all share the same static instance.
+
+away.mac.app = Safari.new
+home.mac.app = Ruby_Mine.new
+
+Should I change that? I feel like yes, I feel like this could cause headaches. Plus, I don't think I know of any language that functions that way. So I think this will need to be updated.
+
+
+
