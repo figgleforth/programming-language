@@ -1,33 +1,44 @@
 if ARGV.empty?
-    puts "ERROR: Expected command line argument for source code file.\nHOWTO: ruby source/cli/cli.rb your_source.em\n"
-    exit 1
+	puts "ERROR: Expected command line argument for source code file.\nHOWTO: ruby /cli.rb your_source.em\n"
+	exit 1
 end
 
 
 class CLI_Interpreter
-    require_relative '../lexer/lexer'
-    require_relative '../parser/parser'
-    require_relative '../interpreter/runtime'
-    require 'pp'
+	require_relative '../lexer/lexer'
+	require_relative '../parser/parser'
+	require_relative '../interpreter/runtime'
+	require 'pp'
 
 
-    def initialize input_file
-        @input = File.read input_file
-    end
+	def initialize input_file
+		@input = File.read input_file
+	end
 
 
-    def output
-        tokens = Lexer.new(@input).lex
-        ast    = Parser.new(tokens).to_ast
-        if ARGV.include? 'parse_only'
-            puts "Parsed expressions:\n"
-            ast.each do |expr|
-                puts PP.pp(expr, '').chomp
-            end
-            return
-        end
-        Runtime.new(ast).evaluate_expressions
-    end
+	def output
+		# puts "input #{@input}"
+		tokens = Lexer.new(@input).lex
+		# puts "■■■■ TOKENS\n"
+		# tokens = tokens.chunk_while { |prev, curr| prev == curr }.flat_map { |chunk| chunk.first(1) } # ??? thanks to ChatGPT. squish duplicate tokens into one. Aimed at compacting multiple newlines
+		# tokens.each {
+		# 	if _1 == "\n"
+		# 		puts
+		# 	else
+		# 		puts "#{_1.inspect}"
+		# 	end
+		# }
+
+		expr = Parser.new(tokens).to_expr
+		puts "■■■■ EXPRESSIONS\n"
+		expr.each {
+			puts "#{_1.inspect}\n\n" unless _1.is_a? Delimiter_Token
+		}
+
+		# puts "■■■■ OUTPUT\n"
+		# puts Runtime.new(expr).evaluate_expressions
+		# puts "■■■■"
+	end
 end
 
 

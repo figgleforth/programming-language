@@ -1,14 +1,14 @@
 Let's use Unary_Expr as our first example.
-```
+
 boo = Boo.new
 !boo
-```
-```
+
+
 Static.Global {
 	Boo = Static.Boo {}
 	boo = Instance.Boo {}
 }
-```
+
 Evaluating `Unary_Expr`
 value = evaluate expression
 return !value
@@ -16,15 +16,15 @@ return !value
 Internally this should be built in for all classes.
 
 BUT you can overload all operators
-```
+
 Boo {
 	operator ! { -> # this operator is unary so has no params and acts on self
 		'boo!' 		# this is the default return value for all builtin types, including literals
 	}
 }
-```
+
 And now here is how it looks with Boo overloading the ! operator. The runtime should now know to use this Block_Expr rather than the default built in result for !
-```
+
 Static.Global {
 	Boo = Static.Boo {
 		! = Block_Expr
@@ -33,9 +33,9 @@ Static.Global {
 		! = Ref.Boo.!
 	}
 }
-```
+
 Evaluating `!boo` yields Unary_Expr(operator: !, expression: Instance.Boo)
-```
+
 # if expr.respond_t? '!'
 #	push expr
 #	eval get('!')
@@ -58,12 +58,12 @@ Instance.Boo {
 Block.! {
 	eval "boo!" which is the only expression in the ! body declared above
 }
-```
+
 So `!boo` yields `"boo!"`
 
 ---
 What if Boo had a variable
-```
+
 Boo {
 	scare = "BoOoOo"
 	operator ! { ->
@@ -74,9 +74,9 @@ Boo {
 Boo = Static.Boo {
 	scare = "BoOoOo"
 	! = Block_Expr
-} 
-```
-```
+}
+
+
 !boo
 
 boo responds to !, so push it on the stack
@@ -92,13 +92,13 @@ Block.Boo.! {
 	eval(scare) #> "BoOoOo"
 }
 
-```
+
 So `!boo` produces "BoOoOo"
 
 ---
 
 How about an interesting Binary_Expr operator overloading example? Adding two Boos together produces a Super_Boo. Why am I excited about this? 🤓
-```
+
 Super_Boo {
 	boo1 =;
 	boo2 =;
@@ -116,128 +116,107 @@ Boo {
 a = Boo.new
 b = Boo.new
 c = a + b
-```
+
 
 Here's the stack so far
 
-```
+
 Static.Global {
 	Static.Super_Boo {
 		boo1 = nil
 		boo2 = nil
 	}
-	
+
 	Static.Boo {
 		+ = Block_Expr
 	}
-	
+
 	a = Instance.Boo.a {
 		+ = Ref.Boo.+
 	}
-	
+
 	b = Instance.Boo.b {
 		+ = Ref.Boo.+
 	}
 }
-```
+
 Let's evaluate Binary_Expr(a + b)
-```ruby
+
 left = eval expr.left		# Instance.Boo.a
 right = eval expr.right		# Instance.Boo.b
 
 if left.respond_to? expr.operator # +
 	push_scope left
-```
+
 That leads to Instance.Boo.a being pushed onto the stack
-```
+
 Stack [
 	Static.Global { Super_Boo, Boo, a, b }
-	
+
 	Instance.Boo.a {
 		+ = Ref.Boo.+
 	}
 ]
-```
+
 Now we'll `get(expr.operator)` which yields `Ref.Boo.+`, which we'll keep evaluating down to it's Block_Expr form
-```ruby
+
 	value = eval(get(expr.operator)) # evaluate the Block_Expr we get from the + operator, which we got from the Instance.Boo.a that was pushed before this
-```
+
 At this point, a Block scope needs to be pushed to evaluate the + Block_Expr
-```
+
 Stack [
 	Static.Global { Super_Boo, Boo, a, b }
-	
+
 	Instance.Boo.a { + }
-	
+
 	Block.Boo.a.+ {
-		
+
 	}
 ]
-```
+
 So now we want to evaluate the body of this method, which is
-```
+
   operator + { other ->
 	  Super_Boo.new {
 		  it.boo1 = ./
 		  it.boo2 = other
 	  }
   }
-```
+
 This Block_Expr body uses `./` which looks up the stack to the nearest Instance (basically `self`)
 
 So it's able to create a new Super_Boo, referencing self, and the passed in `other` which is `c` in  `c = a + b`.
 
 Anyway, now we have our return value, stored in `value`. The temporary scope was already popped by whatever func handles Block_Expr. We can now in our scope pop the Instance.Boo.a since we no longer need it, we've already used it's + operator. The remainder of the code
-```ruby
+
 	pop_scope
 	return value
 end
-```
+
 And when this program fully runs, we end up with
-```
+
 Static.Global {
 	Static.Super_Boo {
 		boo1 = nil
 		boo2 = nil
 	}
-	
+
 	Static.Boo {
 		+ = Block_Expr
 	}
-	
+
 	a = Instance.Boo.a {
 		+ = Ref.Boo.+
 	}
-	
+
 	b = Instance.Boo.b {
 		+ = Ref.Boo.+
 	}
-	
+
 	c = Instance.Super_Boo.c {
 		boo1 = Ref.a
 		boo2 = Ref.a
 	}
 }
-``` 
 
-This just opened my eyes to using Refs to reference other instances and not just Block_Exprs. I guess this is a good part of the language to decide when/where/how to pass by value versus reference.
 
-Inline composition is a reference, so that allows changing live data.
-
-Should assigning Instances to a variable be reference? In Ruby assignments are by reference. In Ruby, functions do not have access to variables outside of it, they have stack visibility like my Instance scope. Hmmm...
-
-Param by reference and composition
-	funk { &comp, other -> }
-	funk { & comp, other -> } 
-Modifying comp also modifies the variable passed into funk()
-
-Param by reference
-	funk { ^other -> }
-	funk { ^ other -> }
-Modifying other also modifies the variable passed into funk()
-
-Param by value
-	funk { other -> }
-Funk receives a copy of other
-
-	

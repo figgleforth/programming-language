@@ -1,0 +1,29 @@
+### Classes
+
+I don't want a reserved 'class'-type of word. Classes/objects/things are whatever they are declared as. There's no need for a shared base class that implements certain behaviors (think operator overloads, internal declarations for variables and functions. Those will just be things an object can do because of how I want the runtime to work.
+
+As you know, any declared Block_Exprs go into @references mapped to an ID, the original Block_Expr is replaced with a Reference to that ID.
+
+In the same way that Block_Exprs become References. Some preloaded code will contain all the declarations of + - * ! #to_s #to_hash etc. When things are instantiated, they will have access to these declarations through the runtime.
+
+	Scope < Hash
+	Instance < Scope
+
+
+	Runtime < Scope
+		@references = { ident: Block_Expr, ident: Class_Expr, Array: Array_Scope, Hash: Hash_Scope, +: Block_Expr, ==: Block_Expr, etc }
+		@statics = { ident: Instance }
+		@self = { ident: Scope }     this is where anything that you declare goes
+
+When Runtime does identifier lookups, it looks for the key on itself and then the other scopes. Self first because you want to be able to shadow previous declarations.
+
+	(An improvement here could be allowing multiple namespaces of the same name, that don't have access to each other so that you can't break someone else's implementations. No clue how that would work, probably some hash of it's name plus file of origin.)
+
+This works really well and keeps the instance objects light. Example: poopied
+
+	Atom {}
+	refs[Atom] = Atom's Block_Expr
+	self[Atom] = Ref(ident = Atom)
+
+	purple FG AEACE6
+	redish BG 260404

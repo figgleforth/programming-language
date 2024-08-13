@@ -1,0 +1,27 @@
+Something I was writing opened my eyes to using Refs to reference other instances and not just Block_Exprs. I guess this is a good part of the language to decide when/where/how to pass by value versus reference. The following seems like a good idea:
+
+Param by reference and composition. Modifying comp modifies the original thing passed into funk()
+	funk { %comp, other -> }
+	funk { % comp, other -> }
+
+Param by reference. Modifying other also modifies the variable passed into funk()
+	funk { ^other -> }
+	funk { ^ other -> }
+
+Param by value. Funk receives a copy of other
+	funk { other -> }
+
+
+It would be cool to allow the programmer to choose a default system, by value or by reference. In that case, the ^ param symbol would change its behavior to be the opposite of the default. If default is by value, then ^ is a reference. If default is by reference, then ^ is a copy of the reference.
+
+And actually, I would like to call it references and copies.
+
+Default: passing copies
+	funk { other -> } # other is copy
+	funk(thing)
+	funky { ^other -> } # makes the param a reference
+
+Default: passing references
+	funk { other -> } # other is reference
+	funk(thing)
+	funky { ^other -> } # makes the param a copy
