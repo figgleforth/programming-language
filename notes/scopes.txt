@@ -1,0 +1,226 @@
+Smallest possible thing is this hash { @ = {} }, written as {@}. We'll call it "scope" or "{@}" going forward. Here's an exercise with various expressions showing what the scope looks like
+
+	# nothing
+	{@}
+
+	4
+	{@}
+
+	x = 8
+	{@, x=8 }
+
+	f {->}
+	{@, f={@} }
+
+	Class {}
+	{@, Class={@} }
+
+	Class {
+		y = 15
+	}
+	{@, Class={@, y=15} }
+
+	if time > 108 {}
+	{@}
+
+
+I'll use {@} going forward as a symbol for scopes. These, and maybe more, are actually just {@} on the inside:
+
+	Your program – as the global scope to all your code
+	Classes
+	Instances
+	Functions
+	Conditional blocks
+
+An example program scope
+
+	Dog {
+		name = 'Doggy'
+		bark { -> 'woof' }
+	}
+	floof = Dog.new
+	floof.name = 'Cooper'
+
+	Emerald {
+		version { -> 0.0 }
+	}
+
+
+	Program scope:
+	{
+	  @ = {
+	    id = 0
+	    kind = global
+	  }
+
+	  Dog = Class_Expr
+
+	  floof = {
+	    @ = { id = 1, kind = instance }
+	    name = 'Cooper'
+	  }
+
+	  Emerald = Class_Expr
+	}
+
+
+Stack is a series of scopes you have access to, starting with the program stack.
+
+	[{@}]
+
+	x = 4
+	[{@, x = 4}]
+
+	x = 4
+	{ ->
+		[{@, x = 4}, {@}] # scope inside this anon func
+
+		x
+		When you reference an identifier, Runtime looks down the stack starting in the current scope.
+			{@}             does not have x declared, next!
+			{@, x = 4}      does have x declared so you can access it
+	}
+
+What about nested scopes?
+
+	[{@}]
+
+	Island {
+		Hatch {
+		}
+	}
+	[{
+		@,
+		Island = {@,
+			Hatch = {@}
+		}
+	}]
+
+	Hatch
+	[{@, Island}] does not have Hatch defined so crash. You have to use the exact path to the declaration.
+
+This is where stacking comes in.
+
+	Island.Hatch
+	[{@, Island={@, Hatch={@}} }]
+
+	Runtime looks up Island which is this scope {@, Hatch={@}}. Runtime pushes that scope on the stack.
+	[{@, Island={@, Hatch={@}} }, {@, Hatch={@}}]
+
+This is not a copy of Island, this is the same {@} instance.
+
+	Next, Runtime looks up Hatch which at this point is in the stack.
+	[{@, Island={@, Hatch={@}} }, {@, Hatch={@}}]
+
+Every infix operation (like dot access) that references an object by name, will have the object (if declared) pushed onto the stack so the right hand side can be resolved. It's assumed that whatever .right is, it's defined on left.
+
+The rest of the notes below might be outdated so I'm gonna stop here. I feel like actually implementing some stuff and instead of just taking notes.
+
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+OLD NOTES /// OLD NOTES /// OLD NOTES /// OLD NOTES /// OLD
+/// START HERE /// START HERE /// START HERE /// START HERE
+OLD NOTES /// OLD NOTES /// OLD NOTES /// OLD NOTES /// OLD
+/// START HERE /// START HERE /// START HERE /// START HERE
+:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+Say we want to evaluate `floof = Dog.new`. The `Class_Expr` stored in `Dog` is what Runtime will evaluate to create an instance. So evaluation of this Class_Expr(Dog) produces
+
+	{
+	  @ = { id = 1, kind = :instance },
+	  name = 'Cooper',
+	  bark = Block_Expr
+	}
+
+
+which gets declared as the `floof` variable in the enclosing scope
+
+	{
+	  # the enclosing scope
+	  floof = {
+	    @ = { id = 1, kind = :instance },
+	    name = 'Cooper',
+	    bark = Block_Expr
+	  }
+	}
+
+
+Just like `Class_Expr`, when `floof.bark` is evaluated, the stored `Block_Expr` tells the interpreter what to put into
+its `block` scope. So the #bark func would produce this scope
+
+	{
+	  '@' = { id = 2, kind = :block },
+	}
+
+
+Had the #bark function any declarations, like
+
+	bark { times ->
+		woof = 'w' + ('o' * times) + 'f'
+	}
+
+
+The scope created when evaluating `floof.bark(3)` would produce
+
+	{
+	  '@' =   { id = 2, kind = :block },
+	  times = 3,
+	  woof =  'wooof'
+	}
+
+
+And finally, an anon block `{ -> }` would produce
+
+	{
+	  '@' = { id = 4, kind = :block },
+	}
+
+
+Whenever a block exits, the scope pushed for it is popped, effectively being destroyed.
+
+
+
+So a quick exercise with comments at each scope, to get a clearer picture on how this works
+
+em
+NAME = 'Cooper'
+
+Dog {
+	# this class can access NAME from global
+	name = NAME;
+
+	bark { at ->
+		# this function can access global, and anything in Dog
+		bark_style { ->
+			# this function can access global, and anything in bark, and anything in Dog
+			'woof'
+		}
+		'`at`, `bark_style()`'
+	}
+
+	play {
+		# this function can access global, and anything in Dog
+		fetch { -> # this function can access global, and anything in play, and anything in Dog
+		}
+
+		{ -> # this anon block can access global, and play, and Dog
+			fetch()
+		}
+
+		{ -> # this anon block can access global, and play, and Dog
+			{ -> # this anon block can access global, and the previous anon block, and play, and Dog
+				fetch()
+				bark()
+			}
+		}
+
+		anon_block = { ->
+			fetch()
+			bark()
+		}
+
+		anon_block() # at evaluation, a scope gets pushed on top of the function scope, so this block has access to fetch() and bark()
+	}
+}
+
+
+

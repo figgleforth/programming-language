@@ -1,3 +1,46 @@
+Right now it's difficult to tell what operators the language reserves, and which sets of symbols make pre/post/infix operators. It would be nice to have a more robust lookup rather than just some constants in Token
+
+Logical keywords "and" and "or" should behave like && and ||, unlike in Ruby where they have slightly different behavior. On that note, check all usages of and/or/not because I'm no longer confident that I used them correctly throughout the project.
+
+When declaring operators, how
+
+You should be able to chain while loops with conditionals
+if condition {
+	runs once
+elswhile condition
+	loops
+else
+	runs once
+}
+while condition {
+	loops
+elsif condition
+	once
+}
+So all *ifs run once, all *whiles loop. I imagine this could be useful
+
+Backticked comments, they start and end with backticks. This would be cool, you could insert a comment in the middle of a binary expression, as an example:
+result = 123 / `this divisor cannot be zero` divisor
+This comment here would be completely ignored.
+This would also eliminate the need for a special multiline comment symbol. The parser would keep parsing until the comment is closed out
+
+A new keyword for breaking out of all loops, to the closest block. Those would be anon and conditional loops
+
+Do I even need the EOF token? It seems pointless since I'm going to parse until I run out of tokens anyway.
+
+Make the pipeline more consistent
+Lexer.new(input).output
+Parser.new(input).output
+Runtime.new(input).output
+
+Clean up the eat Identifier_Token.string shit. I can't make proper error reporting without access to the token and its source code position information.
+
+Look at what makes identifiers again. Let's really solidify what they can start with, contain, and end with. I want this to be solid and coherent, especially because the current direction is heading towards symbols as identifiers. So I need to have consistent rules on what can and cannot be used as an identifier.
+
+Bug in raise, probably with syntax
+raise expression unless condition   # works as expected
+raise unless condition              # raises even when it should not
+
 Bug assigning blocks
 % = { -> 12 }
 ◼︎ 12
@@ -162,10 +205,6 @@ Island {
 	}
 }
 
-Temporary scope that gets cleared at every program exit. .../
-.../temp = 123
-.../make = { -> } # .../make is just an identifier so this doesn't need to be a one-line declaration
-
 Breakpoint snake >~. It should pause execution, push a temporary Block scope, start REPL and allow entering any expressions. And it can even interact with the current program. Just figure out how, if the program is paused.
 Anyway, I want to implement the export command. `>~ export` or `>~` then `export` once at the breakpoint. The oneliner should do the export then put you in the REPL right there
 It should export the entire Global scope to a json file, which should be possible since the entire program is just a hash of Ruby objects, most of which, if not all, are serializable. So this should be easy.
@@ -175,7 +214,7 @@ Improve test system such that each test run of a file stores the final runtime/i
 
 Add slimmer form of if-else statements. I don't want to type curlies all the time. I would prefer:
 if condition: do_some_expr
-if condition do_some_expr # this should be possible because after :if we parse_expression so it should only get 1 expression. At which point we can parse the next thing. If it isn't a { or :, then it has to be an inline expression. In this case we don't even need to parse for } cause we know it won't have one
+if condition do_some_expr # this should be possible because after :if we make_expression so it should only get 1 expression. At which point we can parse the next thing. If it isn't a { or :, then it has to be an inline expression. In this case we don't even need to parse for } cause we know it won't have one
 Same for while
 while condition expr
 while condition: expr
@@ -324,7 +363,7 @@ Implement '@' context operator, for accessing functions and variables internal t
 
 Generalize Interpreter#evaluate when Block_Call_Expr so that Block_Expr evaluation uses the same code to call the block inline
 
-Generalize parsing expressions between parens. I think the function call ast parses parameters between parens, so go look there. When abstracted it can be reused for tuples. Also where Parser#make_ast checks curr? '(' I'm calling parse_expression again. But I think this is where I want to use #make_comma_separated_ast
+Generalize parsing expressions between parens. I think the function call ast parses parameters between parens, so go look there. When abstracted it can be reused for tuples. Also where Parser#make_ast checks curr? '(' I'm calling make_expression again. But I think this is where I want to use #make_comma_separated_ast
 #tuples
 
 Add support for inline conditional at end of lines because they reads nicely: `move() if xy else stop()`

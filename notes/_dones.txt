@@ -72,3 +72,16 @@ sponge! { -> } # converts to sponge case
 cd .. # pops String scope. Should not do anything if there wasn't anything manually pushed.
 "hello".sponge! # undefined sponge!
 Anyway, this needs to be a new Scope subclass. Peek or Transient, or whatever. It needs its own class because when setting values inside a Peek, I don't want to overwrite what's in peek. I also don't want to just store it in the temporary Peek scope. I want to assign a variable that I was using before the Peek. So then #set can just ignore Peek/Transient scopes when setting. Problem solved.
+
+House { number = 78 }
+◼︎ {"types"=>["House"], "number"=>78}
+move { % house -> number }
+◼︎ %{f82cc}
+h = House.new
+◼︎ {"types"=>["House"], "number"=>78}
+move(h)
+◼︎ 78
+%h
+◼︎ [{"types"=>["House"], "number"=>78}]
+number
+◼︎ 78

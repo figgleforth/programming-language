@@ -1,0 +1,71 @@
+Today, I still think Lexer needs to be fixed first. A summary:
+
+	Legal identifier symbols that anyone can use
+		. + - ~ * ! @ # $ % ^ & ? / | < > = _
+
+	Reserved symbols
+		( { [ ] } ) = =; : ; ,				Crucial for program structure, assignment, sets, arg labels
+		+= -= *= |= /= %= &= ^= .= <<= >>=	Assignment shorthand
+		>!!! >!! >! >~						Console output and debugger
+		.../ ../ ./							Namespace identifier
+		.. .< >. ><							Range syntax
+		:: ->								Function syntax
+		` ```								Ignored by parser except when inside a string
+
+	Reserved words
+		while ew el elswhile elwhile else
+		if ef el elsif elif else
+		return skip stop
+		unless until
+		and or
+		operator
+		self new nil
+		where map tap
+		yes no true false
+		pri private pub public
+
+I'm trying to wrap my mind around what identifiers are legal to create with symbols.
+
+————————————————————————————————————————————————————————————————
+
+RULE 1 – RESERVED SYMBOL IDENTIFIERS
+		 You cannot declare or overload them, error if you do.
+
+	( { [ ] } ) = =; : ; , :: ->
+	>!!! >!! >! >~						They're basically prefix operators
+	.../ ../ ./							As are these
+
+RULE 2 – RESERVED WORD IDENTIFIERS
+		 You cannot declare or overload them, error if you do.
+
+	if ef el elsif elif else
+	while ew el elswhile elwhile else
+	where map tap yes no true false
+	return skip stop unless until
+	and or operator self new nil
+	pri private pub public
+
+RULE 3 – EXISTING BUT NOT RESERVED SYMBOL IDENTIFIERS
+		 You can overload them as long as the identifier does not make a reserved symbol identifier.
+
+	. + - ~ * ! @ # $ % ^ & ? / | < > = _
+	+= -= *= |= /= %= &= ^= .= <<= >>= .. .< >. ><
+
+RULE 4 – SYMBOL AND WORD IDENTIFIERS
+		 Identifiers can be one or the other, but not both.
+
+	Word identifiers become Identifier_Token and may only:
+
+		Begin		_ Aa-Zz 0-9
+		Contain		_ Aa-Zz 0-9
+		End			_ Aa-Zz 0-9 ! ?
+
+	Symbol identifiers become Identifier_Token and may only:
+
+		Begin		. + - ~ * ! @ # $ % ^ & ? / | < > = _
+		Contain		. + - ~ * ! @ # $ % ^ & ? / | < > = _
+		End			. + - ~ * ! @ # $ % ^ & ? / | < > = _
+
+————————————————————————————————————————————————————————————————
+
+Task 1) make new tokens based on rules

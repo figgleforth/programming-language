@@ -1,0 +1,49 @@
+This has been a huge refactor. I broke pretty much everything, but now it's back in working state. I had some realizations that helped me improve the lexer and parser.
+
+Lexer now classifies important characters into Identifiers (your variable and function/block names), Key_Identifiers (reserved words like if, elsif, etc), Operators (identifiers made of only symbol characters), and Key_Operators (reserved symbols). There still are tokens for comments, delimiters, etc.
+
+There are now prefix, postfix, and infix operators. Infix is Binary, renamed.
+
+Operators can be declared using almost any simple character, like ! is a prefix operator whose implementation would be to negate.
+
+Identifiers can be declared with _ and alphanumeric characters. And can no longer end with ! or ? But you can declare your own ! and ? postfix operator instead.
+
+Expressions inside parentheses are now Tuples. Like Tuple(Binary(1 + 2)) is `(1+2)`. Runtime will be able to tell when it's a normal parenthesized expression versus a tuple just by the count of elements. eg. this (1+2) tuple is considered parenthesized but (1+2, 3) is considered tuple. Underlying class is st
+
+Most *_Expr class suffixes are renamed to reflect their intent. Block_Expr became Func_Decl or Func_Expr. Decl when being defined, Expr for the body `{->}`. Though I'm still not sold on Func, I really like calling them blocks. You pass blocks in Ruby and to me any array of expressions is basically a block. We'll see.
+
+So now almost any symbol is going to be pre/in/postfix. Prints >!!! >!! >! are now prefix Key_Operator_Tokens. ! is now both a prefix and postfix operator, where the prefix has higher precedence than the postfix.
+
+	!x      Prefix(! member(x))
+	y!      Postfix(member(y) !)
+	!z!     Prefix(! Postfix(member(z) !))
+
+Sets are declared with any grouping {} [] () but have to be prefixed with @, so @{1, 2, 3} @(5, 6) @[7]. I chose @ because it seems like the least likely to be needed for anything, but changing it is very easy.
+
+Arrays are [1, 2, ...]. Hashes are {x: 1, ...}. But I wonder about hashes, because this syntax makes the colon : a reserved symbol, so no custom operator can use it. But I really want custom operators to be able to use the colon. You could do cool things like 11:11 to mean an instance of Time at 11:11. That's about all I can think of, but still.
+
+Currently, these are all valid operators
+
+	.:
+	....$%
+	.?
+	...#$%#$..$%
+	.:.:
+	|||
+	.
+	=
+	=====
+	====.==
+
+But trying to use them currently raises an error about unknown precedence. I'm still deciding on how to declare precedence, but I definitely want you to be able to control how your operator behaves among other operators.
+
+Once the syntax for setting precedence is determined, then the parser can loop through tokens one time to identify all operators and their precedences. Then the next pass over the tokens is your normal parsing pass.
+
+Another cool outcome of this operator syntax is that this is valid:
+
+	ident.{->}
+	xyz().{->}
+
+I think I wanna make this the way that you pass blocks to a receiver. Tbd.
+
+In other news, I finally cleaned up lexer.rb and tokens.rb. Next up are exprs.rb and parser.rb. But first, I think I want to get back to working on the runtime. The parsing is in a place that I'm happy with. It at least produces tokens that I need to make the runtime as flexible as I'm imagining that it could be at the moment.

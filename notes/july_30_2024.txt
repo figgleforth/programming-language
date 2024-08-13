@@ -1,0 +1,115 @@
+/// identifiers
+
+I changed comments from # to ` because I want to be able to use the # symbol in code. And now that I've seen syntax highlighted comments with the ` symbol, they look really pleasing. And they don't require a space after them like `# comment`
+
+	`blah blah
+	String {
+		var = `blah blah
+
+		`blah blah
+		func {}
+	}
+
+I actually want to be able to use any symbol as an identifier. The plan is to designate everything an identifier unless otherwise specified. This should allow for symbol identifiers like
+
+	Number { $ { "$`self`" } }
+
+This somewhat works already. Here's an example from the cli just now:
+
+	Number { $ { -> "$100" } }
+	Number.new.$
+	■ %{5ad18}
+	Number.new.$()
+	■ $100
+
+Another advantage of treating symbols as identifiers is that I should be able to make pre, in, and post –fix operators work.
+
+/// pre, in, post –fix operators
+
+Here's what's currently possible
+
+	Time {
+	  hour = "1"
+	  : { right -> hour + ':' + right }
+	}.new.:('23')
+	■ 1:23
+
+Here's what I want to do
+
+	100% == 1.0
+	42%  == .42
+
+	$123 == 123
+	123¢ ==
+
+	5 by 3 == 15
+	3 of 7 == [7, 7, 7]
+
+I'm pretty sure that all three forms, including custom identifiers for infix, are possible. I think it's worth starting to investigate, look in Parser#make_expression, right after the ast var is set, we check if the next thing is an operator so that we can form a binary expression – that's basically an in-fix operator.
+
+What about syntax?
+
+	operator _ + _ { right -> }
+	operator $ _ { "$`self`" }
+	operator _ % { "`self`%" }
+
+The underscores are definitely redundant. Is there a simpler way to represent these without keywors? I don't want to create reserved words if it's not necessary. What about reserved keywords but only in the params of the operator overload?
+
+	operator $ { left -> }			# postfix
+	operator $ { right -> }			# prefix
+	operator $ { left, right -> }	# infix
+
+The runtime could infer the type of operator based on the param names. The name of the param implies what the operator is operating on.
+
+	left => 4¢ 8% etc
+	right => $15
+	left, right => 16 * 23
+
+If neither is present, we can just assume it's a prefix. While this isn't as clear as the underscores version, this closer resembles a function declaration. So how to achieve this?
+
+I thought of one strategy – an additional stage between lexer and parser. This stage would inspect all tokens from the lexer and create an index of known identifiers. Then back in Parser#make_expression, when we check whether curr is a binary operator, we can also check against any known identifiers.
+
+Okay so this additional stage, it can do something like
+
+	parts = tokens.split 'operator'
+	parts.each do |tokens|
+	end
+
+Each tokens array here is the tokens between this "operator" keyword and the next. So really, we just need to look through these tokens, into the body of the function to see which params are declared (left, right, both, neither).
+
+At this point we should which type of –fix each operator is.
+
+
+
+/// cli
+What should that be called? Sandbox? Playground?
+
+/// program structure, directories, namespaces
+
+is this the same as apps.txt?
+
+
+/// servers
+
+/// public and private visibility
+
+/// oneshot members, pruning/trimming members
+
+/// revisiting block composition
+
+/// while loop improvement
+
+/// function syntax
+
+/// dictionaries
+
+/// getting rid of ascii token
+
+/// inline conditionals
+
+/// assignments and identifiers
+
+/// created_at
+All scopes created at runtime, including global, should have a created timestamp. It's probably useful for debugging.
+
+/// static and class declarations
