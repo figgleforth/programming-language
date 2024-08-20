@@ -1,3 +1,6 @@
+```
+I think a lot of this is outdated
+
 Element {
 	number =  1
 	symbol = 'H'
@@ -571,3 +574,4 @@ nil || 3
 1 and 2
 1 && 2
 
+```

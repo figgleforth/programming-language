@@ -1,13 +1,40 @@
 require 'debug'
 
-# Turns string of code into tokens
+# !!! this is just a shortcut for testing how it feels to work with custom operators without writing an official construct for this.
+# copied here for convenience
+# [1000, %w(>!!! >!! >! ./ ../ .../)],
+# [380, %w([ _ __ @ . .@ , ])],
+# [360, %w(< <= > >= == != === !== ** )],
+# [340, %w(** * / %)],
+# [320, %w(- +)],
+# [300, %w(!! ? ??)],
+# [280, %w(<< >>)],
+# [260, %w(&)],
+# [240, %w(^)],
+# [220, %w(|)],
+# [200, %w(&& || and or)],
+# [180, %w()],
+# [160, %w(++ --)],
+# [140, %w(:)],
+# [120, %w(= += -= *= /= %= &= |= ^= <<= >>=)],
+# [100, %w[ ( , ) ]],
+# [80, %w(.? .. .< >. >< !)],
+Ops = {
+        'by' => 200, # like *
+        'into' => 340, # like /
+        # ':' => 380, # todo breaks hashes. I wanna figure this out, see thoughts/aug_19_2024
+      }.freeze
+
+
 class Parser
 	require_relative '../lexer/tokens'
 	require_relative 'exprs'
 
 	attr_accessor :i, :buffer, :source, :expressions, :eaten_this_iteration
 
-	DEBUG_SYMBOL = '■'.freeze
+	STARTING_PRECEDENCE   = 0
+	SCOPE_PORTAL_SYMBOL   = '#'.freeze
+	SCOPE_IDENTITY_SYMBOL = '@'.freeze
 
 
 	def initialize buffer = [], source_code = ''
@@ -39,7 +66,7 @@ class Parser
 	# region Parsing Helpers
 
 	def debug
-		%Q(#{DEBUG_SYMBOL * 8} DEBUG INFO #{DEBUG_SYMBOL * 56}
+		%Q(#{DEBUG_SYMBOL * 8} DEBUG INFO #{DEBUG_SYMBOL * 23}
 #{DEBUG_SYMBOL * 8} PREVIOUS TOKEN #{DEBUG_SYMBOL * 23}
 #{prev.inspect}
 #{DEBUG_SYMBOL * 8} CURRENT TOKEN #{DEBUG_SYMBOL * 23}
@@ -48,14 +75,9 @@ class Parser
 #{peek(1).inspect}
 #{DEBUG_SYMBOL * 8} LAST 5 EXPRESSIONS #{DEBUG_SYMBOL * 23}
 #{expressions[-5..]&.map(&:inspect)}
-#{DEBUG_SYMBOL * 76})
+#{DEBUG_SYMBOL * 23})
 	end
 
-
-	#{DEBUG_SYMBOL * 8} LAST 5 #make_expr'd #{DEBUG_SYMBOL * 23}
-	#{eaten_this_iteration[-5..]&.map(&:inspect)}
-	# {DEBUG_SYMBOL * 8} SOME CODE #{DEBUG_SYMBOL * 23}
-	# {eaten_this_iteration&.map(&:string).join[-15..]}
 
 	# buffer[i - 1]
 	def prev
@@ -137,8 +159,6 @@ class Parser
 		if sequence.nil? or sequence.empty? or sequence.one?
 			eaten = curr
 			if sequence&.one? and eaten != sequence[0]
-				# puts debug
-				# puts "::::: SOURCE CODE CONTEXT :::::"
 				extra = 25..0
 				code  = source_substring_for_token(eaten, extra)
 				parts = code.split "\n"
@@ -146,14 +166,7 @@ class Parser
 					_1 << "\n\t#{' ' * (curr.column - 1)}^"
 				}
 
-				puts %Q(\n
-———————————————————————————
-#eat(#{sequence[0].inspect}) got #{eaten.string.inspect}
-~~~~~~~~~~~~~~~~~~~~~~~~~~~\n
-\t#{caret}
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-———————————————————————————)
-				raise
+				raise "#eat(#{sequence[0].inspect}) got #{eaten.string.inspect})\n#{caret}"
 			end
 			@i    += 1
 			eaten_this_iteration << eaten
@@ -167,9 +180,9 @@ class Parser
 			#     eat %w(} end)
 			sequence.each do |expected|
 				unless curr == expected
-					current = "\n\nExpected #{expected} but got #{curr}"
-					# remaining = "\n\nREMAINING:\n\t#{remainder.map(&:to_s)}"
-					progress = "\n\nPARSED SO FAR:\n\t#{expressions[3..]}"
+					current   = "\n\nExpected #{expected} but got #{curr}"
+					remaining = "\n\nREMAINING:\n\t#{remainder.map(&:to_s)}"
+					progress  = "\n\nPARSED SO FAR:\n\t#{expressions[3..]}"
 					raise "#{current}#{remaining}#{progress}" unless curr == expected
 				end
 
@@ -187,28 +200,23 @@ class Parser
 	# region Sequence Parsing
 
 	def class_ident?
-		curr? Identifier_Token and curr.class?
+		curr? Word_Token and curr.class?
 	end
 
 
 	def member_ident?
-		curr? Identifier_Token and curr.member?
+		curr? Word_Token and curr.member?
 	end
 
 
 	def constant_ident?
-		curr? Identifier_Token and curr.constant?
+		curr? Word_Token and curr.constant?
 	end
 
 
-	def parse_block until_token = '}'
+	def parse_block until_token = '}', starting_precedence = STARTING_PRECEDENCE, skip_inline_funcs = false
 		Func_Expr.new.tap do |it|
-			it.expressions = parse_until until_token
-
-			# make sure the block's compositions are derived from the expressions parsed in the block
-			it.compositions = it.expressions.select do |expr|
-				expr.is_a? Class_Composition_Expr
-			end
+			it.expressions = parse_until until_token, starting_precedence, skip_inline_funcs
 		end
 	end
 
@@ -224,46 +232,44 @@ class Parser
 	end
 
 
-	# def make_class_composition_expr
-	# 	Class_Composition_Expr.new.tap do |it|
-	# 		it.operator = eat.string # > + - # * & ~
-	# 		# puts "what if we eat expression"
-	# 		# expr = make_expr
-	# 		# puts "expr #{expr.inspect}"
-	# 		it.expression = make_expr
-	#
-	# 		if curr? 'as' and curr? Identifier_Token
-	# 			eat # as
-	# 			it.alias_identifier = eat # you can alias compositions as symbols too
-	# 		end
-	# 	end
-	# end
+	def make_class_composition_expr
+		Class_Composition_Expr.new.tap do
+			_1.operator   = eat # > + - # * & ~
+			_1.expression = make_expr
+
+			if curr? 'as' and curr? Word_Token
+				eat # as
+				_1.alias_identifier = eat # you can alias compositions as symbols too
+			end
+		end
+	end
+
 
 	def make_array_of_param_decls
 		[].tap do |params|
 			start = curr
-			# (label) (%) ident (= expr)
+			# (label) (@) ident (= expr)
 			until curr? '->'
 				params << Func_Param_Decl.new.tap {
-					if curr? '%' and eat
-						_1.composition = true
+					if curr? SCOPE_PORTAL_SYMBOL and eat
+						_1.portal = true
 					end
 
-					if curr? Identifier_Token, Identifier_Token
-						_1.label = eat Identifier_Token
+					if curr? Word_Token, Word_Token
+						_1.label = eat Word_Token
 					end
 
-					_1.name = eat Identifier_Token
+					_1.name = eat Word_Token
 
 					if curr? '=' and eat '='
-						_1.default_expression = make_expr
+						_1.default = make_expr(STARTING_PRECEDENCE, true)
 					end
 
 					if curr? ','
 						eat ','
 						eat_past_deadspace
 					elsif not curr? '->'
-						raise "Malformed Param_Decl starting at #{start.inspect}, curr: #{curr.inspect}"
+						raise "Malformed Param_Decl starting at #{start.location_in_source}\n\n\tcurr: #{curr.inspect}\n\n"
 					end
 
 				}
@@ -279,24 +285,23 @@ class Parser
 			Conditional_Expr
 		end
 		klass.new.tap do |it|
-			eat if curr? 'if' or curr? 'while'
+			eat if curr? %w(if while)
 
-			if curr? Identifier_Token, '{'
-				identifier   = eat Identifier_Token
+			if curr? Word_Token, '{'
+				identifier   = eat Word_Token
 				it.condition = Identifier_Expr.new.tap do |id|
-					id.string = identifier #.string
-					# id.tokens << identifier
+					id.string = identifier
 				end
 				eat '{'
 			else
 				potential = make_expr
-				if potential.is_a? Func_Expr and potential.named?
+				if potential.is_a? Func_Decl
 					it.condition = Identifier_Expr.new.tap do |id|
-						id.string = potential.name #.string
+						id.string = potential.name
 					end
-				elsif potential.is_a? Infix_Expr and potential.operator == '.' and potential.right.is_a? Func_Expr and potential.right.named?
+				elsif potential.is_a? Infix_Expr and potential.operator == '.' and potential.right.is_a? Func_Decl
 					it.condition = Identifier_Expr.new.tap do |id|
-						id.string = potential.right.name #.string
+						id.string = potential.right.name
 					end
 				else
 					it.condition = potential
@@ -376,41 +381,6 @@ class Parser
 	end
 
 
-	def make_set_expr
-		# can be any one of these, the grouping symbol doesn't matter
-		# @[ expr , ]
-		# @( expr , )
-		# @{ expr , }
-		Set_Expr.new.tap {
-			opener      = eat # @[ @( @{
-			closer      = case opener.string[-1]
-				when '['
-					']'
-				when '('
-					')'
-				when '{'
-					'}'
-				else
-					raise " unknown set opener #{opener}"
-			end
-			_1.grouping = "#{opener.string[-1]}#{closer}"
-
-			if curr? closer and eat
-				return _1
-			end
-
-			while tokens? and not curr? closer
-				_1.elements << make_expr
-				break if curr? closer
-				eat ',' # if curr? ','
-				eat_past_deadspace
-			end
-
-			eat closer
-		}
-	end
-
-
 	def make_array_expr
 		# [ expr , ]
 		Array_Expr.new.tap {
@@ -434,75 +404,76 @@ class Parser
 	end
 
 
-	def make_tuple_expr opening = '{'
-		closing = case opening
-			when '{'
-				'}'
-			when '('
-				')'
-			when '['
-				']'
-			else
-				raise "#make_grouped_expr unknown opening #{opening}"
-		end
+	def make_circumfix_expr opening = '(' # the option for other types of groupings is there, but right now I'm only using ( because other cases are already handled.
+		Circumfix_Expr.new.tap {
+			_1.grouping = case opening
+				when '('
+					'()'
+				when '{'
+					'{}'
+				when '['
+					'[]'
+				else
+					raise "#make_circumfix_expr unknown opening #{opening}"
+			end
 
-		Tuple_Expr.new(opening + closing).tap {
 			eat opening
+			closing = _1.grouping[1]
 
-			if curr? closing
-			else
-				until curr? closing
-					_1.expressions << make_expr
-					break if curr? closing
-					eat ','
-					eat_past_deadspace
-				end
+			until curr? closing
+				_1.expressions << make_expr(precedence_for(opening))
+				break if curr? closing
+
+				eat ','
+				eat_past_deadspace
 			end
 
 			eat closing
+
 		}
 	end
 
 
 	def peek_until_contains? until_token, contains
 		peek_until(until_token).any? do
-			_1 == contains
+			_1 == contains or _1 === contains
 		end
 	end
 
 
 =begin
-		precs = { 1000 => %w(>!!! >!! '>!' @),
-		          400  => %w[( )],
-		          380  => %w([ ]),
-		          360  => %w(< <= > >= == != === !== **),
-		          340  => %w(** * / %),
-		          320  => %w(- +),
-		          300  => %w(!! ? ??),
-		          280  => %w(<< >>),
-		          260  => %w(&),
-		          240  => %w(^),
-		          220  => %w(|),
-		          200  => %w(&& || and or),
-		          180  => %w(),
-		          160  => %w(++ --),
-		          140  => %w(: .),
-		          120  => %w(= += -= *= /= %= &= |= ^= <<= >>=),
-		          100  => %w(,),
-		          80   => %w(.? .. .< >. >< !) }
+todo switch to a hash instead of the nested arrays
+precs = { 1000 => %w(>!!! >!! '>!' @),
+  400  => %w[( )],
+  380  => %w([ ]),
+  360  => %w(< <= > >= == != === !== **),
+  340  => %w(** * / %),
+  320  => %w(- +),
+  300  => %w(!! ? ??),
+  280  => %w(<< >>),
+  260  => %w(&),
+  240  => %w(^),
+  220  => %w(|),
+  200  => %w(&& || and or),
+  180  => %w(),
+  160  => %w(++ --),
+  140  => %w(: .),
+  120  => %w(= += -= *= /= %= &= |= ^= <<= >>=),
+  100  => %w(,),
+  80   => %w(.? .. .< >. >< !) }
 =end
 
 	# Array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. Nice reference: https://rosettacode.org/wiki/Operator_precedence
 	def precedence_for token
-		# ??? mess I need to space out the precedences so that users can declare their own precedences that can work within these.
+		# mess
+		# todo I actually am not sure about these precedences. I mean, I understand the recursion and the concept, but I haven't thought about the precs of these operators. I should probably do that.
+		# todo what does tight/loose binding even mean? I want better documentation for how this works.
 		[
 
 		  # binds tightly
-		  #      @this.that  ((@this) . that)
-		  #      >! 123      (>! 123)
-		  [1000, %w(>!!! >!! >! @)],
-		  [400, %w(( ))],
-		  [380, %w([ ])],
+		  [1000, %w(>!!! >!! >! ./ ../ .../)],
+		  # [400, %w(( ))],
+		  [380, %w([ _ __ @ . .@ , ])],
 		  [360, %w(< <= > >= == != === !== ** )],
 		  [340, %w(** * / %)],
 		  [320, %w(- +)],
@@ -514,31 +485,27 @@ class Parser
 		  [200, %w(&& || and or)],
 		  [180, %w()],
 		  [160, %w(++ --)],
-		  [140, %w(: .)],
+		  [140, %w(:)],
 		  [120, %w(= += -= *= /= %= &= |= ^= <<= >>=)],
-		  [100, %w(,)],
+		  # [100, %w(,)],
+		  [100, %w[ ( , ) ]],
 		  [80, %w(.? .. .< >. >< !)],
-
 		  # binds loosely
-		  #      abc.def.hij.klm     (((abc.def).hij).klm)
-
 		].find do |_, chars|
-			chars.sort_by! { -_1.length }.include?(token.string)
-		end&.first
+			str = if token.is_a? Token
+				token.string
+			else
+				token
+			end
+
+			chars.sort_by! { -_1.length }.include?(str)
+		end&.first || STARTING_PRECEDENCE
 	end
 
 
-	def make_expr starting_precedence = 0
-		# todo Operator_Decl when curr?(operator, Operator_Token, {)
-		# todo Route_Decl when curr? String_Literal, Identifier_Token, {
-
-		# puts "curr: #{curr.inspect} arrowed? #{peek_until_contains? "\n", '->'}"
-		# if curr == "\n"
-		# 	puts "curr #{curr.inspect}"
-		# 	puts "curr? Delimiter_Token #{curr? Delimiter_Token}"
-		# end
-		#
-		# return eat
+	def make_expr starting_precedence = STARTING_PRECEDENCE, skip_inline_funcs = false
+		# todo Operator_Decl    operator *fix == { left/right/both -> }
+		# todo Route_Decl       "/users/:id" users_route { id -> }
 
 		expr = \
 		  if curr? '{' and peek_until_contains? '}', '->' # { -> }
@@ -558,78 +525,104 @@ class Parser
 				  _1.expressions = parse_block.expressions
 				  eat '}'
 			  }
+
 		  elsif curr? '{' # hash or
 			  make_hash_expr
 
 		  elsif curr? '['
 			  make_array_expr
 
-		  elsif curr? %w[ @{ @\[ @( ]
-			  make_set_expr
+		  elsif (class_ident? or constant_ident?) && (curr?(Word_Token, '{') or curr?(Word_Token, '>') or curr?(Word_Token, '+'))
+			  Class_Decl.new.tap do
+				  _1.name = eat(Word_Token)
 
-		  elsif class_ident? && (curr?(Identifier_Token, '{') or curr?(Identifier_Token, '>') or curr?(Identifier_Token, '+'))
-			  # todo compositions
-			  # ??? useful checks that I don't want to write inline, in the big if-else block
-			  # class_merge_comp   = (curr? '>', Identifier_Token and (peek(1).constant? or peek(1).class?))
-			  # class_add_comp     = (curr? '+', Identifier_Token and (peek(1).constant? or peek(1).class?))
-			  # class_remove_comp  = (curr? '-', Identifier_Token and (peek(1).constant? or peek(1).class?))
-			  # wormhole_comp      = (curr? '%', Identifier_Token or curr? '*', Identifier_Token) # note the binary * operator will be handled below this massive if-else. There's no danger in using it as a prefix here, I guess I could also
-
-			  Class_Decl.new.tap do |it|
-				  # puts "curr #{curr.inspect}"
-				  it.name = eat(Identifier_Token)
+				  # comp_types     = %i(> & ~ + -)
+				  # curr_comp_type = nil
+				  # until curr? '{'
+				  # todo implement composition
+				  # end
 
 				  if curr? '>' and eat '>'
 					  raise 'Parent must be a Class' unless curr.class?
-					  it.base_class = eat(Identifier_Token)
+					  _1.base_class = eat(Word_Token)
 				  end
 
 				  if curr? '&' and eat
-					  # keep eating comma separated compositions until {
 					  until curr? '{'
 						  eat_past_deadspace
-						  it.compositions << eat(Identifier_Token)
+						  _1.compositions << eat(Word_Token)
 						  eat ',' if curr? ','
 					  end
 				  end
 
 				  eat '{'
 				  eat_past_deadspace
-				  it.block = parse_block '}'
+
+				  _1.expressions = parse_until '}', starting_precedence, skip_inline_funcs
 				  eat '}'
 			  end
-		  elsif member_ident? and curr?(Identifier_Token, '{')
+		  elsif member_ident? and curr?(Word_Token, '{')
 			  Func_Decl.new.tap { # :name < Func_Expr :expressions, :compositions, :parameters, :signature
-				  _1.name = eat(Identifier_Token)
+				  _1.name = eat(Word_Token)
 				  eat '{'
-
-				  arrowed = peek_until_contains? '}', '->'
 				  eat_past_deadspace
 
-				  if arrowed
+				  if not curr? '->'
 					  _1.parameters = make_array_of_param_decls
 					  eat_past_deadspace
-					  eat '->'
-					  eat_past_deadspace
 				  end
+
+				  eat '->'
+				  eat_past_deadspace
 
 				  _1.expressions = parse_block.expressions
 				  eat '}'
 			  }
-		  elsif constant_ident? and curr? Identifier_Token, '{'
-			  Enum_Decl.new.tap {
-				  # :identifier, :expression
-				  _1.identifier = eat Identifier_Token
-				  if curr? '{' and eat
-					  until curr? '}'
 
-					  end
+		  elsif curr? 'operator'
+			  types = %w(prefix infix postfix circumfix) # ??? this was declared a while ago, but it doesn't appear to be used.
+			  Operator_Decl.new.tap do
+				  eat 'operator'
+
+				  unless curr? types
+					  raise "Operator declaration #{curr.string} must be one of #{types}"
 				  end
 
-			  }
+				  _1.fix  = eat Word_Token
+				  _1.name = eat
+
+				  eat '{'
+				  eat_past_deadspace
+
+				  if not curr? '->'
+					  _1.parameters = make_array_of_param_decls
+					  eat_past_deadspace
+				  end
+
+				  eat '->'
+				  eat_past_deadspace
+
+				  _1.expressions = parse_block.expressions
+				  eat '}'
+
+				  # eat '{'
+				  #
+				  # arrowed = peek_until_contains? '}', '->'
+				  # eat_past_deadspace
+				  #
+				  # if arrowed
+				  #   _1.parameters = make_array_of_param_decls
+				  #   eat_past_deadspace
+				  #   eat '->'
+				  #   eat_past_deadspace
+				  # end
+				  #
+				  # _1.expressions = parse_block.expressions
+				  # eat '}'
+			  end
 
 		  elsif curr? '('
-			  make_tuple_expr '('
+			  make_circumfix_expr '('
 
 		  elsif curr? 'return'
 			  Return_Expr.new.tap do |it|
@@ -663,19 +656,18 @@ class Parser
 			  # YAY: member = member/Class/CONSTANT, CONSTANT = CONSTANT, Class = Class.
 			  # NAY: Class = member, Class = CONSTANT
 
-		  elsif curr? Identifier_Token, '~>'
-			  Func_Decl.new.tap {
-				  _1.name = eat Identifier_Token
-				  eat '~>'
-				  _1.expressions = [make_expr]
-			  }
+			  # elsif curr? Word_Token, '->'
+			  #   Func_Decl.new.tap {
+			  # 	  _1.name = eat Word_Token
+			  # 	  eat '->'
+			  # 	  _1.expressions = [make_expr]
+			  #   }
 
 		  elsif curr? String_Token or curr? Number_Token
 			  make_string_or_number_literal_expr
 
 		  elsif curr? Comment_Token
 			  # xxx backticked comments
-
 			  eat and nil
 
 		  elsif curr? Delimiter_Token
@@ -683,17 +675,26 @@ class Parser
 
 		  elsif curr? Key_Identifier_Token
 			  Key_Identifier_Expr.new.tap {
-				  _1.string = eat Key_Identifier_Token
+				  _1.token  = eat Key_Identifier_Token
+				  _1.string = _1.token.string
 			  }
 
-		  elsif curr? Identifier_Token
+		  elsif curr? Word_Token
 			  Identifier_Expr.new.tap {
-				  _1.string = eat Identifier_Token
+				  _1.token  = eat Word_Token
+				  _1.string = _1.token.string
 			  }
 
 		  elsif curr? Operator_Token
 			  Operator_Expr.new.tap {
-				  _1.string = eat Operator_Token
+				  _1.token  = eat Operator_Token
+				  _1.string = _1.token.string
+			  }
+
+		  elsif curr? Identifier_Token and Ops.key? curr.string
+			  Operator_Expr.new.tap {
+				  _1.token  = eat Identifier_Token
+				  _1.string = _1.token.string
 			  }
 
 		  elsif curr? EOF_Token
@@ -703,7 +704,7 @@ class Parser
 			  raise "Parsing not implemented for #{curr.inspect}"
 		  end
 
-		augment_or_dont expr, starting_precedence
+		augment_expr expr, starting_precedence, skip_inline_funcs
 	end
 
 
@@ -713,23 +714,51 @@ class Parser
 	# !!! we can infer a grouped expression here without the groupings. If a comma is next, then group the expressions until the next newline. Later when this expression is evaluated, it gets evaluated as a group together.
 	# !!! this also allows passing block to any expression. Originally that was going to be the .{ operator, but this is much simpler. If there's no delimiter between the last expression and { then it's a block being passed to the expression. Remember, that any class or function bodies with {} would already have been parsed into `ast` at this point. I guess the original .{ will also work since it would be parsed into a "dot {}" binary expression in #make_binary_expr_or_dont
 	# ??? In what other ways can the expression be augmented here?
-
 	# Given a freshly parsed expression, transform it into another expression if needed
 	# eg. [expr, ()] becomes Call_Expr
 	# eg. [expr, if/unless/while/until] becomes Conditional_Expr
-	def augment_or_dont expr, starting_prec
-		# puts "aug? #{expr.inspect}"
+	def augment_expr expr, starting_prec, skip_inline_funcs = false
 		return expr if curr? "\n" or not expr
+
+		# !!! custom operators. should check: expr == custom prefix op; curr == custom infix or postfix op
+		if curr? Identifier_Token and Ops.key? curr.string
+			expr = Infix_Expr.new.tap {
+				_1.left     = expr
+				_1.operator = eat
+
+				# !!! precedence lookup hack
+				next_prec = Ops[_1.operator.string]
+				_1.right  = make_expr(next_prec)
+				if not _1.right
+					raise "Infixed_Expr expected an expression after `#{_1.operator.string}`"
+				end
+			}
+			return augment_expr expr, starting_prec, skip_inline_funcs
+		end
+
+		# !!! ignoring inline functions is a way of preventing [Identifier, ->] from being parsed as an inline function. This is needed in places like param declarations [{, Identifier, Identifier, ->]
+		if not skip_inline_funcs and expr === Identifier_Expr and curr? '->'
+			decl = Func_Decl.new.tap {
+				_1.name = expr
+				eat '->'
+				_1.expressions = [make_expr]
+			}
+
+			return augment_expr decl, starting_prec, skip_inline_funcs
+		end
+
 		return expr if curr? %w(-> :)
 
 		postfix = curr?(Operator_Token) && (curr.respond_to?(:postfix?) and curr.postfix?) # xxx also check for user-declared postfix operators
-		prefix  = expr.is_a?(Operator_Expr) && (expr.string.respond_to?(:prefix?) and expr.string.prefix?) # xxx also check for user-declared prefix operators
+
+		prefix = expr.is_a?(Operator_Expr) && (expr.token.respond_to?(:prefix?) and expr.token.prefix?) # xxx also check for user-declared prefix operators
+
 		if prefix
-			if expr.string == '@' and curr == '.' # manual handling of @. to just eat over the dot to make @.member behave like @member
+			if expr.string == SCOPE_IDENTITY_SYMBOL and curr == '.' # manual handling of @. to just eat over the dot to make @.member behave like @member
 				eat
 			end
 
-			expr = Prefixed_Expr.new.tap {
+			expr = Prefix_Expr.new.tap {
 				_1.operator   = expr
 				_1.expression = make_expr precedence_for(expr.string)
 			}
@@ -738,19 +767,17 @@ class Parser
 				raise "Prefixed_Expr expected an expression after `#{expr.operator}`"
 			end
 
-			return augment_or_dont expr, starting_prec
-		elsif postfix # ??? should this be an elsif?
+			return augment_expr expr, starting_prec, skip_inline_funcs
+		elsif postfix
 			# !!! if this causes problems with order of operations, it would likely be for the same reason Prefixed_Expr did, and that was because I needed to prevent the next expression from grouping itself into the prefixed expression by adding a starting precedence to the make_expr call
-			expr = Postfixed_Expr.new.tap {
+			expr = Postfix_Expr.new.tap {
 				_1.expression = expr
 				_1.operator   = make_expr
 			}
-			return augment_or_dont expr, starting_prec
+			return augment_expr expr, starting_prec, skip_inline_funcs
 		end
 
-		# puts "and? #{expr.inspect}"
-
-		if curr? '(' and eat '(' # and subject and not subject == "\n"
+		if curr? '(' and eat '('
 			expr = Call_Expr.new.tap do
 				# :receiver, :arguments
 				_1.receiver  = expr
@@ -758,19 +785,12 @@ class Parser
 
 				until curr? ')'
 					_1.arguments << Call_Arg_Expr.new.tap do |arg|
-						if curr? Identifier_Token, ':' #, Token
-							arg.label = eat Identifier_Token
+						if curr? Word_Token, ':' #, Token
+							arg.label = eat Word_Token
 							eat ':'
 						end
 
-						# puts "before making arg expr #{curr.inspect}"
-						arg.expression = make_expr # if curr? Token, ','
-						#     parse_block ','
-						# elsif curr? Token, ')'
-						#     parse_block ')'
-						# else
-						#     parse_block %w[, )]
-						# end.expressions[0]
+						arg.expression = make_expr
 					end
 
 					eat if curr? ','
@@ -778,12 +798,11 @@ class Parser
 
 				eat ')'
 			end
+
+			return augment_expr expr, starting_prec, skip_inline_funcs
 		end
 
-		# xxx an operator can be binary if it's declared to be. I don't have syntax for that yet, but this is where that check would go.
-
-		# valids = curr? [Key_Identifier_Token, Operator_Token, Key_Operator_Token] #, Identifier_Token]# and not curr? %w(for)
-		# return expr unless valids
+		# xxx any custom operator can be binary if it's declared to be. I don't have syntax for that yet, but this is where that check might go.
 
 		while curr? [Key_Identifier_Token, Operator_Token, Key_Operator_Token] and curr.infix?
 			curr_operator_prec = precedence_for(curr)
@@ -792,9 +811,6 @@ class Parser
 				raise "Unknown precedence for infix operator #{curr.inspect}"
 			end
 
-			# puts "curr_prec #{curr_operator_prec}"
-			# puts "starting_prec #{starting_prec}"
-			# if starting_prec >= curr_operator_prec
 			if curr_operator_prec <= starting_prec
 				return expr
 			end
@@ -806,16 +822,31 @@ class Parser
 				_1.operator = operator
 				_1.right    = make_expr(curr_operator_prec)
 				if not _1.right
-					raise "Infixed_Expr expected an expression after `#{_1.operator.string}`"
+					raise "Infixed_Expr expected an expression after `#{_1.operator.string}` (#{_1.operator.line}:#{_1.operator.line})"
 				end
 			}
+
+			if operator == '.@'
+				# todo update start/end_index and line/column to reflect these operator changes
+				expr.operator.string = '.'
+				expr.right           = Prefix_Expr.new.tap {
+					_1.expression      = expr.right
+					_1.operator        = operator.dup
+					_1.operator.string = '@'
+				}
+			end
 		end
 
 		expr
 	end
 
 
-	def parse_until until_token = EOF_Token
+=begin
+	skip_inline_funcs – prevents [ident, ->] from becoming Func_Expr. Uses:
+		- preventing Func_Param_Decl issue where `param` in `func { param -> }` is parsed as an inline Func_Expr.
+=end
+
+	def parse_until until_token = EOF_Token, starting_precedence = STARTING_PRECEDENCE, skip_inline_funcs = false
 		exprs = []
 		while tokens? and curr != EOF_Token
 			if until_token.is_a? Array
@@ -826,7 +857,7 @@ class Parser
 				break if curr == until_token
 			end
 
-			if (expr = make_expr)
+			if (expr = make_expr(starting_precedence, skip_inline_funcs))
 				exprs << expr
 			end
 		end

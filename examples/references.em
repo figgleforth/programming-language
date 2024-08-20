@@ -46,6 +46,6 @@ Abc {
 whatever { -> }
 
 `>! Abc.new.double_if_two(123)
-fuck = { -> Abc.new.double_if_two(2) }
-fuck()
+poop = { -> Abc.new.double_if_two(2) }
+poop()
 `raise "expected 4" unless ohboy == 4

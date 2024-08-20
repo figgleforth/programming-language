@@ -46,8 +46,8 @@ class Char
 	end
 
 
-	def alpha?
-		!!(string =~ /\A[a-zA-Z]+\z/)
+	def alpha? str = nil
+		!!((str || string) =~ /\A[a-zA-Z]+\z/)
 	end
 
 
@@ -62,7 +62,6 @@ class Char
 
 
 	def identifier?
-		# return false if Char.new(string[0]).numeric? # ??? due to how anything is an identifier now, we just have to weed out numbers here
 		alphanumeric? or string == '_'
 	end
 
@@ -103,31 +102,6 @@ end
 
 
 class Lexer
-
-	# RESERVED_IDENTIFIERS = %w(
-	# 	if    elsif    elif    else
-	# 	while elswhile elwhile else
-	# 	unless until true false nil
-	# 	pri private pub public
-	# 	and or operator self
-	# 	raise return skip stop
-	# )
-	# >!!! >!! >! >~
-	# .../ ../ ./
-	# =; ->
-	# @{ @\( @[
-
-	# RESERVED_OPERATORS = %w(>!!! >!! >! >~ .../ ../ ./ =; -> ~> = .)
-
-	# ??? if users can't make identifiers out of symbols, then maybe these reserved symbols above should become operators
-
-	# !!! new map tap where
-	# I'm not sure theses belong in this list, I'd rather they were identifiers. Because
-
-	# RESERVED_CHARS = %w< [ { ( , ) } ] > # these cannot be used in custom operator identifiers. They are only for program structure {}, collections [,] and (,)
-
-	# CHARS_ALLOWED = %w(. = + - ~ * ! @ # $ % ^ & ? / | < > _ : ; ) # these can be used in custom operator identifiers. Some builtin operators are made from these symbols, others require some reserved ones. eg. >! ./ =;. Except that we might want to restrict some, like the =
-
 	attr_accessor :i, :col, :row, :source, :tokens
 
 
@@ -235,53 +209,30 @@ class Lexer
 	end
 
 
-	def make_identifier_token # of alphanumeric words, or combinations of symbols. This is cool, you'll see!
-		# the gist here is that we construct alphanumeric identifiers or symbolic identifiers depending on what the first character is. after each is constructed, if it happens to be a reserved alpha or symbol then return that. otherwise it's a valid identifier. examples: #$@% is a valid identifier.
-		# if CHARS_RESERVED.include? curr.string
-		# 	return Delimiter_Token.new eat # these are ({[]}),
-		# end # ??? this should never fire. Not sure why I had this here
+	def make_identifier_token
+		# of alphanumeric words, or combinations of symbols. the gist here is that we construct alphanumeric identifiers or symbolic identifiers depending on what the first character is. after each is constructed, if it happens to be a reserved word or symbol then return the reserved version of the token. otherwise it's a valid identifier. examples: #$@%, ...., ...?, ...?!@#, etc, are valid identifiers. Note that they cannot end with a dot unless all other symbols are dots.
 
-		string = ''
-		if curr.legal_symbol? # eat any combination of legal symbols
-
+		string        = ''
+		starting_char = curr
+		if starting_char.legal_symbol? # eat any combination of legal symbols
 			while curr.legal_symbol?
 				string += eat
-
-				if string[0] == '.' and curr != '.'
-					# string.match?(/\A\.+\z/)
-					break
-				end
-
-				if string[0] != '.' and curr == '.'
-					break
-				end
 			end
 
-			# otherwise, if we got here, the constructed symbol is not an illegal singular symbol. now we check if it constructed a reserved symbol
 			if Token::RESERVED_OPERATORS.include? string
-				# return Key_Identifier_Token.new string # these are =; :: -> >!!! >!! >! >~ .../ ../ ./
-				return Key_Operator_Token.new string # these are =; :: -> >!!! >!! >! >~ .../ ../ ./
-			end
-
-			# ??? cannot end with dot unless it's all just dots. This is because it would be impossible to know when to stop parsing dots and maybe parse a dotted member access.
-			if string[-1] == '.' and not string.chars.all? { _1 == '.' }
-				raise "Custom operator `#{string}` cannot end with a dot unless all other characters are dots"
-			end
-
-			# manual catch for set literal
-			# @[ { (
-
-			if string == '@' and %([ \( {).include? curr.string
-				string += eat
-				# return Key_Identifier_Token.new string
 				return Key_Operator_Token.new string
 			end
 
+			if string[-1] == '.' and not string.chars.all? { _1 == '.' }
+				# !!! This is because it would be impossible to know when to stop parsing dots and maybe parse a dotted member access.
+				raise "Custom operator `#{string}` cannot end with a dot unless all other characters are dots. But you can start with or include other dots anywhere else."
+			end
+
 			Operator_Token.new string
-		elsif curr.identifier?
+		elsif starting_char.identifier?
 			while curr.identifier?
 				string += eat
-				eat while curr == '\\' # ??? I think backslashes in the middle of identifiers is cool
+				eat while curr == '\\' # !!! I think backslashes in the middle of identifiers is useful for lining up your declarations.
 			end
 
 			# in case this identifier happens to be a keyword, we're going to bail early here.
@@ -289,23 +240,9 @@ class Lexer
 				return Key_Identifier_Token.new string
 			end
 
-			Identifier_Token.new string
+			Word_Token.new string
 		else
 			raise "#make_identifier_token unknown #{curr}"
-		end
-	end
-
-
-	def eat_oneline_comment
-		''.tap do |comment|
-			eat '`'
-			eat while curr.whitespace? # skip whitespace or tab before body
-
-			while chars? and not curr.newline? # and not curr == '`'
-				comment << eat
-			end
-
-			# eat if curr == '`' # this allows comments in between expressions
 		end
 	end
 
@@ -320,10 +257,23 @@ class Lexer
 	end
 
 
-	# note: stored value doesn't preserve newlines. maybe it should in case I want to generate documentation from these comments.
+	def eat_oneline_comment
+		''.tap do |comment|
+			eat '`'
+			eat while curr.whitespace? # skip whitespace or tab before body
+
+			while chars? and not curr.newline? # and not curr == '`'
+				comment << eat
+			end
+
+			# eat if curr == '`' # ??? this allows comments in between expressions. I'm not sure how pleasant this would be because it breaks syntax coloring. But this makes sense to have. Imagine putting `short comments` between variables in a complex equation.
+		end
+	end
+
+
 	def eat_multiline_comment
 		''.tap do |comment|
-			marker = '```' # '###'
+			marker = '```'
 			eat_many 3, marker
 			eat while curr.whitespace? or curr.newline?
 
@@ -333,7 +283,6 @@ class Lexer
 			end
 
 			eat_many 3, marker
-			# bug: if you comment out a ## comment line, it becomes ### which then expects a closing ###. Not sure if I should add `if peek(0, 3) == marker`
 		end
 	end
 
@@ -346,7 +295,7 @@ class Lexer
 				str << eat
 			end
 
-			eat quote # eat the ending quote
+			eat quote
 		end
 	end
 
@@ -370,23 +319,20 @@ class Lexer
 		@source = input if input
 		raise 'Lexer.source is nil' unless source
 
-		# Delimiter_Token
-		#	( { [ , ] } )
-
 		while chars?
 			index_before_this_lex_loop = @i
 			col_before                 = @col
 			row_before                 = @row
 
 			token = if curr == '`' # comments!
-				comment = if peek(0, 3) == '```'
+				if peek(0, 3) == '```'
 					eat_multiline_comment
 				elsif peek(0, 2) == '`'
 					eat_oneline_comment
 				else
 					eat_oneline_comment
 				end
-				# Comment_Token.new(comment)
+				# Comment_Token.new(comment) # todo make use of these
 				nil
 
 			elsif curr == '\\'
@@ -403,8 +349,6 @@ class Lexer
 					Delimiter_Token.new(eat).tap {
 						reduce_delimiters # if _1.string == "\n" or _1.string == "\s"  or _1.string == "\t"
 					}
-					# elsif curr == "\r"# or curr == "\t"# or curr == "\s"
-					# 	eat and nil
 				else
 					# ( { [ , ] } )
 					Delimiter_Token.new(eat)

@@ -1,24 +1,23 @@
 class Token
-	attr_accessor :string, :start_index, :end_index, :line, :column
-
 	RESERVED_IDENTIFIERS = %w(
 		if    elsif    elif    else
 		while elswhile elwhile else
 		unless until true false nil
-		pri private pub public
-		and or operator self
-		raise return skip stop
+		skip stop   and or operator
+		raise return
 	).sort_by! { -_1.length }
 
-	RESERVED_OPERATORS = %w(>!!! >!! >! =; .. .< >. >< .? @{ @[ @\( ->).sort_by! { -_1.length }
+	RESERVED_OPERATORS = %w(>!!! >!! >! =; .. .< >. >< .? -> .@ @ -@ ./ ../ .../).sort_by! { -_1.length }
 
 	RESERVED_CHARS = %w< [ { ( , ) } ] >.sort_by! { -_1.length } # these cannot be used in custom operator identifiers. They are only for program structure {}, collections [,] and (,)
 
 	VALID_CHARS = %w(. = + - ~ * ! @ # $ % ^ & ? / | < > _ : ; ).sort_by! { -_1.length } # examples of valid operators `.:.:`, `.~~~~~:::`, `|||`, `====.==`
 
-	PREFIX  = %w(++ -- - + ! ?? ~ @ _ >!!! >!! >!).sort_by! { -_1.length } # @ _ for scope[@/_]
-	INFIX   = %w(. = + - * : / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** .? .. .< >< >. or and).sort_by! { -_1.length }
-	POSTFIX = %w(++ -- ! ? ?? =;).sort_by! { -_1.length }
+	PREFIX  = %w(_ __ - + ! ?? ~ > @ # -# >!!! >!! >! ./ ../ .../).sort_by! { -_1.length } # @ _ for scope[@/_]
+	INFIX   = %w(. .@ = + - * : / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** .? .. .< >< >. or and).sort_by! { -_1.length }
+	POSTFIX = %w(! ? ?? =;).sort_by! { -_1.length }
+
+	attr_accessor :string, :start_index, :end_index, :line, :column
 
 
 	def initialize string = ''
@@ -41,6 +40,11 @@ class Token
 			# other.ancestors.include? self
 			raise "unknown == with #{other.inspect}"
 		end
+	end
+
+
+	def location_in_source
+		"#{line}:#{column}"
 	end
 
 
@@ -84,11 +88,6 @@ class Token
 	def without_leading_underscores
 		string.gsub(/^#{Regexp.escape('_')}+/, '')
 	end
-
-
-	# def inspect
-	# 	string
-	# end
 end
 
 
@@ -98,9 +97,6 @@ end
 
 
 class Delimiter_Token < Token
-	# def to_s
-	# 	string.inspect
-	# end
 end
 
 
@@ -108,7 +104,11 @@ class Identifier_Token < Token
 end
 
 
-class Operator_Token < Token
+class Word_Token < Identifier_Token
+end
+
+
+class Operator_Token < Identifier_Token
 
 	def constant?
 		false
@@ -128,18 +128,14 @@ end
 
 class Key_Operator_Token < Operator_Token
 
-	# def inspect
-	# 	"Key_Op(#{string.inspect})"
-	# end
+	def to_s
+		string
+	end
 
 end
 
 
 class Key_Identifier_Token < Token
-	# def inspect
-	# 	"Key_Ident(#{string})"
-	# end
-
 	def member?
 		false
 	end
@@ -157,10 +153,6 @@ end
 
 
 class String_Token < Token
-	# def inspect
-	# 	"String(#{string})"
-	# end
-
 	def interpolated?
 		string.include? '`'
 	end
@@ -168,11 +160,6 @@ end
 
 
 class Number_Token < Token
-	# def inspect
-	# 	# string
-	# 	"Num(#{string})"
-	# end
-
 	def type_of_number
 		if string[0] == '.'
 			:float_decimal_beg
@@ -204,14 +191,11 @@ class Comment_Token < Token
 		super string
 		@multiline = multiline
 	end
-
-
-	# def inspect
-	# 	# "Comment(#{string})"
-	# 	"Comment()"
-	# end
 end
 
 
 class EOF_Token < Token
+	def initialize string = 'EOF'
+		super
+	end
 end

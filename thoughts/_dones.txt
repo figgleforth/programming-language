@@ -51,7 +51,7 @@ greet
 The double reversing of @scopes in Interpreter#get_construct is probably inefficient, so maybe just get the index of current scope and use it to traverse up the scope stack in the reverse order?
 
 Consider combining scope.variables and scope.functions and scope.classes into scope.declarations. That would allow simplification of Scope, it could become just a dictionary. This should be done AFTER signature is implemented because if it's just one dictionary, it will need signatures to allow var x and func x to coexist.
-Update: see notes/scopes.txt where I go into detail on how I think scopes should work. It is actually just a single dictionary.
+Update: see thoughts/scopes.txt where I go into detail on how I think scopes should work. It is actually just a single dictionary.
 
 Implement dot access for dictionaries, and for enums
 
