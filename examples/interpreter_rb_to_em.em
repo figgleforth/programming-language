@@ -1,3 +1,4 @@
+```
 ` Let this serve as
 ` def t code, &block; end
 
@@ -377,3 +378,4 @@ Dog {
 `    bark -> "woof"
 `}
 `Dog.new.bark()
+```

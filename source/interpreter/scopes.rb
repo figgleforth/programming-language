@@ -1,39 +1,41 @@
 require 'pp'
 
-# ??? Scopes are runtime versions of language constructs. At its core, a Scope is a hash because it's a free data structure that I don't have to replicate. The idea behind scopes, as it is in this language, is that every single object is a Scope that lives inside another Scope.
-# The program has an array of Scopes, known as the stack, where the back of the array is the current scope. A few examples, maybe even all of them, of what a scope is in this runtime – it's the global scope; it's the inside of a class; inside of an instance; inside of a function being evaluated; etc. Here's a refresher on the runtime:
-#
-# 	Parsing a number:
-# 		1. Lexer lexes an expression "1", and outputs [Number_Token]
-# 		2. Parser parses Number_Token and outputs Number_Literal_Expr
-# 	  	3. Runtime evaluates Number_Literal_Expr and outputs 1
-#
-# 	Parsing a parenthesized expression:
-# 		1. Lexer lexes an expression (1), and outputs [Delimiter,Number,Delimiter]
-# 	  	2. Parser parses [Delimiter,Number,Delimiter] and outputs Tuple_Expr with one expression `1`
-# 	  	3. Runtime evaluates Tuple_Expr and sees it is a single statement so it outputs 1
-#
-# 	Parsing a hash:
-# 		1. Lexer lexes an expression "(x=2)", and outputs tokens sequence [Delimiter,Identifier,Operator,Number,Delimiter]
-# 	  	2. Parser parses distinct pattern [Delimiter,Identifier,Operator,Number,Delimiter] and outputs Tuple_Expr with one expression `x=2`
-# 	  	3. Runtime sees that Tuple_Expr is a hash
-#			a. It creates a Hash scope
-#			b. It pushes scope on top of stack
-#			c. It evaluates all of its expressions, only `x=2` in this instance
-# 				i. But because the Hash was pushed on top of the stack, x=2 is declared on the Hash
-#			d. It pops the scope from the stack and returns it
-#			e. Whatever caused this evaluation is now returned the scope
-#
-module Scopes
-	# mess all over the place. This needs to be slimmed down.
+=begin
 
-	class Scope < Hash # represents the scope of a Class declaration. Meaning all declarations on a class – vars, funcs, constants, nested classes, etc. These funcs are not executed because this is basically just a template of what an instance would look like
+8/19/24
+mess This entire file is a mess. It needs to be cleaned up, which should be easy to do because now I know how I'm going to implement the entire construct of scopes.
+
+!!!
+Most objects will end up as a Scope. The entire runtime is mostly nested Scopes. The program has an array of Scopes, the stack, where the front is the global scope, and the back is the current scope. They're Hashes because it's a free data structure that I don't have to replicate. An examples:
+
+x=1
+stack of scopes: [{x: 1}]
+
+func {->}
+[{func: Ref}]
+
+Class {}
+[{Class: Ref}]
+
+Class {
+	name
+	to_s {->}
+}
+scope of this class: {name:nil, to_s: Ref}
+
+In general, if something can be instantiated, it becomes a scope.
+
+=end
+
+module Scopes
+	class Scope < Hash # contains all declarations – vars, funcs, constants, classes, etc. funcs and classes are not evaluated unless explicitly by the user, so their original Expr is stored in a references table funcs are not executed because this is basically just a template of what an instance would look like
 		attr_accessor :compositions, :name
 
 
 		def initialize
 			super
 			@compositions = []
+			hash
 		end
 
 
@@ -63,13 +65,6 @@ module Scopes
 
 
 	class Global < Scope; end
-
-
-	# Block scopes can look up identifiers outside of itself, and in itself
-	class Block < Scope; end
-
-
-	class Block_Call < Scope; end
 
 
 	# Maybe temporary name for scopes cd'd into

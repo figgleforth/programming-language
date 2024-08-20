@@ -1,8 +1,18 @@
+Now that parsing is working again, and is more robust, I can finally implement the proper enum syntax without the equals sign.
+ENUM {} versus ENUM = {}
+
+Set up the pipeline rake task. It should
+
+For better performance, maybe go through and get rid of the .tap blocks from many of the trivial Token/Expr initializations. I'm actually not sure how that works under the hood. I imagine the block is pushed onto the stack.
+
+Logical keywords "and" and "or" should behave like && and ||, unlike in Ruby where they have slightly different behavior. On that note, check all usages of and/or/not because I'm no longer confident that I used them correctly throughout the project. However, everything does work correctly so it is probably fine. I do prefer the usage of the word in most cases as it is easier for me to type quickly.
+
+Color-code repl output based on type of value (string, number, Ref, call, etc). I think that would be a wise use of visuals for information at a glance.
+
+If I can make function calls work without parentheses, I still want to be able to pass class decls and func decl/exprs around, maybe with % or $ prefix
+funk {}
+
 Right now it's difficult to tell what operators the language reserves, and which sets of symbols make pre/post/infix operators. It would be nice to have a more robust lookup rather than just some constants in Token
-
-Logical keywords "and" and "or" should behave like && and ||, unlike in Ruby where they have slightly different behavior. On that note, check all usages of and/or/not because I'm no longer confident that I used them correctly throughout the project.
-
-When declaring operators, how
 
 You should be able to chain while loops with conditionals
 if condition {

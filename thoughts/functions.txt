@@ -49,5 +49,3 @@ You might think that the dictionary and the body of the call_me function are bas
 	{ info.version }
 
 They are, but the function body is parsed as part of the function declaration `ident {` so that make_*_ast method definitely won't confuse it with a dictionary.
-
-won't

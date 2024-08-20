@@ -5,20 +5,224 @@ require 'securerandom'
 CONTEXT_SYMBOL = 'scope'
 SCOPE_KEY_TYPE = 'types'
 
+module Scope
+	class V2 < Hash
+		attr_accessor :identity, :stack, :portals, :references
+
+
+		def initialize
+			super
+			@identity   = {} # {@: {}}
+			@portals    = [] # {#: []}
+			@stack      = [] # [{@#}]
+			@references = {} # { }
+		end
+
+
+		def to_sig
+			'{@, $'.tap {
+				if not portals.empty?
+					_1 << ':['
+					_1 << portals.join(', ')
+					_1 << ']'
+				end
+
+				if not keys.empty?
+					_1 << ', '
+					_1 << keys.join(', ')
+				end
+
+				_1 << '}'
+			}
+		end
+	end
+end
+
+=begin
+
+{
+	@: {}       hidden decls like id and type accessed like @id, @type, etc
+	$: []       merged scopes from $param
+	_: {}       private declarations
+}
+
+{@$_} for short, or maybe drop the _, it looks nicer. {@$}, and that represents a scope
+
+Here's how the scope changes as examples expressions are added
+_
+
+Scope<{ @$ }>         I'll omit Scope<> going forward unless it's necessary to convey something
+-------------
+Island {}
+
+{ @$  Island:{@$  $:[Decl.Island]} }
+-------------
+it = Island.new
+
+{ @$  Island:{@$  $:[Decl.Island]}  it:{@$  $:[Instance.Island]} }
+-------------
+Island {
+	Hatch {}
+}
+
+{ @$  Island:{@$  $:[Decl.Island]  Hatch:{@$  $:[Decl.Hatch]}  it:{@$  $:[Instance.Island]} }
+-------------
+Island {
+	Hatch {}
+	open_hatch {->}
+}
+
+Scope<{ @$  Island:{@$  $:[Decl.Island]  Hatch:{@$  $:[Decl.Hatch]  open_hatch:Ref(open_hatch)}  it:{@$  $:[Instance.Island]} }, @references = {open_hatch:Func_Decl}>
+-------------
+it.open_hatch
+
+it = get(it) => {@$  $:[Instance.Island]} }
+	push it onto the stack
+	$ << it
+	$ [
+		{@$  $:[Instance.Island]} }
+	]
+
+func = get(open_hatch) => Ref(open_hatch)
+
+it.open_hatch() # called
+func = get(open_hatch) => Ref(open_hatch)
+call_expr(func) or something like that
+
+
+The question is, should Class_Decl and Func_Decls both live in references?
+
+	Ref(Island)
+	Ref(Island.Hatch)
+	Ref(open_hatch)
+
+That would reduce the scope to
+
+	{ @$  Island:Ref(Island)  it:{@$  $:[Instance.Island]} }
+	self.references = {Island:Class_Decl  Island.Hatch:Class_Decl  open_hatch:Func_Decl}
+
+While evaluating Island, it's going to make a reference for Island.Hatch, so there's no need to keep this Decl.Island scope around
+
+
+	def class_decl decl => @references[decl.name] = decl
+	def func_decl decl  => @references[decl.name] = decl
+	def func_expr expr  => just gets called
+
+	def infix expr      => left = Func_Expr
+
+		id = @references[uuid] = expr.right
+		set(left.name.string, Reference(id))
+
+This expr can now be called later like `left()`
+
+An examples of merge scopes
+
+	funk { $island -> open_hatch }      # calling open_hatch via the merged scope
+	ref = @refs[funk] = Func_Decl
+	set funk, ref
+
+Call_Expr are not guaranteed to have left be a Ref
+
+	funk(it)
+	left = get(funk)
+	func_expr = if left is ref
+		@refs[left]
+	else
+		left
+	end
+
+Left is Func_Decl with a merged param/arg $island.
+
+Create a temp scope dedicated to running this func
+
+	Scope<
+		self     { @$  funk:Ref(funk)  it:{@$  $:[Instance.Island]} }
+		@stack   [ Temp_Func_Scope<{@$} stack=[]> ]
+	>
+
+Now, evaluating funk()'s only expression, `open_hatch`
+
+	last = nil
+	left.expressions.map {
+		last = run(_1)
+	}
+	last
+
+This would return Reference(open_hatch)
+
+
+When would it be a ref?         eg. left is Identifier_Expr     funk()  Class()
+When would it NOT be a ref?     eg. left is *_Expr like         {->}()  1()  ""()  {}()
+
+This is just an illustration, I'm not saying all these things respond to ()
+
+===
+
+Set arithmetic on scopes
+
+Class | This, That, & This, That ... {
+	I think you should be able to keep alternating between > and &
+
+Operators > & ~ + -
+
+	A { a }
+	B { b }
+	C { c }
+
+	A > B {}        { @ $:[A, B]  a  b }        inherit type and combine members in A, B
+	A > B - B {}    { @ $:[A, B]  a    }        inherit type, not implementation
+
+	A & B {}        { @ $:[A]          }        only mutual members of A, B
+	A ~ B {}        { @ $:[A]     b    }        members not in A
+
+	A + B {}        { @ $:[A]     a  b }        combined members A, B
+	C + A - B {}    { @ $:[C]     a    }
+
+
+1.	Union >:
+	- Combines all elements from both sets, removing duplicates.
+	- Example: {1, 2} ∪ {2, 3} = {1, 2, 3}.
+2.	Intersection (∩ or &):
+	- Returns the elements that are common to both sets.
+	- Example: {1, 2} ∩ {2, 3} = {2}.
+3.	Difference (− or \):
+	- Returns the elements that are in one set but not in the other.
+	- Example: {1, 2} − {2, 3} = {1}.
+4.	Symmetric Difference (Δ or ^):
+	- Returns the elements that are in either set, but not in their intersection.
+	- Example: {1, 2} Δ {2, 3} = {1, 3}.
+5.	Complement (~ or -):
+	- Returns the elements not in the set, typically relative to a universal set.
+	- Example: If the universal set is {1, 2, 3, 4} and the set is {2, 3}, the complement is {1, 4}.
+
+
+=end
 
 class Reference
 	# include Scopes
-	attr_accessor :id
+	attr_accessor :id, :expr
 
 
-	def initialize
-		@id = SecureRandom.uuid
+	def initialize expr
+		@id   = SecureRandom.uuid
+		@expr = expr
 	end
 
 
 	def to_s
-		# last 6 characters of the uuid, with a period in the middle
-		"%{#{id[-5..]}}"
+		join     = '-'
+		id_label = "#{id[...3]}#{join}#{id[3...5]}#{join}#{id[5..7]}"
+		if expr.is_a? Func_Decl
+			# "#{expr.name.string}{#{expr.parameters.map(&:name).map(&:string).join(',')}}#{id_label}"
+			# "#{expr.name.string}:#{id_label}"
+			"#{id_label}(#{expr.name.string})"
+		elsif expr.is_a? Class_Decl
+			"#{id_label}(#{expr.name.string})"
+		else
+			expr
+		end
+
+		super
 	end
 end
 
@@ -42,7 +246,7 @@ class Runtime
 		push_scope (Scopes::Global.new.tap do |it|
 		end), 'Em App'
 
-		# @cleanup I'm sure there's a better way to do this
+		# ??? there's probably a better way to do this
 		[Scopes::String, Scopes::Array, Scopes::Hash].each do |atom|
 			type              = atom.name.split('::').last
 			instance          = Object.const_get(atom.to_s).new
@@ -61,7 +265,7 @@ class Runtime
 		@expressions    = exprs unless exprs.nil?
 		@last_evaluated = nil
 		expressions.each do |it|
-			@last_evaluated = evaluate it
+			@last_evaluated = run it
 		end
 		@last_evaluated
 	end
@@ -70,7 +274,7 @@ class Runtime
 	# region Scopes – push, pop, set, get
 
 	def push_scope scope, name = nil
-		scope.name = if name.is_a? Identifier_Token
+		scope.name = if name.is_a? Word_Token
 			name.string
 		else
 			name
@@ -118,21 +322,25 @@ class Runtime
 	end
 
 
-	def get identifier
-		identifier = identifier.string if identifier.is_a? Identifier_Token
+	def get ident_expr
+		# private   Prefix_Expr(Op(_) Identifier_Expr)
+		# identity  Prefix_Expr(Op(#) Identifier_Expr)
+
+		ident = ident_expr
+		ident = ident_expr.token.string if ident_expr.is_a? Identifier_Expr
 
 		value = nil
 
-		case identifier
-			when 'true'
-				return true
-			when 'false'
-				return false
-			else
-				nil
-		end
+		# case ident
+		# 	when 'true'
+		# 		return true
+		# 	when 'false'
+		# 		return false
+		# 	else
+		# 		nil
+		# end
 
-		# if identifier == 'X'
+		# if ident == 'X'
 		#     puts "curr scope"
 		#     pp curr_scope
 		#     puts "compositions"
@@ -141,34 +349,42 @@ class Runtime
 
 		curr_scope.compositions.each do |comp|
 			if comp.respond_to? :get_scope_with
-				comp.get_scope_with identifier do |scope|
-					value = scope[identifier]
+				comp.get_scope_with ident do |scope|
+					value = scope[ident]
 					break
 				end
-			elsif comp.respond_to? :key? and comp.key? identifier
-				value = comp[identifier]
+			elsif comp.respond_to? :key? and comp.key? ident
+				value = comp[ident]
 			end
 		end if curr_scope.respond_to? :compositions
 
 		stack.reverse_each do |it|
 			next unless it.respond_to? :get_scope_with
 
-			it.get_scope_with identifier do |scope|
-				value = scope[identifier]
+			it.get_scope_with ident do |scope|
+				value = scope[ident]
 				break
 			end
 
 			next unless it.respond_to? :key?
-			if it.key? identifier
-				value = it[identifier]
+			if it.key? ident
+				value = it[ident]
 				break
 			end
 		end unless value
 
-		# puts "#get #{identifier.inspect} after compositions and stack #{value.inspect}"
+		value = stack.first[ident] if value.nil?
 
-		value = stack.first[identifier] if value.nil?
-		raise "undeclared `#{identifier || identifier.inspect}` in #{scope_signature curr_scope} in file #{}" if value.nil?
+		# puts "\n\n#get #{ident.inspect} = #{value.inspect}\n\t"
+		# puts "\n\tstack(#{stack.count}): #{stack.to_s}"
+		# puts PP.pp(curr_scope, '').chomp
+
+		if value.nil?
+			puts "\n\n#get\n"
+			puts PP.pp(ident_expr, '')
+
+			raise "undeclared `#{ident || ident.inspect}` in #{curr_scope}"
+		end
 
 		# value = nil if value.is_a? Nil_Expr
 		value
@@ -177,7 +393,8 @@ class Runtime
 
 	# todo this should set on previous scope if it exists. meaning that you can't create local declarations if they have the same name as one accessible externally. it will and should overwrite those
 	def set identifier, value = nil
-		identifier = identifier.string if identifier.is_a? Identifier_Token
+		identifier = identifier.token.string if identifier.is_a? Identifier_Expr
+		# identifier = identifier.string if identifier.is_a? Word_Token
 		# raise "#set expects a string identifier\ngot: #{identifier.inspect}" unless identifier.is_a? String
 
 		value ||= Nil_Expr.new
@@ -224,7 +441,7 @@ class Runtime
 
 	def assignment expr # :name, :type, :expression
 		# note) this handles CONST as well
-		set expr.name, evaluate(expr.expression)
+		set expr.name, run(expr.expression)
 	end
 
 
@@ -259,6 +476,21 @@ class Runtime
 	end
 
 
+	# @param expr [Key_Identifier_Expr]
+	def special_identifier expr
+		case expr.string
+			when 'nil'
+				nil
+			when 'true'
+				true
+			when 'false'
+				false
+			else
+				raise "Unknown special right now #{expr.inspect}"
+		end
+	end
+
+
 	# mess #constant?, #class?, #member?
 	def identifier expr
 		# ??? is this the right place for this? Probably? It can be assumed that scopes are instantiated with at least @ and _ declared. If the scope happens to be a class, it'll also have `new` declared.
@@ -274,55 +506,103 @@ class Runtime
 		# 	# it's an instantiation
 		# end
 
-		value = get expr.string
-		if value.is_a? Reference # functions and their expressions are only stored on the declaring object (enclosing Class, function, or otherwise). Instances will have the value of these declarations swapped at init to a Reference with a unique ID. Avoids duplicating block declarations.
-			value = references[value.id]
-		end
+		value = get expr
+		# if value.is_a? Reference # functions and their expressions are only stored on the declaring object (enclosing Class, function, or otherwise). Instances will have the value of these declarations swapped at init to a Reference with a unique ID. Avoids duplicating block declarations.
+		# 	value = references[value.id]
+		# end
 
-		if value.is_a? Assignment_Expr # ??? I don't remember why this would ever come out of an identifier
-			if value.interpreted_value != nil # value.interpreted_value can be boolean true or false, so check against nil instead
-				value.interpreted_value
-			elsif value.expression.is_a? Func_Expr
-				value.expression
-			else
-				value
-			end
-		end
+		# if value.is_a? Assignment_Expr # ??? I don't remember why this would ever come out of an identifier
+		# 	if value.interpreted_value != nil # value.interpreted_value can be boolean true or false, so check against nil instead
+		# 		value.interpreted_value
+		# 	elsif value.expression.is_a? Func_Expr
+		# 		value.expression
+		# 	else
+		# 		value
+		# 	end
+		# end
 
 		if value.is_a? Expr and not value.is_a? Func_Expr and not value.is_a? Class_Decl
-			value = evaluate value
+			value = run value
 		end
 
 		value = nil if value.is_a? Nil_Expr
+
+		# puts "the value #{value.inspect}"
 
 		value
 	end
 
 
-	def binary expr # :operator, :left, :right
+	def infix expr # :operator, :left, :right
+		# puts "infix #{expr.inspect}"
+		case expr.operator.string
+			when '='
+				return "#{expr.left.inspect}\n\t=\n#{expr.right.inspect}"
+			when '.'
+				return "#{expr.left.inspect}\n\t.\n#{expr.right.inspect}"
+			else
+		end
+
+		return
+		# puts "\n\n#infix\n\n"
+		# puts PP.pp(expr, '').chomp
+		# puts "\n\n"
+		if expr.operator == '.' and expr.right.string == 'new'
+			# puts ".new!!!"
+			receiver = run expr.left
+			receiver = run receiver if receiver.is_a? Reference
+			# puts "receiver #{run(receiver).inspect}"
+			# return receiver
+		end
+
+		# if expr.left.string == '$'
+		# 	if expr.operator == '+='
+		# 		# xxx add scope to merge
+		# 		right = run expr.right
+		#
+		# 		curr = Scope::V2.new
+		# 		curr.portals << right
+		# 		# puts "want to merge #{right.inspect}"
+		# 		# puts "\nfake curr"
+		# 		return curr.to_sig
+		#
+		# 	elsif expr.operator == '-='
+		# 		# xxx remove scope to merge
+		# 		# s = Scope::V2.new
+		# 		# s.portals.reject! {
+		# 		# 	_1 == expr.right
+		# 		# }
+		# 	end
+		#
+		# 	return
+		# end
+
 		if expr.operator == '='
-			if expr.right.is_a? Call_Expr
-				if expr.right.receiver.is_a? Func_Expr and expr.right.function_declaration?
-					block_expr expr.right.receiver # evaluating the function block will also cause it to be put into the references hash, which is what we want when calling a declaratin.
-				end
-			end
+			# puts "561 assign"
+			# if expr.right.is_a? Call_Expr
+			# 	if expr.right.receiver.is_a? Func_Expr and expr.right.function_declaration?
+			# 		func_expr expr.right.receiver # evaluating the function block will also cause it to be put into the references hash, which is what we want when calling a declaration.
+			# 	end
+			# end
 
 			right = if expr.right.is_a? Func_Expr
 				expr.right
 			else
-				evaluate expr.right
+				run expr.right
 			end
 			# right = if expr.right.is_a? Blo
 			# puts ":: #{expr.left.string} = #{expr.right.inspect}"
 			return set expr.left.string, right
 		elsif expr.operator == ':'
-			return set expr.left.string, evaluate(expr.right)
+			return set expr.left.string, run(expr.right)
 		elsif expr.operator == '=;'
 			return set expr.left.string, nil
+		elsif expr.operator == '+='
+
 		end
 
 		# puts "expr.left====> #{expr.left.inspect}"
-		receiver = evaluate expr.left
+		receiver = run expr.left
 		# puts "ORIGINAL RECEIVER #{receiver.inspect}"
 
 		if receiver.is_a? Reference
@@ -330,7 +610,7 @@ class Runtime
 		end
 
 		if receiver.is_a? Return_Expr
-			receiver = evaluate receiver
+			receiver = run receiver
 		end
 
 		# This handles dot operations on a static scope, which is the equivalent of a class blueprint. Calling new on the blueprint creates an opaque scope. Calling anything else on it just gets the static value from the Static_Scope. Keep in mind that you can technically change these static values. Which would also impact how future instances are created, the inside values could be different.
@@ -342,13 +622,13 @@ class Runtime
 					it[SCOPE_KEY_TYPE] = receiver[SCOPE_KEY_TYPE] #.gsub('Static', 'Instance') # receiver[CONTEXT_SYMBOL] # Instance.name
 					it.each do |key, val|
 						if val.is_a? Func_Expr
-							ref                = Reference.new
+							ref                = Reference.new(expr)
 							references[ref.id] = val
 							it[key]            = ref
 						end
 
 						if val.is_a? Class_Decl and not receiver.is_a? Scopes::Global
-							ref                = Reference.new
+							ref                = Reference.new(expr)
 							references[ref.id] = val
 							it[key]            = ref
 						end
@@ -357,12 +637,12 @@ class Runtime
 
 			elsif expr.right.is_a? Assignment_Expr
 				push_scope receiver
-				evaluate expr.right
+				run expr.right
 				return pop_scope
 
-			elsif expr.right.is_a? Block_Call_Expr
+			elsif expr.right.is_a? Block_Call_Expr_OLD
 				push_scope receiver
-				value = evaluate expr.right
+				value = run expr.right
 				pop_scope
 				return value
 
@@ -381,9 +661,9 @@ class Runtime
 		end
 
 		if receiver.is_a? Scopes::Instance and expr.operator == '.'
-			if expr.right.is_a? Block_Call_Expr
+			if expr.right.is_a? Block_Call_Expr_OLD
 				push_scope receiver
-				value = evaluate expr.right
+				value = run expr.right
 				pop_scope
 				return value
 			else
@@ -473,9 +753,10 @@ class Runtime
 		# 7/28/24) when the operator ends in = but is 2-3 characters long, and maybe manually exclude the equality ones and only focus on the assignments. We can extract the operator before the =. += would extract +, and so on. Since these operators in Ruby are methods, they can be called like `left.send :+, right` so these can be totally automated!
 		valid = %w(+= -= *= /= %= &= |= ^= ||= >>= <<=)
 		if expr.operator.string.end_with? '=' and valid.include? expr.operator.string
+			put s "736 assign"
 			without_equals = expr.operator.string.gsub '=', ''
 			value          = if receiver.respond_to? :send
-				receiver.send without_equals, evaluate(expr.right)
+				receiver.send without_equals, run(expr.right)
 			else
 				raise "Can't metaprogram `#{expr.operator.inspect}` in #binary"
 			end
@@ -485,8 +766,8 @@ class Runtime
 			return value
 		end
 
-		left  = evaluate expr.left
-		right = evaluate expr.right
+		left  = run expr.left
+		right = run expr.right
 
 		case expr.operator.string
 			when '+'
@@ -541,23 +822,23 @@ class Runtime
 				puts "AASSSSSign baby"
 			when '.<', '..'
 				if expr.operator == '..'
-					evaluate(expr.left)..evaluate(expr.right)
+					run(expr.left)..run(expr.right)
 				elsif expr.operator == '.<'
-					evaluate(expr.left)...evaluate(expr.right)
+					run(expr.left)...run(expr.right)
 				end
 			when '**'
 				# left must be an identifier in this instance
 				# result = evaluate(expr.left) ** evaluate(expr.right)
 				set expr.left.string, left ** right
 			when '&&', 'and'
-				evaluate(expr.left) && evaluate(expr.right)
+				run(expr.left) && run(expr.right)
 			when '||', 'or'
 				if expr.left.is_a? Nil_Expr
 					# puts "left is nil #{expr.inspect}"
-					return evaluate expr.right
+					return run expr.right
 				elsif expr.right.is_a? Nil_Expr
 					# puts "right is nil #{expr.inspect}"
-					return evaluate expr.left
+					return run expr.left
 				elsif expr.left.is_a? Nil_Expr and expr.right.is_a? Nil_Expr
 					# puts "both are nil"
 					return nil
@@ -586,6 +867,13 @@ class Runtime
 	end
 
 
+	def class_decl decl
+		set(decl.name.string, Reference.new(decl).tap do
+			references[_1.id] = decl
+		end)
+	end
+
+
 	def class_expr expr # gets turned into a Static, which essentially becomes a blueprint for instances of this class. This evaluates the class body manually, rather than passing Class_Decl.block to #block in a generic fashion.
 		# Class_Decl :name, :block, :base_class, :compositions
 
@@ -594,124 +882,120 @@ class Runtime
 
 		push_scope class_scope # push a new scope and also set it as the class
 		curr_scope[SCOPE_KEY_TYPE] = [expr.name.string]
-		expr.block.compositions.each do |it|
-			# Composition_Expr :operator, :expression, :alias_identifier
-			case it.operator
-				when '>'
-				when '+'
-				when '-'
-				else
-					raise "Unknown operator #{it.operator} for composition #{it.inspect}"
-			end
-			# puts "it! #{it.inspect}"
-			comp = evaluate(it.expression)
-			curr_scope.merge! comp
-			# puts "need to comp with\n#{comp}"
-			raise "Undefined composition `#{it.identifier.string}`" unless comp
-			# puts "compose with #{comp.inspect}\n\n"
-			# this involves actual copying of guts.
-			# 1) lookup the thing to compose, assert it's Static_Scope
-			# 2) dup it, cope all keys and values to this scope (ignore any keys that shouldn't be duplicated)
-			# reminder
-			#   > Ident (inherits type)
-			#   + Ident (only copies scope)
-			#   - Ident (deletes scope members)
-		end
+		# expr.block.compositions.each do |it|
+		# 	# Composition_Expr :operator, :expression, :alias_identifier
+		# 	case it.operator
+		# 		when '>'
+		# 		when '+'
+		# 		when '-'
+		# 		else
+		# 			raise "Unknown operator #{it.operator} for composition #{it.inspect}"
+		# 	end
+		# 	# puts "it! #{it.inspect}"
+		# 	comp = evaluate(it.expression)
+		# 	curr_scope.merge! comp
+		# 	# puts "need to comp with\n#{comp}"
+		# 	raise "Undefined composition `#{it.identifier.string}`" unless comp
+		# 	# puts "compose with #{comp.inspect}\n\n"
+		# 	# this involves actual copying of guts.
+		# 	# 1) lookup the thing to compose, assert it's Static_Scope
+		# 	# 2) dup it, cope all keys and values to this scope (ignore any keys that shouldn't be duplicated)
+		# 	# reminder
+		# 	#   > Ident (inherits type)
+		# 	#   + Ident (only copies scope)
+		# 	#   - Ident (deletes scope members)
+		# end
 		# curr_scope[CONTEXT_SYMBOL]['compositions'] = expr.block.compositions.map(&:name)
 
 		expr.block.expressions.each do |it|
 			next if it.is_a? Class_Composition_Expr
 			# next if it.is_a? Func_Expr
 			# todo don't copy the Block_Exprs either. Or do, but change the
-			evaluate it
+			run it
 		end
 		scope              = pop_scope
-		ref                = Reference.new
+		ref                = Reference.new(expr)
 		references[ref.id] = scope
 		# set expr.name.string, scope # moved to beginning of this function
+
+		set expr.name, ref
 	end
 
 
 	# If a block is named then it's intended to be declared in a variable. If a block is not named, then it is intended to be evaluated right away.
-	# @param [Func_Expr] x
-	def block_expr x
-		if x.named? # store the actual expression in a references table, and store declare this reference as the value to be given to the name
-			ref = Reference.new.tap do |it|
-				# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the runtime. Currently it is being randomized in Reference#initialize
-				references[it.id] = x
-			end
-
-			set x.name, ref
-		else
-			block_call x
+	# @param [Func_Expr, Func_Decl] expr
+	def func_expr expr
+		ref = Reference.new(expr).tap do
+			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the runtime. Currently it is being randomized in Reference#initialize
+			references[_1.id] = expr
+			_1.expr           = expr
 		end
+
+		if expr.respond_to? :name
+			set expr.name.string, ref
+			puts "func_expr returning ref #{ref.inspect} for\n\t#{expr.inspect}"
+			return ref
+		end
+
+		# puts "func_expr returning expr #{expr.inspect}"
+		expr
+		# if x.is_a? Func_Decl # store the actual expression in a references table, and store declare this reference as the value to be given to the name
+		# 	ref = Reference.new(x).tap do
+		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the runtime. Currently it is being randomized in Reference#initialize
+		# 		references[_1.id] = x
+		# 		_1.expr           = x
+		# 	end
+		#
+		# 	set x.name, ref
+		# else
+		# 	block_call x
+		# end
 	end
 
 
-	# @param [Call_Expr] it
-	def call_expr it # :receiver, :parenthesized_expr
-		# ident(...)
-		# any_expr(...)
-		# So we have to know whether the receiver is callable. What should be callable?
-
-		# init from a class declaration
-		# 	Class()
-		# declare class and call it once
-		# 	x = Class{}()
-		# call function
-		# 	function()
-		# declare function and call it once
-		# 	function {}()
-
-		# 123()
-		# ""
-
-		# puts "call_expr it #{it.inspect}\n\n"
-		receiver = it.receiver
-
-		# if not receiver.is_a? Func_Expr
-		# end
-		if receiver.is_a? Func_Expr
-			receiver = evaluate receiver
-		elsif receiver === Identifier_Expr
-			receiver = get receiver.string
+	# @param [Call_Expr] expr
+	def call_expr expr
+		receiver = if expr.receiver === Func_Expr
+			run expr.receiver
+		elsif expr.receiver === Call_Expr
+			call_expr expr.receiver
+		elsif expr.receiver === Identifier_Expr
+			get expr.receiver
 		else
-			receiver = get it.string
+			raise "Unknown type of call #{expr.inspect}"
 		end
 
 		if receiver.is_a? Reference
 			receiver = references[receiver.id]
 		end
+
 		raise "#call_expr input is not a Block or a Reference. #{receiver.inspect}" unless receiver.is_a? Func_Expr
 
-		# puts "\narguments: #{it.parenthesized_expr.inspect}"
-		# puts "\nfor receiver: #{receiver.inspect}"
-
 		scope = Scopes::Transparent.new
-		push_scope scope, it.receiver.string
-		zipped = receiver.parameters.zip(it.parenthesized_expr.expressions)
+		push_scope scope, expr.receiver.string
+		zipped = receiver.parameters.zip(expr.arguments)
 		zipped.each.with_index do |(par, arg), i|
 			# pars =>   :name, :label, :type, :default_expression, :composition
 			# args =>   :expression, :label
 
 			# if arg present, then that should take the value of par.name
-			# it not arg, then set par.name, eval(par.default_expression)
+			# it not arg, then set par.name, eval(par.default)
 
 			if arg
 				if arg.respond_to? :expression
-					set par.name, evaluate(arg.expression)
+					set par.name, run(arg.expression)
 				else
 					set par.name, arg
 				end
 
 			else
-				if not par.default_expression
+				if not par.default
 					pop_scope
 
 					# puts "zipped: ", zipped.inspect
 					# raise "##{name}(#{"•, " * i}???) requires an argument in position #{i} for parameter named #{par.name}"
 				end
-				set par.name, evaluate(par.default_expression)
+				set par.name, run(par.default)
 			end
 
 			if par.composition
@@ -727,16 +1011,16 @@ class Runtime
 		last = nil
 		receiver.expressions.each do |it|
 			if it.is_a? Class_Composition_Expr # just like the params composition, except that we do it at eval time instead
-				instance = evaluate it.expression
+				instance = run it.expression
 				curr_scope.compositions << instance
 				next
 			end
 			# puts "receiver call expr #{it.inspect}"
-			last = evaluate it
+			last = run it
 
 			if last.is_a? Return_Expr
 				pop_scope
-				return evaluate last
+				return run last
 			elsif it.is_a? Return_Expr
 				pop_scope
 				return it
@@ -747,10 +1031,11 @@ class Runtime
 	end
 
 
-	# @param [Block_Call_Expr] expr
+	# @param [Block_Call_Expr_OLD] expr
+
 	def block_call expr # :name, :arguments
 		args  = []
-		block = if expr.is_a? Block_Call_Expr
+		block = if expr.is_a? Block_Call_Expr_OLD
 			args = expr.arguments
 			get expr.name # which should yield a Func_Expr
 		elsif expr.is_a? Func_Expr
@@ -767,7 +1052,7 @@ class Runtime
 			raise "No such method #{expr.name}"
 		end
 
-		if not expr.name and args.count > 0
+		if not expr.is_a? Func_Decl and args.count > 0
 			raise "Anon block cannot be"
 		end
 
@@ -779,18 +1064,18 @@ class Runtime
 			# args =>   :expression, :label
 
 			# if arg present, then that should take the value of par.name
-			# it not arg, then set par.name, eval(par.default_expression)
+			# it not arg, then set par.name, eval(par.default)
 
 			if arg
-				set par.name, evaluate(arg.expression)
+				set par.name, run(arg.expression)
 			else
-				if not par.default_expression
+				if not par.default
 					pop_scope
 
 					# puts "zipped: ", zipped.inspect
 					# raise "##{name}(#{"•, " * i}???) requires an argument in position #{i} for parameter named #{par.name}"
 				end
-				set par.name, evaluate(par.default_expression)
+				set par.name, run(par.default)
 			end
 
 			if par.composition
@@ -809,16 +1094,16 @@ class Runtime
 		last = nil
 		block.expressions.each do |it|
 			if it.is_a? Class_Composition_Expr # just like the params composition, except that we do it at eval time instead
-				instance = evaluate it.expression
+				instance = run it.expression
 				curr_scope.compositions << instance
 				next
 			end
 			# puts "block call expr #{it.inspect}"
-			last = evaluate it
+			last = run it
 
 			if last.is_a? Return_Expr
 				pop_scope
-				return evaluate last
+				return run last
 			elsif it.is_a? Return_Expr
 				pop_scope
 				return it
@@ -830,10 +1115,10 @@ class Runtime
 
 
 	def conditional expr
-		if evaluate expr.condition
-			evaluate expr.when_true
+		if run expr.condition
+			run expr.when_true
 		else
-			evaluate expr.when_false
+			run expr.when_false
 		end
 	end
 
@@ -841,12 +1126,12 @@ class Runtime
 	def while_expr expr # :condition, :when_true, :when_false
 		# push_scope Scopes::Block.new
 		output = nil
-		while evaluate expr.condition
-			output = evaluate expr.when_true
+		while run expr.condition
+			output = run expr.when_true
 		end
 
 		if expr.when_false.is_a? Conditional_Expr and output.nil?
-			output = evaluate expr.when_false
+			output = run expr.when_false
 		end
 
 		# pop_scope
@@ -867,19 +1152,19 @@ class Runtime
 				return "PRETEND BREAKPOINT IN #{scope_signature curr_scope}"
 			when '>!'
 				# !!! generalize these colorizations
-				value   = evaluate(expr.expression)
+				value   = run(expr.expression)
 				ansi_fg = "\e[38;5;#{0}m"
 				ansi_bg = "\e[48;5;#{1}m"
 				puts "#{ansi_fg}#{ansi_bg}  \e[1m!\e[0m #{value}\e[0m"
 				return value
 			when '>!!'
-				value   = evaluate(expr.expression)
+				value   = run(expr.expression)
 				ansi_fg = "\e[38;5;#{0}m"
 				ansi_bg = "\e[48;5;#{2}m"
 				puts "#{ansi_fg}#{ansi_bg} \e[1m!!\e[0m #{value}\e[0m"
 				return value
 			when '>!!!'
-				value   = evaluate(expr.expression)
+				value   = run(expr.expression)
 				ansi_fg = "\e[38;5;#{0}m"
 				ansi_bg = "\e[48;5;#{5}m"
 				puts "#{ansi_fg}#{ansi_bg}\e[1m!!!\e[0m #{value}\e[0m"
@@ -911,7 +1196,7 @@ class Runtime
 					# it << "\n\n——––--¦"
 				end
 			when 'cd'
-				destination = evaluate expr.expression
+				destination = run expr.expression
 				if destination.is_a? Scopes::Scope
 					# what if we push the destination, then compose it with a Peek. I believe #set updates on compositions first before checking self. If not, that should be a rule for it
 					scratch      = Scopes::Transparent.new
@@ -941,8 +1226,15 @@ class Runtime
 	end
 
 
-	def unary expr # :operator, :expression
-		value = evaluate expr.expression
+	def prefix expr # :operator, :expression
+		if %w(# _ ./ ../ .../).include? expr.operator.string
+			return identifier expr
+		end
+
+		value = run expr.expression
+
+		value = run value if value.is_a? Reference
+
 		case expr.operator.string
 			when '-'
 				-value
@@ -952,219 +1244,101 @@ class Runtime
 				~value
 			when '!'
 				!value
+			when '#'
+				value # xxx add expr.expression to portals
+			when '-#'
+				value # xxx remove expr.expression from portals
 			else
-				raise "#evaluate Unary_Expr(#{expr.inspect}) is not implemented"
+				raise "#evaluate prefix #{expr.inspect} is not implemented"
 		end
 	end
 
 
-	def evaluate expr
+	def run expr
 		# puts "=== evaluating\n#{expr.inspect}" unless expr.is_a? Delimiter_Token
 		case expr
-			when Assignment_Expr
-				assignment expr
+			when Number_Literal_Expr
+				number expr
+			when String_Literal_Expr
+				expr.to_string
+				# when Symbol_Literal_Expr
+				# 	expr.to_symbol
 			when Infix_Expr
-				# puts "binary ==> #{expr.inspect}"
-				binary expr
-			when Unary_Expr
-				unary expr
-			when Tuple_Expr # ??? reminder: these are () [] {}
-				# xxx instead of strings, return the actual data structure for hash, set, and array.
+				infix expr
+			when Prefix_Expr
+				prefix expr
 
-=begin  rules:
+			when Hash_Expr
+				# :keys, :values
+				res = expr.keys.zip(expr.values).map {
+					if _1 === Identifier_Expr
+						[_1.string, run(_2)]
+					else
+						[run(_1), run(_2)]
+					end
+				}.to_h
 
-[]          blank array
-()          blank set or hash
-(1)         parenthesized expr
-(x=1)       assignment therefore
+				Scopes::Scope.new.merge(res) # todo data structure
 
-what if you could use any you like ( [ { with a literal prefix.
+			when Array_Expr # todo data structure
+				result = expr.elements.map {
+					run _1
+				}.join(', ')
+				"[#{result}]"
 
-#{} #() #[]       hash
-%{} %() %[]       set
-@{} @() @[] []    array
-
-there should be a simple default for each that doesn't require the prefix, right?
-
-[] is the obvious one to be default
-////
-
-actually, what if set was done with array syntax? It's more like an array than a hash anyway.
-
-hear me out. if a class body or block body is just an array of things enclosed in {}, maybe the language should use {} for arrays. that leaves () for hash and [] for set
-
-{} hash     I really like this syntax. it's what I'm used to. I need to figure out how to make it work. I think blocks will require -> now. it's currently optional. requiring it makes things very clear. with this:
-
-	{}              hash
-	{ -> }          block
-	Ident {}        class declaration
-	ident { -> }    func declaration
-
-Copy this into parser
-
-() set
-[] array
-
-
-
-
-=end
-
-				expr_count = expr.expressions.count
-
-				empty_group   = expr_count == 0 # ()
-				just_one_expr = expr_count == 1 # (a) or (a = 1)
-				all_binaries  = expr.expressions.all? { _1 == Infix_Expr } # (a = 1, b.c)
-
-				# (a = 1, b)
-				at_least_one_binary = expr.expressions.any? { _1 == Infix_Expr }
-
-				# (a, b, c, d, e, f)
-				no_binaries = !at_least_one_binary
-
-				# (a = 1, b = 2) xxx handle += -= etc
-				all_assignment_binaries = expr.expressions.all? { _1 == Infix_Expr and _1.operator.string == '=' } and not empty_group
-				any_assignment_binaries = expr.expressions.any? { _1 == Infix_Expr and _1.operator.string == '=' } and not empty_group
-
-				# :grouping, :expressions
-				intended_array = expr.grouping == '[]'
-				intended_block = expr.grouping == '{}'
-				intended_group = expr.grouping == '()'
-
-				is_set = intended_group and no_binaries # and not empty_group
-				is_hash = intended_group and all_assignment_binaries
-				is_array = intended_array
-
-				value = if just_one_expr
-					# evaluate expr.expressions[0]
-					"parenthesized"
-				elsif is_set
-					"set #{expr}"
-				elsif is_hash
-					"hash #{expr}"
-				elsif is_array
-					"array #{expr}"
-				end
-
-				puts "\n\n~~~ #{expr} ~~~\n\n"
-				puts "                  count  :  #{expr_count}"
-				puts "            empty_group  :  #{empty_group}\n\n"
-				puts "          just_one_expr  :  #{just_one_expr}"
-				puts "           all_binaries  :  #{all_binaries}"
-				puts "            no_binaries  :  #{no_binaries}\n\n"
-				puts "all_assignment_binaries  :  #{all_assignment_binaries}"
-				puts "any_assignment_binaries  :  #{any_assignment_binaries}"
-				puts "    at_least_one_binary  :  #{at_least_one_binary}\n\n"
-				puts "         intended_array  :  #{intended_array}"
-				puts "         intended_block  :  #{intended_block}"
-				puts "         intended_group  :  #{intended_group}"
-				puts "                 is_set  :  #{is_set}"
-				puts "                is_hash  :  #{is_hash}"
-				puts "               is_array  :  #{is_array}"
-				puts "\n  => \n\n"
-
-				return value
-
-				# hash
-				# set
-				# array
-				# regular grouping
-
-				# all_assignment_binaries = expr.expressions.select { _1 == Infixed_Expr and _1.operator.string == '=' }.count ==
+			when Circumfix_Expr # unhandled () {} [], like tuples, sets, or parenthesized expressions
+				# todo I think there should be some custom data structure where @elements contains the evaluated expr.expressions
+				expr_count    = expr.expressions.count
+				just_one_expr = expr_count == 1
 
 				if just_one_expr
-					evaluate expr.expressions[0] # if it isn't obvious, this case is just a regular grouped expression with parens that gets evaluated
-
-				elsif all_binaries
-					"hash #{expr.inspect}"
-					# 1. push a Hash scope
-					# 2. evaluate all expressions on that scope
-					# 3. pop the Hash scope
-					# 4. return the Hash scope
-
-				elsif at_least_one_binary and not all_binaries
-					"mix of both #{expr.inspect}"
-
-				elsif not at_least_one_binary
-					if expr.grouping == '()'
-						'Set('.tap { |it|
-							# xxx push a temp block then evaluate
-							it << expr.expressions.map {
-								"#{evaluate(_1)}"
-							}.join(', ')
-							it << ')'
-						}
-					elsif expr.grouping == '[]'
-						'Array['.tap { |it|
-							# xxx push a temp block then evaluate
-							it << expr.expressions.map do |e|
-								"#{evaluate(e)}"
-							end.join(', ')
-							it << ']'
-						}
-					else
-						raise "Unknown grouping for #{expr.inspect}"
-					end
+					return run expr.expressions.first
 				else
-					"nothing? #{expr.inspect}"
+					return expr # xxx return a tuple/set
 				end
-
-				# ??? this here has to be a standalone grouped expression. The parser would by now have captured an expression call
-				# If all expressions are Binop(=) aka assignment, then it's a hash
-				# If all expressions are non-Binop(=), then it's an array or set
-				# If it's a mix of both,
-
-				# reference: https://rosettacode.org/wiki/Hash_from_two_arrays
-				# value_results = expr.values.map { |val| evaluate val }
-				# Hash[expr.keys.zip(value_results)]
-				# if expr.keys.one? and expr.values.none? # then it is a parenthesized expression
-				# 	evaluate expr.keys.first
-				# end
 
 			when Conditional_Expr
 				conditional expr
 			when While_Expr
 				while_expr expr
 			when Class_Decl
-				class_expr expr
-			when Func_Expr
-				block_expr expr
+				# class_expr expr
+				class_decl expr
+			when Func_Expr, Func_Decl
+				func_expr expr
 			when Call_Expr
 				call_expr expr
-			when Block_Call_Expr
-				block_call expr
-			when Class_Composition_Expr
-				instance = get expr.name
-				curr_scope.compositions << instance
-			when Block_Composition_Expr
-				instance = get expr.name
-				compose_scope instance
+				# when Block_Call_Expr_OLD
+				# block_call expr
+				# when Class_Composition_Expr
+				# instance = get expr.name
+				# curr_scope.compositions << instance
+				# when Block_Composition_Expr
+				# 	instance = get expr.name
+				# 	compose_scope instance
+
+			when Key_Identifier_Expr
+				special_identifier expr
 			when Identifier_Expr
 				identifier expr
-			when Number_Literal_Expr
-				number expr
-			when String_Literal_Expr
-				expr.string
-			when Symbol_Literal_Expr
-				expr.to_symbol
-			when Boolean_Literal_Expr
-				expr.to_bool
-			when Enum_Expr
-				enum_expr expr
+				# when Boolean_Literal_Expr_OLD
+				# 	expr.to_bool
+				# when Enum_Expr_OLD
+				# 	enum_expr expr
 			when Return_Expr
-				evaluate expr.expression
+				run expr.expression
 			when Nil_Expr
 				nil # todo if things break, it's because I added the nil here. But this makes more sense
 				Nil_Expr
 			when Raise_Expr
 				# cleanup
 				if expr.condition != nil
-					result = evaluate expr.condition
+					result = run expr.condition
 					if not result
 						# puts "with condition but it didn't return anything: #{result.inspect}"
 						raise("".tap do |it|
 							it << "\n\n~~~~ OOPS ~~~~\n"
-							message = evaluate expr.message_expression
+							message = run expr.message_expression
 							if message
 								it << "#{message}"
 							else
@@ -1176,7 +1350,7 @@ Copy this into parser
 				else
 					raise("".tap do |it|
 						it << "\n\n~~~~ OOPS ~~~~\n"
-						message = evaluate expr.message_expression
+						message = run expr.message_expression
 						if message
 							it << "#{message}"
 						else
@@ -1186,10 +1360,10 @@ Copy this into parser
 					end)
 				end
 			when nil
-			when Delimiter_Token # ??? I decided to send newlines to the runtime so that I can make anything callable when a Set comes after it. If we see any delimiter, ignore it for now. But when we see a Set, we can check if there was a Delimiter before us. If there was, it's just a set, if there wasn't it's likely a call to the previous expression
-				nil
+			when Reference
+				references[expr.id]
 			else
-				raise "Runtime#eval #{expr.inspect} not implemented"
+				raise "Runtime#run not implemented for:\n#{expr.inspect}"
 		end
 	end
 
