@@ -18,7 +18,7 @@ run_old_runtime = false
 run_new_runtime = false
 
 tests     = Dir['./examples/*.em'].shuffle
-tests     = ['./examples/abstract.em'] # temporary override
+tests     = ['./examples/_.em'] # temporary override
 max_width = tests.max { _1.length <=> _2.length }.length # the Benchmark output needs to know how wide the column of report names is, so it'll be the longest filename
 
 def output things, section_name, section_color = 'white', pretty = true
