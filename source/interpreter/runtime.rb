@@ -5,38 +5,38 @@ require 'securerandom'
 CONTEXT_SYMBOL = 'scope'
 SCOPE_KEY_TYPE = 'types'
 
-module Scope
-	class V2 < Hash
-		attr_accessor :identity, :stack, :portals, :references
-
-
-		def initialize
-			super
-			@identity   = {} # {@: {}}
-			@portals    = [] # {#: []}
-			@stack      = [] # [{@#}]
-			@references = {} # { }
-		end
-
-
-		def to_sig
-			'{@, $'.tap {
-				if not portals.empty?
-					_1 << ':['
-					_1 << portals.join(', ')
-					_1 << ']'
-				end
-
-				if not keys.empty?
-					_1 << ', '
-					_1 << keys.join(', ')
-				end
-
-				_1 << '}'
-			}
-		end
-	end
-end
+# module Scope
+# 	class V2 < Hash
+# 		attr_accessor :identity, :stack, :portals, :references
+#
+#
+# 		def initialize
+# 			super
+# 			@identity   = {} # {@: {}}
+# 			@portals    = [] # {#: []}
+# 			@stack      = [] # [{@#}]
+# 			@references = {} # { }
+# 		end
+#
+#
+# 		def to_sig
+# 			'{@, $'.tap {
+# 				if not portals.empty?
+# 					_1 << ':['
+# 					_1 << portals.join(', ')
+# 					_1 << ']'
+# 				end
+#
+# 				if not keys.empty?
+# 					_1 << ', '
+# 					_1 << keys.join(', ')
+# 				end
+#
+# 				_1 << '}'
+# 			}
+# 		end
+# 	end
+# end
 
 =begin
 
@@ -534,7 +534,6 @@ class Runtime
 
 
 	def infix expr # :operator, :left, :right
-		# puts "infix #{expr.inspect}"
 		case expr.operator.string
 			when '='
 				return "#{expr.left.inspect}\n\t=\n#{expr.right.inspect}"
@@ -544,15 +543,10 @@ class Runtime
 		end
 
 		return
-		# puts "\n\n#infix\n\n"
-		# puts PP.pp(expr, '').chomp
-		# puts "\n\n"
 		if expr.operator == '.' and expr.right.string == 'new'
 			# puts ".new!!!"
 			receiver = run expr.left
 			receiver = run receiver if receiver.is_a? Reference
-			# puts "receiver #{run(receiver).inspect}"
-			# return receiver
 		end
 
 		# if expr.left.string == '$'

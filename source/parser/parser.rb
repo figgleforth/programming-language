@@ -730,7 +730,7 @@ precs = { 1000 => %w(>!!! >!! '>!' @),
 				next_prec = Ops[_1.operator.string]
 				_1.right  = make_expr(next_prec)
 				if not _1.right
-					raise "Infixed_Expr expected an expression after `#{_1.operator.string}`"
+					raise "Infix_Expr expected an expression after `#{_1.operator.string}`"
 				end
 			}
 			return augment_expr expr, starting_prec, skip_inline_funcs
@@ -822,7 +822,7 @@ precs = { 1000 => %w(>!!! >!! '>!' @),
 				_1.operator = operator
 				_1.right    = make_expr(curr_operator_prec)
 				if not _1.right
-					raise "Infixed_Expr expected an expression after `#{_1.operator.string}` (#{_1.operator.line}:#{_1.operator.line})"
+					raise "Infix_Expr expected an expression after `#{_1.operator.string}` (#{_1.operator.line}:#{_1.operator.line})"
 				end
 			}
 
@@ -842,8 +842,10 @@ precs = { 1000 => %w(>!!! >!! '>!' @),
 
 
 =begin
-	skip_inline_funcs – prevents [ident, ->] from becoming Func_Expr. Uses:
-		- preventing Func_Param_Decl issue where `param` in `func { param -> }` is parsed as an inline Func_Expr.
+skip_inline_funcs – prevents [ident, ->] from parsing as Func_Expr.
+In a function declaration, the last param followed by the -> could parse as an inline Func_Expr [ident, ->] so I want to be able to bypass it
+
+todo turn #parse_until's params into a single options param maybe? this looks ugly
 =end
 
 	def parse_until until_token = EOF_Token, starting_precedence = STARTING_PRECEDENCE, skip_inline_funcs = false

@@ -1,21 +1,42 @@
-class Token
-	RESERVED_IDENTIFIERS = %w(
+module Reserved_Tokens
+	RESERVED_IDENTIFIERS        = %w(
 		if    elsif    elif    else
 		while elswhile elwhile else
 		unless until true false nil
 		skip stop   and or operator
 		raise return
 	).sort_by! { -_1.length }
+	RESERVED_IDENTIFIERS_HASHED = RESERVED_IDENTIFIERS.map &:hash
 
-	RESERVED_OPERATORS = %w(>!!! >!! >! =; .. .< >. >< .? -> .@ @ -@ ./ ../ .../).sort_by! { -_1.length }
+	RESERVED_OPERATORS        = %w(>!!! >!! >! =; .. .< >. >< .? -> .@ @ -@ ./ ../ .../).sort_by! { -_1.length }
+	RESERVED_OPERATORS_HASHED = RESERVED_OPERATORS.map &:hash
 
-	RESERVED_CHARS = %w< [ { ( , ) } ] >.sort_by! { -_1.length } # these cannot be used in custom operator identifiers. They are only for program structure {}, collections [,] and (,)
+	RESERVED_CHARS        = %w< [ { ( , ) } ] >.sort_by! { -_1.length } # these cannot be used in custom operator identifiers. They are only for program structure {}, collections [,] and (,)
+	RESERVED_CHARS_HASHED = RESERVED_CHARS.map &:hash
 
-	VALID_CHARS = %w(. = + - ~ * ! @ # $ % ^ & ? / | < > _ : ; ).sort_by! { -_1.length } # examples of valid operators `.:.:`, `.~~~~~:::`, `|||`, `====.==`
+	VALID_CHARS        = %w(. = + - ~ * ! @ # $ % ^ & ? / | < > _ : ; ).sort_by! { -_1.length } # examples of valid operators `.:.:`, `.~~~~~:::`, `|||`, `====.==`
+	VALID_CHARS_HASHED = VALID_CHARS.map &:hash
 
-	PREFIX  = %w(_ __ - + ! ?? ~ > @ # -# >!!! >!! >! ./ ../ .../).sort_by! { -_1.length } # @ _ for scope[@/_]
-	INFIX   = %w(. .@ = + - * : / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** .? .. .< >< >. or and).sort_by! { -_1.length }
-	POSTFIX = %w(! ? ?? =;).sort_by! { -_1.length }
+	PREFIX        = %w(_ __ - + ! ?? ~ > @ # -# >!!! >!! >! ./ ../ .../).sort_by! { -_1.length } # @ _ for scope[@/_]
+	PREFIX_HASHED = PREFIX.map &:hash
+
+	INFIX        = %w(. .@ = + - * : / % < > += -= *= |= /= %= &= ^= <<= >>= !== === >== == != <= >= && || & | ^ << >> ** .? .. .< >< >. or and).sort_by! { -_1.length }
+	INFIX_HASHED = INFIX.map &:hash
+
+	POSTFIX        = %w(! ? ?? =;).sort_by! { -_1.length }
+	POSTFIX_HASHED = POSTFIX.map &:hash
+
+	ALL        = [RESERVED_IDENTIFIERS, RESERVED_OPERATORS, RESERVED_CHARS, VALID_CHARS, PREFIX, INFIX, POSTFIX].inject :+
+	ALL_HASHED = [RESERVED_IDENTIFIERS_HASHED, RESERVED_OPERATORS_HASHED, RESERVED_CHARS_HASHED, VALID_CHARS_HASHED, PREFIX_HASHED, INFIX_HASHED, POSTFIX_HASHED].inject :+
+
+	unless ALL.uniq.count == ALL_HASHED.uniq.count
+		raise "Hash collision"
+	end
+end
+
+
+class Token
+	include Reserved_Tokens
 
 	attr_accessor :string, :start_index, :end_index, :line, :column
 

@@ -102,15 +102,16 @@ end
 
 
 class Lexer
-	attr_accessor :i, :col, :row, :source, :tokens
+	attr_accessor :i, :col, :row, :source, :tokens, :use_comparer
 
 
 	def initialize source = nil
-		@source = source
-		@tokens = []
-		@i      = 0 # index of current char in source string
-		@col    = 1 # short for column
-		@row    = 1 # short for line
+		@use_comparer = false
+		@source       = source
+		@tokens       = []
+		@i            = 0 # index of current char in source string
+		@col          = 1 # short for column
+		@row          = 1 # short for line
 	end
 
 
@@ -219,7 +220,7 @@ class Lexer
 				string += eat
 			end
 
-			if Token::RESERVED_OPERATORS.include? string
+			if !use_comparer and Token::RESERVED_OPERATORS.include? string
 				return Key_Operator_Token.new string
 			end
 
@@ -236,7 +237,7 @@ class Lexer
 			end
 
 			# in case this identifier happens to be a keyword, we're going to bail early here.
-			if Token::RESERVED_IDENTIFIERS.include? string
+			if !use_comparer and Token::RESERVED_IDENTIFIERS.include? string
 				return Key_Identifier_Token.new string
 			end
 

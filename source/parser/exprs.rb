@@ -277,7 +277,7 @@ class Postfix_Expr < Expr
 end
 
 
-class Infix_Expr < Expr # ??? aka Infixed_Expr. I'm not sure if I want to keep the old name or not. It isn't named like the other *fix operators even though it relates to them. We'll see if I get confused or not
+class Infix_Expr < Expr
 	attr_accessor :operator, :left, :right
 
 

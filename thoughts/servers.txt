@@ -1,8 +1,0 @@
-Apparently it's pretty simple set up HTTP servers in Ruby. I would like
-- Each directory can declare server.em, and Server {} inside of that file
-- Server {} should configure its port. But it's root path is going to be the server.em file's namespace. Meaning ./server.em in the root directory will accept all network traffic to the ./ path
-- Servers in somewhere/else/server.em would only accept network traffic to ./somewhere/else/<whatever paths local to this Server>
-
-I haven't put that much thought into whether this is a good idea or not. But, I've known from the start that this language will be built around web development, that hosting a server and rendering views would be a thing eventually. And eventually integrated database wrappers as well. A total package that doesn't require the likes of Rails.
-
-Even 3rd libraries could have their own servers that ran locally. I would have to think about what their namespace would look like to a client. Or if they even had access externally, maybe servers outside of ./ are sandboxed and can only communicate with each other. That is actually a cool idea.

@@ -1,7 +1,0 @@
-```
-watch member
-watch member.member
-watch Scope
-```
-
-Logs any time the subject changed value
