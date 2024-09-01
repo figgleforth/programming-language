@@ -10,18 +10,18 @@ But hey, not all languages are perfect, and neither is my cholesterol. Anyway, I
 
 **Table of Contents**
 
-| Destination                               | What's here?                                                                                 |
-|-------------------------------------------|----------------------------------------------------------------------------------------------|
-| [examples/](examples)                     | Code written in this language, with extension `*.em`                                         |
-| [source/](source)                         | The code that make the language work, in Ruby                                                |
-| [source/cli/](source/cli)                 | Program for evaluating files in this language, from the command line                         |
-| [source/documenter/](source/documenter)   | Nothing at the moment, but someday a program for generating documentation from code comments |
-| [source/helpers/](source/helpers)         | Classes and functions that help get stuff done                                               |
-| [source/lexer/](source/lexer)             | Program that turns source code into [tokens](./source/lexer/tokens.rb)                       |
-| [source/parser/](source/parser)           | Program that turns tokens into [expressions](./source/parser/exprs.rb)                       |
-| [source/interpreter/](source/interpreter) | Program that evaluates parsed expressions into final program output                          |
-| [source/repl/](source/repl)               | Program for evaluating source code in the command line, like Ruby's pry or irb               |
-| [topics/](topics)                         | My notes on various related topics                                                           |
-| [readme.md](readme.md)                    | [You are here](./readme.md)                                                                  |
-| [test.rb](test.rb)                        | Ruby file that runs `examples/` through the lexer, parser, and interpreter                   |
-| [.gitignore](.gitignore)                  | Like sunscreen but for blocking files from your repository — Filescreen™                     |
+| Destination                               | What's here?                                                                   |
+|-------------------------------------------|--------------------------------------------------------------------------------|
+| [examples/](examples)                     | Code written in this language, with extension `*.em`                           |
+| [source/](source)                         | The code that make the language work, in Ruby                                  |
+| [source/cli/](source/cli)                 | Program for evaluating files in this language, from the command line           |
+| [source/documenter/](source/documenter)   | Someday a program for generating documentation from code comments              |
+| [source/helpers/](source/helpers)         | Classes and functions that help get stuff done                                 |
+| [source/lexer/](source/lexer)             | Program that turns source code into [tokens](./source/lexer/tokens.rb)         |
+| [source/parser/](source/parser)           | Program that turns tokens into [expressions](./source/parser/exprs.rb)         |
+| [source/interpreter/](source/interpreter) | Program that evaluates parsed expressions into final program output            |
+| [source/repl/](source/repl)               | Program for evaluating source code in the command line, like Ruby's pry or irb |
+| [topics/](topics)                         | My notes on various related topics                                             |
+| [readme.md](readme.md)                    | [You are here](./readme.md)                                                    |
+| [test.rb](test.rb)                        | Ruby file that runs `examples/` through the lexer, parser, and interpreter     |
+| [.gitignore](.gitignore)                  | Like sunscreen but for blocking files from your repository — Filescreen™       |
