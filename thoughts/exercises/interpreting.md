@@ -1,0 +1,105 @@
+This is an exercise to convert the code into a runtime by hand.
+
+Runtime is just a global scope, with other scopes. It is basically the program.
+
+```
+Island {
+	hatch =;
+
+	discover_hatch { ->
+		hatch = Hatch.new
+	}
+
+	Hatch {
+		computer = Computer.new
+
+		open { -> }
+
+		Computer {
+			enter { numbers -> }
+		}
+	}
+}
+
+island = Island.new
+island.discover_hatch()
+	# push island on the stack
+	# eval Block_Call discover_hatch()
+	# yields Ref(Island.discover_hatch)
+	# eval Ref Island.discover_hatch
+	# yields Block_Expr discover_hatch from Island scope
+	# finally, eval Block_Expr discover_hatch
+		# push Block on the stack
+		# eval block body
+			# which is an Assignment_Expr (hatch = Hatch.new)
+			# where does hatch= get set? Block or anywhere up the stack until the closest Instance?
+			  # if stack.has? hatch # whether Global or any other scope before us has this defined
+				  # set it there
+			  # else
+				  # it's not defined in any scope within reach, define it in this scope
+		# in this case, stack.has? hatch in island Instance, so this Assignment(hatch = Hatch.new) will set island.hatch and not the temporary scope from running discover_hatch
+		# pop Block
+	# pop island after done evaluating .discover_hatch
+```
+```
+Stack[
+  Global{
+	  Island: Static {
+		  hatch: nil
+		  discover_hatch: Block_Expr
+		  Hatch: Static {
+			  computer: Instance.Computer {
+				  enter: Ref.Island.Hatch.Computer.enter) # yields Computer.enter Block_Exp
+			  }
+			  open: Block_Expr
+			  Computer: Static {
+				  enter: Block_Expr
+			  }
+		  }
+	  }
+	  island: Instance.Island {
+		  hatch: Instance.Hatch {
+			  computer: Instance.Computer {
+				  enter: Ref.Island.Hatch.Computer.enter # yields Computer.enter Block_Expr
+			  }
+			  open: Ref.Island.Hatch.open
+			  Computer: Ref.Island.Computer
+		  }
+		  discover_hatch: Ref.Island.discover_hatch
+		  Hatch: Ref.Island.Hatch
+	  }
+  }
+
+  ### POP
+  Instance.Island { # island
+	  hatch: Instance.Hatch {
+		  computer: Instance.Computer {
+			  enter: Ref.Island.Hatch.Computer.enter # yields Computer.enter Block_Expr
+		  }
+		  open: Ref.Island.Hatch.open
+		  Computer: Ref.Island.Computer
+	  }
+	  discover_hatch: Ref.Island.discover_hatch
+	  Hatch: Ref.Island.Hatch
+  }
+  ###
+
+  ### POP
+  Block{
+  	# to evaluate discover_hatch
+	# hatch is not set here, it is set above
+	# rule for #set
+	# if stack.has? key, update that key=
+	# else set key= here
+  }
+  ###
+
+]
+```
+
+Takeaways,
+* Instance is a copy of Static but all of Static's Block_Expr and nested Static values are replaced with Reference
+* Reference is a simple wrapper around an identifier, so #eval is able to reference static objects and functions that aren't declared in the instance, but rather in its Static scope. It should also obviously used to reference existing instances as well.
+* Dumbed down – class declarations contain actual Block_Exprs inside them, and maybe even nested class declarations. So instances of a class inherit all declarations, from vars to funcs to nested classes. But to avoid duplicating Block_Exprs and other class declarations inside of the instance, the value for the Block_Expr and other class declaration becomes Reference() where the reference key is just the scopes that must be navigated to get to the Block_Expr/Class.
+  * Ref.Island.Hatch.Computer means that Computer is declared inside Hatch, which is declared inside Island, which is declared in the global scope
+  * This should theoretically make it easy to #eval functions that an instance has access to, which is not stored on itself, to make the language lean

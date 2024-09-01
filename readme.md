@@ -21,7 +21,7 @@ But hey, not all languages are perfect, and neither is my cholesterol. Anyway, I
 | [source/parser/](source/parser)           | Program that turns tokens into [expressions](./source/parser/exprs.rb)         |
 | [source/interpreter/](source/interpreter) | Program that evaluates parsed expressions into final program output            |
 | [source/repl/](source/repl)               | Program for evaluating source code in the command line, like Ruby's pry or irb |
-| [topics/](topics)                         | My notes on various related topics                                             |
+| [thoughts/](thoughts)                     | My notes on various related topics                                             |
 | [readme.md](readme.md)                    | [You are here](./readme.md)                                                    |
 | [test.rb](test.rb)                        | Ruby file that runs `examples/` through the lexer, parser, and interpreter     |
 | [.gitignore](.gitignore)                  | Like sunscreen but for blocking files from your repository — Filescreen™       |
