@@ -4,20 +4,20 @@ require_relative 'source/lexer/lexer'
 require_relative 'source/parser/parser'
 require_relative 'source/interpreter/runtime'
 require_relative 'source/interpreter/scope'
-require_relative 'source/colorize'
+require_relative 'source/helpers/colorize'
 require 'benchmark'
 
 @print_output = true
 
 # lexer and parser always run because I wanna make sure they work. This only controls their output
 output_lexed  = false
-output_parsed = true
+output_parsed = false
 
 # these are sometimes broken, othertimes not
 run_old_runtime = false
 run_new_runtime = false
 
-tests     = Dir['./examples/*.em'].shuffle
+# tests     = Dir['./examples/*.em'].shuffle
 tests     = ['./examples/_.em'] # temporary override
 max_width = tests.max { _1.length <=> _2.length }.length # the Benchmark output needs to know how wide the column of report names is, so it'll be the longest filename
 

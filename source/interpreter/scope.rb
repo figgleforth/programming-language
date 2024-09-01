@@ -1,4 +1,4 @@
-require_relative '../colorize'
+require_relative '../helpers/colorize'
 
 
 class Scope < Hash

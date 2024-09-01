@@ -6,7 +6,7 @@ require_relative '../parser/parser'
 require_relative '../interpreter/runtime'
 require_relative '../interpreter/scopes'
 require_relative '../interpreter/constructs'
-require_relative '../colorize'
+require_relative '../helpers/colorize'
 
 BULLET             = '⎺'
 BULLET_COLOR       = 'blue'
