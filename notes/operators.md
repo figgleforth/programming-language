@@ -1,7 +1,13 @@
-An exercise in how operators would work.
+**Summary**
+- Create a `Time` instance from a string like `11:11pm`.
+- Define a `Time` class with infix and postfix operators for parsing and modifying time.
+- Use `#Time` to localize the scope and `-#Time` to remove it, with no return value from scoping expressions.
+- Differentiate operators based on whether they are used on instances or non-instances, determined by the parameters.
+- Adjust `Time` attributes and handle different contexts with custom operators.
+
+---
 
 I want to write `time = 11:11pm` and get back a `Time` instance.
-
 ```
 Time {
    hour

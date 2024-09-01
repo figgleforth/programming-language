@@ -2,8 +2,7 @@
 
 require_relative 'source/lexer/lexer'
 require_relative 'source/parser/parser'
-require_relative 'source/interpreter/runtime'
-require_relative 'source/interpreter/scope'
+require_relative 'source/interpreter/interpreter'
 require_relative 'source/helpers/colorize'
 require 'benchmark'
 
@@ -12,10 +11,7 @@ require 'benchmark'
 # lexer and parser always run because I wanna make sure they work. This only controls their output
 output_lexed  = false
 output_parsed = false
-
-# these are sometimes broken, othertimes not
-run_old_runtime = false
-run_new_runtime = false
+interpret     = false
 
 # tests     = Dir['./examples/*.em'].shuffle
 tests     = ['./examples/_.em'] # temporary override
@@ -24,7 +20,7 @@ max_width = tests.max { _1.length <=> _2.length }.length # the Benchmark output 
 def output things, section_name, section_color = 'white', pretty = true
 	return unless @print_output
 	title = "——— #{section_name} ———"
-	puts colorize(73, title, 'black')
+	puts colorize(section_color, title, 'black')
 	if things.is_a? Array
 		things.each {
 			if pretty
@@ -57,12 +53,9 @@ Benchmark.bm(max_width) do |x|
 					output a, 'PARSER', 99
 				end
 
-				if run_new_runtime # this is the new one, to replace runtime maybe
-					i = Scope.new.interpret(exprs)
-					output i, 'INTERPRETER', 142
-				elsif run_old_runtime
-					o = Runtime.new(exprs).evaluate_expressions
-					output o, 'RUNTIME', 168
+				if interpret
+					# i = Interpreter.new.whatever
+					# output, i, 'INTERPRETER', 142
 				end
 			rescue Exception => e
 				raise "Testing file #{file} failed with \n\t#{e}"

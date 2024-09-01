@@ -3,9 +3,6 @@
 require 'readline'
 require_relative '../lexer/lexer'
 require_relative '../parser/parser'
-require_relative '../interpreter/runtime'
-require_relative '../interpreter/scopes'
-require_relative '../interpreter/constructs'
 require_relative '../helpers/colorize'
 
 BULLET             = '⎺'
@@ -65,8 +62,8 @@ type help for tips)
 		# Intercept ctrl+c aka interrupt, and exit gracefully without printing a trace
 		trap('INT') { exit }
 
-		runtime    = Runtime.new
-		block_mode = false
+		interpreter = Interpreter.new
+		block_mode  = false
 
 		loop do
 			text_color = OUTPUT_COLOR
@@ -107,7 +104,8 @@ type help for tips)
 			begin
 				tokens = Lexer.new(input).lex
 				ast    = Parser.new(tokens).to_expr
-				output = runtime.evaluate_expressions ast
+				raise "REPL#repl cannot work until #{interpreter} is working"
+				# output = interpreter.evaluate_expressions ast
 			rescue Exception => e
 				# raise e
 				@total_errors += 1

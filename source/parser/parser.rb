@@ -22,7 +22,7 @@ require 'debug'
 Ops = {
         'by' => 200, # like *
         'into' => 340, # like /
-        # ':' => 380, # todo breaks hashes. I wanna figure this out, see thoughts/aug_19_2024
+        # ':' => 380, # todo breaks hashes. I wanna figure this out, see thoughts/operators.md
       }.freeze
 
 
