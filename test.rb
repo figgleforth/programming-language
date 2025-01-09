@@ -3,7 +3,6 @@
 require_relative 'source/lexer/lexer'
 require_relative 'source/parser/parser'
 require_relative 'source/interpreter/interpreter'
-require_relative 'source/helpers/colorize'
 require 'benchmark'
 
 @print_output = true
@@ -17,21 +16,10 @@ interpret     = false
 tests     = ['./examples/lexer.em'] # temporary override
 max_width = tests.max { _1.length <=> _2.length }.length # the Benchmark output needs to know how wide the column of report names is, so it'll be the longest filename
 
-def output things, section_name, section_color = 'white', pretty = true
+def puts_with_title title, things
 	return unless @print_output
-	title = "——— #{section_name} ———"
-	puts colorize(section_color, title, 'black')
-	if things.is_a? Array
-		things.each {
-			if pretty
-				pp _1
-			else
-				puts _1
-			end
-		}
-	else
-		pp things
-	end
+	puts ":: #{title} ::"
+	Array(things).each { pp(_1) }
 end
 
 
@@ -45,19 +33,16 @@ Benchmark.bm(max_width) do |x|
 
 				if output_lexed
 					t = tokens.reject { _1 == Delimiter_Token }
-					output t, 'LEXER', 73
+					puts_with_title 'Lexer', t
 				end
 
 				if output_parsed
 					a = exprs.reject { _1 == "\n" }
-					output a, 'PARSER', 99
+					puts_with_title 'Parser', a
 				end
 
-				if interpret
-					output [], 'INTERPRETER', 142
-					i = Interpreter.new exprs
-					puts i.interpret
-				end
+				# if interpret # todo
+				# end
 			rescue Exception => e
 				raise "Testing file #{file} failed with \n\t#{e}"
 			end

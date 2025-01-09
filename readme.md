@@ -1,15 +1,18 @@
+Source code in this language is processed by a few Ruby programs that transform it into equivalent Ruby code, so it's more like a templating language.
+
 **Goals**
-1. [Be Turing complete](https://stackoverflow.com/a/7320)
-2. Use as few reserved words as possible — `class`, `def`, `self`, etc
-3. Support prefix, infix, postfix, and circumfix operators — `!1`, `2+3`, `4!`, `|5|`, respectively
-4. Flexible custom operator system — `5 @#$ 6`, `7 by 8`, `11:22pm`, etc
-5. Builtin web app functionality — like routing, controllers, and views
-Source code in this language is processed by several Ruby programs that transform it into equivalent Ruby code, so it's more like a templating language.
+
+1. Use as few reserved words as possible — `class`, `def`, `self`, etc
+2. Support prefix, infix, postfix, and circumfix operators — `!1`, `2+3`, `4!`, `|5|`, respectively
+3. Flexible custom operator system — `5 @#$ 6`, `7 by 8`, `11:22pm`, etc
+4. Builtin web app functionality — routing, controllers, models, and views
+5. [Be Turing complete](https://stackoverflow.com/a/7320)
 
 **Table of Contents**
+
 | Destination                               | What's here?                                                                     |
 |-------------------------------------------|----------------------------------------------------------------------------------|
-| [examples/](examples)                     | Code written in this language, with extension `*.em`                             |
+| [examples/](examples)                     | `/source` rewritten in this language (extension `*.em`)                          |
 | [source/](source)                         | The code that make the language work, in Ruby                                    |
 | [source/documenter/](source/documenter)   | Generating documentation from code comments                                      |
 | [source/helpers/](source/helpers)         | Classes and functions that help get stuff done                                   |
