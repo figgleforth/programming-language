@@ -3,6 +3,7 @@
 require 'readline'
 require_relative '../lexer/lexer'
 require_relative '../parser/parser'
+require_relative '../interpreter/interpreter'
 require_relative '../helpers/colorize'
 
 BULLET             = '⎺'

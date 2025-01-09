@@ -19,11 +19,11 @@ require 'debug'
 # [120, %w(= += -= *= /= %= &= |= ^= <<= >>=)],
 # [100, %w[ ( , ) ]],
 # [80, %w(.? .. .< >. >< !)],
-Ops = {
-        'by' => 200, # like *
-        'into' => 340, # like /
-        # ':' => 380, # todo breaks hashes. I wanna figure this out, see thoughts/operators.md
-      }.freeze
+Custom_Operator_Test = {
+                          'by' => 200, # like *
+                          'into' => 340, # like /
+                          # ':' => 380, # todo breaks hashes. I wanna figure this out, see thoughts/operators.md
+                       }.freeze
 
 
 class Parser
@@ -33,9 +33,8 @@ class Parser
 	attr_accessor :i, :buffer, :source, :expressions, :eaten_this_iteration
 
 	STARTING_PRECEDENCE   = 0
-	SCOPE_PORTAL_SYMBOL   = '#'.freeze
-	SCOPE_IDENTITY_SYMBOL = '@'.freeze
-
+	SCOPE_PORTAL_SYMBOL   = '#'.freeze # character tbd!
+	SCOPE_IDENTITY_SYMBOL = '@'.freeze # character tbd!
 
 	def initialize buffer = [], source_code = ''
 		@i                    = 0 # index of current token
@@ -156,7 +155,7 @@ class Parser
 	# eats a specific sequence of tokens, either Token class or exact string. eg: eat StringLiteralToken, eat '.'. etc
 	# idea: support sequence of elements where an element can be one of many, like the sequence [IdentifierToken, [:=, =]]
 	def eat * sequence
-		if sequence.nil? or sequence.empty? or sequence.one?
+		if sequence.nil? || sequence.empty? || sequence.one?
 			eaten = curr
 			if sequence&.one? and eaten != sequence[0]
 				extra = 25..0
@@ -200,17 +199,17 @@ class Parser
 	# region Sequence Parsing
 
 	def class_ident?
-		curr? Word_Token and curr.class?
+		curr? Identifier_Token and curr.class?
 	end
 
 
 	def member_ident?
-		curr? Word_Token and curr.member?
+		curr? Identifier_Token and curr.member?
 	end
 
 
 	def constant_ident?
-		curr? Word_Token and curr.constant?
+		curr? Identifier_Token and curr.constant?
 	end
 
 
@@ -237,7 +236,7 @@ class Parser
 			_1.operator   = eat # > + - # * & ~
 			_1.expression = make_expr
 
-			if curr? 'as' and curr? Word_Token
+			if curr? 'as' and curr? Identifier_Token
 				eat # as
 				_1.alias_identifier = eat # you can alias compositions as symbols too
 			end
@@ -248,18 +247,20 @@ class Parser
 	def make_array_of_param_decls
 		[].tap do |params|
 			start = curr
+			puts "making array of param decls, starting at #{start.inspect}"
+			puts "buffer[i-1] #{buffer[i - 1].inspect}"
 			# (label) (@) ident (= expr)
 			until curr? '->'
-				params << Func_Param_Decl.new.tap {
+				params << Func_Param_Decl.new.tap do
 					if curr? SCOPE_PORTAL_SYMBOL and eat
 						_1.portal = true
 					end
 
-					if curr? Word_Token, Word_Token
-						_1.label = eat Word_Token
+					if curr? Identifier_Token, Identifier_Token
+						_1.label = eat Identifier_Token
 					end
 
-					_1.name = eat Word_Token
+					_1.name = eat Identifier_Token
 
 					if curr? '=' and eat '='
 						_1.default = make_expr(STARTING_PRECEDENCE, true)
@@ -267,12 +268,14 @@ class Parser
 
 					if curr? ','
 						eat ','
-						eat_past_deadspace
-					elsif not curr? '->'
-						raise "Malformed Param_Decl starting at #{start.location_in_source}\n\n\tcurr: #{curr.inspect}\n\n"
 					end
 
-				}
+					eat_past_deadspace
+
+					# if not curr? '->'
+					# 	raise "Malformed Param_Decl starting at #{start.location_in_source}\n\n\tcurr: #{curr.inspect}\n\n"
+					# end
+				end
 			end
 		end
 	end
@@ -287,8 +290,8 @@ class Parser
 		klass.new.tap do |it|
 			eat if curr? %w(if while)
 
-			if curr? Word_Token, '{'
-				identifier   = eat Word_Token
+			if curr? Identifier_Token, '{'
+				identifier   = eat Identifier_Token
 				it.condition = Identifier_Expr.new.tap do |id|
 					id.string = identifier
 				end
@@ -470,27 +473,27 @@ precs = { 1000 => %w(>!!! >!! '>!' @),
 		# todo what does tight/loose binding even mean? I want better documentation for how this works.
 		[
 
-		  # binds tightly
-		  [1000, %w(>!!! >!! >! ./ ../ .../)],
-		  # [400, %w(( ))],
-		  [380, %w([ _ __ @ . .@ , ])],
-		  [360, %w(< <= > >= == != === !== ** )],
-		  [340, %w(** * / %)],
-		  [320, %w(- +)],
-		  [300, %w(!! ? ??)],
-		  [280, %w(<< >>)],
-		  [260, %w(&)],
-		  [240, %w(^)],
-		  [220, %w(|)],
-		  [200, %w(&& || and or)],
-		  [180, %w()],
-		  [160, %w(++ --)],
-		  [140, %w(:)],
-		  [120, %w(= += -= *= /= %= &= |= ^= <<= >>=)],
-		  # [100, %w(,)],
-		  [100, %w[ ( , ) ]],
-		  [80, %w(.? .. .< >. >< !)],
-		  # binds loosely
+		   # binds tightly
+		   [1000, %w(>!!! >!! >! ./ ../ .../)],
+		   # [400, %w(( ))],
+		   [380, %w([ _ __ @ . .@ , ])],
+		   [360, %w(< <= > >= == != === !== ** )],
+		   [340, %w(** * / %)],
+		   [320, %w(- +)],
+		   [300, %w(!! ? ??)],
+		   [280, %w(<< >>)],
+		   [260, %w(&)],
+		   [240, %w(^)],
+		   [220, %w(|)],
+		   [200, %w(&& || and or)],
+		   [180, %w()],
+		   [160, %w(++ --)],
+		   [140, %w(:)],
+		   [120, %w(= += -= *= /= %= &= |= ^= <<= >>=)],
+		   # [100, %w(,)],
+		   [100, %w[ ( , ) ]],
+		   [80, %w(.? .. .< >. >< !)],
+		   # binds loosely
 		].find do |_, chars|
 			str = if token.is_a? Token
 				token.string
@@ -508,201 +511,200 @@ precs = { 1000 => %w(>!!! >!! '>!' @),
 		# todo Route_Decl       "/users/:id" users_route { id -> }
 
 		expr = \
-		  if curr? '{' and peek_until_contains? '}', '->' # { -> }
-			  Func_Expr.new.tap {
-				  eat '{'
+		   if curr? '{' and peek_until_contains? '}', '->' # { -> }
+			   Func_Expr.new.tap {
+				   eat '{'
 
-				  arrowed = peek_until_contains? '}', '->'
-				  eat_past_deadspace
+				   arrowed = peek_until_contains? '}', '->'
+				   eat_past_deadspace
 
-				  if arrowed
-					  _1.parameters = make_array_of_param_decls
-					  eat_past_deadspace
-					  eat '->'
-					  eat_past_deadspace
-				  end
+				   if arrowed
+					   _1.parameters = make_array_of_param_decls
+					   eat_past_deadspace
+					   eat '->'
+					   eat_past_deadspace
+				   end
 
-				  _1.expressions = parse_block.expressions
-				  eat '}'
-			  }
+				   _1.expressions = parse_block.expressions
+				   eat '}'
+			   }
 
-		  elsif curr? '{' # hash or
-			  make_hash_expr
+		   elsif curr? '{' # hash or
+			   make_hash_expr
 
-		  elsif curr? '['
-			  make_array_expr
+		   elsif curr? '['
+			   make_array_expr
 
-		  elsif (class_ident? or constant_ident?) && (curr?(Word_Token, '{') or curr?(Word_Token, '>') or curr?(Word_Token, '+'))
-			  Class_Decl.new.tap do
-				  _1.name = eat(Word_Token)
+		   elsif (class_ident? or constant_ident?) && (curr?(Identifier_Token, '{') or curr?(Identifier_Token, '>') or curr?(Identifier_Token, '+'))
+			   Class_Decl.new.tap do
+				   _1.name = eat(Identifier_Token)
 
-				  # comp_types     = %i(> & ~ + -)
-				  # curr_comp_type = nil
-				  # until curr? '{'
-				  # todo implement composition
-				  # end
+				   # comp_types     = %i(> & ~ + -)
+				   # curr_comp_type = nil
+				   # until curr? '{'
+				   # todo implement composition
+				   # end
 
-				  if curr? '>' and eat '>'
-					  raise 'Parent must be a Class' unless curr.class?
-					  _1.base_class = eat(Word_Token)
-				  end
+				   if curr? '>' and eat '>'
+					   raise 'Parent must be a Class' unless curr.class?
+					   _1.base_class = eat(Identifier_Token)
+				   end
 
-				  if curr? '&' and eat
-					  until curr? '{'
-						  eat_past_deadspace
-						  _1.compositions << eat(Word_Token)
-						  eat ',' if curr? ','
-					  end
-				  end
+				   if curr? '&' and eat
+					   until curr? '{'
+						   eat_past_deadspace
+						   _1.compositions << eat(Identifier_Token)
+						   eat ',' if curr? ','
+					   end
+				   end
 
-				  eat '{'
-				  eat_past_deadspace
+				   eat '{'
+				   eat_past_deadspace
 
-				  _1.expressions = parse_until '}', starting_precedence, skip_inline_funcs
-				  eat '}'
-			  end
-		  elsif member_ident? and curr?(Word_Token, '{')
-			  Func_Decl.new.tap { # :name < Func_Expr :expressions, :compositions, :parameters, :signature
-				  _1.name = eat(Word_Token)
-				  eat '{'
-				  eat_past_deadspace
+				   _1.expressions = parse_until '}', starting_precedence, skip_inline_funcs
+				   eat '}'
+			   end
+		   elsif member_ident? and curr?(Identifier_Token, '{')
+			   Func_Decl.new.tap { # :name < Func_Expr :expressions, :compositions, :parameters, :signature
+				   _1.name = eat(Identifier_Token)
+				   eat '{'
+				   eat_past_deadspace
 
-				  if not curr? '->'
-					  _1.parameters = make_array_of_param_decls
-					  eat_past_deadspace
-				  end
+				   if not curr? '->'
+					   _1.parameters = make_array_of_param_decls
+					   eat_past_deadspace
+				   end
 
-				  eat '->'
-				  eat_past_deadspace
+				   eat '->'
+				   eat_past_deadspace
 
-				  _1.expressions = parse_block.expressions
-				  eat '}'
-			  }
+				   _1.expressions = parse_block.expressions
+				   eat '}'
+			   }
 
-		  elsif curr? 'operator'
-			  types = %w(prefix infix postfix circumfix) # ??? this was declared a while ago, but it doesn't appear to be used.
-			  Operator_Decl.new.tap do
-				  eat 'operator'
+		   elsif curr? 'operator'
+			   types = %w(prefix infix postfix circumfix) # ??? this was declared a while ago, but it doesn't appear to be used.
+			   Operator_Decl.new.tap do
+				   eat 'operator'
 
-				  unless curr? types
-					  raise "Operator declaration #{curr.string} must be one of #{types}"
-				  end
+				   unless curr? types
+					   raise "Operator declaration #{curr.string} must be one of #{types}"
+				   end
 
-				  _1.fix  = eat Word_Token
-				  _1.name = eat
+				   _1.fix  = eat Identifier_Token
+				   _1.name = eat
 
-				  eat '{'
-				  eat_past_deadspace
+				   eat '{'
+				   eat_past_deadspace
 
-				  if not curr? '->'
-					  _1.parameters = make_array_of_param_decls
-					  eat_past_deadspace
-				  end
+				   if not curr? '->'
+					   _1.parameters = make_array_of_param_decls
+					   eat_past_deadspace
+				   end
 
-				  eat '->'
-				  eat_past_deadspace
+				   eat '->'
+				   eat_past_deadspace
 
-				  _1.expressions = parse_block.expressions
-				  eat '}'
+				   _1.expressions = parse_block.expressions
+				   eat '}'
 
-				  # eat '{'
-				  #
-				  # arrowed = peek_until_contains? '}', '->'
-				  # eat_past_deadspace
-				  #
-				  # if arrowed
-				  #   _1.parameters = make_array_of_param_decls
-				  #   eat_past_deadspace
-				  #   eat '->'
-				  #   eat_past_deadspace
-				  # end
-				  #
-				  # _1.expressions = parse_block.expressions
-				  # eat '}'
-			  end
+				   # eat '{'
+				   #
+				   # arrowed = peek_until_contains? '}', '->'
+				   # eat_past_deadspace
+				   #
+				   # if arrowed
+				   #   _1.parameters = make_array_of_param_decls
+				   #   eat_past_deadspace
+				   #   eat '->'
+				   #   eat_past_deadspace
+				   # end
+				   #
+				   # _1.expressions = parse_block.expressions
+				   # eat '}'
+			   end
 
-		  elsif curr? '('
-			  make_circumfix_expr '('
+		   elsif curr? '('
+			   make_circumfix_expr '('
 
-		  elsif curr? 'return'
-			  Return_Expr.new.tap do |it|
-				  eat # >> or return
-				  it.expression = make_expr
-			  end
+		   elsif curr? 'return'
+			   Return_Expr.new.tap do |it|
+				   eat # >> or return
+				   it.expression = make_expr
+			   end
 
-		  elsif curr? 'while'
-			  make_conditional_expr true
+		   elsif curr? 'while'
+			   make_conditional_expr true
 
-		  elsif curr? 'if'
-			  make_conditional_expr
+		   elsif curr? 'if'
+			   make_conditional_expr
 
-			  # elsif curr? Key_Identifier_Token and curr == 'operator'
-			  # 	make_operator_overload_expr
+			   # elsif curr? Key_Identifier_Token and curr == 'operator'
+			   # 	make_operator_overload_expr
 
-		  elsif curr? Key_Identifier_Token and curr == 'raise'
-			  Raise_Expr.new.tap {
-				  # mess
-				  # :name, :condition, :message_expression
-				  _1.name       = eat(Key_Identifier_Token).string
-				  _1.expression = if not curr? Delimiter_Token # curr? %w(, ; \n })
-					  make_expr
-				  end
-			  }
+		   elsif curr? Key_Identifier_Token and curr == 'raise'
+			   Raise_Expr.new.tap {
+				   # mess
+				   # :name, :condition, :message_expression
+				   _1.name       = eat(Key_Identifier_Token).string
+				   _1.expression = if not curr? Delimiter_Token # curr? %w(, ; \n })
+					   make_expr
+				   end
+			   }
 
-			  # elsif %w(> + -).include? curr and peek(1) == Identifier_Token and peek(1).member?
-			  #   raise 'Cannot compose a class with members, only other classes and enums'
+			   # elsif %w(> + -).include? curr and peek(1) == Identifier_Token and peek(1).member?
+			   #   raise 'Cannot compose a class with members, only other classes and enums'
 
-			  # todo you should be able to assign different types to each other.
-			  # YAY: member = member/Class/CONSTANT, CONSTANT = CONSTANT, Class = Class.
-			  # NAY: Class = member, Class = CONSTANT
+			   # todo you should be able to assign different types to each other.
+			   # YAY: member = member/Class/CONSTANT, CONSTANT = CONSTANT, Class = Class.
+			   # NAY: Class = member, Class = CONSTANT
 
-			  # elsif curr? Word_Token, '->'
-			  #   Func_Decl.new.tap {
-			  # 	  _1.name = eat Word_Token
-			  # 	  eat '->'
-			  # 	  _1.expressions = [make_expr]
-			  #   }
+			   # elsif curr? Word_Token, '->'
+			   #   Func_Decl.new.tap {
+			   # 	  _1.name = eat Word_Token
+			   # 	  eat '->'
+			   # 	  _1.expressions = [make_expr]
+			   #   }
 
-		  elsif curr? String_Token or curr? Number_Token
-			  make_string_or_number_literal_expr
+		   elsif curr? String_Token or curr? Number_Token
+			   make_string_or_number_literal_expr
 
-		  elsif curr? Comment_Token
-			  # xxx backticked comments
-			  eat and nil
+		   elsif curr? Comment_Token
+			   # xxx backticked comments
+			   eat and nil
 
-		  elsif curr? Delimiter_Token
-			  eat and nil
+		   elsif curr? Delimiter_Token
+			   eat and nil
 
-		  elsif curr? Key_Identifier_Token
-			  Key_Identifier_Expr.new.tap {
-				  _1.token  = eat Key_Identifier_Token
-				  _1.string = _1.token.string
-			  }
+		   elsif curr? Key_Identifier_Token
+			   Key_Identifier_Expr.new.tap {
+				   _1.token  = eat Key_Identifier_Token
+				   _1.string = _1.token.string
+			   }
 
-		  elsif curr? Word_Token
-			  Identifier_Expr.new.tap {
-				  _1.token  = eat Word_Token
-				  _1.string = _1.token.string
-			  }
+		   elsif curr? Identifier_Token
+			   Identifier_Expr.new.tap {
+				   _1.token  = eat Identifier_Token
+				   _1.string = _1.token.string
+			   }
+		   elsif curr? Identifier_Token and Custom_Operator_Test.key? curr.string
+			   Operator_Expr.new.tap {
+				   _1.token  = eat Identifier_Token
+				   _1.string = _1.token.string
+			   }
 
-		  elsif curr? Operator_Token
-			  Operator_Expr.new.tap {
-				  _1.token  = eat Operator_Token
-				  _1.string = _1.token.string
-			  }
+		   elsif curr? Operator_Token
+			   Operator_Expr.new.tap {
+				   _1.token  = eat Operator_Token
+				   _1.string = _1.token.string
+			   }
 
-		  elsif curr? Identifier_Token and Ops.key? curr.string
-			  Operator_Expr.new.tap {
-				  _1.token  = eat Identifier_Token
-				  _1.string = _1.token.string
-			  }
-
-		  elsif curr? EOF_Token
-			  puts debug
-			  raise "Parser expected an expression but reached EOF"
-		  else
-			  raise "Parsing not implemented for #{curr.inspect}"
-		  end
+		   elsif curr? EOF_Token
+			   puts debug
+			   raise "Parser expected an expression but reached EOF"
+		   else
+			   raise "Parsing not implemented for #{curr.inspect}"
+		   end
 
 		augment_expr expr, starting_precedence, skip_inline_funcs
 	end
@@ -721,13 +723,13 @@ precs = { 1000 => %w(>!!! >!! '>!' @),
 		return expr if curr? "\n" or not expr
 
 		# !!! custom operators. should check: expr == custom prefix op; curr == custom infix or postfix op
-		if curr? Identifier_Token and Ops.key? curr.string
+		if curr? Identifier_Token and Custom_Operator_Test.key? curr.string
 			expr = Infix_Expr.new.tap {
 				_1.left     = expr
 				_1.operator = eat
 
 				# !!! precedence lookup hack
-				next_prec = Ops[_1.operator.string]
+				next_prec = Custom_Operator_Test[_1.operator.string]
 				_1.right  = make_expr(next_prec)
 				if not _1.right
 					raise "Infix_Expr expected an expression after `#{_1.operator.string}`"
@@ -785,8 +787,8 @@ precs = { 1000 => %w(>!!! >!! '>!' @),
 
 				until curr? ')'
 					_1.arguments << Call_Arg_Expr.new.tap do |arg|
-						if curr? Word_Token, ':' #, Token
-							arg.label = eat Word_Token
+						if curr? Identifier_Token, ':' #, Token
+							arg.label = eat Identifier_Token
 							eat ':'
 						end
 

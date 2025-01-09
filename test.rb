@@ -1,4 +1,4 @@
-# This code runs all .em files in ./examples through the lexer, parser, and runtime
+# This code runs all .em files in ./examples through the lexer, parser, and runtime. todo: better testing, this'll do for now
 
 require_relative 'source/lexer/lexer'
 require_relative 'source/parser/parser'
@@ -9,12 +9,12 @@ require 'benchmark'
 @print_output = true
 
 # lexer and parser always run because I wanna make sure they work. This only controls their output
-output_lexed  = false
-output_parsed = false
+output_lexed  = true
+output_parsed = true
 interpret     = false
 
-# tests     = Dir['./examples/*.em'].shuffle
-tests     = ['./examples/_.em'] # temporary override
+# tests = Dir['./examples/*.em'].shuffle
+tests     = ['./examples/lexer.em'] # temporary override
 max_width = tests.max { _1.length <=> _2.length }.length # the Benchmark output needs to know how wide the column of report names is, so it'll be the longest filename
 
 def output things, section_name, section_color = 'white', pretty = true
@@ -54,8 +54,9 @@ Benchmark.bm(max_width) do |x|
 				end
 
 				if interpret
-					# i = Interpreter.new.whatever
-					# output, i, 'INTERPRETER', 142
+					output [], 'INTERPRETER', 142
+					i = Interpreter.new exprs
+					puts i.interpret
 				end
 			rescue Exception => e
 				raise "Testing file #{file} failed with \n\t#{e}"

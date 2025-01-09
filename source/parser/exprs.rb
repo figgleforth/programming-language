@@ -19,7 +19,7 @@ class Expr
 	def == other
 		return false if other.nil?
 		if other.is_a? Class
-			other == self.class or self.is_a?(other)
+			other == self.class || self.is_a?(other)
 		else
 			other == string
 		end
@@ -28,7 +28,14 @@ class Expr
 
 	def === other
 		return false if other.nil?
-		other == self.class or self.is_a?(other)
+		other == self.class || self.is_a?(other)
+	end
+
+
+	def is other
+		return false unless other
+		return string == other if other.is_a? String
+		other == self.class || self.is_a?(other)
 	end
 end
 
@@ -323,7 +330,7 @@ class Operator_Expr < Expr
 
 	def === other
 		if other.is_a? Class
-			other < Operator_Expr and other.token.string == token.string
+			other < Operator_Expr && other.token.string == token.string
 		elsif other.is_a? String
 			string == other
 		else
@@ -344,8 +351,13 @@ class Identifier_Expr < Expr
 	end
 
 
+	def inspect
+		to_s
+	end
+
+
 	def == other
-		other.is_a?(Identifier_Expr) and other.string == string
+		other.is_a?(Identifier_Expr) && other.string == string
 	end
 
 end

@@ -11,7 +11,7 @@ class Char
 
 
 	def whitespace?
-		string == "\t" or string == "\s"
+		string == "\t" || string == "\s"
 	end
 
 
@@ -36,8 +36,7 @@ class Char
 
 
 	def delimiter?
-		# return false if string == '='
-		colon? or comma? or newline? or whitespace? or carriage_return? # or Token::RESERVED_CHARS.include? string
+		colon? || comma? || newline? || whitespace? || carriage_return? # || Token::RESERVED_CHARS.include? string
 	end
 
 
@@ -62,7 +61,7 @@ class Char
 
 
 	def identifier?
-		alphanumeric? or string == '_'
+		alphanumeric? || string == '_'
 	end
 
 
@@ -77,7 +76,7 @@ class Char
 
 
 	def legal_symbol?
-		Token::VALID_CHARS.include? string
+		Token::LEGAL_SYMBOLS.include? string
 	end
 
 
@@ -106,11 +105,12 @@ class Lexer
 
 
 	def initialize source = nil
-		@source = source
-		@tokens = []
-		@i      = 0 # index of current char in source string
-		@col    = 1 # short for column
-		@row    = 1 # short for line
+		self.source = source
+		# @source = source
+		# @tokens = []
+		# @i      = 0 # index of current char in source string
+		# @col    = 1 # short for column
+		# @row    = 1 # short for line
 	end
 
 
@@ -120,11 +120,6 @@ class Lexer
 		@i      = 0 # index of current char in source string
 		@col    = 1 # short for column
 		@row    = 1 # short for line
-	end
-
-
-	def location_in_source
-		"#{row}:#{col}"
 	end
 
 
@@ -143,9 +138,9 @@ class Lexer
 	end
 
 
-	def peek_until_delimiter
+	def peek_until_delimiter # unused
 		index = 0
-		while index < source.length and not Char.new(source[index]).delimiter?
+		while index < source.length && !Char.new(source[index]).delimiter?
 			index += 1
 		end
 		source[0...index]
@@ -167,7 +162,7 @@ class Lexer
 
 		@i += 1
 
-		if expected and expected != last
+		if expected && expected != last
 			raise "Expected '#{expected}' but got '#{last}'"
 		end
 
@@ -181,7 +176,7 @@ class Lexer
 				str << eat
 			end
 
-			if expected_chars and expected_chars != str
+			if expected_chars && expected_chars != str
 				raise "Expected '#{expected_chars}' but got '#{str}'"
 			end
 		end
@@ -193,17 +188,17 @@ class Lexer
 			valid         = %w(. _)
 			decimal_found = false
 
-			while chars? and (curr.numeric? or valid.include?(curr.string))
+			while chars? && (curr.numeric? || valid.include?(curr.string))
 				number << eat
 				last_number_char = number[-1]
 				decimal_found    = true if last_number_char == '.'
 
-				if curr == '.' and (peek(1) == '.' or peek(1) == '<')
+				if curr == '.' && (peek(1) == '.' || peek(1) == '<')
 					break # because these are the range operators .. and .<
 				end
 
-				raise "Number #{number} already contains a period. curr #{curr.inspect}" if decimal_found and curr == '.'
-				break if curr.newline? or curr.whitespace?
+				raise "Number #{number} already contains a period. curr #{curr.inspect}" if decimal_found && curr == '.'
+				break if curr.newline? || curr.whitespace?
 			end
 		end
 	end
@@ -223,7 +218,7 @@ class Lexer
 				return Key_Operator_Token.new string
 			end
 
-			if string[-1] == '.' and not string.chars.all? { _1 == '.' }
+			if string[-1] == '.' && !string.chars.all? { _1 == '.' }
 				# !!! This is because it would be impossible to know when to stop parsing dots and maybe parse a dotted member access.
 				raise "Custom operator `#{string}` cannot end with a dot unless all other characters are dots. But you can start with or include other dots anywhere else."
 			end
@@ -240,7 +235,7 @@ class Lexer
 				return Key_Identifier_Token.new string
 			end
 
-			Word_Token.new string
+			Identifier_Token.new string
 		else
 			raise "#make_identifier_token unknown #{curr}"
 		end
@@ -249,7 +244,7 @@ class Lexer
 
 	def eat_until_delimiter
 		"".tap {
-			while chars? and not curr.delimiter?
+			while chars? && !curr.delimiter?
 				_1 << eat
 			end
 			eat while curr.newline?
@@ -262,7 +257,7 @@ class Lexer
 			eat '`'
 			eat while curr.whitespace? # skip whitespace or tab before body
 
-			while chars? and not curr.newline? # and not curr == '`'
+			while chars? && !curr.newline? # and not curr == '`'
 				comment << eat
 			end
 
@@ -275,9 +270,9 @@ class Lexer
 		''.tap do |comment|
 			marker = '```'
 			eat_many 3, marker
-			eat while curr.whitespace? or curr.newline?
+			eat while curr.whitespace? || curr.newline?
 
-			while chars? and peek(0, 3) != marker
+			while chars? && peek(0, 3) != marker
 				comment << eat
 				eat while curr.newline?
 			end
@@ -291,7 +286,7 @@ class Lexer
 		''.tap do |str|
 			quote = eat
 
-			while chars? and curr != quote
+			while chars? && curr != quote
 				str << eat
 			end
 
@@ -301,7 +296,7 @@ class Lexer
 
 
 	def reduce_delimiters
-		eat while curr.delimiter? and last == curr
+		eat while (curr.delimiter? && last == curr)
 	end
 
 
@@ -315,7 +310,7 @@ class Lexer
 	end
 
 
-	def lex input = nil # note anything that's just eaten is ignored. The parser will only receive what's in @tokens
+	def lex input = nil # note output is @tokens so to ignore a token means to exclude it from @tokens
 		@source = input if input
 		raise 'Lexer.source is nil' unless source
 
@@ -327,7 +322,7 @@ class Lexer
 			token = if curr == '`' # comments!
 				if peek(0, 3) == '```'
 					eat_multiline_comment
-				elsif peek(0, 2) == '`'
+				elsif peek(0, 2) == '``'
 					eat_oneline_comment
 				else
 					eat_oneline_comment
@@ -339,16 +334,15 @@ class Lexer
 				eat and nil
 
 			elsif curr.delimiter? # ( { [ , ] } ) \n \s \t \r ;
-
-				if curr == ';' or curr == ','
+				if curr == ';' || curr == ','
 					Delimiter_Token.new(eat)
 				elsif curr == "\s"
 					eat and nil
 
-				elsif curr == "\n" or curr == "\r" or curr == "\s" or curr == "\t"
-					Delimiter_Token.new(eat).tap {
+				elsif curr == "\n" || curr == "\r" || curr == "\s" || curr == "\t"
+					Delimiter_Token.new(eat).tap do
 						reduce_delimiters # if _1.string == "\n" or _1.string == "\s"  or _1.string == "\t"
-					}
+					end
 				else
 					# ( { [ , ] } )
 					Delimiter_Token.new(eat)
@@ -357,13 +351,13 @@ class Lexer
 			elsif curr.numeric?
 				Number_Token.new(eat_number)
 
-			elsif curr == '.' and peek&.numeric?
+			elsif curr == '.' && peek&.numeric?
 				Number_Token.new(eat_number)
 
-			elsif curr.legal_symbol? or curr.identifier? # this will make all identifiers, reserved or otherwise
+			elsif curr.legal_symbol? || curr.identifier? # this will make all identifiers, reserved or otherwise
 				make_identifier_token
 
-			elsif curr == '"' or curr == "'"
+			elsif curr == '"' || curr == "'"
 				String_Token.new(eat_string)
 
 			elsif curr.reserved?
@@ -378,15 +372,16 @@ class Lexer
 			token.start_index = index_before_this_lex_loop
 			token.end_index   = @i
 
-			token.column = col_before
-			token.line   = row_before
+			token.column         = col_before
+			token.line           = row_before
+			token.location_label = "#{token.line}:#{token.column}"
 
 			@tokens << token
 		end
 
-		tokens << EOF_Token.new
-		tokens.compact!
-		tokens
+		@tokens << EOF_Token.new
+		@tokens.compact!
+		@tokens
 	end
 
 end

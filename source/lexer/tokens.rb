@@ -16,6 +16,7 @@ module Reserved_Tokens
 
 	VALID_CHARS        = %w(. = + - ~ * ! @ # $ % ^ & ? / | < > _ : ; ).sort_by! { -_1.length } # examples of valid operators `.:.:`, `.~~~~~:::`, `|||`, `====.==`
 	VALID_CHARS_HASHED = VALID_CHARS.map &:hash
+	LEGAL_SYMBOLS      = VALID_CHARS
 
 	PREFIX        = %w(_ __ - + ! ?? ~ > @ # -# >!!! >!! >! ./ ../ .../).sort_by! { -_1.length } # @ _ for scope[@/_]
 	PREFIX_HASHED = PREFIX.map &:hash
@@ -38,7 +39,7 @@ end
 class Token
 	include Reserved_Tokens
 
-	attr_accessor :string, :start_index, :end_index, :line, :column
+	attr_accessor :string, :start_index, :end_index, :line, :column, :location_label
 
 
 	def initialize string = ''
@@ -56,7 +57,7 @@ class Token
 		if other.is_a? String
 			other == string
 		elsif other.is_a? Class
-			other == self.class or self.is_a?(other)
+			other == self.class || self.is_a?(other)
 		else
 			# other.ancestors.include? self
 			raise "unknown == with #{other.inspect}"
@@ -64,8 +65,19 @@ class Token
 	end
 
 
-	def location_in_source
-		"#{line}:#{column}"
+	def is other
+		unless other
+			return false
+		end
+
+		if other.is_a? String
+			other == string
+		elsif other.is_a? Class
+			other == self.class || self.is_a?(other)
+		else
+			# other.ancestors.include? self
+			raise "unknown == with #{other.inspect}"
+		end
 	end
 
 
@@ -94,7 +106,7 @@ class Token
 		# test = string&.gsub('_', '')&.gsub('%', '')
 		# test[0]&.upcase == test[0] and not constant?
 		first = without_leading_underscores[0]
-		first and first.upcase == first and not constant?
+		first && first.upcase == first && !constant?
 	end
 
 
@@ -102,7 +114,7 @@ class Token
 		# test = string #&.gsub('_', '')&.gsub('%', '')
 		# test&.chars&.all? { |c| c.downcase == c }
 		first = without_leading_underscores[0]
-		first and first.downcase == first
+		first && first.downcase == first
 	end
 
 
@@ -122,10 +134,9 @@ end
 
 
 class Identifier_Token < Token
-end
-
-
-class Word_Token < Identifier_Token
+	def location_in_source # unused
+		"#{line}:#{column}"
+	end
 end
 
 
