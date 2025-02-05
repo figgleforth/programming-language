@@ -2,16 +2,16 @@ require 'pp'
 
 =begin
 
-8/19/24
-mess This entire file is a mess. It needs to be cleaned up, which should be easy to do because now I know how I'm going to implement the entire construct of scopes.
+2/2/25 why did I take a five month break? regerts
 
-!!!
+8/19/24 mess This entire file is a mess. It needs to be cleaned up, which should be easy to do because now I know how I'm going to implement the entire construct of scopes.
+
 Most objects will end up as a Scope. The entire runtime is mostly nested Scopes. The program has an array of Scopes, the stack, where the front is the global scope, and the back is the current scope. They're Hashes because it's a free data structure that I don't have to replicate. An examples:
 
 x=1
 stack of scopes: [{x: 1}]
 
-func {->}
+func {;}
 [{func: Ref}]
 
 Class {}
@@ -19,7 +19,7 @@ Class {}
 
 Class {
 	name
-	to_s {->}
+	to_s {;}
 }
 scope of this class: {name:nil, to_s: Ref}
 

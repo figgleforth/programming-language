@@ -1,7 +1,8 @@
 String { `class names capitalized
 	& Comparable `composition over inheritance
 
-	data `instance variables lowercase, evaluates to nil unless specified
+	raw `instance variables lowercase, evaluates to nil unless specified
+	length = 0
 
 	new { string; `constructor
 		./data = string `./ is like self.data in Ruby
