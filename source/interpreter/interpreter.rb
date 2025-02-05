@@ -5,7 +5,7 @@ x=1                 global = { x:1 }
 y=2                 global = { x:1, y:2 }
 x                   global[x]
 
-func {->}           references = { func:{->} }          global[func] = ref(func)
+func {;}           references = { func:{;} }          global[func] = ref(func)
 func                global[func] => ref(func)
 func()              global[func] => ref(func) => interpret(ref(func)) or call_function(ref(func)) to be more verbose
 
@@ -57,11 +57,11 @@ class Interpreter
 					expr
 				end
 			when Infix_Expr
-				if expr.operator.is '='
+				if expr.operator.isa '='
 					set expr.left.string, run(expr.right)
 				elsif %w(+ - * /).include? expr.operator.string
 					run(expr.left).send expr.operator.string, run(expr.right)
-				elsif expr.operator.is '.'
+				elsif expr.operator.isa '.'
 					left = get expr.left.string
 					if left.is_a? Hash
 						puts "left #{left}"

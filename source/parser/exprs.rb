@@ -16,7 +16,7 @@ class Expr
 	end
 
 
-	def == other
+	def isa other
 		return false if other.nil?
 		if other.is_a? Class
 			other == self.class || self.is_a?(other)
@@ -26,10 +26,10 @@ class Expr
 	end
 
 
-	def === other
-		return false if other.nil?
-		other == self.class || self.is_a?(other)
-	end
+	# def isa other
+	# 	return false if other.nil?
+	# 	other == self.class || self.is_a?(other)
+	# end
 
 
 	def is other
@@ -50,19 +50,19 @@ class Func_Expr < Expr
 	end
 
 
-	def signature # to support multiple methods with the same name, each method needs to be able to be represented as a signature. Naive idea: name+parameters+
-		@signature ||= "#{name}".tap do |it|
-			parameters.each do |param|
-				# it: Function_Param_Expr
-				# maybe also use compositions in the signature for better control over signature equality
-				it << "#{param.label}:#{param.name}=#{param.default}"
-			end
-		end
+	def signature # todo to support multiple methods with the same name, each method needs to be able to be represented as a signature. Naive idea: name+parameters+
+		# @signature ||= "#{name}".tap do |it|
+		# 	parameters.each do |param|
+		# 		# it: Function_Param_Expr
+		# 		# maybe also use compositions in the signature for better control over signature equality
+		# 		it << "#{param.label}:#{param.name}=#{param.default}"
+		# 	end
+		# end
 	end
 
 
 	def to_s
-		"anonymouse{#{parameters.join(', ')} -> #{expressions} }"
+		"anonymouse{#{parameters.join(', ')}; #{expressions} }"
 	end
 end
 
@@ -72,7 +72,7 @@ class Func_Decl < Func_Expr
 
 
 	def to_s
-		"#{name.string}{#{parameters.join(', ')}->#{expressions}}"
+		"#{name.string}{#{parameters.join(', ')}; #{expressions}}"
 	end
 end
 
@@ -81,7 +81,7 @@ class Operator_Decl < Func_Decl
 	attr_accessor :fix # pre, in, post, circumfix
 
 	def to_s
-		"#{fix.string} #{name.string} {#{parameters.map(&:name).map(&:string).join(',')}->}"
+		"#{fix.string} #{name.string} {#{parameters.map(&:name).map(&:string).join(',')};}"
 	end
 end
 
@@ -213,7 +213,7 @@ class String_Literal_Expr < Expr
 
 	def string= val
 		@string       = val
-		@interpolated = val.include? '`' # todo: is there a better way?
+		@interpolated = val.include? Lexer::COMMENT_SYMBOL # todo: is there a better way?
 	end
 
 
@@ -323,12 +323,12 @@ end
 
 class Operator_Expr < Expr
 
-	def == other
-		self === other
-	end
+	# def == other
+	# 	self === other
+	# end
 
 
-	def === other
+	def isa other
 		if other.is_a? Class
 			other < Operator_Expr && other.token.string == token.string
 		elsif other.is_a? String
@@ -356,7 +356,7 @@ class Identifier_Expr < Expr
 	end
 
 
-	def == other
+	def isa other
 		other.is_a?(Identifier_Expr) && other.string == string
 	end
 
@@ -425,15 +425,27 @@ end
 
 class Route_Decl < Func_Expr
 	# request_method, String_Literal, Identifier_Token, {
-	# eg. get '/' home { -> }
+	# eg. get '/' home { ; }
 	attr_accessor :route, :name
 end
 
 
 class Enum_Decl < Expr
 =begin
-	CONST = expr
-	CONST { (recurse)
+
+CONST = some_expression
+WEIRD_ALPHABET {
+	A
+	B {
+		C
+	}
+}
+
+WEIRD_ALPHABET.A
+WEIRD_ALPHABET.B
+WEIRD_ALPHABET.B.C
+WEIRD_ALPHABET.A.D
+
 =end
 	attr_accessor :identifier, :expression
 end

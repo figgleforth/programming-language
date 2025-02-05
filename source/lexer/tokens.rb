@@ -8,7 +8,7 @@ module Reserved_Tokens
 	).sort_by! { -_1.length }
 	RESERVED_IDENTIFIERS_HASHED = RESERVED_IDENTIFIERS.map &:hash
 
-	RESERVED_OPERATORS        = %w(>!!! >!! >! =; .. .< >. >< .? -> .@ @ -@ ./ ../ .../).sort_by! { -_1.length }
+	RESERVED_OPERATORS        = %w(>!!! >!! >! =; ≠ .. .< >. >< .? ; .@ @ -@ ./ ../ .../ =).sort_by! { -_1.length }
 	RESERVED_OPERATORS_HASHED = RESERVED_OPERATORS.map &:hash
 
 	RESERVED_CHARS        = %w< [ { ( , ) } ] >.sort_by! { -_1.length } # these cannot be used in custom operator identifiers. They are only for program structure {}, collections [,] and (,)
@@ -49,23 +49,24 @@ class Token
 
 	# token == CommentToken
 	# token == '#'
-	def == other
-		unless other
-			return false
-		end
+	# def == other
+	# 	unless other
+	# 		return false
+	# 	end
+	#
+	# 	if other.is_a? String
+	# 		other == string
+	# 	elsif other.is_a? Class
+	# 		other == self.class || self.is_a?(other)
+	# 	else
+	# 		raise "unknown == with #{other.inspect}"
+	# 		# other.ancestors.include? self
+	# 		# super
+	# 	end
+	# end
 
-		if other.is_a? String
-			other == string
-		elsif other.is_a? Class
-			other == self.class || self.is_a?(other)
-		else
-			# other.ancestors.include? self
-			raise "unknown == with #{other.inspect}"
-		end
-	end
 
-
-	def is other
+	def isa other
 		unless other
 			return false
 		end
@@ -134,13 +135,10 @@ end
 
 
 class Identifier_Token < Token
-	def location_in_source # unused
-		"#{line}:#{column}"
-	end
 end
 
 
-class Operator_Token < Identifier_Token
+class Operator_Token < Token
 
 	def constant?
 		false
@@ -186,7 +184,7 @@ end
 
 class String_Token < Token
 	def interpolated?
-		string.include? '`'
+		string.include? COMMENT_SYMBOL
 	end
 end
 
