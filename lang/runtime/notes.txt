@@ -1,0 +1,192 @@
+# module Scope
+#   class V2 < Hash
+#     attr_accessor :identity, :stack, :portals, :references
+#
+#
+#     def initialize
+#       super
+#       @identity   = {} # {@: {}}
+#       @portals    = [] # {#: []}
+#       @stack      = [] # [{@#}]
+#       @references = {} # { }
+#     end
+#
+#
+#     def to_sig
+#       '{@, $'.tap {
+#         if not portals.empty?
+#           _1 << ':['
+#           _1 << portals.join(', ')
+#           _1 << ']'
+#         end
+#
+#         if not keys.empty?
+#           _1 << ', '
+#           _1 << keys.join(', ')
+#         end
+#
+#         _1 << '}'
+#       }
+#     end
+#   end
+# end
+
+=begin
+
+{
+  @: {}       hidden decls like id and type accessed like @id, @type, etc
+  $: []       merged scopes from $param
+  _: {}       private declarations
+}
+
+{@$_} for short, or maybe drop the _, it looks nicer. {@$}, and that represents a scope
+
+Here's how the scope changes as examples expressions are added
+_
+
+Scope<{ @$ }>         I'll omit Scope<> going forward unless it's necessary to convey something
+-------------
+Island {}
+
+{ @$  Island:{@$  $:[Decl.Island]} }
+-------------
+it = Island.new
+
+{ @$  Island:{@$  $:[Decl.Island]}  it:{@$  $:[Instance.Island]} }
+-------------
+Island {
+  Hatch {}
+}
+
+{ @$  Island:{@$  $:[Decl.Island]  Hatch:{@$  $:[Decl.Hatch]}  it:{@$  $:[Instance.Island]} }
+-------------
+Island {
+  Hatch {}
+  open_hatch {->}
+}
+
+Scope<{ @$  Island:{@$  $:[Decl.Island]  Hatch:{@$  $:[Decl.Hatch]  open_hatch:Ref(open_hatch)}  it:{@$  $:[Instance.Island]} }, @references = {open_hatch:Func_Decl}>
+-------------
+it.open_hatch
+
+it = get(it) => {@$  $:[Instance.Island]} }
+  push it onto the stack
+  $ << it
+  $ [
+    {@$  $:[Instance.Island]} }
+  ]
+
+func = get(open_hatch) => Ref(open_hatch)
+
+it.open_hatch() # called
+func = get(open_hatch) => Ref(open_hatch)
+call_expr(func) or something like that
+
+
+The question is, should Class_Decl and Func_Decls both live in references?
+
+  Ref(Island)
+  Ref(Island.Hatch)
+  Ref(open_hatch)
+
+That would reduce the scope to
+
+  { @$  Island:Ref(Island)  it:{@$  $:[Instance.Island]} }
+  self.references = {Island:Class_Decl  Island.Hatch:Class_Decl  open_hatch:Func_Decl}
+
+While evaluating Island, it's going to make a reference for Island.Hatch, so there's no need to keep this Decl.Island scope around
+
+
+  def class_decl decl => @references[decl.name] = decl
+  def func_decl decl  => @references[decl.name] = decl
+  def func_expr expr  => just gets called
+
+  def infix expr      => left = Func_Expr
+
+    id = @references[uuid] = expr.right
+    set(left.name.string, Reference(id))
+
+This expr can now be called later like `left()`
+
+An examples of merge scopes
+
+  funk { $island -> open_hatch }      # calling open_hatch via the merged scope
+  ref = @refs[funk] = Func_Decl
+  set funk, ref
+
+Call_Expr are not guaranteed to have left be a Ref
+
+  funk(it)
+  left = get(funk)
+  func_expr = if left is ref
+    @refs[left]
+  else
+    left
+  end
+
+Left is Func_Decl with a merged param/arg $island.
+
+Create a temp scope dedicated to running this func
+
+  Scope<
+    self     { @$  funk:Ref(funk)  it:{@$  $:[Instance.Island]} }
+    @stack   [ Temp_Func_Scope<{@$} stack=[]> ]
+  >
+
+Now, evaluating funk()'s only expression, `open_hatch`
+
+  last = nil
+  left.expressions.map {
+    last = run(_1)
+  }
+  last
+
+This would return Reference(open_hatch)
+
+
+When would it be a ref?         eg. left is Identifier_Expr     funk()  Class()
+When would it NOT be a ref?     eg. left is *_Expr like         {->}()  1()  ""()  {}()
+
+This is just an illustration, I'm not saying all these things respond to ()
+
+===
+
+Set arithmetic on scopes
+
+Class | This, That, & This, That ... {
+  I think you should be able to keep alternating between > and &
+
+Operators > & ~ + -
+
+  A { a }
+  B { b }
+  C { c }
+
+  A > B {}        { @ $:[A, B]  a  b }        inherit type and combine members in A, B
+  A > B - B {}    { @ $:[A, B]  a    }        inherit type, not implementation
+
+  A & B {}        { @ $:[A]          }        only mutual members of A, B
+  A ~ B {}        { @ $:[A]     b    }        members not in A
+
+  A + B {}        { @ $:[A]     a  b }        combined members A, B
+  C + A - B {}    { @ $:[C]     a    }
+
+
+1.  Union >:
+  - Combines all elements from both sets, removing duplicates.
+  - Example: {1, 2} ∪ {2, 3} = {1, 2, 3}.
+2.  Intersection (∩ or &):
+  - Returns the elements that are common to both sets.
+  - Example: {1, 2} ∩ {2, 3} = {2}.
+3.  Difference (− or \):
+  - Returns the elements that are in one set but not in the other.
+  - Example: {1, 2} − {2, 3} = {1}.
+4.  Symmetric Difference (Δ or ^):
+  - Returns the elements that are in either set, but not in their intersection.
+  - Example: {1, 2} Δ {2, 3} = {1, 3}.
+5.  Complement (~ or -):
+  - Returns the elements not in the set, typically relative to a universal set.
+  - Example: If the universal set is {1, 2, 3, 4} and the set is {2, 3}, the complement is {1, 4}.
+
+
+=end
