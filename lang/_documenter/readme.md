@@ -1,0 +1,1 @@
+Documenter should parse special comments into pleasing looking documentation. Preferably some html files, in the exact directory structure as the project, where each documentation file has a counter source file for it.

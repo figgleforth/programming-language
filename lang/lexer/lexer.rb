@@ -1,11 +1,11 @@
 require_relative 'errors'
 require_relative '../language'
-require_relative 'tokens'
+require_relative 'token'
 
+# Converts source code into tokens
+class Lexer
 
-class Tokenizer
-
-	attr_reader :i, :col, :row, :input, :tokens
+	attr_accessor :i, :col, :row, :input, :tokens
 
 	def initialize
 		@tokens = [] # final output
@@ -108,7 +108,7 @@ class Tokenizer
 	def eat expected = nil
 		if expected && expected != curr_char
 			add_to_clipboard "#{row}:#{col}"
-			raise Lexing_Error.new "Tokenizer#eat expected #{expected}, not #{curr_char.inspect}"
+			raise Lexing_Error.new "Lexer#eat expected #{expected}, not #{curr_char.inspect}"
 		end
 
 		if newline? curr_char
@@ -130,7 +130,7 @@ class Tokenizer
 		end
 
 		if expected_chars && expected_chars != it
-			raise Lexing_Error.new "Tokenizer#eat_many expected '#{expected_chars}', not #{it.inspect}"
+			raise Lexing_Error.new "Lexer#eat_many expected '#{expected_chars}', not #{it.inspect}"
 		end
 
 		it
@@ -255,7 +255,7 @@ class Tokenizer
 	# @param input [String, required] Code to lex
 	# @return [Array<Token>] Array of Tokens
 	def lex input
-		raise Lexing_Error.new('Tokenizer#lex was provided nil input') unless input
+		raise Lexing_Error.new('Lexer#lex was provided nil input') unless input
 
 		# reset state
 		@input  = input
@@ -274,7 +274,6 @@ class Tokenizer
 			multip = peek(0, 3) == Language::MULTILINE_COMMENT_CHARS
 
 			start = curr_char
-			puts "starting with #{start.inspect}"
 
 			token = \
 			   if single || multip
@@ -308,13 +307,10 @@ class Tokenizer
 				   #    make_identifier_token
 
 			   else
-				   puts "igh"
 				   make_identifier_token
 
-				   # raise Lexing_Error.new "Tokenizer#lex encountered unknown curr_char #{curr_char.inspect}"
+				   # raise Lexing_Error.new "Lexer#lex encountered unknown curr_char #{curr_char.inspect}"
 			   end
-
-			puts "started: #{start.inspect}, got token! #{token.inspect}"
 
 			token.start_index = index_before_this_lex_loop
 			token.end_index   = @i
@@ -328,3 +324,5 @@ class Tokenizer
 		@tokens.compact
 	end
 end
+
+# todo document all methods

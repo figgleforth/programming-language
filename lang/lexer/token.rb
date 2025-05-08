@@ -1,3 +1,4 @@
+# A singular piece of the programming language
 class Token
 	# include Reserved_Tokens
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env ruby
 
 require 'readline'
-require_relative '../lexer/tokenizer'
+require_relative '../lexer/lexer'
 require_relative '../parser/parser'
-require_relative '../runtime/runtime'
-require_relative '../runtime/scopes'
-require_relative '../runtime/constructs'
+require_relative '../_runtime/_runtime'
+require_relative '../_runtime/scopes'
+require_relative '../_runtime/constructs'
 require_relative '../helpers/colorize'
 
 BULLET             = '⎺'
@@ -105,7 +105,7 @@ type help for tips)
 			end
 
 			begin
-				tokens = Tokenizer.new.lex(input)
+				tokens = Lexer.new.lex(input)
 				ast    = Parser.new(tokens).output
 				output = runtime.evaluate_expressions ast
 			rescue Exception => e

@@ -216,7 +216,7 @@ class Runtime
 
 	# endregion Scopes
 
-	# This is the meat of the runtime
+	# This is the meat of the _runtime
 
 	# puts "\n\nevaluating #{expr.inspect}"
 
@@ -706,7 +706,7 @@ class Runtime
 	# @param [Func_Expr, Func_Decl] expr
 	def func_expr expr
 		ref = Reference.new(expr).tap do
-			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the runtime. Currently it is being randomized in Reference#initialize
+			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _runtime. Currently it is being randomized in Reference#initialize
 			references[_1.id] = expr
 			_1.expr           = expr
 		end
@@ -721,7 +721,7 @@ class Runtime
 		expr
 		# if x.is_a? Func_Decl # store the actual expression in a references table, and store declare this reference as the value to be given to the name
 		# 	ref = Reference.new(x).tap do
-		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the runtime. Currently it is being randomized in Reference#initialize
+		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _runtime. Currently it is being randomized in Reference#initialize
 		# 		references[_1.id] = x
 		# 		_1.expr           = x
 		# 	end
