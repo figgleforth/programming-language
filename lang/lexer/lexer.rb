@@ -1,3 +1,5 @@
+# todo document all methods
+
 require_relative 'errors'
 require_relative '../language'
 require_relative 'token'
@@ -12,6 +14,7 @@ class Lexer
 		@i      = 0 # index of current char in input string
 		@col    = 1 # short for column
 		@row    = 1 # short for line
+		@input  = ''
 	end
 
 	# Stores the index, column, and row state before calling the block.
@@ -171,9 +174,6 @@ class Lexer
 			eat while curr_char == '\\'
 		end
 
-		it = it.to_s
-		# puts "#make_identifier_token it = #{it.inspect}"
-
 		if Language::RESERVED_IDENTIFIERS.include? it
 			return create_token(Reserved_Identifier_Token) { it }
 		elsif Language::RESERVED_OPERATOR_IDENTIFIERS.include? it
@@ -197,16 +197,17 @@ class Lexer
 		it
 	end
 
+	# idea: allow comments to be inlined anywhere, ignored by autodoc and parser
+	#       foo `inlined comment` = 123
 	def eat_oneline_comment
 		it = ''
 		eat Language::COMMENT_CHAR
-		eat while whitespace?(curr_char) # skip whitespace or tab before body
+		eat while whitespace?(curr_char)
 
-		while chars_remaining? && !newline?(curr_char) # and not curr == Language::COMMENT_CHAR
+		while chars_remaining? && !newline?(curr_char)
 			it += eat
-		end
 
-		# eat if curr == Language::COMMENT_CHAR # ??? this allows comments in between expressions. I'm not sure how pleasant this would be because it breaks syntax coloring. But this makes sense to have. Imagine putting `short comments` between variables in a complex equation.
+		end
 		it
 	end
 
@@ -252,22 +253,25 @@ class Lexer
 		c.upcase == c
 	end
 
+	def reset_attrs starting_input = ''
+		@tokens = [] # final output
+		@i      = 0 # index of current char in input string
+		@col    = 1 # short for column
+		@row    = 1 # short for line
+		@input  = starting_input
+	end
+
 	# @param input [String, required] Code to lex
 	# @return [Array<Token>] Array of Tokens
-	def lex input
-		raise Lexing_Error.new('Lexer#lex was provided nil input') unless input
+	def lex input_source
+		raise Lexing_Error.new('Lexer#lex: input is nil') unless input_source
 
-		# reset state
-		@input  = input
-		@tokens = []
-		@i      = 0
-		@col    = 1
-		@row    = 1
+		reset_attrs input_source
 
 		while chars_remaining?
-			index_before_this_lex_loop = @i
-			col_before_this_lex_loop   = @col
-			row_before_this_lex_loop   = @row
+			index_before_this_lex_loop = i
+			col_before_this_lex_loop   = col
+			row_before_this_lex_loop   = row
 
 			# comment checks
 			single = curr_char == Language::COMMENT_CHAR
@@ -283,13 +287,14 @@ class Lexer
 			   elsif curr_char == '\\'
 				   eat and next
 
-			   elsif %W( , \s \n \r \t ).include? curr_char
+			   elsif %W(; , \s \n \r \t ).include? curr_char
 				   if curr_char == ','
 					   create_token(Delimiter_Token) { eat }
 
 				   elsif %W(\n \r \t).include? curr_char
 					   token = create_token(Delimiter_Token) { eat }
-					   reduce_delimiters and token
+					   reduce_delimiters
+					   token
 
 				   elsif curr_char == "\s"
 					   eat and next
@@ -303,26 +308,23 @@ class Lexer
 			   elsif curr_char == '"' || curr_char == "'"
 				   create_token(String_Token) { eat_string }
 
-				   # elsif identifier? curr_char
-				   #    make_identifier_token
-
 			   else
 				   make_identifier_token
-
-				   # raise Lexing_Error.new "Lexer#lex encountered unknown curr_char #{curr_char.inspect}"
 			   end
 
+			unless token
+				raise Lexing_Error.new("Lexer#lex encountered a nil token.")
+			end
+
 			token.start_index = index_before_this_lex_loop
-			token.end_index   = @i
-			token.column      = col_before_this_lex_loop + (@i - index_before_this_lex_loop) - 1
+			token.end_index   = i
+			token.column      = col_before_this_lex_loop + (i - index_before_this_lex_loop) - 1
 			token.line        = row_before_this_lex_loop
 
-			@tokens << token
+			tokens << token
 		end
 
-		@tokens << EOF_Token.new
-		@tokens.compact
+		tokens << EOF_Token.new
+		tokens.compact
 	end
 end
-
-# todo document all methods

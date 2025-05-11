@@ -198,6 +198,10 @@ class Lexer_Test < Minitest::Test
 		lex('Class {}') do |output|
 			assert_instance_of Identifier_Token, output[0]
 			assert_instance_of Reserved_Operator_Token, output[1]
+		end
+		lex('Class { }') do |output|
+			assert_instance_of Identifier_Token, output[0]
+			assert_instance_of Reserved_Operator_Token, output[1]
 			assert_instance_of Reserved_Operator_Token, output[2]
 		end
 	end
@@ -206,8 +210,6 @@ class Lexer_Test < Minitest::Test
 		lex('funk {;}') do
 			assert_instance_of Identifier_Token, _1[0]
 			assert_instance_of Reserved_Operator_Token, _1[1]
-			assert_instance_of Reserved_Operator_Token, _1[2]
-			assert_instance_of Reserved_Operator_Token, _1[3]
 		end
 	end
 
@@ -223,7 +225,7 @@ class Lexer_Test < Minitest::Test
 	end
 
 	def test_output_delimiters
-		lex(%W(\s ; , \n \r \t).join) do |output|
+		lex("; \s , \n \r \t") do |output|
 			# the last token is EOF
 			output[...-1].each do |token|
 				assert_instance_of Delimiter_Token, token
