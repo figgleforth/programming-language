@@ -1,7 +1,8 @@
 require_relative 'token'
 
-# todo too many duplicate declarations %w() with parens, braces, etc
 # todo document all methods
+# todo too many duplicate declarations %w() with parens, braces, etc
+
 class Lexer
 	RESERVED = %w(
 		! ? ?? !! : ; .. >. .< ><
@@ -25,21 +26,24 @@ class Lexer
 		@input = input
 	end
 
-	# @return [Boolean] true when the current char is a tab or space
 	def whitespace? char
 		char == "\t" || char == "\s" || char&.match?(/[ \t]/)
 	end
 
 	def newline? char
-		%W(\r\n \t).include? char # \r\n is for Windows
+		%W(\r\n \t \n).include? char
 	end
 
 	def delimiter? char
-		%W(; , \n \t \r \s).include?(char)
+		%W(; , \n \t \r \s).include? char
 	end
 
 	def structure? char
 		%w(, ; { } ( ) [ ]).include? char
+	end
+
+	def identifier? char
+		char == '_' || alpha?(char)
 	end
 
 	def numeric? char
@@ -58,10 +62,6 @@ class Lexer
 		char&.match? /\A[^\p{Alnum}\s]+\z/
 	end
 
-	def identifier? char
-		char == '_' || alpha?(char)
-	end
-
 	def chars_remaining?
 		i < input.length
 	end
@@ -75,9 +75,6 @@ class Lexer
 		input[i - 1]
 	end
 
-	# @param offset_from_curr [Integer] from the current character to start
-	# @param length [Integer] of characters to peek
-	# @return [String] of given length
 	def peek offset_from_curr = 1, length = 1
 		input[i + offset_from_curr, length]
 	end
@@ -121,7 +118,6 @@ class Lexer
 	end
 
 	def eat_number
-		eat if curr_char == '_'
 		it    = String.new
 		valid = %w(. _)
 
@@ -137,8 +133,6 @@ class Lexer
 		it
 	end
 
-	#? comments to be inlined anywhere and ignored by autodoc, parser, etc
-	#- foo `inlined comment` = 123
 	def eat_oneline_comment
 		it = ''
 		eat '`'
@@ -187,19 +181,16 @@ class Lexer
 
 	def eat_operator
 		oper     = String.new
-		reserved = %w(. ; { })
+		reserved = %w(. ; { } ( ) [ ])
 
 		while chars_remaining? && symbol?(curr_char)
 			oper << eat
-			break if reserved.include? oper
+			break if reserved.include? curr_char
 		end
 
 		oper
 	end
 
-	# - begin with @ or _ or #
-	# - contain alphanueric or _
-	# - end alhpanumeric or ! or ?
 	def eat_identifier
 		ident = String.new
 		ident << eat while curr_char == '_'
@@ -217,8 +208,6 @@ class Lexer
 		ident
 	end
 
-	# @param input [String, required] Code to lex
-	# @return [Array<Token>] Array of Tokens
 	def output
 		tokens = []
 		while chars_remaining?
@@ -244,7 +233,7 @@ class Lexer
 					reduce_delimiters unless %w(, ;).include? it.value
 					next if %W(\s \t).include? it.value
 
-				elsif numeric?(curr_char) || (%w(. _).include?(curr_char) && numeric?(peek))
+				elsif numeric?(curr_char) || (%w(.).include?(curr_char) && numeric?(peek))
 					it.type  = :number
 					it.value = eat_number
 
