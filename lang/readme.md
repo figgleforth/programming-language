@@ -6,6 +6,6 @@
 
 ---
 
-[/lang](./lang) contains the source code. Folders beginning in underscores are placeholders or various forms of stubs for what I want to implement.
+[`/lang`](./lang) folder contains the source code. Folders beginning in underscores are placeholders or various forms of stubs for what I want to implement.
 
-[/test.rb](./test.rb) shows how to parse the main readme.txt as source code.
+[`./test.rb`](./test.rb) shows how to parse the main `readme.txt` as source code.
