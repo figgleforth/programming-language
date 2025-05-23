@@ -1,23 +1,56 @@
-require_relative 'token'
-
 # todo document all methods
-# todo too many duplicate declarations %w() with parens, braces, etc
+
+Token = Struct.new('Token', :type, :value, :reserved, :line, :column) do
+	def is compare
+		if compare.is_a? Symbol
+			type == compare
+		elsif compare.is_a? String
+			value == compare
+		else
+			self == compare
+		end
+	end
+
+	def to_s
+		"#{value}(#{type})"
+	end
+
+	def location
+		"#{line}:#{column}"
+	end
+end
 
 class Lexer
+	attr_accessor :i, :col, :row, :input
+
+	INFIX = %w(
+		+ - * ** / % ~ = == === ? . :
+		+= -= *= |= /= %= &= ^= != <= >=
+		&& || & | << >>
+		.. >. .< ><
+		and or
+	).sort_by { -it.size }.freeze
+
+	PREFIX = %w(! - + ~ @ # ? & ^ ./ ../ .../).sort_by { -it.size }.freeze
+
+	POSTFIX = %w(; =; :)
+
 	RESERVED = %w(
-		! ? ?? !! : ; .. >. .< ><
-		@ .@ .? ./ ../ .../ [ { ( , _ . ) } ]
+		[ { ( , _ . ) } ] : ;
+		+ - * ** / % ~ = == ===
 		+= -= *= |= /= %= &= ^= != <= >= =;
-		&& || & | << >> ` ```
-		+ - ~ = * ** :: ? : / %
+		! ? ?? !! && || & | << >>
+		.. >. .< ><
+		@ ./ ../ .../
+		``` `
+
 		if elsif elif else
 		while elswhile elwhile
 		unless until true false nil
-		skip stop and or
-		return
-	).sort_by { -_1.size }.freeze
+		skip stop and or return
+	).sort_by { -it.size }.freeze
 
-	attr_accessor :i, :col, :row, :input
+	COMMENT_CHAR = '`'.freeze
 
 	def initialize input = 'greeting = "hello world"'
 		@i     = 0 # index of current char in input string
@@ -26,73 +59,63 @@ class Lexer
 		@input = input
 	end
 
-	def whitespace? char
+	def whitespace? char = curr
 		char == "\t" || char == "\s" || char&.match?(/[ \t]/)
 	end
 
-	def newline? char
-		%W(\r\n \t \n).include? char
+	def newline? char = curr
+		%W(\r\n \t \n).include? char = curr
 	end
 
-	def delimiter? char
-		%W(; , \n \t \r \s).include? char
+	def delimiter? char = curr
+		%W(, \n \t \r \s).include? char = curr
 	end
 
-	def structure? char
-		%w(, ; { } ( ) [ ]).include? char
-	end
-
-	def identifier? char
+	def identifier? char = curr
 		char == '_' || alpha?(char)
 	end
 
-	def numeric? char
+	def numeric? char = curr
 		char&.match? /\A\d+\z/
 	end
 
-	def alpha? char
+	def alpha? char = curr
 		char&.match? /\A\p{Alpha}+\z/
 	end
 
-	def alphanumeric? char
+	def alphanumeric? char = curr
 		char&.match? /\A\p{Alnum}+\z/
 	end
 
-	def symbol? char
+	def symbol? char = curr
 		char&.match? /\A[^\p{Alnum}\s]+\z/
 	end
 
-	def chars_remaining?
+	def chars?
 		i < input.length
 	end
 
-	def curr_char
-		input[i]
-	end
-
-	def prev_char
+	# input[i - 1]
+	def prev
 		return nil if i <= 0
 		input[i - 1]
+	end
+
+	# input[i]
+	def curr
+		input[i]
 	end
 
 	def peek offset_from_curr = 1, length = 1
 		input[i + offset_from_curr, length]
 	end
 
-	def add_to_clipboard text
-		IO.popen('pbcopy', 'w') do |clipboard|
-			clipboard << text
-			puts "Added #{text} to clipboard"
-		end
-	end
-
 	def eat expected = nil
-		if expected && expected != curr_char
-			add_to_clipboard "#{row}:#{col}"
-			raise "#eat expected #{expected} not #{curr_char.inspect}"
+		if expected && expected != curr
+			raise "#eat expected #{expected} not #{curr.inspect}"
 		end
 
-		if newline? curr_char
+		if newline? curr
 			@row += 1
 			@col = 1
 		else
@@ -100,74 +123,74 @@ class Lexer
 		end
 		@i += 1
 
-		prev_char
+		prev
 	end
 
-	def eat_many length = 1, expected_chars = nil
+	def lex_many length = 1, expected_chars = nil
 		it = ''
-		while chars_remaining? && length > 0
+		while chars? && length > 0
 			it     += eat
 			length -= 1
 		end
 
 		if expected_chars && expected_chars != it
-			raise "#eat_many expected '#{expected_chars}' not #{it.inspect}"
+			raise "#lex_many expected '#{expected_chars}' not #{it.inspect}"
 		end
 
 		it
 	end
 
-	def eat_number
+	def lex_number
 		it    = String.new
 		valid = %w(. _)
 
-		while chars_remaining? && (numeric?(curr_char) || valid.include?(curr_char))
-			if curr_char == '.' && !numeric?(peek)
+		while chars? && (numeric? || valid.include?(curr))
+			if curr == '.' && !numeric?(peek)
 				break
 			end
 
 			it += eat
-			eat while curr_char == '_'
-			break if it.include?('.') && curr_char == '.'
+			eat while curr == '_'
+			break if it.include?('.') && curr == '.'
 		end
 		it
 	end
 
-	def eat_oneline_comment
+	def lex_oneline_comment
 		it = ''
 		eat '`'
-		eat while whitespace?(curr_char)
+		eat while whitespace?
 
-		while chars_remaining? && !newline?(curr_char)
+		while chars? && !newline?
 			it += eat
 
 		end
 		it
 	end
 
-	def eat_multiline_comment
-		marker = eat_many 3, '```'
+	def lex_multiline_comment
+		marker = lex_many 3, '```'
 		it     = ''
 
-		eat while whitespace?(curr_char) || newline?(curr_char)
+		eat while whitespace? || newline?
 
-		while chars_remaining? && peek(0, 3) != marker
+		while chars? && peek(0, 3) != marker
 			it += eat
-			if newline?(curr_char) # preserve one newline
+			if newline? # preserve one newline
 				it += eat
-				eat while newline?(curr_char)
+				eat while newline?
 			end
 		end
 
-		eat_many 3, marker
+		lex_many 3, marker
 		it
 	end
 
-	def eat_string
+	def lex_string
 		it    = ''
 		quote = eat
 
-		while chars_remaining? && curr_char != quote
+		while chars? && curr != quote
 			it += eat
 		end
 
@@ -176,30 +199,26 @@ class Lexer
 	end
 
 	def reduce_delimiters
-		eat while (delimiter?(curr_char) && prev_char == curr_char)
+		eat while (delimiter? && prev == curr)
 	end
 
-	def eat_operator
-		oper     = String.new
-		reserved = %w(. ; { } ( ) [ ])
-
-		while chars_remaining? && symbol?(curr_char)
+	def lex_operator
+		oper = String.new
+		while chars? && symbol?
 			oper << eat
-			break if reserved.include? curr_char
 		end
-
 		oper
 	end
 
-	def eat_identifier
+	def lex_identifier
 		ident = String.new
-		ident << eat while curr_char == '_'
+		ident << eat while curr == '_'
 		can_end_with = %w(! ?)
 
-		while chars_remaining? && identifier?(curr_char)
+		while chars? && (identifier? || numeric?)
 			ident << eat
-			break if newline?(curr_char) || whitespace?(curr_char) || curr_char == '#'
-			if can_end_with.include? curr_char
+			break if newline? || whitespace? || curr == '#'
+			if can_end_with.include? curr
 				ident << eat
 				break
 			end
@@ -208,10 +227,37 @@ class Lexer
 		ident
 	end
 
+	def identifier_type ident
+		def constant? ident # all upper, LIKE_THIS
+			test = ident&.gsub('_', '')&.gsub('%', '')
+			test&.chars&.all? { |c| c.upcase == c }
+		end
+
+		def class? ident # capitalized, Like_This or This
+			ident[0] && ident[0].upcase == ident[0] && !constant?(ident)
+		end
+
+		def member? ident # lowercased start, lIKE_THIS or thIS or this
+			ident[0] && ident[0].downcase == ident[0]
+		end
+
+		without_leading__ = ident.gsub(/^#{Regexp.escape('_')}+/, '')
+		if constant? without_leading__
+			:IDENTIFIER
+		elsif class? without_leading__
+			:Identifier
+		elsif member? without_leading__
+			:identifier
+		else
+			raise "unknown identifier type #{ident.inspect}"
+		end
+	end
+
 	def output
 		tokens = []
-		while chars_remaining?
-			single    = curr_char == '`'
+
+		while chars?
+			single    = curr == '`'
 			multiline = peek(0, 3) == '```'
 
 			token = Token.new.tap do
@@ -221,48 +267,52 @@ class Lexer
 				if single || multiline
 					it.type  = :comment
 					it.value = if multiline
-						eat_multiline_comment
+						lex_multiline_comment
 					else
-						eat_oneline_comment
+						lex_oneline_comment
 					end
 
-				elsif delimiter? curr_char
+				elsif delimiter? curr
 					it.type  = :delimiter
 					it.value = eat
-
 					reduce_delimiters unless %w(, ;).include? it.value
-					next if %W(\s \t).include? it.value
 
-				elsif numeric?(curr_char) || (%w(.).include?(curr_char) && numeric?(peek))
+				elsif numeric?
 					it.type  = :number
-					it.value = eat_number
+					it.value = lex_number
 
-				elsif %w(' ").include? curr_char
+				elsif %w(' ").include? curr
 					it.type  = :string
-					it.value = eat_string
+					it.value = lex_string
 
-				elsif identifier?(curr_char) || %w(_).include?(curr_char)
-					it.type  = :identifier
-					it.value = eat_identifier
+				elsif identifier? || %w(_).include?(curr)
+					it.value = lex_identifier
+					it.type  = identifier_type it.value
 
-				elsif symbol? curr_char
-					it.type  = :operator
-					it.value = if %w(. ; { } ( ) [ ]).include? curr_char
-						eat
+				elsif symbol? curr
+					it.type = :operator
+					it.value = if %w(. ; { } ( ) [ ]).include? curr
+						if curr == '.' && (peek == '.' || peek == '<')
+							lex_operator
+						else
+							eat
+						end
 					else
-						eat_operator
+						lex_operator
 					end
 
 				else
-					raise "#output unlexed char #{curr_char.inspect}"
+					raise "#output unlexed char #{curr.inspect}"
 				end
 			end
+
+			next if whitespace? token.value
+			next if token.type == :comment
 
 			token.reserved = RESERVED.include? token.value
 			tokens << token
 		end
 
-		tokens << Token.new(:eof, eat, true, row, col)
 		tokens.compact
 	end
 end
