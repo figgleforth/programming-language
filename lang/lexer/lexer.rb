@@ -60,7 +60,7 @@ class Lexer
 	end
 
 	def whitespace? char = curr
-		char == "\t" || char == "\s" || char&.match?(/[ \t]/)
+		char == "\t" || char == "\s"
 	end
 
 	def newline? char = curr
@@ -290,7 +290,7 @@ class Lexer
 					it.type  = identifier_type it.value
 
 				elsif symbol? curr
-					it.type = :operator
+					it.type  = :operator
 					it.value = if %w(. ; { } ( ) [ ]).include? curr
 						if curr == '.' && (peek == '.' || peek == '<')
 							lex_operator

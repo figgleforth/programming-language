@@ -1,44 +1,71 @@
-123
-2.3
--4.2
--123
-+123
+``` Multiline comment
+
+See ./test.rb for lexing and parsing this readme.
+```
+
+`Numbers
+48
+1.5
+-1.6
+-2.3
++4.2
+
+`Arithmetic
 1 + 2 * 3 / 4
 (1 + 2) * 3
 1 + (2 * 3)
+
+`Prefix
 -test1
 @test2
 !test3
 #test4
-an_ident
-a.b.c
+
+``` Declarations
+Variables and functions must start lowercase.
+Class/Types must start uppercase.
+Constants must be ALL_CAPS.
+```
+nothing =; `short for = nil
+nothing; `short for = ni;
 assigned = 5
 
+CONSTANT = {
+	FOO = 0
+	BOO = {
+		MOO = 1
+	}
+}
 
-nothing =;
-nope;
-Atom;
-NONE;
+a.b.c
 
+`function syntax
+name_of_function { params_before_colon;
+	"body after colon"
+}
+
+`anonymous functions
 {;}
-named_func {;}
 { some_param; "`some_param`" }
 
-funk = { label param;
+`assignable and called the same way though, so it's identical to a normal function declaration
+funk = { param;
 	param
 }
 
+function_with_label { it internal_name;
+	do_something(internal_name)
+}
+
 {} `empty hash or dict
-{ b= 2 } `keys[b] var_decl[b]
-{ a = 2, b = 3 }
+{ b = 2 } `keys contains b
+{ a = 2, b = 3 } `keys contains a and b
 
-dict = { funk_ref = #funk }
-{ object_a = object_b } `as long as each object can be hashed
-
-Empty {}
+Empty_Type {
+}
 
 Transform {
-	position
+	position `identifiers in type body is the only place it's is considered a nil declaration. Elsewhere it is an expression. Makes for really simple types like My_Type { this that etc }
 	rotation;
 
 	move { delta;
@@ -46,48 +73,38 @@ Transform {
 	}
 }
 
-Composition_Example {
-	& Ghi
-	^ Jkl
-	- Mno
-	| Pqr
-	1 & 2 `making sure this still parses as infix after adding & and ^ to Lexer::PREFIX
-
-	variable
-	variable;
-	variable=;
+Composed_Type { `composition over inheritance
+	| Transform
+	& Foo
+	^ Boo
+	- Moo
 }
 
-Inline_Composition | Empty {}
+Complex_Inline | Foo & Boo ^ Moo - Poo | Composed_Type {}
 
-Complex | Inline_Composition & Composition_Example ^ Another - Last | Just_Kidding {
-	1 - 2
-	-2
-`	& This - That `doesn't work
-}
-
+`testing prefixes with dot access
+obj.?test `?ident is like &. in ruby
 obj.@test
 obj.#test
-obj.?test `?ident is like &. in ruby
 
+`ranges
 2>.6 `excludes 2, includes 6
 3><7
 1..5
 4.<8
 1.0..2.0
 
-CONSTANT = {
-	THIS = 0
-}
-
+`underscored declarations are private
 _Type {
-	nothing
-	no_thing;
+	_nothing
+	_something = 2
 }
 
-_variable;
-variable! = 2 `! and ? allowed
+`! and ? allowed in vars, funcs, and types
+variable! = 2
 var? = 3
+My_Type!;
+My_Type?;
 
 lots_of_params { aa a, bb b, cc c, d, e; }
 a ? b : c `(a ? (b : c)) until another phase corrects it to conditional expression
@@ -120,8 +137,25 @@ end
 ../global.c
 .../third.d
 
-x = 5
-2x
-3x
+`shorthand for multiplication
+g = 9.8
+2g
+GRAVITY = 9.8
+3GRAVITY
+5kg
+2gether single identifier)
+4x4
 
-[1, 2, 3]
+
+`arrays
+array = [1, 2, 3]
+3 * Transform.new `runtime should create array of 3 instances
+
+`strings
+fun = 'yes'
+fun! = "single and double quotes equivalent `fun`"
+is_programming_fun? = 'interpolate fun with backtick `fun!`'
+!a.b
+
+(1,2) `tuples
+(4,5,) `trailing comma is fine

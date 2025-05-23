@@ -356,7 +356,7 @@ class Parser
 					it.operator = eat.value
 					it.right    = begin_expression curr_operator_prec
 					unless it.right
-						raise "Infix_Expr expected an expression after `#{it.operator.inspect}` (#{it.operator.line}:#{it.operator.line})"
+						raise "it.right is nil\n\nexpr: #{it.inspect}\ncurr: #{curr.inspect}"
 					end
 				end
 			end
