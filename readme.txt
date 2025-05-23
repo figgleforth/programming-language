@@ -57,12 +57,13 @@ function_with_label { it internal_name;
 	do_something(internal_name)
 }
 
+lots_of_params_with_labels { aa a, bb b, cc c, d, e; }
+
 {} `empty hash or dict
 { b = 2 } `keys contains b
 { a = 2, b = 3 } `keys contains a and b
 
-Empty_Type {
-}
+Empty_Type {}
 
 Transform {
 	position `identifiers in type body is the only place it's is considered a nil declaration. Elsewhere it is an expression. Makes for really simple types like My_Type { this that etc }
@@ -80,9 +81,40 @@ Composed_Type { `composition over inheritance
 	- Moo
 }
 
-Complex_Inline | Foo & Boo ^ Moo - Poo | Composed_Type {}
+Complex_Inline | Foo & Boo ^ Moo - Poo | Composed_Type {
+}
 
-`testing prefixes with dot access
+`Functions and Types use {} for body grouping
+`Control flow only uses `end` to terminate body
+if 1
+	'one'
+elif 2
+	'two'
+elsif 3
+	'three'
+else
+	'idk'
+end
+
+while 1
+	'one!'
+elwhile 2
+	'why not?'
+elswhile 3
+	'three!'
+else
+	'idk!'
+end
+
+a ? b : c `(a ? (b : c)) until another phase corrects it to conditional expression
+
+./local `./ is equivalent to self in Ruby
+../global `../ is the global scope
+.../third `.../ is the third party code
+
+./a.b.c.d
+
+`Testing prefixes with dot access
 obj.?test `?ident is like &. in ruby
 obj.@test
 obj.#test
@@ -106,34 +138,7 @@ var? = 3
 My_Type!;
 My_Type?;
 
-lots_of_params { aa a, bb b, cc c, d, e; }
-a ? b : c `(a ? (b : c)) until another phase corrects it to conditional expression
 
-if 1
-	'one'
-elif 2
-	'two'
-elsif 3
-	'three'
-else
-	'idk'
-end
-
-while 1
-	'one!'
-elwhile 2
-	'two!'
-elswhile 3
-	'three!'
-else
-	'idk!'
-end
-
-./local `./ is equivalent to self in Ruby
-../global `../ is the global scope
-.../third `.../ is the third party code
-
-./a.b.c.d
 
 `shorthand for multiplication
 g = 9.8
@@ -143,7 +148,6 @@ GRAVITY = 9.8
 5kg
 2gether
 4x4
-
 
 `arrays
 array = [1, 2, 3]
