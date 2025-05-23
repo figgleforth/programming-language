@@ -1,6 +1,6 @@
-``` Multiline comment
-
-See ./test.rb for lexing and parsing this readme.
+```
+This is a multiline comment.
+Read lang/test.rb to see how this readme is used as example source code for the lexer and parser, and soon runtime.
 ```
 
 `Numbers
@@ -21,13 +21,15 @@ See ./test.rb for lexing and parsing this readme.
 !test3
 #test4
 
-``` Declarations
+```
+Declarations:
 Variables and functions must start lowercase.
 Class/Types must start uppercase.
 Constants must be ALL_CAPS.
 ```
 nothing =; `short for = nil
 nothing; `short for = ni;
+
 assigned = 5
 
 CONSTANT = {
@@ -36,8 +38,6 @@ CONSTANT = {
 		MOO = 1
 	}
 }
-
-a.b.c
 
 `function syntax
 name_of_function { params_before_colon;
@@ -129,13 +129,11 @@ else
 	'idk!'
 end
 
-./self
-../global
-.../third
+./local `./ is equivalent to self in Ruby
+../global `../ is the global scope
+.../third `.../ is the third party code
 
-./self.a.b.c
-../global.c
-.../third.d
+./a.b.c.d
 
 `shorthand for multiplication
 g = 9.8
@@ -143,7 +141,7 @@ g = 9.8
 GRAVITY = 9.8
 3GRAVITY
 5kg
-2gether single identifier)
+2gether
 4x4
 
 
