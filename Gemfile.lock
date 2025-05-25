@@ -1,6 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    awesome_print (1.9.2)
     minitest (5.25.4)
 
 PLATFORMS
@@ -8,6 +9,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  awesome_print
   minitest (= 5.25.4)
 
 RUBY VERSION

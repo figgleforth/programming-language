@@ -11,6 +11,10 @@ Token = Struct.new('Token', :type, :value, :reserved, :line, :column) do
 		end
 	end
 
+	def isnt compare
+		is(compare) == false
+	end
+
 	def to_s
 		"#{value}(#{type})"
 	end
@@ -24,16 +28,16 @@ class Lexer
 	attr_accessor :i, :col, :row, :input
 
 	INFIX = %w(
-		+ - * ** / % ~ = == === ? . :
+		+ - * ** / % ~ = == === ? .
 		+= -= *= |= /= %= &= ^= != <= >=
 		&& || & | << >>
 		.. >. .< ><
 		and or
 	).sort_by { -it.size }.freeze
 
-	PREFIX = %w(! - + ~ @ # ? & ^ ./ ../ .../).sort_by { -it.size }.freeze
+	PREFIX = %w(! - + ~ # @ ? & ^ ./ ../ .../).sort_by { -it.size }.freeze
 
-	POSTFIX = %w(; =; :)
+	POSTFIX = %w(=;)
 
 	RESERVED = %w(
 		[ { ( , _ . ) } ] : ;
@@ -64,11 +68,11 @@ class Lexer
 	end
 
 	def newline? char = curr
-		%W(\r\n \t \n).include? char = curr
+		%W(\r\n \t \n).include? char
 	end
 
 	def delimiter? char = curr
-		%W(, \n \t \r \s).include? char = curr
+		%W(, \n \t \r \s).include? char
 	end
 
 	def identifier? char = curr
@@ -204,7 +208,7 @@ class Lexer
 
 	def lex_operator
 		oper = String.new
-		while chars? && symbol?
+		while chars? && symbol? && curr != '`'
 			oper << eat
 		end
 		oper
@@ -306,7 +310,7 @@ class Lexer
 				end
 			end
 
-			next if whitespace? token.value
+			next if whitespace?(token.value) && token.type != :string
 			next if token.type == :comment
 
 			token.reserved = RESERVED.include? token.value

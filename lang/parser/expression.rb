@@ -1,6 +1,6 @@
 require 'pp'
 
-# todo clean up attrs
+# todo clean up this whole thing
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location
@@ -11,7 +11,7 @@ class Expression
 
 	def is other
 		if other.is_a?(Symbol) || other.is_a?(String)
-			value == other
+			value == other || type == other
 		else
 			raise 'Cannot == except with String or Symbol'
 		end
@@ -45,23 +45,10 @@ class Func_Expr < Expression
 			n << '}'
 		end
 	end
-
-	def to_s
-		signature
-	end
 end
 
 class Func_Decl < Func_Expr
 	attr_accessor :name
-
-	def to_s
-		word = if expressions.count == 1
-			'expression'
-		else
-			'expressions'
-		end
-		"#{self.class.name}(#{name.value}{#{param_decls.join(', ')}; #{expressions.map(&:to_s)}})"
-	end
 end
 
 # get '/' home {;}
@@ -79,10 +66,6 @@ end
 
 class Operator_Decl < Func_Decl
 	attr_accessor :fix # pre, in, post, circumfix
-
-	def to_s
-		"#{fix.value} #{name.value} {#{param_decls.map(&:name).map(&:value).join(',')};}"
-	end
 end
 
 class Param_Decl < Expression
@@ -100,14 +83,6 @@ end
 
 class Param_Expr < Expression
 	attr_accessor :expression, :label
-
-	def to_s
-		if label
-			"#{label.value}: #{expression}"
-		else
-			expression.to_s
-		end
-	end
 end
 
 class Type_Decl < Expression
@@ -118,46 +93,29 @@ class Type_Decl < Expression
 		@composition_exprs = []
 		@expressions       = []
 	end
-
-	def to_s
-		"#{identifier}{c:#{composition_exprs.map(&:to_s)}, e:#{expressions.map(&:to_s)}}"
-	end
 end
 
+# Useful reading
+# https://stackoverflow.com/a/18533211/1426880
+# https://stackoverflow.com/a/1235891/1426880
 class Number_Expr < Expression
 	attr_accessor :type, :decimal_position
 
 	def initialize number
-		@value = number
+		self.value = number
 	end
 
 	def value= val
 		@value = val.gsub('_', '')
-		if val[0] == '.'
-			@type             = :float
-			@decimal_position = :start
-		elsif val[-1] == '.'
-			@type             = :float
-			@decimal_position = :end
-		elsif val&.include? '.'
-			@type             = :float
-			@decimal_position = :middle
+
+		if @value.include?('.')
+			@value = @value.to_f
+			@type  = :float
 		else
-			@type = :int
+			@value = @value.to_i
+			@type  = :integer
 		end
 	end
-
-	def to_s
-		value
-	end
-
-	# def to_s
-	# 	"#{self.class.name}(#{string})"
-	# end
-
-	# Useful reading
-	# https://stackoverflow.com/a/18533211/1426880
-	# https://stackoverflow.com/a/1235891/1426880
 end
 
 class Symbol_Expr < Expression
@@ -173,22 +131,14 @@ class String_Expr < Expression
 		super string
 		@interpolated = string.include? Lexer::COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
 	end
-
-	def to_s
-		value.inspect
-	end
 end
 
 class Dict_Expr < Expression
 	attr_accessor :expressions # holds Infix_Exprs
 
 	def initialize
-		super
+		super nil
 		@expressions = []
-	end
-
-	def to_s
-		"Dict(#{expressions.count}){#{expressions.map(&:to_s)}}"
 	end
 end
 
@@ -196,29 +146,17 @@ class Array_Expr < Expression
 	attr_accessor :elements
 
 	def initialize
-		super
+		super nil
 		@elements = []
-	end
-
-	def to_s
-		"[#{elements.map(&:to_s).join(',')}]"
 	end
 end
 
 class Prefix_Expr < Expression
 	attr_accessor :operator, :expression
-
-	def to_s
-		"Prefix(#{operator}#{expression.to_s})"
-	end
 end
 
 class Postfix_Expr < Expression
 	attr_accessor :operator, :expression
-
-	def to_s
-		"Postfix(#{expression}#{operator}))"
-	end
 end
 
 class Infix_Expr < Expression
@@ -227,41 +165,34 @@ class Infix_Expr < Expression
 	def initialize
 		super
 	end
-
-	def to_s
-		"Infix(#{left&.value || left.to_s} #{operator} #{right&.value || right.to_s})"
-	end
 end
 
-class Circumfix_Expr < Expression # one or more comma, or maybe even space-separated, expressions
-	# @return [Array] of comma separated expressions that make up this Expr
+class Circumfix_Expr < Expression
 	attr_accessor :grouping, :expressions
 
 	def initialize(grouping = '(')
 		@expressions = []
 		@grouping    = grouping
 	end
-
-	def empty?
-		expressions.empty?
-	end
-
-	def to_s
-		"Set#{grouping[0]}#{expressions.map(&:to_s).join(', ')}#{grouping[1]}"
-	end
 end
 
 class Operator_Expr < Expression
 	attr_accessor :custom, :precedence
-
-	def to_s
-		"#{value}"
-	end
 end
 
 class Identifier_Expr < Expression
-	def to_s
-		value
+	def type
+		@type || inferred_type
+	end
+
+	def inferred_type
+		if value == value&.upcase
+			:IDENTIFIER
+		elsif value[0] == value[0]&.upcase
+			:Identifier
+		else
+			:identifier
+		end
 	end
 end
 
@@ -270,15 +201,10 @@ end
 
 class Composition_Expr < Expression
 	attr_accessor :operator, :expression
-
-	def to_s
-		"Comp(#{operator}#{expression})"
-	end
 end
 
 class Class_Composition_Expr < Composition_Expr
 	attr_accessor :alias_identifier
-
 end
 
 class Conditional_Expr < Expression
@@ -289,10 +215,9 @@ class Conditional_Expr < Expression
 		@when_true  = []
 		@when_false = []
 	end
-
 end
 
-class Raise_Expr < Expression # expressions that can halt the program. Right now that's oops and >~
+class Raise_Expr < Expression
 	attr_accessor :name, :expression
 end
 
@@ -306,28 +231,13 @@ end
 class Call_Expr < Expression
 	attr_accessor :receiver, :arguments
 
-	#
-	def to_s
-		"#{receiver}(#{arguments.join(', ')})"
+	def initialize receiver
+		super nil
+		@receiver  = receiver
+		@arguments = []
 	end
 end
 
 class Enum_Decl < Expression
-=begin
-
-CONST = some_expression
-WEIRD_ALPHABET {
-	A
-	B {
-		C
-	}
-}
-
-WEIRD_ALPHABET.A
-WEIRD_ALPHABET.B
-WEIRD_ALPHABET.B.C
-WEIRD_ALPHABET.A.D
-
-=end
 	attr_accessor :identifier, :expression
 end
