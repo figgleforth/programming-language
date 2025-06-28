@@ -35,7 +35,7 @@ end
 
 class Runtime
 	# todo Runtime should be Runtime < Global < Hash itself. Then it can be the global scope but with a stack built in. In the future, this will be able to read lang from files, and insert their declarations
-	attr_accessor :stack, :expressions, :warnings, :errors, :references, :last_evaluated
+	attr_accessor :scope_stack, :expressions, :warnings, :errors, :references, :last_evaluated
 
 	def initialize expressions = []
 		@expressions = expressions
@@ -92,15 +92,15 @@ class Runtime
 	end
 
 	def pop_scope
-		stack.pop unless stack.one?
+		scopes.pop unless scopes.one?
 	end
 
 	def curr_scope
-		stack.compact.last
+		scopes.compact.last
 	end
 
 	def get_farthest_scope scope_type = nil
-		return stack.first if stack.one?
+		return scopes.first if scopes.one?
 		raise '#get_farthest_scope expected a scope type so it can create a hash of that type' if scope_type and not scope_type.is_a? Scopes::Scope
 
 		# this merges two hashes into one hash. @todo get the reference to this, it was something off stackoverflow
@@ -110,7 +110,7 @@ class Runtime
 			{}
 		end
 		[].tap do |array|
-			stack.reverse_each do |scope|
+			scopes.reverse_each do |scope|
 				break if scope.is_a? Scopes::Static # stop looking, can't go further
 				array << scope
 				# all other blocks can be looked through
@@ -154,7 +154,7 @@ class Runtime
 			end
 		end if curr_scope.respond_to? :compositions
 
-		stack.reverse_each do |it|
+		scopes.reverse_each do |it|
 			next unless it.respond_to? :get_scope_with
 
 			it.get_scope_with ident do |scope|
@@ -169,7 +169,7 @@ class Runtime
 			end
 		end unless value
 
-		value = stack.first[ident] if value.nil?
+		value = scopes.first[ident] if value.nil?
 
 		# puts "\n\n#get #{ident.inspect} = #{value.inspect}\n\t"
 		# puts "\n\tstack(#{stack.count}): #{stack.to_s}"
@@ -195,7 +195,7 @@ class Runtime
 		value ||= Nil_Expr.new
 
 		found_scope = nil
-		stack.reverse_each do |it|
+		scopes.reverse_each do |it|
 			# try to overwrite the identifier in a scope if it exists
 			found_scope = it.get_scope_with identifier do |scope|
 				# calls this block with the first scope that has this identifier. Since scopes can be composed, this will check find the first composition, or self, that responds to the identifier. If none of the scopes do, then this block never calls. It also returns true after calling this block, otherwise false when no scope is found.
@@ -216,12 +216,16 @@ class Runtime
 
 	# endregion Scopes
 
-	# This is the meat of the runtime
+<<<<<<<< Updated upstream:lang/runtime/runtime.rb
+	# This is the meat of the _runtime
+========
+	# This is the meat of the _interpreter
+>>>>>>>> Stashed changes:lang/interpreter/runtime.rb
 
 	# puts "\n\nevaluating #{expr.inspect}"
 
 	def number expr # :type, :decimal_position
-		if expr.type == :int
+		if expr.type == :integer
 			Integer(expr.string)
 		elsif expr.type == :float
 			if expr.decimal_position == :end
@@ -706,7 +710,11 @@ class Runtime
 	# @param [Func_Expr, Func_Decl] expr
 	def func_expr expr
 		ref = Reference.new(expr).tap do
-			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the runtime. Currently it is being randomized in Reference#initialize
+<<<<<<<< Updated upstream:lang/runtime/runtime.rb
+			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _runtime. Currently it is being randomized in Reference#initialize
+========
+			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _interpreter. Currently it is being randomized in Reference#initialize
+>>>>>>>> Stashed changes:lang/interpreter/runtime.rb
 			references[_1.id] = expr
 			_1.expr           = expr
 		end
@@ -721,7 +729,11 @@ class Runtime
 		expr
 		# if x.is_a? Func_Decl # store the actual expression in a references table, and store declare this reference as the value to be given to the name
 		# 	ref = Reference.new(x).tap do
-		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the runtime. Currently it is being randomized in Reference#initialize
+<<<<<<<< Updated upstream:lang/runtime/runtime.rb
+		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _runtime. Currently it is being randomized in Reference#initialize
+========
+		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _interpreter. Currently it is being randomized in Reference#initialize
+>>>>>>>> Stashed changes:lang/interpreter/runtime.rb
 		# 		references[_1.id] = x
 		# 		_1.expr           = x
 		# 	end
@@ -922,7 +934,7 @@ class Runtime
 	def command expr # :name, :expression
 		case expr.name.string
 			when '>~' # breakpoint snake
-				# I think a REPL needs to be started here, in the current scope. the repl should be identical to the repl.rb from the em cli. any lang you run in this repl, is running in the actual workspace (the instance of the app), so you can make permanent changes. Powerful but dangerous.
+				# I think a REPL needs to be started here, in the current scope. the _repl should be identical to the _repl.rb from the em _cli. any lang you run in this _repl, is running in the actual workspace (the instance of the app), so you can make permanent changes. Powerful but dangerous.
 				return "PRETEND BREAKPOINT IN #{scope_signature curr_scope}"
 			when '>!'
 				# !!! generalize these colorizations
@@ -959,7 +971,7 @@ class Runtime
 					# end
 					# it << "\n——––--¦  STACK (#{stack.count})\n"
 					it << "".tap do |str|
-						stack.reverse_each.map do |s|
+						scopes.reverse_each.map do |s|
 							formatted = PP.pp(s, '').chomp
 							formatted.split("\n").each do |part|
 								str << "#{part}\n".to_s.gsub('"', '')
@@ -1027,7 +1039,6 @@ class Runtime
 	end
 
 	def run expr
-		# puts "=== evaluating\n#{expr.inspect}" unless expr.is_a? Delimiter_Token
 		case expr
 			when Number_Literal_Expr
 				number expr

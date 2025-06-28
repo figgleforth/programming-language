@@ -1,24 +1,23 @@
+#!/usr/bin/env ruby
+
 if ARGV.empty?
-	puts "ERROR: Expected command line argument for source lang file.\nHOWTO: ruby /cli.rb your_source.em\n"
+	puts "ERROR: Expected command line argument for source lang file.\nHOWTO: ruby /_cli.rb your_source.em\n"
 	exit 1
 end
 
-
 class CLI_Interpreter
-	require_relative '../lexer/tokenizer'
+	require_relative '../lexer/lexer'
 	require_relative '../parser/parser'
-	require_relative '../runtime/runtime'
+	require_relative '../_runtime/_runtime'
 	require 'pp'
-
 
 	def initialize input_file
 		@input = File.read input_file
 	end
 
-
 	def output
 		# puts "input #{@input}"
-		lexer = Tokenizer.new#(@input).lex
+		lexer  = Lexer.new #(@input).lex
 		tokens = lexer.lex @input
 		# puts "■■■■ TOKENS\n"
 		# tokens = tokens.chunk_while { |prev, curr| prev == curr }.flat_map { |chunk| chunk.first(1) } # ??? thanks to ChatGPT. squish duplicate tokens into one. Aimed at compacting multiple newlines
@@ -41,7 +40,6 @@ class CLI_Interpreter
 		# puts "■■■■"
 	end
 end
-
 
 interpreter = CLI_Interpreter.new ARGV[0]
 interpreter.output
