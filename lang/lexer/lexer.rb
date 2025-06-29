@@ -1,60 +1,8 @@
-# todo document all methods
-
-Token = Struct.new('Token', :type, :value, :reserved, :line, :column) do
-	def is compare
-		if compare.is_a? Symbol
-			type == compare
-		elsif compare.is_a? String
-			value == compare
-		else
-			self == compare
-		end
-	end
-
-	def isnt compare
-		is(compare) == false
-	end
-
-	def to_s
-		"#{value}(#{type})"
-	end
-
-	def location
-		"#{line}:#{column}"
-	end
-end
+require './lang/helpers/constants'
+require './lang/lexer/lexeme'
 
 class Lexer
 	attr_accessor :i, :col, :row, :input
-
-	INFIX = %w(
-		+ - * ** / % ~ = == === ? .
-		+= -= *= |= /= %= &= ^= != <= >=
-		&& || & | << >>
-		.. >. .< ><
-		and or
-	).sort_by { -it.size }.freeze
-
-	PREFIX = %w(! - + ~ # @ ? & ^ ./ ../ .../).sort_by { -it.size }.freeze
-
-	POSTFIX = %w(=;)
-
-	RESERVED = %w(
-		[ { ( , _ . ) } ] : ;
-		+ - * ** / % ~ = == ===
-		+= -= *= |= /= %= &= ^= != <= >= =;
-		! ? ?? !! && || & | << >>
-		.. >. .< ><
-		@ ./ ../ .../
-		``` `
-
-		if elsif elif else
-		while elswhile elwhile
-		unless until true false nil
-		skip stop and or return
-	).sort_by { -it.size }.freeze
-
-	COMMENT_CHAR = '`'.freeze
 
 	def initialize input = 'greeting = "hello world"'
 		@i     = 0 # index of current char in input string
@@ -72,7 +20,7 @@ class Lexer
 	end
 
 	def delimiter? char = curr
-		%W(, \n \t \r \s).include? char
+		%W(, ; { } ( ) [ ] \n \t \r \s).include? char
 	end
 
 	def identifier? char = curr
@@ -99,13 +47,11 @@ class Lexer
 		i < input.length
 	end
 
-	# input[i - 1]
 	def prev
 		return nil if i <= 0
 		input[i - 1]
 	end
 
-	# input[i]
 	def curr
 		input[i]
 	end
@@ -146,15 +92,14 @@ class Lexer
 
 	def lex_number
 		it    = String.new
-		valid = %w(. _)
+		valid = %w(. _) # An exception for _ is that it cannot be the last character because then you could miss underscored declarations like `1_decl`. This should be lexed as number 1, and identifier _decl.
 
 		while chars? && (numeric? || valid.include?(curr))
-			if curr == '.' && !numeric?(peek)
-				break
-			end
+			break if valid.include?(curr) && !numeric?(peek)
+			break if it[-1] == '_' && !numeric?(curr)
 
 			it += eat
-			eat while curr == '_'
+			eat '_' while curr == '_' && numeric?(peek)
 			break if it.include?('.') && curr == '.'
 		end
 		it
@@ -162,7 +107,7 @@ class Lexer
 
 	def lex_oneline_comment
 		it = ''
-		eat '`'
+		eat COMMENT_CHAR
 		eat while whitespace?
 
 		while chars? && !newline?
@@ -173,7 +118,7 @@ class Lexer
 	end
 
 	def lex_multiline_comment
-		marker = lex_many 3, '```'
+		marker = lex_many COMMENT_MULTILINE_CHAR.length, COMMENT_MULTILINE_CHAR
 		it     = ''
 
 		eat while whitespace? || newline?
@@ -186,7 +131,7 @@ class Lexer
 			end
 		end
 
-		lex_many 3, marker
+		lex_many COMMENT_MULTILINE_CHAR.length, COMMENT_MULTILINE_CHAR
 		it
 	end
 
@@ -208,9 +153,10 @@ class Lexer
 
 	def lex_operator
 		oper = String.new
-		while chars? && symbol? && curr != '`'
+		while chars? && symbol?
 			oper << eat
 		end
+
 		oper
 	end
 
@@ -232,16 +178,16 @@ class Lexer
 	end
 
 	def identifier_type ident
-		def constant? ident # all upper, LIKE_THIS
+		def constant? ident # ALL UPPER LIKE_THIS
 			test = ident&.gsub('_', '')&.gsub('%', '')
 			test&.chars&.all? { |c| c.upcase == c }
 		end
 
-		def class? ident # capitalized, Like_This or This
+		def class? ident # Capitalized Like_This or This
 			ident[0] && ident[0].upcase == ident[0] && !constant?(ident)
 		end
 
-		def member? ident # lowercased start, lIKE_THIS or thIS or this
+		def member? ident # lowercased_FIRST_LETTER, lIKE_THIS or thIS or this
 			ident[0] && ident[0].downcase == ident[0]
 		end
 
@@ -261,10 +207,10 @@ class Lexer
 		tokens = []
 
 		while chars?
-			single    = curr == '`'
-			multiline = peek(0, 3) == '```'
+			single    = curr == COMMENT_CHAR
+			multiline = peek(0, COMMENT_MULTILINE_CHAR.length) == COMMENT_MULTILINE_CHAR
 
-			token = Token.new.tap do
+			token = Lexeme.new.tap do
 				it.column = col
 				it.line   = row
 
@@ -295,9 +241,23 @@ class Lexer
 
 				elsif symbol? curr
 					it.type  = :operator
-					it.value = if %w(. ; { } ( ) [ ]).include? curr
-						if curr == '.' && (peek == '.' || peek == '<')
+					it.value = if %w(. | & ).include? curr
+						if curr == '.' && (peek == '.' || peek == '<') # fix for ranges .. .< .>
 							lex_operator
+
+							# fix for scope operators ./ ../ .../
+						elsif curr == '.' && peek == '/'
+							lex_operator
+						elsif curr == '.' && (peek == '.' && peek(2) == '/')
+							lex_operator
+						elsif curr == '.' && (peek == '.' && peek(2) == '.' && peek(3) == '/')
+							lex_operator
+
+						elsif (curr == '|' && peek == '|') || (curr == '&' && peek == '&')
+							str = String.new
+							str << eat
+							str << eat
+							str
 						else
 							eat
 						end
@@ -311,7 +271,7 @@ class Lexer
 			end
 
 			next if whitespace?(token.value) && token.type != :string
-			next if token.type == :comment
+			# next if token.type == :comment # nocheckin
 
 			token.reserved = RESERVED.include? token.value
 			tokens << token

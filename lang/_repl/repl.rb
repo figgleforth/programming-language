@@ -3,9 +3,9 @@
 require 'readline'
 require_relative '../lexer/lexer'
 require_relative '../parser/parser'
-require_relative '../_runtime/_runtime'
-require_relative '../_runtime/scopes'
-require_relative '../_runtime/constructs'
+require_relative '../_interpreter/_interpreter'
+require_relative '../_interpreter/scopes'
+require_relative '../_interpreter/constructs'
 require_relative '../helpers/colorize'
 
 BULLET             = '⎺'
@@ -16,23 +16,19 @@ OUTPUT_COLOR_ERROR = 'red'
 BULLET_COLOR_INTRO = 'green'
 OUTPUT_COLOR_INTRO = 'green'
 
-
 class REPL
 	attr_accessor :instructions, :total_executed, :total_errors
-
 
 	def initialize
 		@total_executed = 0
 		@total_errors   = 0
 	end
 
-
 	def for_fun_error_expr_percentage_this_session # just returns % of expressions that did not return an error
 		return "no expressions evaluated yet" if total_executed == 0
 		percent = Integer((total_errors.to_f / total_executed.to_f) * 100).round
 		"#{percent}% expressions failed (#{total_errors} of #{total_executed})"
 	end
-
 
 	def help_instructions
 		@instructions ||= %Q(exit with \\q or \\x or exit
@@ -49,11 +45,9 @@ type stats for fun
 type help for tips)
 	end
 
-
 	def print_help
 		puts colorize OUTPUT_COLOR_INTRO, "\e[1m#{help_instructions}\e[0m"
 	end
-
 
 	def repl # I've never needed pry's command count output: `[#] pry(main)>` so I choose not to have a count here. I want the prompt to look simple and clean – the square bullet basically represents output from the REPL
 		print colorize(BULLET_COLOR_INTRO, "\e[1mEmerald REPL, press enter now for tips or \\q to quit\e[0m\n")
@@ -133,6 +127,5 @@ type help for tips)
 	end
 
 end
-
 
 REPL.new.repl

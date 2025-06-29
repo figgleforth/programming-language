@@ -3,7 +3,7 @@ require_relative '../helpers/colorize'
 
 class Scope < Hash
 	#             [Scope]            [Scope]
-	attr_accessor :stack, :identity, :portals, :references
+	attr_accessor :scope_stack, :identity, :portals, :references
 	#                     {}                   {}
 
 	def initialize
@@ -18,7 +18,7 @@ class Scope < Hash
 
 	# @return Scope
 	def curr_scope
-		stack.last or self
+		scopes.last or self
 	end
 
 
@@ -50,7 +50,7 @@ class Scope < Hash
 	# @yieldparam scope [Scope] The scope where the identifier is found
 	# @return [nil, Scope]
 	def scope_containing expr, &block
-		[stack + portals].flatten.find do|it|
+		[scopes + portals].flatten.find do|it|
 			# _1: Scope
 			if it.get expr
 				block.call(it) if block_given?
@@ -103,7 +103,7 @@ class Scope < Hash
 	def run expr
 		case expr
 			when Number_Expr
-				if expr.type == :int
+				if expr.type == :integer
 					Integer(expr.string)
 				elsif expr.type == :float
 					if expr.decimal_position == :end

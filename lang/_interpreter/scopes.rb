@@ -5,7 +5,6 @@ require 'pp'
 8/19/24
 mess This entire file is a mess. It needs to be cleaned up, which should be easy to do because now I know how I'm going to implement the entire construct of scopes.
 
-!!!
 Most objects will end up as a Scope. The entire _interpreter is mostly nested Scopes. The program has an array of Scopes, the stack, where the front is the global scope, and the back is the current scope. They're Hashes because it's a free data structure that I don't have to replicate. An examples:
 
 x=1
