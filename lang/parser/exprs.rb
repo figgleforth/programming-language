@@ -1,6 +1,5 @@
 require 'pp'
 
-
 class Expr
 	attr_accessor :string, :tokens, :token
 
@@ -33,7 +32,6 @@ class Expr
 	end
 end
 
-
 class Func_Expr < Expr
 	attr_accessor :expressions, :compositions, :parameters, :signature
 
@@ -62,7 +60,6 @@ class Func_Expr < Expr
 	end
 end
 
-
 class Func_Decl < Func_Expr
 	attr_accessor :name
 
@@ -76,7 +73,6 @@ class Func_Decl < Func_Expr
 	end
 end
 
-
 class Operator_Decl < Func_Decl
 	attr_accessor :fix # pre, in, post, circumfix
 
@@ -84,7 +80,6 @@ class Operator_Decl < Func_Decl
 		"#{fix.string} #{name.string} {#{parameters.map(&:name).map(&:string).join(',')};}"
 	end
 end
-
 
 class Func_Param_Decl < Expr
 	attr_accessor :name, :label, :type, :default, :portal
@@ -109,7 +104,6 @@ class Func_Param_Decl < Expr
 	end
 end
 
-
 # todo rename to Param_Expr
 class Call_Arg_Expr < Expr
 	attr_accessor :expression, :label
@@ -122,7 +116,6 @@ class Call_Arg_Expr < Expr
 		end
 	end
 end
-
 
 class Class_Decl < Expr
 	attr_accessor :name, :expressions, :base_class, :compositions
@@ -137,7 +130,6 @@ class Class_Decl < Expr
 		"#{name.string}{#{expressions.join(', ')}}"
 	end
 end
-
 
 class Number_Expr < Expr
 	attr_accessor :type, :decimal_position
@@ -171,27 +163,25 @@ class Number_Expr < Expr
 	# https://stackoverflow.com/a/1235891/1426880
 end
 
-
 class Symbol_Literal_Expr < Expr
 	def to_symbol
 		":#{string}"
 	end
 end
 
-
 class String_Expr < Expr
+	require './lang/helpers/constants'
 	attr_accessor :interpolated
 
 	def string= val
 		@string       = val
-		@interpolated = val.include? Language::COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
+		@interpolated = val.include? COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
 	end
 
 	def to_s
 		"#{self.class.name}(#{string.inspect})"
 	end
 end
-
 
 class Hash_Expr < Expr
 	attr_accessor :keys, :values # ??? these two zipped together will for the key/val pairs
@@ -211,7 +201,6 @@ class Hash_Expr < Expr
 	end
 end
 
-
 class Array_Expr < Expr
 	attr_accessor :elements
 
@@ -225,7 +214,6 @@ class Array_Expr < Expr
 	end
 end
 
-
 class Prefix_Expr < Expr
 	attr_accessor :operator, :expression
 
@@ -234,7 +222,6 @@ class Prefix_Expr < Expr
 	end
 end
 
-
 class Postfix_Expr < Expr
 	attr_accessor :operator, :expression
 
@@ -242,7 +229,6 @@ class Postfix_Expr < Expr
 		"#{expression}:#{operator})"
 	end
 end
-
 
 class Infix_Expr < Expr
 	attr_accessor :operator, :left, :right
@@ -255,7 +241,6 @@ class Infix_Expr < Expr
 		"#{self.class.name}(#{left.to_s}#{operator.string}#{right.to_s})"
 	end
 end
-
 
 class Circumfix_Expr < Expr # one or more comma, or maybe even space-separated, expressions
 	# @return [Array] of comma separated expressions that make up this Expr
@@ -274,7 +259,6 @@ class Circumfix_Expr < Expr # one or more comma, or maybe even space-separated, 
 		"Set#{grouping[0]}#{expressions.map(&:to_s).join(', ')}#{grouping[1]}"
 	end
 end
-
 
 class Operator_Expr < Expr
 
@@ -297,7 +281,6 @@ class Operator_Expr < Expr
 	end
 end
 
-
 class Identifier_Expr < Expr
 	def to_s
 		token.string
@@ -313,45 +296,36 @@ class Identifier_Expr < Expr
 
 end
 
-
 class Key_Identifier_Expr < Identifier_Expr
 end
-
 
 class Composition_Expr < Expr
 	attr_accessor :operator, :expression
 end
-
 
 class Class_Composition_Expr < Composition_Expr
 	attr_accessor :alias_identifier
 
 end
 
-
 class Conditional_Expr < Expr
 	attr_accessor :condition, :when_true, :when_false
 end
-
 
 class While_Expr < Expr
 	attr_accessor :condition, :when_true, :when_false
 end
 
-
 class Raise_Expr < Expr # expressions that can halt the program. Right now that's oops and >~
 	attr_accessor :name, :expression
 end
 
-
 class Nil_Expr < Expr
 end
-
 
 class Return_Expr < Expr
 	attr_accessor :expression
 end
-
 
 class Call_Expr < Expr
 	attr_accessor :receiver, :arguments
@@ -362,13 +336,11 @@ class Call_Expr < Expr
 	end
 end
 
-
 class Route_Decl < Func_Expr
 	# request_method, String_Literal, Identifier_Token, {
 	# eg. get '/' home { ; }
 	attr_accessor :route, :name
 end
-
 
 class Enum_Decl < Expr
 =begin

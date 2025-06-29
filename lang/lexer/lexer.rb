@@ -1,24 +1,5 @@
 require './lang/helpers/constants'
-
-Token = Struct.new('Token', :type, :value, :reserved, :line, :column) do
-	def is compare
-		if compare.is_a? Symbol
-			type == compare
-		elsif compare.is_a? String
-			value == compare
-		else
-			self == compare
-		end
-	end
-
-	def isnt compare
-		is(compare) == false
-	end
-
-	def to_s
-		"#{value}(#{type})"
-	end
-end
+require './lang/lexer/lexeme'
 
 class Lexer
 	attr_accessor :i, :col, :row, :input
@@ -126,7 +107,7 @@ class Lexer
 
 	def lex_oneline_comment
 		it = ''
-		eat COMMENT_MONOLINE
+		eat COMMENT_CHAR
 		eat while whitespace?
 
 		while chars? && !newline?
@@ -137,7 +118,7 @@ class Lexer
 	end
 
 	def lex_multiline_comment
-		marker = lex_many COMMENT_MULTILINE.length, COMMENT_MULTILINE
+		marker = lex_many COMMENT_MULTILINE_CHAR.length, COMMENT_MULTILINE_CHAR
 		it     = ''
 
 		eat while whitespace? || newline?
@@ -150,7 +131,7 @@ class Lexer
 			end
 		end
 
-		lex_many COMMENT_MULTILINE.length, COMMENT_MULTILINE
+		lex_many COMMENT_MULTILINE_CHAR.length, COMMENT_MULTILINE_CHAR
 		it
 	end
 
@@ -226,10 +207,10 @@ class Lexer
 		tokens = []
 
 		while chars?
-			single    = curr == COMMENT_MONOLINE
-			multiline = peek(0, COMMENT_MULTILINE.length) == COMMENT_MULTILINE
+			single    = curr == COMMENT_CHAR
+			multiline = peek(0, COMMENT_MULTILINE_CHAR.length) == COMMENT_MULTILINE_CHAR
 
-			token = Token.new.tap do
+			token = Lexeme.new.tap do
 				it.column = col
 				it.line   = row
 

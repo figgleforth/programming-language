@@ -117,7 +117,7 @@ class Parser
 		return remainder unless token
 
 		remainder.slice_before do |t|
-			if token.is_a? Token
+			if token.is_a? Lexeme
 				t.is token
 			else
 				t.value == token

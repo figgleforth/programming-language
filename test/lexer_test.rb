@@ -1,19 +1,27 @@
 require 'minitest/autorun'
 require './lang/lexer/lexer'
 
+# Example test that is created using #define_method below
+#  test_comments__single_line_comment
+#  test_numbers_1_6
+#  etc
+
+# Each key inside a case is a code snippet.
+# The matching value is an array representing the final Tokens generated.
+
 class Lexer_Test < Minitest::Test
 	CASES = {
-		comments:    {
+		comments:     {
 			'`single line comment':    [:comment],
 			'```many line comment```': [:comment],
 		},
-		identifiers: {
+		identifiers:  {
 			'a_variable':       [:identifier],
 			'some_function':    [:identifier],
 			'GRAVITY_CONSTANT': [:IDENTIFIER],
 			'Some_Type':        [:Identifier]
 		},
-		numbers:     {
+		numbers:      {
 			'4':          [:number],
 			'+8':         [:operator, :number],
 			'-1.5':       [:operator, :number],
@@ -23,13 +31,13 @@ class Lexer_Test < Minitest::Test
 			'4__5__2__2': [:number, '__5__2__2'],
 			'a12345':     [:identifier]
 		},
-		strings:     {
+		strings:      {
 			'"A string"':                      [:string],
 			"'Another string'":                [:string],
 			'"An `interpolated` string"':      [:string],
 			"'Another `interpolated` string'": [:string],
 		},
-		operators:   {
+		operators:    {
 			'numbers := 4815162342': [:identifier, :operator, :number],
 			'numbers =;':            [:identifier, :operator],
 			'numbers = 123':         [:identifier, :operator, :number],
@@ -56,7 +64,7 @@ class Lexer_Test < Minitest::Test
 			'../global_scope':        [:operator, :identifier],
 			'.../third_party':        [:operator, :identifier],
 		},
-		functions:   {
+		functions:    {
 			'{;}':                             [:delimiter, :delimiter, :delimiter],
 			'named_function {;}':              [:identifier, :delimiter, :delimiter, :delimiter],
 			'{ input; }':                      [:delimiter, :identifier, :delimiter, :delimiter],
@@ -66,30 +74,74 @@ class Lexer_Test < Minitest::Test
 			'{ mixed, labeled value = 456; }': [:delimiter, :identifier, :delimiter, :identifier, :identifier, :operator, :number, :delimiter, :delimiter],
 			'square { input;
 				input * input
-			 }':                     [:identifier, :delimiter, :identifier, :delimiter, "\n",
-			                          :identifier, :operator, :identifier, "\n",
+			 }':                     [:identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			                          :identifier, :operator, :identifier, :delimiter,
 			                          :delimiter],
 			'wrap { number, limit;
 				if number > limit
 					number = 0
 				end
-			 }':                     [:identifier, :delimiter, :identifier, :delimiter, :identifier, :delimiter, "\n",
-			                          :identifier, :identifier, :operator, :identifier, "\n",
-			                          :identifier, :operator, :number, "\n",
-			                          :identifier, "\n",
+			 }':                     [:identifier, :delimiter, :identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			                          :identifier, :identifier, :operator, :identifier, :delimiter,
+			                          :identifier, :operator, :number, :delimiter,
+			                          :identifier, :delimiter,
 			                          :delimiter],
 		},
-		types:       {
-			'String {}': [:Identifier, :delimiter, :delimiter],
+		types:        {
+			'String {}':          [:Identifier, :delimiter, :delimiter],
+			'Transform {
+				position =;
+				rotation =;
+			}':         [:Identifier, :delimiter, :delimiter,
+			             :identifier, :operator, :delimiter,
+			             :identifier, :operator, :delimiter,
+			             :delimiter],
+			'Entity {
+				|Transform
+			}':         [:Identifier, :delimiter, :delimiter,
+			             :operator, :Identifier, :delimiter,
+			             :delimiter],
+			'Player > Entity {}': [:Identifier, :operator, :Identifier, :delimiter, :delimiter]
+		},
+		control_flow: {
+			'if true
+				celebrate()
+			end':                                                       [:identifier, :identifier, :delimiter,
+			                                                             :identifier, :delimiter, :delimiter, :delimiter,
+			                                                             :identifier],
+
+			'if 1 + 2 * 3 == 7
+				"This one!"
+			elsif 1 + 2 * 3 == 9
+				\'No, this one!\'
+			else
+				\'🤯\'
+			end': [:identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
+			       :string, :delimiter,
+			       :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
+			       :string, :delimiter,
+			       :identifier, :delimiter,
+			       :string, :delimiter,
+			       :identifier],
+
+			'for [1, 2, 3, 4, 5]
+				remove it if randf() > 0.5
+				skip
+				stop
+			end':                                             [:identifier, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
+			                                                   :identifier, :identifier, :identifier, :identifier, :delimiter, :delimiter, :operator, :number, :delimiter,
+			                                                   :identifier, :delimiter,
+			                                                   :identifier, :delimiter,
+			                                                   :identifier]
 		}
 	}
 
 	CASES.each do |case_name, case_examples|
 		case_examples.each do |code, expected|
-			name = "test_#{case_name}_#{code.to_s.gsub(/[^a-zA-Z0-9]/, '_')[..25]}_#{Time.now.hash}"
-			define_method name do
-				# Hash of the current time is added to make sure two tests don't have name collisions, like 1 == 2 and 1 != 2 would both become test_1__2. Ruby will warn me if there are duplicates but I don't want to be required to change tests because of it.
-				results = lex code
+			test_name = "test_#{case_name}_#{code.to_s.gsub(/[^a-zA-Z0-9]/, '_')[..25]}_#{Time.now.hash}" # Time.now.hash is added to make sure two tests don't have name collisions, like 1 == 2 and 1 != 2 would both become methods with the name test_1__2. Ruby will warn me if there are duplicate methods but I don't want to have to think about it.
+
+			define_method test_name do
+				results = Lexer.new(code).output
 				results.zip(expected).each do |res, exp|
 					case exp
 						when String, Symbol
@@ -101,11 +153,5 @@ class Lexer_Test < Minitest::Test
 				assert results.count == expected.count, "#{"test_#{case_name}_#{code.to_s.gsub(/[^a-zA-Z0-9]/, '_')[..25]}_#{Time.now.hash}"}: results.count != expected.count"
 			end
 		end
-	end
-
-	private
-
-	def lex code
-		Lexer.new(code).output
 	end
 end
