@@ -7,14 +7,11 @@
 ```
 `Comments start with backticks
 
-variables := 1234     `Declaration with type inference
+name := "Cooper"      `Declaration with type inference
 nothing =;            `Shorthand for = nil
 ranges := 1..5        `Inclusive
 range2 := 0><3        `Exclusive
 range3 := 1.5.<2.0    `Any of .. .< >. ><
-
-some_boolean: Bool := GRAVITY > PI
-name := 'Cooper'
 
 PI := 3.14159
 GRAVITY := 9.8
