@@ -5,7 +5,6 @@ require 'ostruct'
 CONTEXT_SYMBOL = 'scope'
 SCOPE_KEY_TYPE = 'types'
 
-
 class Reference
 	# include Scopes
 	attr_accessor :id, :expr
@@ -31,7 +30,6 @@ class Reference
 		super
 	end
 end
-
 
 class Runtime
 	# todo Runtime should be Runtime < Global < Hash itself. Then it can be the global scope but with a stack built in. In the future, this will be able to read lang from files, and insert their declarations
@@ -215,12 +213,7 @@ class Runtime
 	end
 
 	# endregion Scopes
-
-<<<<<<<< Updated upstream:lang/runtime/runtime.rb
-	# This is the meat of the _runtime
-========
 	# This is the meat of the _interpreter
->>>>>>>> Stashed changes:lang/interpreter/runtime.rb
 
 	# puts "\n\nevaluating #{expr.inspect}"
 
@@ -411,13 +404,13 @@ class Runtime
 						if val.is_a? Func_Expr
 							ref                = Reference.new(expr)
 							references[ref.id] = val
-							kopy[key]            = ref
+							kopy[key]          = ref
 						end
 
 						if val.is_a? Class_Decl and not receiver.is_a? Scopes::Global
 							ref                = Reference.new(expr)
 							references[ref.id] = val
-							kopy[key]            = ref
+							kopy[key]          = ref
 						end
 					end
 				end
@@ -710,11 +703,7 @@ class Runtime
 	# @param [Func_Expr, Func_Decl] expr
 	def func_expr expr
 		ref = Reference.new(expr).tap do
-<<<<<<<< Updated upstream:lang/runtime/runtime.rb
-			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _runtime. Currently it is being randomized in Reference#initialize
-========
 			# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _interpreter. Currently it is being randomized in Reference#initialize
->>>>>>>> Stashed changes:lang/interpreter/runtime.rb
 			references[_1.id] = expr
 			_1.expr           = expr
 		end
@@ -729,11 +718,7 @@ class Runtime
 		expr
 		# if x.is_a? Func_Decl # store the actual expression in a references table, and store declare this reference as the value to be given to the name
 		# 	ref = Reference.new(x).tap do
-<<<<<<<< Updated upstream:lang/runtime/runtime.rb
-		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _runtime. Currently it is being randomized in Reference#initialize
-========
 		# 		# reference id should be a hash of its name, parameter names, and expressions. That way, two identical functions can be caught by the _interpreter. Currently it is being randomized in Reference#initialize
->>>>>>>> Stashed changes:lang/interpreter/runtime.rb
 		# 		references[_1.id] = x
 		# 		_1.expr           = x
 		# 	end
