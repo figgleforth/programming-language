@@ -1,6 +1,4 @@
-require 'pp'
-
-# todo clean up this whole thing
+require_relative '../helpers/constants'
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location
@@ -9,22 +7,29 @@ class Expression
 		@value = value if value
 	end
 
-	def is other
-		if other.is_a?(Symbol) || other.is_a?(String)
-			value == other || type == other
+	def is compare
+		if compare.is_a? Symbol
+			compare == type
+		elsif compare.is_a? String
+			compare == value
+		elsif compare.is_a? Class
+			compare.is_a? self.class
 		else
-			raise 'Cannot == except with String or Symbol'
+			compare == self
 		end
+	end
+
+	def isnt compare
+		is(compare) == false
 	end
 end
 
 class Func_Expr < Expression
-	attr_accessor :name, :expressions, :composition_exprs, :param_decls, :signature
+	attr_accessor :name, :expressions, :param_decls, :signature
 
 	def initialize
-		@param_decls  = []
-		@expressions  = []
-		@compositions = []
+		@param_decls = []
+		@expressions = []
 	end
 
 	def signature
@@ -81,6 +86,7 @@ class Param_Decl < Expression
 	end
 end
 
+# #delete_param_expr
 class Param_Expr < Expression
 	attr_accessor :expression, :label
 end
@@ -129,7 +135,7 @@ class String_Expr < Expression
 
 	def initialize string
 		super string
-		@interpolated = string.include? Lexer::COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
+		@interpolated = string.include? COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
 	end
 end
 
@@ -200,7 +206,7 @@ class Key_Identifier_Expr < Identifier_Expr
 end
 
 class Composition_Expr < Expression
-	attr_accessor :operator, :expression
+	attr_accessor :operator, :identifier
 end
 
 class Class_Composition_Expr < Composition_Expr
@@ -231,11 +237,14 @@ end
 class Call_Expr < Expression
 	attr_accessor :receiver, :arguments
 
-	def initialize receiver
-		super nil
-		@receiver  = receiver
+	def initialize
+		super
 		@arguments = []
 	end
+end
+
+class Subscript_Expr < Expression
+	attr_accessor :receiver, :expression
 end
 
 class Enum_Decl < Expression

@@ -62,7 +62,7 @@ class Lexer
 
 	def eat expected = nil
 		if expected && expected != curr
-			raise "#eat expected #{expected} not #{curr.inspect}"
+			raise "#eat expected #{expected.inspect} not #{curr.inspect}"
 		end
 
 		if newline? curr
@@ -225,7 +225,6 @@ class Lexer
 				elsif delimiter? curr
 					it.type  = :delimiter
 					it.value = eat
-					reduce_delimiters unless %w(, ;).include? it.value
 
 				elsif numeric?
 					it.type  = :number
@@ -242,15 +241,29 @@ class Lexer
 				elsif symbol? curr
 					it.type  = :operator
 					it.value = if %w(. | & ).include? curr
-						if curr == '.' && (peek == '.' || peek == '<') # fix for ranges .. .< .>
+						# @todo Is it possible to avoid having to do this?
+						if curr == '.' && (peek == '.' || peek == '<')
 							lex_operator
 
-							# fix for scope operators ./ ../ .../
 						elsif curr == '.' && peek == '/'
 							lex_operator
+
 						elsif curr == '.' && (peek == '.' && peek(2) == '/')
 							lex_operator
+
 						elsif curr == '.' && (peek == '.' && peek(2) == '.' && peek(3) == '/')
+							lex_operator
+
+						elsif curr == '|' && peek == '|' && peek(2) == '='
+							lex_operator
+
+						elsif curr == '&' && peek == '&' && peek(2) == '='
+							lex_operator
+
+						elsif curr == '|' && peek == '='
+							lex_operator
+
+						elsif curr == '&' && peek == '='
 							lex_operator
 
 						elsif (curr == '|' && peek == '|') || (curr == '&' && peek == '&')

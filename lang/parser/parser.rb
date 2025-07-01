@@ -1,81 +1,48 @@
 require_relative 'expression'
+require_relative '../helpers/constants'
 
 class Parser
-	TYPE_COMPOSITION_OPERATORS = %w(| & - ^)
-	ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
-	GROUPINGS                  = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }.freeze
-	STARTING_PRECEDENCE        = 0
-	PRECEDENCE_OFFSET          = 100
-
 	attr_accessor :i, :input, :output
 
 	def initialize input = []
-		@input = input
-		@i     = 0 # index of current token
+		@input  = input
+		@output = []
+		@i      = 0 # index of current lexeme
 	end
 
-	def precedence_for2 operator
-		precedence = STARTING_PRECEDENCE
-		operators  = [
-			%w(= >!!! >!! >! ./ ../ .../),
-			%w(= == != === !==),
-			%w(**),
-			%w(.. .< >. ><), # RANGES
-			%w(* / %),
-			%w(+ -),
-			%w(<< >>),
-			%w(< <= <=> > >=),
-			%w(| & - ^), # TYPE_COMPOSITION_OPERATORS
-			%w(&& and),
-			%w(|| or),
-			%w(.),
-			%w(+= -= *= /= %= &= |= ^= <<= >>=),
-			%w(,),
-			%w(.? ? : !),
-		]
-
-		operators.each do |ops|
-			return precedence if ops.sort_by do
-				-it.length
-			end.include?(operator)
-			precedence += PRECEDENCE_OFFSET
-		end
-
-		precedence
-	end
-
-	# Array of precedences and symbols for that precedence. if the token provided matches one of the operator symbols then its precedence is returned. Nice reference: https://rosettacode.org/wiki/Operator_precedence
+	# Array of precedences and symbols for that precedence. if the lexeme provided matches one of the operator symbols then its precedence is returned. Nice reference: https://rosettacode.org/wiki/Operator_precedence
 	def precedence_for operator
 		# higher number = tighter binding
 		[
-			[1000, %w(>!!! >!! >! ./ ../ .../)],
+			[1000, %w(! not)], # exponentiation
 			[900, %w(**)], # exponentiation
 			[800, %w(* / %)], # multiply, divide, modulo
 			[700, %w(+ -)], # add, subtract
 			[600, %w(<< >>)], # bitwise shifts
 			[550, %w(< <= <=> > >=)], # relational
 			[500, %w(== != === !==)], # equality
-			[400, TYPE_COMPOSITION_OPERATORS], # bitwise AND (&), XOR (^), OR (|)
+			[400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
 			[300, %w(&& and)], # logical AND
 			[200, %w(|| or)], # logical OR (including keyword forms)
-			[140, %w(: . !)], # member access, labels
+			[140, %w(: . .?)], # member access, labels
 			[100, %w(,)], # comma
-			[90, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # assignments
-			[80, %w(.? ? : .. .< >. ><)]
+			[90, %w(= := += -= *= /= %= &= |= ^= <<= >>=)], # assignments
+			[80, %w(.. .< >. ><)], # ranges
+			[0, %w([ { \( )],
 		].each do |prec, ops|
-			return prec if ops.sort_by { -it.length }.include?(operator)
+			return prec if ops.sort_by(&SORT_BY_LENGTH_DESC).include?(operator)
 		end
 
 		STARTING_PRECEDENCE
 	end
 
 	# input[i - 1]
-	def prev_expr
+	def prev_lexeme
 		input[[i - 1, 0].max]
 	end
 
 	# input[i]
-	def curr_expr
+	def curr_lexeme
 		input[i]
 	end
 
@@ -84,24 +51,28 @@ class Parser
 		input[i..]
 	end
 
-	def tokens?
+	def lexemes?
 		i < input.length
 	end
 
 	def reduce_newlines
-		eat while tokens? && curr?(%W(\n \r))
+		eat while lexemes? && curr?(%W(\n \r))
 	end
 
 	def curr?(*sequence)
-		return false unless remainder
+		return false unless remainder && lexemes?
+		return false if sequence.count > remainder.count
 
-		remainder.slice(0, sequence.count).each_with_index.all? do |token, index|
-			pattern = sequence[index]
+		slice = remainder.slice(0, sequence.count)
+		slice.each_with_index.all? do |lexeme, index|
+			expected = sequence[index]
 
-			if pattern.is_a?(Array)
-				pattern.any? { |alt| token.is(alt) }
+			if expected.is_a?(Array)
+				expected.any? do |alt|
+					lexeme.is(alt)
+				end
 			else
-				token.is(pattern)
+				lexeme.is(expected)
 			end
 		end
 	end
@@ -113,32 +84,32 @@ class Parser
 		input[i + index]
 	end
 
-	def peek_until token = nil
-		return remainder unless token
+	def peek_until lexeme = nil
+		return remainder unless lexeme
 
 		remainder.slice_before do |t|
-			if token.is_a? Lexeme
-				t.is token
+			if lexeme.is_a? Lexeme
+				t.is lexeme
 			else
-				t.value == token
+				t.value == lexeme
 			end
 		end.to_a.first
 	end
 
-	def peek_contains? contains, stop_at_token = nil
-		peek_until(stop_at_token).any? do |t|
+	def peek_contains? contains, stop_at_lexeme = nil
+		peek_until(stop_at_lexeme).any? do |t|
 			t.is contains
 		end
 	end
 
 	# idea: support sequence of elements where an element can be one of many, like the sequence [IdentifierToken, [:=, =]]
 	def eat * sequence
-		raise "tried to eat #{sequence} but out of tokens" unless tokens?
+		raise "tried to eat #{sequence} but out of lexemes" unless lexemes?
 
 		if sequence.nil? || sequence.empty? || sequence.one?
-			eaten = curr_expr
+			eaten = curr_lexeme
 			if sequence&.one? && !eaten.is(sequence[0])
-				raise "#eat(#{sequence[0].inspect}) got #{eaten.value.inspect}), at #{curr_expr.inspect}, prev #{prev_expr.inspect}"
+				raise "#eat(#{sequence[0].inspect}) got #{eaten.value.inspect}), at #{curr_lexeme.inspect}, prev #{prev_lexeme.inspect}"
 			end
 			@i    += 1
 			return eaten
@@ -146,52 +117,57 @@ class Parser
 	end
 
 	def parse_conditional_expr
-		Conditional_Expr.new.tap do |it|
-			it.type      = eat.value # %w(if while)
-			it.condition = make_expression
+		it            = Conditional_Expr.new
+		it.type       = eat.value # %w(if while)
+		it.condition  = make_expression
+		it.when_true  = []
+		it.when_false = []
 
+		reduce_newlines
+		until curr? %w(end else elsif elif ef elwhile elswhile)
+			expr = make_expression
+			it.when_true << expr if expr
 			reduce_newlines
-			until curr? %w(end else elsif elif ef elswhile)
-				expr = make_expression
-				it.when_true << expr if expr
-			end
-
-			if curr? %w(elsif elif elswhile elwhile)
-				it.when_false = parse_conditional_expr
-
-			elsif curr? 'else' and eat
-				until curr? 'end'
-					expr = make_expression
-					it.when_false << expr if expr
-				end
-				eat 'end'
-
-			elsif curr? %w(} end)
-				eat
-
-			else
-				raise "\n\nYou messed your if/elsif/else up\n"
-			end
 		end
+
+		if curr? %w(elsif elif elswhile elwhile)
+			it.when_false = parse_conditional_expr
+
+		elsif curr? 'else' and eat
+			until curr? 'end'
+				expr = make_expression
+				it.when_false << expr if expr
+				reduce_newlines
+			end
+			eat 'end'
+
+		elsif curr? %w(} end)
+			eat
+
+		else
+			raise "\n\nYou messed your if/elsif/else up\n"
+		end
+		it
 	end
 
 	def parse_circumfix_expr opening: '('
-		Circumfix_Expr.new.tap do |it|
-			it.grouping = GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
-			eat opening
-			closing = it.grouping[1]
+		it = Circumfix_Expr.new #.tap do |it|
+		it.grouping = GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
+		eat opening
+		reduce_newlines
+		closing = it.grouping[1]
 
-			until curr? closing
-				it.expressions << make_expression(precedence_for(opening))
-				break if curr? closing
+		until curr? closing
+			it.expressions << make_expression #(precedence_for(opening))
+			break if curr? closing
 
-				eat if curr? ','
-				reduce_newlines
-			end
-
-			eat closing
-			it.expressions = it.expressions.compact
+			eat if curr? ','
+			reduce_newlines
 		end
+
+		eat closing
+		it.expressions = it.expressions.compact
+		it
 	end
 
 	def parse_func precedence, named: false
@@ -249,7 +225,7 @@ class Parser
 			reduce_newlines
 
 			until curr? '}'
-				statement = make_expression precedence
+				statement = make_expression
 				expr.expressions << statement
 			end
 
@@ -267,7 +243,7 @@ class Parser
 				if curr?(TYPE_COMPOSITION_OPERATORS) # these could be in begin_expr's if-statment but
 					decl.composition_exprs << Composition_Expr.new.tap do
 						it.operator   = eat(:operator).value
-						it.expression = eat(:Identifier).value
+						it.identifier = eat(:Identifier).value
 					end
 				end
 			end
@@ -292,23 +268,24 @@ class Parser
 		expression = if (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 			parse_func precedence, named: curr?(:identifier)
 
-		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS, :Identifier)
+		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS)
 			parse_type_decl
 
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
 			Composition_Expr.new.tap do
 				it.operator   = eat(:operator).value
-				it.expression = eat(:Identifier).value
+				it.identifier = eat(:Identifier).value
 			end
 
-		elsif curr? %w(if while)
+		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
 		elsif curr? :identifier, ':', :identifier
 			raise "SYNTAX ERROR cannot have a type that is not capitalized, meaning a Type versus variable or function"
 
 		elsif curr?(:identifier, ':', :Identifier)
-			Identifier_Expr.new(eat.value).tap do
+			Identifier_Expr.new.tap do
+				it.value = eat.value
 				eat ':'
 				it.type = eat(:Identifier).value
 			end
@@ -317,7 +294,7 @@ class Parser
 			Identifier_Expr.new eat.value
 
 		elsif curr? %w( [ \( { |)
-			parse_circumfix_expr opening: curr_expr.value
+			parse_circumfix_expr opening: curr_lexeme.value
 
 		elsif curr? :operator
 			Operator_Expr.new eat(:operator).value
@@ -331,55 +308,41 @@ class Parser
 		elsif curr? :delimiter
 			reduce_newlines
 
+		elsif curr? :comment
+			eat and nil
+
 		else
-			raise "Unhandled token: #{curr_expr.inspect}"
+			raise "Unhandled lexeme: #{curr_lexeme.inspect}"
 		end
 
-		modify_expression expression, precedence
+		maybe_modify_expression expression, precedence
 	end
 
-	def modify_expression expr, precedence = STARTING_PRECEDENCE
-		return expr unless expr && tokens?
+	def maybe_modify_expression expr, precedence = STARTING_PRECEDENCE
+		return expr unless expr && lexemes?
+		# return expr if curr? "\n"
 
-		if curr_expr.is ','
+		if curr_lexeme.is ',' # This allows comma separating declarations
 			eat and return expr
 		end
 
-		# Handle specific shorthand assigments such as +=, -=, etc by swapping operators and nesting Infix_Exprs: a += b becomes a = a + b
-
-		if Lexer::INFIX.include?(curr_expr.value) && peek.is('=')
-			actual_operator = eat.value # one of the ::INFIXes
-			expr            = Infix_Expr.new.tap do |left|
-				left.left     = expr
-				left.operator = eat.value
-				raise "UHOH" unless left.operator == '='
-				left.right = Infix_Expr.new.tap do |right|
-					right.left     = expr
-					right.operator = actual_operator
-					right.right    = make_expression
-				end
-			end
-			return modify_expression expr, precedence
-		end
-
 		# The three scope identifiers are parsed here, ./, ../, and .../
-
-		if expr.is('.') && curr_expr.is('/')
+		if expr.is('.') && curr_lexeme.is('/')
 			eat '/'
 			expr          = Prefix_Expr.new
 			expr.operator = './'
 			raise "./ must be followed by one of #{ANY_IDENTIFIER}" unless curr? ANY_IDENTIFIER
 			expr.expression = make_expression
-			return modify_expression expr, precedence
-		elsif expr.is('.') && curr_expr.is('.') && peek.is('/')
+			return maybe_modify_expression expr, precedence
+		elsif expr.is('.') && curr_lexeme.is('.') && peek.is('/')
 			eat '.'
 			eat '/'
 			expr          = Prefix_Expr.new
 			expr.operator = '../'
 			raise "../ must be followed by one of #{ANY_IDENTIFIER}" unless curr? ANY_IDENTIFIER
 			expr.expression = make_expression
-			return modify_expression expr, precedence
-		elsif expr.is('.') && curr_expr.is('.') && peek.is('.') && peek(2).is('/')
+			return maybe_modify_expression expr, precedence
+		elsif expr.is('.') && curr_lexeme.is('.') && peek.is('.') && peek(2).is('/')
 			eat '.'
 			eat '.'
 			eat '/'
@@ -387,63 +350,104 @@ class Parser
 			expr.operator = '.../'
 			raise ".../ must be followed by one of #{ANY_IDENTIFIER}" unless curr? ANY_IDENTIFIER
 			expr.expression = make_expression
-			return modify_expression expr, precedence
+			return maybe_modify_expression expr, precedence
 		end
 
-		if curr? '(' and eat '('
-			expr = Call_Expr.new(expr).tap do
-				until curr? ')'
-					it.arguments << Param_Expr.new.tap do |arg|
-						if curr? :identifier, ':'
-							arg.label = eat(:identifier).value
-							eat ':'
-						end
+		# if GROUPINGS.keys.include? curr_lexeme.value
+		# todo replace the ( and [ checkes below with the generalized Circumfix?
+		# end
 
-						arg.expression = make_expression
-					end
+		if curr? '(' # and eat '('
+			fix          = parse_circumfix_expr opening: curr_lexeme.value
+			it           = Call_Expr.new
+			it.receiver  = expr
+			it.arguments = fix.expressions
 
-					eat if curr? ','
-				end
+			# Param_Expr.new.tap do |param|
+			# #delete_param_expr
+			# if curr? :identifier, ':'
+			# 	param.label = eat(:identifier).value
+			# 	eat ':'
+			# end
 
-				eat ')'
-			end
-			return modify_expression expr, precedence
+			# param.expression = make_expression
+			# end
+
+			# eat if curr? ','
+
+			# eat ')'
+			return maybe_modify_expression it, precedence
 		end
 
-		prefix  = Lexer::PREFIX.include?(expr.value)
-		infix   = curr?(:operator) && Lexer::INFIX.include?(curr_expr.value)
+		if curr? '['
+			it            = Subscript_Expr.new
+			it.receiver   = expr
+			it.expression = parse_circumfix_expr opening: curr_lexeme.value
+
+			return maybe_modify_expression it, precedence
+		end
+
+		# Handle shorthand assigments such as +=, -=, etc by swapping operators and nesting Infix_Exprs: a += b becomes a = a + b
+		# if INFIX.include?(curr_lexeme.value) && peek.is('=')
+		# 	actual_operator = eat.value # one of the ::INFIXes
+		# 	expr            = Infix_Expr.new.tap do |left|
+		# 		left.left     = expr
+		# 		left.operator = eat.value
+		# 		raise "UHOH" unless left.operator == '=' # todo
+		# 		left.right = Infix_Expr.new.tap do |right|
+		# 			right.left     = expr
+		# 			right.operator = actual_operator
+		# 			right.right    = make_expression
+		# 		end
+		# 	end
+		# 	return modify_expression expr, precedence
+		# end
+
+		prefix  = PREFIX.include?(expr.value)
+		infix   = INFIX.include?(curr_lexeme.value)
 		infix   ||= expr.is(:number) && (peek.is(:identifier) || peek.is(:IDENTIFIER))
-		postfix = Lexer::POSTFIX.include?(curr_expr.value)
+		postfix = POSTFIX.include?(curr_lexeme.value)
 
 		if prefix
-			expr = Prefix_Expr.new.tap do
+			expr = Prefix_Expr.new.tap do |it|
 				it.operator   = expr.value
-				it.expression = make_expression
+				it.expression = make_expression precedence_for(it.operator)
 			end
 
 			unless expr.expression
 				raise "Prefix_Expr expected an expression after `#{expr.operator}`"
 			end
 
+			return maybe_modify_expression expr, precedence
 		elsif infix
-			while curr?(:operator) && Lexer::INFIX.include?(curr_expr.value)
-				curr_operator_prec = precedence_for(curr_expr.value)
-				raise "Unknown precedence for infix operator #{curr_expr.inspect}" unless curr_operator_prec
+			if COMPOUND_OPERATORS.include? curr_lexeme.value
+				it          = Infix_Expr.new
+				it.left     = expr
+				it.operator = eat.value
+				it.right    = make_expression
 
-				return expr if curr_operator_prec <= precedence
+				return maybe_modify_expression it, precedence
+			else
+				while INFIX.include?(curr_lexeme.value) # && curr?(:operator)
+					curr_operator      = curr_lexeme.value
+					curr_operator_prec = precedence_for curr_operator
 
-				expr = Infix_Expr.new.tap do
+					if curr_operator_prec <= precedence
+						return expr
+					end
+
+					it          = Infix_Expr.new
 					it.left     = expr
 					it.operator = eat.value
 					it.right    = make_expression curr_operator_prec
+					expr        = it
 
-					unless it.right
-						raise "it.right is nil\n\nexpr: #{it.inspect}\ncurr: #{curr_expr.inspect}"
-					end
+					# unless it.right
+					# 	raise "it.right is nil\n\nexpr: #{it.inspect}\ncurr: #{curr_lexeme.inspect}"
 					# end
-				end
 
-				return modify_expression expr, precedence
+					return maybe_modify_expression expr, precedence
+				end
 			end
 
 		elsif postfix
@@ -452,20 +456,32 @@ class Parser
 				_1.operator   = eat(:operator).value
 			end
 
+			return maybe_modify_expression expr, precedence
 		end
-
 		# if curr?('{') && peek_contains?(';', '}')
 		#! todo passing a block
 		# end
+
+		if curr? %w(if while unless until)
+			it           = Conditional_Expr.new
+			it.type      = eat.value # if, while, etc
+			it.condition = make_expression
+			if %w(unless until).include? it.type
+				it.when_false = expr
+			else
+				it.when_true = expr
+			end
+			expr         = it
+		end
 
 		expr
 	end
 
 	def output
-		output = []
-		while tokens?
-			output << make_expression
+		@output = []
+		while lexemes?
+			@output << make_expression
 		end
-		output.compact
+		@output.compact
 	end
 end

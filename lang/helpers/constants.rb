@@ -1,24 +1,26 @@
-SORT_BY_LENGTH_DESC    = -> { -it.size }.freeze
-INTERPOLATE_CHAR       = '`'.freeze # "string with `interpolation`"
+SORT_BY_LENGTH_DESC    = -> { -it.size }
+INTERPOLATE_CHAR       = '`' # "string with `interpolation`"
 COMMENT_CHAR           = '`'
 COMMENT_MULTILINE_CHAR = '```'
 
-PREFIX  = %w(! - + ~ # ? & ^ ./ ../ .../).sort_by &SORT_BY_LENGTH_DESC
-INFIX   = %w(
+# todo should return be a prefix?
+PREFIX             = %w(! - + ~ # ? & ^ ./ ../ .../ not).sort_by &SORT_BY_LENGTH_DESC
+INFIX              = %w(
 		+ - * ** / % ~ == === ? .
-		=
+		= : := ||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >= < >
 		&& || & | << >> <=>
 		.. >. .< ><
+		< >
 		and or
 	).sort_by &SORT_BY_LENGTH_DESC
-POSTFIX = %w(=;)
-
-RESERVED = %w(
+POSTFIX            = %w(=;)
+COMPOUND_OPERATORS = %w(||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >=).sort_by &SORT_BY_LENGTH_DESC
+RESERVED           = %w(
 		[ { ( , _ . ) } ] : ;
 		+ - * ** / % ~
-		= == === ||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >= <=>
+		= == === ||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >= < >
 		! ? ?? !! && || & | << >>
-		.. >. .< ><
+		.. >. .< >< <=>
 		@ ./ ../ .../
 		``` `
 		=;
@@ -49,3 +51,9 @@ COLORS = {
 	         light_cyan:    14,
 	         light_white:   15
          }.freeze
+
+TYPE_COMPOSITION_OPERATORS = %w(| & - ^)
+ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
+GROUPINGS                  = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }.freeze
+STARTING_PRECEDENCE        = 0
+PRECEDENCE_OFFSET          = 100
