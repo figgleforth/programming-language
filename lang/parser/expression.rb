@@ -1,4 +1,4 @@
-require_relative '../helpers/constants'
+require './lang/constants'
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location
@@ -33,22 +33,22 @@ class Func_Expr < Expression
 	end
 
 	def signature
-		(name || '').tap do |n|
-			n << '{'
-			n << param_decls.map do |param|
-				label   = param.label ? "#{param.label}:" : ''
-				default = param.default ? "=#{param.default}" : ''
-				"#{label}#{param.name}#{default}"
-			end.join(',')
-			n << ';'
+		sig = name || ''
+		sig += '{'
+		sig += param_decls.map do |param|
+			label   = param.label ? "#{param.label}:" : ''
+			default = param.default ? "=#{param.default}" : ''
+			"#{label}#{param.name}#{default}"
+		end.join(',')
+		sig += ';'
+		sig += '}'
 
-			if expressions.any?
-				n << '['
-				n << expressions.join(',')
-				n << ']'
-			end
-			n << '}'
-		end
+		# #todo Maybe bring back extra signature details
+		# if expressions.any?
+		# 	n << '['
+		# 	n << expressions.join(',')
+		# 	n << ']'
+		# end
 	end
 end
 
@@ -125,9 +125,6 @@ class Number_Expr < Expression
 end
 
 class Symbol_Expr < Expression
-	def to_symbol
-		":#{string}"
-	end
 end
 
 class String_Expr < Expression
@@ -136,15 +133,6 @@ class String_Expr < Expression
 	def initialize string
 		super string
 		@interpolated = string.include? COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
-	end
-end
-
-class Dict_Expr < Expression
-	attr_accessor :expressions # holds Infix_Exprs
-
-	def initialize
-		super nil
-		@expressions = []
 	end
 end
 
@@ -187,19 +175,6 @@ class Operator_Expr < Expression
 end
 
 class Identifier_Expr < Expression
-	def type
-		@type || inferred_type
-	end
-
-	def inferred_type
-		if value == value&.upcase
-			:IDENTIFIER
-		elsif value[0] == value[0]&.upcase
-			:Identifier
-		else
-			:identifier
-		end
-	end
 end
 
 class Key_Identifier_Expr < Identifier_Expr

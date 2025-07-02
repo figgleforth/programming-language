@@ -1,4 +1,4 @@
-require './lang/helpers/constants'
+require './lang/constants'
 require './lang/lexer/lexeme'
 
 class Lexer
@@ -241,7 +241,7 @@ class Lexer
 				elsif symbol? curr
 					it.type  = :operator
 					it.value = if %w(. | & ).include? curr
-						# @todo Is it possible to avoid having to do this?
+						# #todo Is it possible to avoid having to do this?
 						if curr == '.' && (peek == '.' || peek == '<')
 							lex_operator
 

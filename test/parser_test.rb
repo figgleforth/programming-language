@@ -1,7 +1,7 @@
 require 'minitest/autorun'
 require './lang/lexer/lexer'
 require './lang/parser/parser'
-require './lang/helpers/constants'
+require './lang/constants'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers
@@ -10,7 +10,7 @@ class Parser_Test < Minitest::Test
 			out = parse code
 			assert_kind_of Identifier_Expr, out.first
 			assert_equal code, out.first.value
-			assert_equal type, out.first.type
+			assert_nil out.first.type
 		end
 	end
 
@@ -83,7 +83,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 1, out.count
 		assert_kind_of Identifier_Expr, out.first
 		assert_equal 'a1234', out.first.value
-		assert_equal :identifier, out.first.type
+		refute out.first.type
 	end
 
 	def test_strings
@@ -381,14 +381,16 @@ class Parser_Test < Minitest::Test
 		out.first.expressions.each do
 			assert_kind_of Identifier_Expr, it
 		end
-
 	end
 
-	def test_broken
-		out = parse 'expected := sequence[at]'
-		assert_kind_of Infix_Expr, out.first
-		assert_equal ':=', out.first.operator
+	def test_function_signatures
+		out = parse 'nothing { input;
+			return input
+		}'
+		assert_equal 'nothing{input;}', out.first.signature
+	end
 
+	def test_complex_function
 		out = parse '
 		curr? { sequence;
 			if not remainder or not lexemes?
@@ -507,7 +509,7 @@ class Parser_Test < Minitest::Test
 		assert_kind_of String_Expr, out.first.when_false.when_false.first
 	end
 
-	def test_conditionals_at_end_of_line # it looks like these conditionals are not handled in #maybe_modify
+	def test_conditionals_at_end_of_line
 		out = parse 'eat while lexemes? and curr?()'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.condition
@@ -565,6 +567,18 @@ class Parser_Test < Minitest::Test
 		assert_equal 3, elswhile.when_true.first.value
 		assert_kind_of Number_Expr, elswhile.when_false.first
 		assert_equal 4, elswhile.when_false.first.value
+	end
+
+	def test_circumfixes
+		out = parse '[], (), {}'
+		assert_equal 3, out.count
+		out.each do |it|
+			assert_kind_of Circumfix_Expr, it
+			assert_empty it.expressions
+		end
+
+		out = parse '[1, 2, 3]'
+		assert_equal 3, out.first.expressions.count
 	end
 
 	private

@@ -1,17 +1,17 @@
 require_relative 'expression'
-require_relative '../helpers/constants'
+require './lang/constants'
 
 class Parser
-	attr_accessor :i, :input, :output
+	attr_accessor :i, :input
 
 	def initialize input = []
-		@input  = input
-		@output = []
-		@i      = 0 # index of current lexeme
+		@input = input
+		@i     = 0 # index of current lexeme
 	end
 
 	# Array of precedences and symbols for that precedence. if the lexeme provided matches one of the operator symbols then its precedence is returned. Nice reference: https://rosettacode.org/wiki/Operator_precedence
 	def precedence_for operator
+		# #todo Make this better
 		# higher number = tighter binding
 		[
 			[1000, %w(! not)], # exponentiation
@@ -151,7 +151,7 @@ class Parser
 	end
 
 	def parse_circumfix_expr opening: '('
-		it = Circumfix_Expr.new #.tap do |it|
+		it = Circumfix_Expr.new
 		it.grouping = GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
 		eat opening
 		reduce_newlines
@@ -204,20 +204,6 @@ class Parser
 				end
 
 				expr.param_decls << param
-
-				# expect either , or ; or \n
-				# raise "expected , ; or newline" unless curr? %W(, ; \n)
-
-				# if curr? ','
-				# 	eat
-				# else
-				# 	reduce_newlines
-				# 	raise "ERROR expected , or ; when declaring " unless curr? %w(, ;)
-				# end
-				# eat if curr? ','
-				# if !curr?(%W(; \n))
-				# 	eat ','
-				# end
 				reduce_newlines
 			end
 
@@ -280,9 +266,6 @@ class Parser
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
-		elsif curr? :identifier, ':', :identifier
-			raise "SYNTAX ERROR cannot have a type that is not capitalized, meaning a Type versus variable or function"
-
 		elsif curr?(:identifier, ':', :Identifier)
 			Identifier_Expr.new.tap do
 				it.value = eat.value
@@ -295,6 +278,10 @@ class Parser
 
 		elsif curr? %w( [ \( { |)
 			parse_circumfix_expr opening: curr_lexeme.value
+
+		elsif curr?(':', :identifier) || curr?(':', :Identifier) || curr?(':', :IDENTIFIER)
+			eat ':'
+			Symbol_Expr.new eat.value
 
 		elsif curr? :operator
 			Operator_Expr.new eat(:operator).value
@@ -320,7 +307,6 @@ class Parser
 
 	def maybe_modify_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
-		# return expr if curr? "\n"
 
 		if curr_lexeme.is ',' # This allows comma separating declarations
 			eat and return expr
@@ -353,29 +339,12 @@ class Parser
 			return maybe_modify_expression expr, precedence
 		end
 
-		# if GROUPINGS.keys.include? curr_lexeme.value
-		# todo replace the ( and [ checkes below with the generalized Circumfix?
-		# end
-
-		if curr? '(' # and eat '('
+		if curr? '('
 			fix          = parse_circumfix_expr opening: curr_lexeme.value
 			it           = Call_Expr.new
 			it.receiver  = expr
 			it.arguments = fix.expressions
 
-			# Param_Expr.new.tap do |param|
-			# #delete_param_expr
-			# if curr? :identifier, ':'
-			# 	param.label = eat(:identifier).value
-			# 	eat ':'
-			# end
-
-			# param.expression = make_expression
-			# end
-
-			# eat if curr? ','
-
-			# eat ')'
 			return maybe_modify_expression it, precedence
 		end
 
@@ -386,22 +355,6 @@ class Parser
 
 			return maybe_modify_expression it, precedence
 		end
-
-		# Handle shorthand assigments such as +=, -=, etc by swapping operators and nesting Infix_Exprs: a += b becomes a = a + b
-		# if INFIX.include?(curr_lexeme.value) && peek.is('=')
-		# 	actual_operator = eat.value # one of the ::INFIXes
-		# 	expr            = Infix_Expr.new.tap do |left|
-		# 		left.left     = expr
-		# 		left.operator = eat.value
-		# 		raise "UHOH" unless left.operator == '=' # todo
-		# 		left.right = Infix_Expr.new.tap do |right|
-		# 			right.left     = expr
-		# 			right.operator = actual_operator
-		# 			right.right    = make_expression
-		# 		end
-		# 	end
-		# 	return modify_expression expr, precedence
-		# end
 
 		prefix  = PREFIX.include?(expr.value)
 		infix   = INFIX.include?(curr_lexeme.value)
@@ -442,10 +395,6 @@ class Parser
 					it.right    = make_expression curr_operator_prec
 					expr        = it
 
-					# unless it.right
-					# 	raise "it.right is nil\n\nexpr: #{it.inspect}\ncurr: #{curr_lexeme.inspect}"
-					# end
-
 					return maybe_modify_expression expr, precedence
 				end
 			end
@@ -458,9 +407,6 @@ class Parser
 
 			return maybe_modify_expression expr, precedence
 		end
-		# if curr?('{') && peek_contains?(';', '}')
-		#! todo passing a block
-		# end
 
 		if curr? %w(if while unless until)
 			it           = Conditional_Expr.new
@@ -478,10 +424,10 @@ class Parser
 	end
 
 	def output
-		@output = []
+		expressions = []
 		while lexemes?
-			@output << make_expression
+			expressions << make_expression
 		end
-		@output.compact
+		expressions.compact
 	end
 end
