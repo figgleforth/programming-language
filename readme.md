@@ -3,7 +3,7 @@
 - Composition and inheritance
 - Functions and Types are callable references, meaning you can store a function or type in a variable to use later
 ---
-_See `test/*` for more comprehensive exambples._
+_See `test/*` for more comprehensive examples._
 
 #### **Comments**
 ```plain text
