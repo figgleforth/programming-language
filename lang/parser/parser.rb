@@ -223,13 +223,13 @@ class Parser
 
 	def parse_type_decl
 		Type_Decl.new.tap do |decl|
-			decl.identifier = eat(:Identifier).value
+			decl.name = eat(:Identifier).value
 
 			until curr? '{'
-				if curr?(TYPE_COMPOSITION_OPERATORS) # these could be in begin_expr's if-statment but
+				if curr?(TYPE_COMPOSITION_OPERATORS, :Identifier) # these could be in begin_expr's if-statment but
 					decl.composition_exprs << Composition_Expr.new.tap do
-						it.operator   = eat(:operator).value
-						it.identifier = eat(:Identifier).value
+						it.operator = eat(:operator).value
+						it.name     = eat(:Identifier).value
 					end
 				end
 			end
@@ -259,8 +259,8 @@ class Parser
 
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
 			Composition_Expr.new.tap do
-				it.operator   = eat(:operator).value
-				it.identifier = eat(:Identifier).value
+				it.operator = eat(:operator).value
+				it.name     = eat(:Identifier).value
 			end
 
 		elsif curr? %w(if while unless until)
@@ -339,6 +339,7 @@ class Parser
 			return maybe_modify_expression expr, precedence
 		end
 
+		# #todo I think these should be generalized to Postfix, then I can just check the grouping in Runtime to determine what to do
 		if curr? '('
 			fix          = parse_circumfix_expr opening: curr_lexeme.value
 			it           = Call_Expr.new

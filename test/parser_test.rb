@@ -467,7 +467,7 @@ class Parser_Test < Minitest::Test
 	def test_types
 		out = parse 'String {}'
 		assert_kind_of Type_Decl, out.first
-		assert_equal 'String', out.first.identifier
+		assert_equal 'String', out.first.name
 
 		out = parse 'Transform {
 			position =;
@@ -480,7 +480,7 @@ class Parser_Test < Minitest::Test
 		}'
 		assert_kind_of Composition_Expr, out.first.composition_exprs.first
 		assert_equal '|', out.first.composition_exprs.first.operator
-		assert_equal 'Transform', out.first.composition_exprs.first.identifier
+		assert_equal 'Transform', out.first.composition_exprs.first.name
 	end
 
 	def test_control_flows
@@ -579,6 +579,16 @@ class Parser_Test < Minitest::Test
 
 		out = parse '[1, 2, 3]'
 		assert_equal 3, out.first.expressions.count
+	end
+
+	def test_type_init
+		out = parse 'Type()'
+		assert_kind_of Call_Expr, out.first
+	end
+
+	def test_func_call
+		out = parse 'funk()'
+		assert_kind_of Call_Expr, out.first
 	end
 
 	private

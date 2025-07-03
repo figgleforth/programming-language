@@ -24,6 +24,19 @@ class Expression
 	end
 end
 
+class Param_Decl < Expression
+	attr_accessor :name, :label, :type, :default, :portal
+
+	def initialize
+		super
+		@portal  = false
+		@default = nil
+		@name    = nil
+		@label   = nil
+		@type    = nil
+	end
+end
+
 class Func_Expr < Expression
 	attr_accessor :name, :expressions, :param_decls, :signature
 
@@ -52,10 +65,6 @@ class Func_Expr < Expression
 	end
 end
 
-class Func_Decl < Func_Expr
-	attr_accessor :name
-end
-
 # get '/' home {;}
 # put 'whatever/:id' do_something {;}
 # post 'book/:id/publish' do_something {;}
@@ -69,30 +78,8 @@ class Route_Decl < Func_Expr
 	end
 end
 
-class Operator_Decl < Func_Decl
-	attr_accessor :fix # pre, in, post, circumfix
-end
-
-class Param_Decl < Expression
-	attr_accessor :name, :label, :type, :default, :portal
-
-	def initialize
-		super
-		@portal  = false
-		@default = nil
-		@name    = nil
-		@label   = nil
-		@type    = nil
-	end
-end
-
-# #delete_param_expr
-class Param_Expr < Expression
-	attr_accessor :expression, :label
-end
-
 class Type_Decl < Expression
-	attr_accessor :identifier, :expressions, :composition_exprs
+	attr_accessor :name, :expressions, :composition_exprs
 
 	def initialize
 		super
@@ -136,15 +123,6 @@ class String_Expr < Expression
 	end
 end
 
-class Array_Expr < Expression
-	attr_accessor :elements
-
-	def initialize
-		super nil
-		@elements = []
-	end
-end
-
 class Prefix_Expr < Expression
 	attr_accessor :operator, :expression
 end
@@ -177,15 +155,8 @@ end
 class Identifier_Expr < Expression
 end
 
-class Key_Identifier_Expr < Identifier_Expr
-end
-
 class Composition_Expr < Expression
-	attr_accessor :operator, :identifier
-end
-
-class Class_Composition_Expr < Composition_Expr
-	attr_accessor :alias_identifier
+	attr_accessor :operator, :name
 end
 
 class Conditional_Expr < Expression
@@ -198,14 +169,7 @@ class Conditional_Expr < Expression
 	end
 end
 
-class Raise_Expr < Expression
-	attr_accessor :name, :expression
-end
-
-class Nil_Expr < Expression
-end
-
-class Return_Expr < Expression
+class Return_Expr < Prefix_Expr
 	attr_accessor :expression
 end
 
@@ -220,8 +184,4 @@ end
 
 class Subscript_Expr < Expression
 	attr_accessor :receiver, :expression
-end
-
-class Enum_Decl < Expression
-	attr_accessor :identifier, :expression
 end
