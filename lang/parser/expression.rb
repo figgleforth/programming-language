@@ -1,4 +1,4 @@
-require_relative '../helpers/constants'
+require './lang/constants'
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location
@@ -24,6 +24,19 @@ class Expression
 	end
 end
 
+class Param_Decl < Expression
+	attr_accessor :name, :label, :type, :default, :portal
+
+	def initialize
+		super
+		@portal  = false
+		@default = nil
+		@name    = nil
+		@label   = nil
+		@type    = nil
+	end
+end
+
 class Func_Expr < Expression
 	attr_accessor :name, :expressions, :param_decls, :signature
 
@@ -33,27 +46,23 @@ class Func_Expr < Expression
 	end
 
 	def signature
-		(name || '').tap do |n|
-			n << '{'
-			n << param_decls.map do |param|
-				label   = param.label ? "#{param.label}:" : ''
-				default = param.default ? "=#{param.default}" : ''
-				"#{label}#{param.name}#{default}"
-			end.join(',')
-			n << ';'
+		sig = name || ''
+		sig += '{'
+		sig += param_decls.map do |param|
+			label   = param.label ? "#{param.label}:" : ''
+			default = param.default ? "=#{param.default}" : ''
+			"#{label}#{param.name}#{default}"
+		end.join(',')
+		sig += ';'
+		sig += '}'
 
-			if expressions.any?
-				n << '['
-				n << expressions.join(',')
-				n << ']'
-			end
-			n << '}'
-		end
+		# #todo Maybe bring back extra signature details
+		# if expressions.any?
+		# 	n << '['
+		# 	n << expressions.join(',')
+		# 	n << ']'
+		# end
 	end
-end
-
-class Func_Decl < Func_Expr
-	attr_accessor :name
 end
 
 # get '/' home {;}
@@ -69,30 +78,8 @@ class Route_Decl < Func_Expr
 	end
 end
 
-class Operator_Decl < Func_Decl
-	attr_accessor :fix # pre, in, post, circumfix
-end
-
-class Param_Decl < Expression
-	attr_accessor :name, :label, :type, :default, :portal
-
-	def initialize
-		super
-		@portal  = false
-		@default = nil
-		@name    = nil
-		@label   = nil
-		@type    = nil
-	end
-end
-
-# #delete_param_expr
-class Param_Expr < Expression
-	attr_accessor :expression, :label
-end
-
 class Type_Decl < Expression
-	attr_accessor :identifier, :expressions, :composition_exprs
+	attr_accessor :name, :expressions, :composition_exprs
 
 	def initialize
 		super
@@ -125,9 +112,6 @@ class Number_Expr < Expression
 end
 
 class Symbol_Expr < Expression
-	def to_symbol
-		":#{string}"
-	end
 end
 
 class String_Expr < Expression
@@ -136,24 +120,6 @@ class String_Expr < Expression
 	def initialize string
 		super string
 		@interpolated = string.include? COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
-	end
-end
-
-class Dict_Expr < Expression
-	attr_accessor :expressions # holds Infix_Exprs
-
-	def initialize
-		super nil
-		@expressions = []
-	end
-end
-
-class Array_Expr < Expression
-	attr_accessor :elements
-
-	def initialize
-		super nil
-		@elements = []
 	end
 end
 
@@ -187,30 +153,10 @@ class Operator_Expr < Expression
 end
 
 class Identifier_Expr < Expression
-	def type
-		@type || inferred_type
-	end
-
-	def inferred_type
-		if value == value&.upcase
-			:IDENTIFIER
-		elsif value[0] == value[0]&.upcase
-			:Identifier
-		else
-			:identifier
-		end
-	end
-end
-
-class Key_Identifier_Expr < Identifier_Expr
 end
 
 class Composition_Expr < Expression
-	attr_accessor :operator, :identifier
-end
-
-class Class_Composition_Expr < Composition_Expr
-	attr_accessor :alias_identifier
+	attr_accessor :operator, :name
 end
 
 class Conditional_Expr < Expression
@@ -223,14 +169,7 @@ class Conditional_Expr < Expression
 	end
 end
 
-class Raise_Expr < Expression
-	attr_accessor :name, :expression
-end
-
-class Nil_Expr < Expression
-end
-
-class Return_Expr < Expression
+class Return_Expr < Prefix_Expr
 	attr_accessor :expression
 end
 
@@ -245,8 +184,4 @@ end
 
 class Subscript_Expr < Expression
 	attr_accessor :receiver, :expression
-end
-
-class Enum_Decl < Expression
-	attr_accessor :identifier, :expression
 end

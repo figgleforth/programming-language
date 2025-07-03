@@ -1,7 +1,7 @@
 require 'minitest/autorun'
 require './lang/lexer/lexer'
 require './lang/parser/parser'
-require './lang/helpers/constants'
+require './lang/constants'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers
@@ -10,7 +10,7 @@ class Parser_Test < Minitest::Test
 			out = parse code
 			assert_kind_of Identifier_Expr, out.first
 			assert_equal code, out.first.value
-			assert_equal type, out.first.type
+			assert_nil out.first.type
 		end
 	end
 
@@ -83,7 +83,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 1, out.count
 		assert_kind_of Identifier_Expr, out.first
 		assert_equal 'a1234', out.first.value
-		assert_equal :identifier, out.first.type
+		refute out.first.type
 	end
 
 	def test_strings
@@ -381,14 +381,16 @@ class Parser_Test < Minitest::Test
 		out.first.expressions.each do
 			assert_kind_of Identifier_Expr, it
 		end
-
 	end
 
-	def test_broken
-		out = parse 'expected := sequence[at]'
-		assert_kind_of Infix_Expr, out.first
-		assert_equal ':=', out.first.operator
+	def test_function_signatures
+		out = parse 'nothing { input;
+			return input
+		}'
+		assert_equal 'nothing{input;}', out.first.signature
+	end
 
+	def test_complex_function
 		out = parse '
 		curr? { sequence;
 			if not remainder or not lexemes?
@@ -465,7 +467,7 @@ class Parser_Test < Minitest::Test
 	def test_types
 		out = parse 'String {}'
 		assert_kind_of Type_Decl, out.first
-		assert_equal 'String', out.first.identifier
+		assert_equal 'String', out.first.name
 
 		out = parse 'Transform {
 			position =;
@@ -478,7 +480,7 @@ class Parser_Test < Minitest::Test
 		}'
 		assert_kind_of Composition_Expr, out.first.composition_exprs.first
 		assert_equal '|', out.first.composition_exprs.first.operator
-		assert_equal 'Transform', out.first.composition_exprs.first.identifier
+		assert_equal 'Transform', out.first.composition_exprs.first.name
 	end
 
 	def test_control_flows
@@ -507,7 +509,7 @@ class Parser_Test < Minitest::Test
 		assert_kind_of String_Expr, out.first.when_false.when_false.first
 	end
 
-	def test_conditionals_at_end_of_line # it looks like these conditionals are not handled in #maybe_modify
+	def test_conditionals_at_end_of_line
 		out = parse 'eat while lexemes? and curr?()'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.condition
@@ -534,7 +536,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 'repeat_this', out.first.when_false.value
 	end
 
-	def test_silly_elsewhile
+	def test_silly_elswhile
 		out        = parse '
 		while a
 			1
@@ -565,6 +567,72 @@ class Parser_Test < Minitest::Test
 		assert_equal 3, elswhile.when_true.first.value
 		assert_kind_of Number_Expr, elswhile.when_false.first
 		assert_equal 4, elswhile.when_false.first.value
+	end
+
+	def test_if_else
+		# Direct copy-past from test_silly_elswhile
+		out = parse '
+		if a
+			1
+		elif b
+			2
+		elsif c
+			3
+		else
+			4
+		end
+		'
+
+		# el elif elsif else
+		if_case = out.first
+		assert_kind_of Conditional_Expr, if_case
+		assert_equal 'if', if_case.type
+		assert_kind_of Number_Expr, if_case.when_true.first
+		assert_equal 1, if_case.when_true.first.value
+		assert_kind_of Conditional_Expr, if_case.when_false
+
+		elif_case = if_case.when_false
+		assert_equal 'elif', elif_case.type
+		assert_kind_of Number_Expr, elif_case.when_true.first
+		assert_equal 2, elif_case.when_true.first.value
+		assert_kind_of Conditional_Expr, elif_case.when_false
+
+		elsif_case = elif_case.when_false
+		assert_equal 'elsif', elsif_case.type
+		assert_kind_of Number_Expr, elsif_case.when_true.first
+		assert_equal 3, elsif_case.when_true.first.value
+		assert_kind_of Number_Expr, elsif_case.when_false.first
+		assert_equal 4, elsif_case.when_false.first.value
+	end
+
+	def test_circumfixes
+		out = parse '[], (), {}'
+		assert_equal 3, out.count
+		out.each do |it|
+			assert_kind_of Circumfix_Expr, it
+			assert_empty it.expressions
+		end
+
+		out = parse '[1, 2, 3]'
+		assert_equal 3, out.first.expressions.count
+	end
+
+	def test_type_init
+		out = parse 'Type()'
+		assert_kind_of Call_Expr, out.first
+	end
+
+	def test_func_call
+		out = parse 'funk()'
+		assert_kind_of Call_Expr, out.first
+	end
+
+	def test_self_scope_prefixes
+		out = parse './x := 123'
+		assert_kind_of Prefix_Expr, out.first
+		assert_equal './', out.first.operator
+		assert_kind_of Infix_Expr, out.first.expression
+		assert_equal ':=', out.first.expression.operator
 	end
 
 	private
