@@ -123,17 +123,19 @@ class Parser
 		it.when_true  = []
 		it.when_false = []
 
+		# todo Clean this up, what is this shit? It should just loop until curr? 'end'
+
 		reduce_newlines
-		until curr? %w(end else elsif elif ef elwhile elswhile)
+		until curr? %w(end else elsif elif ef el elwhile elswhile elsewhile)
 			expr = make_expression
 			it.when_true << expr if expr
 			reduce_newlines
 		end
 
-		if curr? %w(elsif elif elswhile elwhile)
+		if curr? %w(elsif elif ef el elwhile elswhile elsewhile)
 			it.when_false = parse_conditional_expr
 
-		elsif curr? 'else' and eat
+		elsif curr? %w(else el) and eat
 			until curr? 'end'
 				expr = make_expression
 				it.when_false << expr if expr
@@ -313,28 +315,19 @@ class Parser
 		end
 
 		# The three scope identifiers are parsed here, ./, ../, and .../
-		if expr.is('.') && curr_lexeme.is('/')
-			eat '/'
-			expr          = Prefix_Expr.new
-			expr.operator = './'
-			raise "./ must be followed by one of #{ANY_IDENTIFIER}" unless curr? ANY_IDENTIFIER
+		if expr.is('./')
+			expr            = Prefix_Expr.new
+			expr.operator   = './'
+			expr.expression = make_expression #(100000)
+			return maybe_modify_expression expr, precedence
+		elsif expr.is('../')
+			expr            = Prefix_Expr.new
+			expr.operator   = '../'
 			expr.expression = make_expression
 			return maybe_modify_expression expr, precedence
-		elsif expr.is('.') && curr_lexeme.is('.') && peek.is('/')
-			eat '.'
-			eat '/'
-			expr          = Prefix_Expr.new
-			expr.operator = '../'
-			raise "../ must be followed by one of #{ANY_IDENTIFIER}" unless curr? ANY_IDENTIFIER
-			expr.expression = make_expression
-			return maybe_modify_expression expr, precedence
-		elsif expr.is('.') && curr_lexeme.is('.') && peek.is('.') && peek(2).is('/')
-			eat '.'
-			eat '.'
-			eat '/'
-			expr          = Prefix_Expr.new
-			expr.operator = '.../'
-			raise ".../ must be followed by one of #{ANY_IDENTIFIER}" unless curr? ANY_IDENTIFIER
+		elsif expr.is('.../')
+			expr            = Prefix_Expr.new
+			expr.operator   = '.../'
 			expr.expression = make_expression
 			return maybe_modify_expression expr, precedence
 		end

@@ -2,12 +2,14 @@ require 'minitest/autorun'
 require './lang/lexer/lexer'
 
 class Lexer_Test < Minitest::Test
-	def test_comments
+	def test_single_linecomment
 		out = lex '`single line comment'
 		assert_equal :comment, out.first.type
 		assert_equal 'single line comment', out.first.value
 		assert_kind_of Lexeme, out.first
+	end
 
+	def test_multiline_comment
 		out = lex '```many line comment```'
 		assert_equal :comment, out.first.type
 		assert_equal 'many line comment', out.first.value
@@ -26,6 +28,9 @@ class Lexer_Test < Minitest::Test
 	def test_numbers
 		assert_equal :number, lex('4').first.type
 		assert_equal :number, lex('8.0').first.type
+	end
+
+	def test_prefixed_numbers
 
 		out = lex '-15'
 		assert_equal %I(operator number), out.map(&:type)
@@ -36,7 +41,9 @@ class Lexer_Test < Minitest::Test
 		assert_equal %I(operator number), out.map(&:type)
 		assert_equal '1.6', out.last.value
 		assert_equal 2, out.count
+	end
 
+	def test_unusual_number_situations
 		out = lex '20three'
 		assert_equal %I(number identifier), out.map(&:type)
 		assert_equal 2, out.count
@@ -61,6 +68,9 @@ class Lexer_Test < Minitest::Test
 		out = lex "'Another string'"
 		assert_equal :string, out.first.type
 
+	end
+
+	def test_interpolated_strings
 		out = lex '"An `interpolated` string"'
 		assert_equal :string, out.first.type
 
@@ -69,6 +79,7 @@ class Lexer_Test < Minitest::Test
 	end
 
 	def test_operators
+		# todo Should this be such a long test?
 		out = lex 'numbers := 4815162342'
 		assert_equal %I(identifier operator number), out.map(&:type)
 		assert_equal 3, out.count

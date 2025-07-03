@@ -1,9 +1,9 @@
 ### A Programming Language
-- **Homoiconic**: The code you write _is_ directly reflected in the structure in memory.
-- **Designed for prototyping**: Quick to iterate and experiment with ideas.
-- **Minimal reserved keywords**: Avoids unnecessary constraints on naming.
-- **Supports composition and inheritance**: Promotes flexible modeling capabilities.
+- Minimal reserved keywords
+- Composition and inheritance
+- Functions and Types are callable references, meaning you can store a function or type in a variable to use later
 ---
+_See `test/*` for more comprehensive exambples._
 
 #### **Comments**
 ```plain text
@@ -14,8 +14,8 @@
 #### **Variable Declarations**
 ```plain text
 name := "Cooper"      `Declaration with type inference
-name = 'COOPER'
 nothing =;            `Shorthand for assigning nil
+nothing = 1234
 ```
 #### **Constants & Enums**
 ```plain text

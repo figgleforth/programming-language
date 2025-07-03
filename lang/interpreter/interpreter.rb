@@ -3,44 +3,37 @@ require './lang/interpreter/constructs'
 require './lang/interpreter/errors'
 require './lang/constants'
 
-class Runtime < Hash
-end
-
 class Interpreter
-	attr_accessor :i, :input, :stack, :runtime
+	attr_accessor :i, :input, :stack, :global
 
 	def initialize input = [] # [Expression]
-		@input   = input
-		@stack   = []
-		@runtime = make_scope GSCOPE, 0
+		@input  = input
+		@stack  = []
+		@global = Scope.new 'Global', 0
 
-		# Global declarations like String, Int, etc
-		set_in_scope @runtime, 'String', Type_Blueprint.new.tap {
+		# todo Global declarations like String, Int, etc. Maybe some #make_* functions, or a generic one.
+		set_in_scope @global, 'String', Type.new.tap {
 			it.name = 'String'
-		}
-	end
-
-	# A scope is for anything that can carry declarations. That would be global and instances.
-	def make_scope type, id
-		{
-			__type: type,
-			__id:   id
 		}
 	end
 
 	def get_scope identifier
 		stack.reverse.find do
 			it.dig identifier
-		end
+		end || global
 	end
 
 	def set_in_curr_scope identifier, value = nil
-		scope = get_scope(identifier) || runtime
+		scope = get_scope(identifier)
 		set_in_scope scope, identifier, value
 	end
 
 	def set_in_scope scope, identifier, value = nil
 		scope[identifier] = value
+	end
+
+	def curr_scope
+		stack.last || global
 	end
 
 	def output
@@ -49,7 +42,7 @@ class Interpreter
 			out = interpret it
 		end
 		out
-		# I'd like to collect errors and keep interpreting the program if possible. Or should that only happen at the Parser?
+		# todo I'd like to collect errors and keep interpreting the program if possible. Or should that only happen at the Parser?
 	end
 
 	def interpret expr
@@ -64,7 +57,7 @@ class Interpreter
 			return true if expr.value == 'true'
 			return false if expr.value == 'false'
 
-			scope = get_scope(expr.value) || runtime
+			scope = get_scope(expr.value)
 			scope[expr.value]
 
 		when Prefix_Expr
@@ -75,27 +68,36 @@ class Interpreter
 				+interpret(expr.expression)
 			when '!'
 				!interpret(expr.expression)
+			when './'
+				# Declarations on self, similar to Ruby's self
+				stack << curr_scope
+				result = interpret expr.expression
+				stack.pop
+				result
+
+			when '../'
+				# todo Global declarations scope
+			when '.../'
+				# todo Third party declarations scope
 			else
-				raise "Unhandled prefix #{expr.inspect}"
+				raise Unhandled_Prefix.new expr
 			end
 
 		when Infix_Expr
 			if expr.operator == ':='
-				# [Global, Array] or [Global]
-				scope = get_scope(expr.left.value) || runtime
-				set_in_scope scope, expr.left.value, interpret(expr.right)
+				# Regular declarations where the type will be inferred later.
+				set_in_curr_scope expr.left.value, interpret(expr.right)
 			elsif expr.operator == '=' && expr.left.type
+				# These are `variable: Type` declaration so treat it as a := since I don't do anything with the type at the moment. Maybe this part won't be impacted by the implementation of types. We'll see.
 				expr.operator = ':='
 				interpret expr
-				# scope = get_scope(expr.left.value) || runtime
-				# set_in_scope scope, expr.left.value, interpret(expr.right)
 
 			elsif expr.operator == '='
 				if expr.left.value == expr.left.value.upcase
 					raise Cannot_Reassign_Constant
 				end
 
-				scope = get_scope(expr.left.value) || runtime
+				scope = get_scope(expr.left.value)
 				if scope&.include? expr.left.value
 					set_in_scope scope, expr.left.value, interpret(expr.right)
 				else
@@ -103,26 +105,22 @@ class Interpreter
 				end
 
 			elsif expr.operator == '.' && expr.right.value == 'new'
-				scope = get_scope(expr.left.value) || runtime
+				scope = get_scope(expr.left.value)
 				type  = scope[expr.left.value]
 				if not type
 					raise Cannot_Initialize_Undeclared_Identifier
 				end
 
-				if not type.is_a? Type_Blueprint
-					raise "this should never happen"
-				end
-
-				hash = Type_Blueprint.to_h type
+				hash = Type.to_h type
 
 				stack << hash
-				type.exprs.each do |it|
+				type.expressions.each do |it|
 					interpret it
 				end
 				stack.pop
 				hash
 			elsif expr.operator == '.'
-				scope = get_scope(expr.left.value) || runtime
+				scope = get_scope(expr.left.value)
 				if not scope
 					raise Undeclared_Identifier
 				end
@@ -147,15 +145,17 @@ class Interpreter
 				end
 
 			elsif COMPARISON_OPERATORS.include? expr.operator
-				if expr.operator == 'in'
-					left  = interpret expr.left
-					right = interpret expr.right
-					right.include? left # #todo improve
-				else
-					left  = interpret expr.left
-					right = interpret expr.right
-					left.send expr.operator, right
-				end
+				left  = interpret expr.left
+				right = interpret expr.right
+				left.send expr.operator, right
+
+			elsif COMPOUND_OPERATORS.include? expr.operator
+				stack << get_scope(expr.left.value)
+				left   = interpret expr.left
+				right  = interpret expr.right
+				result = left.send expr.operator[..-2], right
+				stack.pop
+				result
 
 			elsif %w(&& & || | and or).include? expr.operator
 				case expr.operator
@@ -175,18 +175,19 @@ class Interpreter
 					right = interpret expr.right
 					left.send expr.operator, right
 				rescue
-					raise Invalid_Infix.new
+					raise Invalid_Infix.new expr.inspect
 				end
 			end
 
 		when Postfix_Expr
 			case expr.operator
 			when '=;'
-				scope = get_scope(expr.expression.value) || runtime
-				set_in_scope scope, expr.expression.value, nil # #todo or Nil_Construct. Ruby has NilClass.
+				scope = get_scope(expr.expression.value)
+				set_in_scope scope, expr.expression.value, nil
+				# #todo or Nil_Construct. Ruby has NilClass.
 				# when ';' #todo
 			else
-				raise "Runtime#interpret(when Postfix) not yet handling #{expr.inspect}"
+				raise Unhandled_Postfix.new expr
 			end
 
 		when Circumfix_Expr
@@ -229,52 +230,66 @@ class Interpreter
 			end
 
 		when Call_Expr
-			# :receiver, :arguments
-			scope = get_scope(expr.receiver.value) || runtime
+			scope = get_scope(expr.receiver.value)
 			type  = scope[expr.receiver.value]
 			if not type
 				raise Cannot_Initialize_Undeclared_Identifier
 			end
 
-			# #todo implementation for Type_Blueprint and Func_Blueprint are not the same. This currently assumes a Type_Blueprint
+			if type.is_a? Type
+				hash = Type.to_h type # :garbage
 
-			hash = Type_Blueprint.to_h type
+				stack << hash
+				type.expressions.each do |it|
+					interpret it
+				end
 
-			stack << hash
-			type.exprs.each do |it|
-				interpret it
+				stack.pop
+				hash
+			elsif type.is_a? Func
+				# todo This Func/Decl#to_h stuff is :garbage. Clean this up.
+				hash = Func.to_h type
+
+				stack << hash
+				type.params.zip(expr.arguments).each do |it, arg|
+					# These expressions also store a :type, so eventually I'll want to use that.
+					set_in_curr_scope it.name, interpret(arg)
+				end
+
+				result = nil
+				type.expressions.each do |it|
+					result = interpret it
+				end
+				stack.pop
+				result
+			else
+				raise Unhandled_Call_Expr.new(expr)
 			end
 
-			# if new{;} is declared, call it with
-			stack.pop
-			hash
-			# #todo this is a copy paste from Infix.new above
-
 		when Func_Expr
-			it        = Func_Blueprint.new
-			it.name   = expr.name
-			it.params = expr.param_decls
-			it.exprs  = expr.expressions
-			# #todo These need to be converted to a hash to be :homoiconic_expressions
+			it             = Func.new
+			it.name        = expr.name
+			it.params      = expr.param_decls
+			it.expressions = expr.expressions
 
 			if expr.name
-				scope = get_scope(expr.name) || runtime
+				scope = get_scope(expr.name)
 				set_in_scope scope, expr.name, it
 			end
 
 			it
 
 		when Type_Decl
-			# :homoiconic_expressions
-			it              = Type_Blueprint.new
+			it              = Type.new
 			it.name         = expr.name
 			it.compositions = expr.composition_exprs
-			it.exprs        = expr.expressions
+			it.expressions  = expr.expressions
 
-			scope = get_scope(expr.name) || runtime
+			scope = get_scope(expr.name)
 			set_in_scope scope, expr.name, it
 
 			it
+
 		else
 			raise Unhandled_Expr.new expr
 		end

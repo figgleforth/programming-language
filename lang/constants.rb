@@ -11,11 +11,11 @@ INFIX                      = %w(
 		&& || & | << >>
 		.. >. .< ><
 		!= <= >= < > <=> < >
-		and or in
+		and or
 	).sort_by &SORT_BY_LENGTH_DESC
 POSTFIX                    = %w(=;)
 COMPOUND_OPERATORS         = %w(||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >=).sort_by &SORT_BY_LENGTH_DESC
-COMPARISON_OPERATORS       = %w(<=> == === != !== <= >= < > =~ !~ in).sort_by &SORT_BY_LENGTH_DESC
+COMPARISON_OPERATORS       = %w(<=> == === != !== <= >= < > =~ !~).sort_by &SORT_BY_LENGTH_DESC
 ARITHMETIC_OPERATORS       = %w(+ - * ** / % ~ << >> ^ & |).sort_by &SORT_BY_LENGTH_DESC
 RANGE_OPERATORS            = %w(.. .< >. ><).sort_by &SORT_BY_LENGTH_DESC
 RESERVED                   = %w(
@@ -29,8 +29,8 @@ RESERVED                   = %w(
 		``` `
 		=;
 
-		if el elsif elif else
-		while ew elswhile elwhile
+		if ef el elif elsif else
+		while ew elswhile elwhile elsewhile
 		unless until true false nil
 		skip stop and or return
 	).sort_by &SORT_BY_LENGTH_DESC

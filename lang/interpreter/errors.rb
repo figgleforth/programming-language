@@ -24,3 +24,12 @@ end
 
 class Invalid_Infix < RuntimeError
 end
+
+class Unhandled_Prefix < RuntimeError
+end
+
+class Unhandled_Postfix < RuntimeError
+end
+
+class Unhandled_Call_Expr < RuntimeError
+end

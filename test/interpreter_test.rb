@@ -265,10 +265,10 @@ class Interpreter_Test < Minitest::Test
 
 	def test_anonymous_function_declaration
 		out = interp '{;}'
-		assert_kind_of Func_Blueprint, out
+		assert_kind_of Func, out
 		assert_nil out.name
 		assert_empty out.params
-		assert_empty out.exprs
+		assert_empty out.expressions
 	end
 
 	def test_named_function_declaration
@@ -280,8 +280,8 @@ class Interpreter_Test < Minitest::Test
 		out = interp '{;
 			1, 2, 3
 		}'
-		refute_empty out.exprs
-		assert_equal 3, out.exprs.count
+		refute_empty out.expressions
+		assert_equal 3, out.expressions.count
 	end
 
 	def test_function_params
@@ -294,24 +294,24 @@ class Interpreter_Test < Minitest::Test
 		out = interp 'greet { person name = "Cooper";
 			"Hello `name`"
 		}'
-		assert_kind_of Func_Blueprint, out
+		assert_kind_of Func, out
 		assert_equal 1, out.params.count
-		assert_equal 1, out.exprs.count
+		assert_equal 1, out.expressions.count
 		# #todo :homoiconic_expressions
 	end
 
 	def test_assigning_function_to_variable
 		out = interp 'funk := { a, b, c; }'
-		assert_empty out.exprs
+		assert_empty out.expressions
 		refute_empty out.params
 		assert_equal 3, out.params.count
 	end
 
 	def test_empty_type_declaration
 		out = interp 'Island {}'
-		assert_kind_of Type_Blueprint, out
+		assert_kind_of Type, out
 		assert_equal 'Island', out.name
-		assert_empty out.exprs
+		assert_empty out.expressions
 		assert_empty out.compositions
 	end
 
@@ -320,7 +320,7 @@ class Interpreter_Test < Minitest::Test
 			| Transform
 			- Rotation
 		}'
-		assert_kind_of Type_Blueprint, out
+		assert_kind_of Type, out
 		assert_kind_of Composition_Expr, out.compositions.first
 		assert_kind_of Composition_Expr, out.compositions.last
 		assert_equal 'Rotation', out.compositions.last.name
@@ -330,7 +330,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_composed_type_declaration_before_body
 		out = interp 'Entity | Transform & Physics {}'
-		assert_kind_of Type_Blueprint, out
+		assert_kind_of Type, out
 		assert_kind_of Composition_Expr, out.compositions.first
 		assert_kind_of Composition_Expr, out.compositions.last
 		assert_equal 'Physics', out.compositions.last.name
@@ -349,11 +349,11 @@ class Interpreter_Test < Minitest::Test
 				"Transform!"
 			}
 		}'
-		assert_kind_of Identifier_Expr, out.exprs[0]
-		assert_equal 'Vector3', out.exprs[0].type
-		assert_kind_of Infix_Expr, out.exprs[2]
-		assert_kind_of Infix_Expr, out.exprs[3]
-		assert_kind_of Func_Expr, out.exprs[4]
+		assert_kind_of Identifier_Expr, out.expressions[0]
+		assert_equal 'Vector3', out.expressions[0].type
+		assert_kind_of Infix_Expr, out.expressions[2]
+		assert_kind_of Infix_Expr, out.expressions[3]
+		assert_kind_of Func_Expr, out.expressions[4]
 	end
 
 	def test_undeclared_type_init_with_new_keyword
@@ -364,7 +364,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_declaring_type
 		out = interp 'Type {}'
-		assert_kind_of Type_Blueprint, out
+		assert_kind_of Type, out
 	end
 
 	def test_declared_type_init_with_new_keyword
@@ -391,10 +391,10 @@ class Interpreter_Test < Minitest::Test
 		}, Transform.new'
 		assert_kind_of RecursiveOpenStruct, out
 		assert_equal 'Transform', out.__name
-		assert_kind_of Array, out.__exprs
-		assert_equal 6, out.__exprs.count
-		assert_kind_of Param_Decl, out.__exprs.last.param_decls.first
-		assert_kind_of String_Expr, out.__exprs[4].expressions.first
+		assert_kind_of Array, out.__expressions
+		assert_equal 6, out.__expressions.count
+		assert_kind_of Param_Decl, out.__expressions.last.param_decls.first
+		assert_kind_of String_Expr, out.__expressions[4].expressions.first
 	end
 
 	def test_complex_type_with_value_lookup
@@ -423,13 +423,46 @@ class Interpreter_Test < Minitest::Test
 		assert_kind_of RecursiveOpenStruct, out
 	end
 
-	# def test_type_declaration_with_args
-	#
-	# end
+	def test_type_declaration_with_args
+		out = interp '
+		Vector1 {
+			x: Int
+			new { x;
+				./x = x
+			}
+		}
+		'
+		assert_kind_of Type, out
+	end
 
 	def test_global_declarations
 		out = interp 'String()'
 		assert_kind_of RecursiveOpenStruct, out
+	end
+
+	def test_dot_slash
+		out = interp './x := 123'
+		assert_equal 123, out
+	end
+
+	def test_look_up_dot_slash_without_dot_slash
+		out = interp './x := 123
+		x'
+		assert_equal 123, out
+	end
+
+	def test_look_up_dot_slash_with_dot_slash
+		out = interp './y := 543
+		./y'
+		assert_equal 543, out
+	end
+
+	def test_function_call
+		out = interp '
+		add { a, b; a+b }
+		add(4, 8)
+		'
+		assert_equal 12, out
 	end
 
 	private

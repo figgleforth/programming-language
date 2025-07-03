@@ -536,7 +536,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 'repeat_this', out.first.when_false.value
 	end
 
-	def test_silly_elsewhile
+	def test_silly_elswhile
 		out        = parse '
 		while a
 			1
@@ -569,6 +569,42 @@ class Parser_Test < Minitest::Test
 		assert_equal 4, elswhile.when_false.first.value
 	end
 
+	def test_if_else
+		# Direct copy-past from test_silly_elswhile
+		out = parse '
+		if a
+			1
+		elif b
+			2
+		elsif c
+			3
+		else
+			4
+		end
+		'
+
+		# el elif elsif else
+		if_case = out.first
+		assert_kind_of Conditional_Expr, if_case
+		assert_equal 'if', if_case.type
+		assert_kind_of Number_Expr, if_case.when_true.first
+		assert_equal 1, if_case.when_true.first.value
+		assert_kind_of Conditional_Expr, if_case.when_false
+
+		elif_case = if_case.when_false
+		assert_equal 'elif', elif_case.type
+		assert_kind_of Number_Expr, elif_case.when_true.first
+		assert_equal 2, elif_case.when_true.first.value
+		assert_kind_of Conditional_Expr, elif_case.when_false
+
+		elsif_case = elif_case.when_false
+		assert_equal 'elsif', elsif_case.type
+		assert_kind_of Number_Expr, elsif_case.when_true.first
+		assert_equal 3, elsif_case.when_true.first.value
+		assert_kind_of Number_Expr, elsif_case.when_false.first
+		assert_equal 4, elsif_case.when_false.first.value
+	end
+
 	def test_circumfixes
 		out = parse '[], (), {}'
 		assert_equal 3, out.count
@@ -589,6 +625,14 @@ class Parser_Test < Minitest::Test
 	def test_func_call
 		out = parse 'funk()'
 		assert_kind_of Call_Expr, out.first
+	end
+
+	def test_self_scope_prefixes
+		out = parse './x := 123'
+		assert_kind_of Prefix_Expr, out.first
+		assert_equal './', out.first.operator
+		assert_kind_of Infix_Expr, out.first.expression
+		assert_equal ':=', out.first.expression.operator
 	end
 
 	private
