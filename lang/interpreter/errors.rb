@@ -31,5 +31,5 @@ end
 class Unhandled_Postfix < RuntimeError
 end
 
-class Unhandled_Call_Expr < RuntimeError
+class Unhandled_Call_Receiver < RuntimeError
 end

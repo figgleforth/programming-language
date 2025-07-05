@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './lang/lexer/lexer'
+require './test/helper'
 
 class Lexer_Test < Minitest::Test
 	def test_single_linecomment
@@ -292,9 +292,9 @@ class Lexer_Test < Minitest::Test
 		end
 	end
 
-	private
-
-	def lex code
-		Lexer.new(code).output
+	def test_conditional_keywords
+		out = lex 'and or'
+		assert_equal :operator, out.first.type
+		assert_equal :operator, out.last.type
 	end
 end

@@ -1,9 +1,6 @@
 require 'minitest/autorun'
 require 'recursive-open-struct'
-require './lang/lexer/lexer'
-require './lang/parser/parser'
-require './lang/interpreter/interpreter'
-require './lang/interpreter/constructs'
+require './test/helper'
 
 class Interpreter_Test < Minitest::Test
 	def test_integer_literals
@@ -345,7 +342,7 @@ class Interpreter_Test < Minitest::Test
 			x: Int = 0
 			y := 0
 
-			__to_s {;
+			to_s {;
 				"Transform!"
 			}
 		}'
@@ -371,8 +368,9 @@ class Interpreter_Test < Minitest::Test
 		out = interp 'Type {}
 		Type.new
 		'
-		assert_kind_of RecursiveOpenStruct, out
-		assert_equal 'Type', out.__name
+		assert_kind_of Type, out
+		assert_instance_of Instance, out
+		assert_equal 'Type', out.name
 	end
 
 	def test_complex_type_init
@@ -383,18 +381,18 @@ class Interpreter_Test < Minitest::Test
 			x: Int = 4
 			y := 8
 
-			__to_s {;
+			to_s {;
 				"Transform!"
 			}
 
 			new { position: Vector3; }
 		}, Transform.new'
-		assert_kind_of RecursiveOpenStruct, out
-		assert_equal 'Transform', out.__name
-		assert_kind_of Array, out.__expressions
-		assert_equal 6, out.__expressions.count
-		assert_kind_of Param_Decl, out.__expressions.last.param_decls.first
-		assert_kind_of String_Expr, out.__expressions[4].expressions.first
+		assert_kind_of Type, out
+		assert_equal 'Transform', out.name
+		assert_kind_of Array, out.expressions
+		assert_equal 6, out.expressions.count
+		assert_kind_of Param_Decl, out.expressions.last.param_decls.first
+		assert_kind_of String_Expr, out.expressions[4].expressions.first
 	end
 
 	def test_complex_type_with_value_lookup
@@ -413,14 +411,15 @@ class Interpreter_Test < Minitest::Test
 		(t.position, t.position.y)
 		'
 		assert_kind_of Tuple, out
-		assert_kind_of RecursiveOpenStruct, out.values.first
+		assert_kind_of Instance, out.values.first
 		assert_equal 2, out.values.last
 	end
 
 	def test_type_declaration_with_parens
 		out = interp 'Vector2 { x: Int, y: Int }
 		pos := Vector2()'
-		assert_kind_of RecursiveOpenStruct, out
+		assert_kind_of Type, out
+		assert_instance_of Instance, out
 	end
 
 	def test_type_declaration_with_args
@@ -437,7 +436,8 @@ class Interpreter_Test < Minitest::Test
 
 	def test_global_declarations
 		out = interp 'String()'
-		assert_kind_of RecursiveOpenStruct, out
+		assert_kind_of Type, out
+		assert_instance_of Instance, out
 	end
 
 	def test_dot_slash
@@ -457,19 +457,17 @@ class Interpreter_Test < Minitest::Test
 		assert_equal 543, out
 	end
 
-	def test_function_call
+	def test_function_call_with_arguments
 		out = interp '
 		add { a, b; a+b }
-		add(4, 8)
-		'
+		add(4, 8)'
 		assert_equal 12, out
 	end
 
-	private
-
-	def interp code # short for interpret
-		lexemes     = Lexer.new(code).output
-		expressions = Parser.new(lexemes).output
-		Interpreter.new(expressions).output
+	def test_precedence_operation_regression
+		src = interp '1 + 2 / 3 - 4 * 5'
+		ref = interp '(1 + (2 / 3)) - (4 * 5)'
+		assert_equal ref, src
+		assert_equal -19, src
 	end
 end

@@ -13,7 +13,7 @@ class Expression
 		elsif compare.is_a? String
 			compare == value
 		elsif compare.is_a? Class
-			compare.is_a? self.class
+			compare.new.is_a? self.class
 		else
 			compare == self
 		end
