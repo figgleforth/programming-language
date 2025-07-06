@@ -54,6 +54,12 @@ end
 
 class Type < Scope
 	attr_accessor :expressions, :compositions
+
+	def initialize
+		super
+		@expressions  = []
+		@compositions = []
+	end
 end
 
 class Instance < Type
