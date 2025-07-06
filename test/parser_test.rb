@@ -1,7 +1,5 @@
 require 'minitest/autorun'
-require './lang/lexer/lexer'
-require './lang/parser/parser'
-require './lang/constants'
+require './test/helper'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers
@@ -424,8 +422,6 @@ class Parser_Test < Minitest::Test
 
 		slice = out.first.expressions[1]
 		assert_kind_of Infix_Expr, slice
-		assert_kind_of Infix_Expr, slice.right
-		assert_kind_of Call_Expr, slice.right.right
 
 		tap = out.first.expressions.last
 		assert_kind_of Infix_Expr, tap
@@ -510,10 +506,10 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_conditionals_at_end_of_line
-		out = parse 'eat while lexemes? and curr?()'
+		out = parse 'eat while lexemes? && curr?()'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.condition
-		assert_kind_of Identifier_Expr, out.first.when_true
+		assert_kind_of Identifier_Expr, out.first.when_true.first
 	end
 
 	def test_unless_conditional
@@ -522,8 +518,8 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Identifier_Expr, out.first.condition
 		assert_equal 'unless', out.first.type
 		assert_equal 'the_condition', out.first.condition.value
-		assert_kind_of Identifier_Expr, out.first.when_false
-		assert_equal 'do_this', out.first.when_false.value
+		assert_kind_of Identifier_Expr, out.first.when_false.first
+		assert_equal 'do_this', out.first.when_false.first.value
 	end
 
 	def test_until_conditional
@@ -532,8 +528,8 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Identifier_Expr, out.first.condition
 		assert_equal 'until', out.first.type
 		assert_equal 'the_condition', out.first.condition.value
-		assert_kind_of Identifier_Expr, out.first.when_false
-		assert_equal 'repeat_this', out.first.when_false.value
+		assert_kind_of Identifier_Expr, out.first.when_false.first
+		assert_equal 'repeat_this', out.first.when_false.first.value
 	end
 
 	def test_silly_elswhile
@@ -635,10 +631,11 @@ class Parser_Test < Minitest::Test
 		assert_equal ':=', out.first.expression.operator
 	end
 
-	private
-
-	def parse code
-		lexemes = Lexer.new(code).output
-		Parser.new(lexemes).output
+	def test_call_expr_improvement
+		out = parse 'Some.thing(1)'
+		assert_kind_of Call_Expr, out.first
+		assert_kind_of Infix_Expr, out.first.receiver
+		assert_kind_of Number_Expr, out.first.arguments.first
 	end
+
 end

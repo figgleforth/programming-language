@@ -19,10 +19,10 @@ end
 class Invalid_Dictionary_Infix_Operator < RuntimeError
 end
 
-class Invalid_Dictionary_Expr < RuntimeError
+class Unhandled_Circumfix_Expr < RuntimeError
 end
 
-class Invalid_Infix < RuntimeError
+class Unhandled_Infix < RuntimeError
 end
 
 class Unhandled_Prefix < RuntimeError
@@ -31,5 +31,5 @@ end
 class Unhandled_Postfix < RuntimeError
 end
 
-class Unhandled_Call_Expr < RuntimeError
+class Unhandled_Call_Receiver < RuntimeError
 end

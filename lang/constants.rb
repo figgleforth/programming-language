@@ -1,11 +1,11 @@
 # #todo Clean up
 # todo should return be a prefix?
-SORT_BY_LENGTH_DESC        = ->(str) { -str.size }
-INTERPOLATE_CHAR           = '`' # "string with `interpolation`"
-COMMENT_CHAR               = '`'
-COMMENT_MULTILINE_CHAR     = '```'
-PREFIX                     = %w(! - + ~ $ # ? & ^ ./ ../ .../ not).sort_by &SORT_BY_LENGTH_DESC
-INFIX                      = %w(
+SORT_BY_LENGTH_DESC    = ->(str) { -str.size }
+INTERPOLATE_CHAR       = '`' # "string with `interpolation`"
+COMMENT_CHAR           = '`'
+COMMENT_MULTILINE_CHAR = '```'
+PREFIX                 = %w(! - + ~ $ # ? & ^ ./ ../ .../ not).sort_by &SORT_BY_LENGTH_DESC
+INFIX                  = %w(
 		+ - ^ * ** / % ~ == === ? .
 		= : := ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=
 		&& || & | << >>
@@ -13,7 +13,10 @@ INFIX                      = %w(
 		!= <= >= < > <=> < >
 		and or
 	).sort_by &SORT_BY_LENGTH_DESC
-POSTFIX                    = %w(=;)
+POSTFIX                = %w(=;)
+CIRCUMFIX              = %w( \( [ { | )
+CIRCUMFIX_GROUPINGS    = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }.freeze
+
 COMPOUND_OPERATORS         = %w(||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >=).sort_by &SORT_BY_LENGTH_DESC
 COMPARISON_OPERATORS       = %w(<=> == === != !== <= >= < > =~ !~).sort_by &SORT_BY_LENGTH_DESC
 ARITHMETIC_OPERATORS       = %w(+ - * ** / % ~ << >> ^ & |).sort_by &SORT_BY_LENGTH_DESC
@@ -36,7 +39,6 @@ RESERVED                   = %w(
 	).sort_by &SORT_BY_LENGTH_DESC
 TYPE_COMPOSITION_OPERATORS = %w(| & - ^)
 ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
-GROUPINGS                  = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }.freeze
 STARTING_PRECEDENCE        = 0
 PRECEDENCE_OFFSET          = 100
 GSCOPE                     = :global

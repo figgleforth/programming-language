@@ -1,44 +1,3 @@
-class Func
-	attr_accessor :name, :expressions, :params
-
-	def self.to_h it
-		require 'recursive-open-struct'
-		RecursiveOpenStruct.new({
-			                        __name:        it.name,
-			                        __expressions: it.expressions || [],
-			                        __params:      it.params || [],
-		                        })
-	end
-
-	def to_h
-		Func.to_h self
-	end
-end
-
-class Type
-	attr_accessor :name, :expressions, :compositions
-
-	def initialize
-		@expressions  = []
-		@compositions = []
-	end
-
-	def self.to_h it
-		require 'recursive-open-struct'
-		RecursiveOpenStruct.new({
-			                        __type:         :func,
-			                        __name:         it.name,
-			                        __expressions:  it.expressions || [],
-			                        __compositions: it.compositions || [],
-			                        new:            Func.to_h(Func.new)
-		                        })
-	end
-
-	def to_h
-		Type.to_h self
-	end
-end
-
 class Left_Exclusive_Range < Range
 	def initialize first, last, exclude_end: false
 		super first, last, exclude_end
@@ -64,14 +23,53 @@ class Tuple
 	attr_accessor :values
 end
 
-class Scope < Hash
-	attr_reader :name, :id
+class Scope
+	attr_accessor :name, :id, :hash
+	@@next_id = 0
 
-	def initialize name, id
-		@name = name
-		@id   = id
+	def initialize
+		@hash     = {}
+		@id       = @@next_id
+		@@next_id += 1
+	end
+
+	def [](x)
+		@hash[x&.to_s]
+	end
+
+	def []=(x, value)
+		@hash[x&.to_s] = value
 	end
 end
 
-class Runtime < Scope
+class Func < Scope
+	attr_accessor :expressions, :params
+
+	def initialize
+		super
+		@expressions = []
+		@params      = []
+	end
+end
+
+class Type < Scope
+	attr_accessor :expressions, :compositions
+
+	def initialize
+		super
+		@expressions  = []
+		@compositions = []
+	end
+end
+
+class Instance < Type
+	def initialize
+		super
+		# For now I'm adding a default constructor here. Maybe there's a better way to do this but for now this is fine. –7/5/25
+		constructor      = Func.new
+		constructor.name = 'new'
+		self[:new]       = constructor
+		@expressions     = []
+		@compositions    = []
+	end
 end

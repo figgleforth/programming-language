@@ -1,30 +1,51 @@
-require './lang/parser/expression'
-require './lang/interpreter/constructs'
-require './lang/interpreter/errors'
-require './lang/constants'
-
 class Interpreter
+	require './lang/constants'
+	require './lang/parser/expression'
+	require './lang/interpreter/constructs'
+	require './lang/interpreter/errors'
+
 	attr_accessor :i, :input, :stack, :global
 
 	def initialize input = [] # [Expression]
 		@input  = input
-		@stack  = []
-		@global = Scope.new 'Global', 0
+		@global = Scope.new
+		@stack  = [@global]
 
-		# todo Global declarations like String, Int, etc. Maybe some #make_* functions, or a generic one.
-		set_in_scope @global, 'String', Type.new.tap {
-			it.name = 'String'
-		}
+		# todo Global declarations like String, Int, etc. Maybe some #make_* functions, or a generic one. But not here, this is ugly.
+		string      = Instance.new
+		string.name = 'String'
+		set_in_scope curr_scope, 'String', string
 	end
 
-	def get_scope identifier
-		stack.reverse.find do
-			it.dig identifier
-		end || global
+	def output
+		# todo I'd like to collect errors and keep interpreting the program if possible. Or should that only happen at the Parser?
+		out = nil
+		input.each do |it|
+			out = interpret it
+		end
+		out
+	end
+
+	# todo Use this in orher places instead of manually adding to the stack
+	def temporarily_push_scope scope, &block
+		already_top_scope = curr_scope == scope
+		stack << scope unless already_top_scope
+		yield scope if block_given?
+		stack.pop unless already_top_scope
+	end
+
+	def add_to_stack scope
+		stack << scope unless curr_scope == scope
+	end
+
+	def get_scope_containing identifier
+		stack.reverse.find do |it|
+			it[identifier]
+		end
 	end
 
 	def set_in_curr_scope identifier, value = nil
-		scope = get_scope(identifier)
+		scope = get_scope_containing(identifier) || curr_scope
 		set_in_scope scope, identifier, value
 	end
 
@@ -33,16 +54,7 @@ class Interpreter
 	end
 
 	def curr_scope
-		stack.last || global
-	end
-
-	def output
-		out = nil
-		input.each do
-			out = interpret it
-		end
-		out
-		# todo I'd like to collect errors and keep interpreting the program if possible. Or should that only happen at the Parser?
+		stack.last
 	end
 
 	def interpret expr
@@ -57,8 +69,11 @@ class Interpreter
 			return true if expr.value == 'true'
 			return false if expr.value == 'false'
 
-			scope = get_scope(expr.value)
-			scope[expr.value]
+			receiver_scope = get_scope_containing(expr.value) || curr_scope
+			if not receiver_scope
+				raise Undeclared_Identifier.new expr.inspect
+			end
+			receiver_scope[expr.value]
 
 		when Prefix_Expr
 			case expr.operator
@@ -66,19 +81,10 @@ class Interpreter
 				-interpret(expr.expression)
 			when '+'
 				+interpret(expr.expression)
-			when '!'
+			when '!', 'not'
 				!interpret(expr.expression)
 			when './'
-				# Declarations on self, similar to Ruby's self
-				stack << curr_scope
-				result = interpret expr.expression
-				stack.pop
-				result
-
-			when '../'
-				# todo Global declarations scope
-			when '.../'
-				# todo Third party declarations scope
+				interpret expr.expression
 			else
 				raise Unhandled_Prefix.new expr
 			end
@@ -97,43 +103,60 @@ class Interpreter
 					raise Cannot_Reassign_Constant
 				end
 
-				scope = get_scope(expr.left.value)
-				if scope&.include? expr.left.value
-					set_in_scope scope, expr.left.value, interpret(expr.right)
+				receiver_scope = get_scope_containing(expr.left.value) || curr_scope
+				if receiver_scope[expr.left.value]
+					set_in_scope receiver_scope, expr.left.value, interpret(expr.right)
 				else
 					raise Cannot_Assign_Undeclared_Identifier
 				end
 
 			elsif expr.operator == '.' && expr.right.value == 'new'
-				scope = get_scope(expr.left.value)
-				type  = scope[expr.left.value]
-				if not type
-					raise Cannot_Initialize_Undeclared_Identifier
+				receiver_scope = get_scope_containing(expr.left.value)
+				if not receiver_scope
+					raise Cannot_Initialize_Undeclared_Identifier.new expr.left.value
 				end
 
-				hash = Type.to_h type
+				receiver = receiver_scope[expr.left.value]
 
-				stack << hash
-				type.expressions.each do |it|
+				if receiver.is_a? Type
+					it             = Instance.new
+					it.name        = receiver.name
+					it.hash        = receiver.hash
+					it.expressions = receiver.expressions
+					# todo Don't separate compositions from expressions. It isn't necessary.
+					it.compositions = receiver.compositions
+					receiver        = it
+				end
+
+				add_to_stack receiver
+				receiver.expressions.each do |it|
 					interpret it
 				end
 				stack.pop
-				hash
+				receiver
+
 			elsif expr.operator == '.'
-				scope = get_scope(expr.left.value)
-				if not scope
-					raise Undeclared_Identifier
+				left = interpret expr.left
+
+				case left
+				when Scope, Instance, Type
+				else
+					raise Undeclared_Identifier.new expr.left
 				end
 
-				left = interpret expr.left
-				stack << left
-				result = interpret expr.right
-				stack.pop
-				result
+				temporarily_push_scope left do
+					result = interpret(expr.right)
+
+					if not result
+						raise Undeclared_Identifier.new expr.right
+					end
+					return result
+				end
+
 			elsif RANGE_OPERATORS.include? expr.operator
 				start  = interpret expr.left
 				finish = interpret expr.right
-				case expr.operator # This is officially a templated language, haha
+				case expr.operator
 				when '..'
 					Range.new start, finish
 				when '.<'
@@ -150,7 +173,8 @@ class Interpreter
 				left.send expr.operator, right
 
 			elsif COMPOUND_OPERATORS.include? expr.operator
-				stack << get_scope(expr.left.value)
+				left_scope = get_scope_containing(expr.left.value)
+				add_to_stack left_scope
 				left   = interpret expr.left
 				right  = interpret expr.right
 				result = left.send expr.operator[..-2], right
@@ -174,35 +198,41 @@ class Interpreter
 					left  = interpret expr.left
 					right = interpret expr.right
 					left.send expr.operator, right
-				rescue
-					raise Invalid_Infix.new expr.inspect
+				rescue Exception => e
+					# A reminder not to naively rescue here, otherwise you won't be able to catch any raises from within interpreter.
+					raise e
 				end
 			end
 
 		when Postfix_Expr
 			case expr.operator
 			when '=;'
-				scope = get_scope(expr.expression.value)
-				set_in_scope scope, expr.expression.value, nil
+				receiver_scope = get_scope_containing(expr.expression.value) || curr_scope
+				set_in_scope receiver_scope, expr.expression.value, nil
 				# #todo or Nil_Construct. Ruby has NilClass.
-				# when ';' #todo
+				# when ';' #todo I want `identifier;` to behave just like `=;` but currently ';' does not resolve to a postfix expression.
 			else
 				raise Unhandled_Postfix.new expr
 			end
 
 		when Circumfix_Expr
 			case expr.grouping
-			when '()'
-				values       = expr.expressions.reduce([]) do |arr, expr|
-					arr << interpret(expr)
-				end
-				tuple        = Tuple.new
-				tuple.values = values
-				tuple
-
 			when '[]'
 				expr.expressions.reduce([]) do |arr, expr|
 					arr << interpret(expr)
+				end
+
+			when '()'
+				values = expr.expressions.reduce([]) do |arr, expr|
+					arr << interpret(expr)
+				end
+
+				if values.count > 1
+					tuple        = Tuple.new
+					tuple.values = values
+					tuple
+				else
+					values.first
 				end
 
 			when '{}'
@@ -226,44 +256,45 @@ class Interpreter
 				end
 
 			else
-				raise Invalid_Dictionary_Expr
+				raise Unhandled_Circumfix_Expr.new expr
 			end
 
 		when Call_Expr
-			scope = get_scope(expr.receiver.value)
-			type  = scope[expr.receiver.value]
-			if not type
-				raise Cannot_Initialize_Undeclared_Identifier
+			receiver = if expr.receiver.is(Infix_Expr)
+				interpret expr.receiver # dot-chains etc.
+			else
+				interpret expr.receiver
 			end
 
-			if type.is_a? Type
-				hash = Type.to_h type # :garbage
-
-				stack << hash
-				type.expressions.each do |it|
+			case receiver
+			when Type
+				add_to_stack receiver
+				receiver.expressions.each do |it|
 					interpret it
 				end
-
 				stack.pop
-				hash
-			elsif type.is_a? Func
-				# todo This Func/Decl#to_h stuff is :garbage. Clean this up.
-				hash = Func.to_h type
+				receiver
 
-				stack << hash
-				type.params.zip(expr.arguments).each do |it, arg|
-					# These expressions also store a :type, so eventually I'll want to use that.
-					set_in_curr_scope it.name, interpret(arg)
+				it             = Instance.new
+				it.name        = receiver.name
+				it.hash        = receiver.hash
+				it.expressions = receiver.expressions
+				# todo Don't separate compositions from expressions. It isn't necessary.
+				it.compositions = receiver.compositions
+				it
+
+			when Func
+				add_to_stack receiver
+				receiver.params.zip(expr.arguments).each do |param, arg|
+					set_in_curr_scope param.name, interpret(arg)
 				end
-
 				result = nil
-				type.expressions.each do |it|
-					result = interpret it
-				end
+				receiver.expressions.each { |e| result = interpret e }
 				stack.pop
 				result
+
 			else
-				raise Unhandled_Call_Expr.new(expr)
+				raise Unhandled_Call_Receiver, receiver.inspect
 			end
 
 		when Func_Expr
@@ -273,8 +304,8 @@ class Interpreter
 			it.expressions = expr.expressions
 
 			if expr.name
-				scope = get_scope(expr.name)
-				set_in_scope scope, expr.name, it
+				receiver_scope = get_scope_containing(expr.name) || curr_scope
+				set_in_scope receiver_scope, expr.name, it
 			end
 
 			it
@@ -285,8 +316,8 @@ class Interpreter
 			it.compositions = expr.composition_exprs
 			it.expressions  = expr.expressions
 
-			scope = get_scope(expr.name)
-			set_in_scope scope, expr.name, it
+			receiver_scope = get_scope_containing(expr.name) || curr_scope
+			set_in_scope receiver_scope, expr.name, it
 
 			it
 

@@ -1,7 +1,7 @@
-require './lang/constants'
-require './lang/lexer/lexeme'
-
 class Lexer
+	require './lang/constants'
+	require './lang/lexer/lexeme'
+
 	attr_accessor :i, :col, :row, :input
 
 	def initialize input = 'greeting = "hello world"'
@@ -192,7 +192,9 @@ class Lexer
 		end
 
 		without_leading__ = ident.gsub(/^#{Regexp.escape('_')}+/, '')
-		if constant? without_leading__
+		if %w(and or not).include? ident
+			:operator
+		elsif constant? without_leading__
 			:IDENTIFIER
 		elsif class? without_leading__
 			:Identifier
