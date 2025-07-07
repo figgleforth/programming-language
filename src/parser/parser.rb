@@ -1,6 +1,6 @@
 class Parser
-	require './lang/parser/expression'
-	require './lang/constants'
+	require './src/parser/expression'
+	require './src/constants'
 
 	attr_accessor :i, :input
 
@@ -39,7 +39,7 @@ class Parser
 			 [90, %w(= := += -= *= /= %= &= |= ^= <<= >>=)], # assignments
 			 [80, %w(.. .< >. ><)], # ranges
 			 [70, %w(return)],
-			 [60, %w(unless)],
+			 [60, %w(unless if while until)],
 		].each do |prec, ops|
 			return prec if ops.sort_by(&SORT_BY_LENGTH_DESC).include?(operator)
 		end
@@ -129,15 +129,15 @@ class Parser
 
 	def parse_conditional_expr
 		it            = Conditional_Expr.new
-		it.type       = eat.value # %w(if while)
+		it.type       = eat.value # One of %w(if while unless until)
 		it.condition  = make_expression
 		it.when_true  = []
 		it.when_false = []
-
-		# todo Clean this up, what is this shit? It should just loop until curr? 'end'
-
 		reduce_newlines
-		until curr? %w(end else elsif elif ef el elwhile elswhile elsewhile)
+
+		# todo Clean this up, what is this shit? It should just loop until curr?(end) right? It works, so whatever.
+
+		until curr? %w(end else elsif elif ef elwhile elswhile elsewhile)
 			expr = make_expression
 			it.when_true << expr if expr
 			reduce_newlines
@@ -370,23 +370,6 @@ class Parser
 				raise "Prefix_Expr expected an expression after `#{expr.operator}`"
 			end
 
-			if expr.expression.is_a? Conditional_Expr
-				# :fix_for_return_prefix
-				it           = Conditional_Expr.new
-				it.condition = expr.expression.condition
-				it.type      = expr.expression.type
-
-				if %w(unless until).include? it.type
-					expr.expression = expr.expression.when_false
-					it.when_false   = [expr]
-				else
-					expr.expression = expr.expression.when_true
-					it.when_true    = [expr]
-				end
-
-				expr = it
-			end
-
 			return modify_expression expr, precedence
 		elsif infix
 			if COMPOUND_OPERATORS.include? curr_lexeme.value
@@ -450,9 +433,14 @@ class Parser
 		end
 
 		if curr?(%w(if while unless until))
+			if precedence_for(curr_lexeme.value) <= precedence
+				return expr
+			end
+
 			it           = Conditional_Expr.new
-			it.type      = eat.value # if, while, etc
-			it.condition = make_expression # precedence_for(it.type)
+			it.type      = eat.value
+			it_prec      = precedence_for it.type
+			it.condition = make_expression
 			if %w(unless until).include? it.type
 				it.when_false = [expr]
 			else

@@ -1,8 +1,8 @@
 class Interpreter
-	require './lang/constants'
-	require './lang/parser/expression'
-	require './lang/interpreter/constructs'
-	require './lang/interpreter/errors'
+	require './src/constants'
+	require './src/parser/expression'
+	require './src/interpreter/constructs'
+	require './src/interpreter/errors'
 
 	attr_accessor :i, :input, :stack, :global
 
@@ -87,7 +87,7 @@ class Interpreter
 			when './'
 				interpret expr.expression
 			when 'return'
-				interpret expr.expression.first # A note for myself, looking to change code that works for no reason. A return prefix should only ever have one value to return. The reason it has multiple here is that the Parser doesn't handle `return x if y` as a return "x if y" instead of "return x" if y. This is the most unobtrusive solution I have, along with the relevant code. Search the codebase for :fix_for_return_prefix for more information. -7/6/25
+				interpret expr.expression # A note for myself, looking to change code that works for no reason. A return prefix should only ever have one value to return. The reason it has multiple here is that the Parser doesn't handle `return x if y` as a return "x if y" instead of "return x" if y. This is the most unobtrusive solution I have, along with the relevant code. Search the codebase for :fix_for_return_prefix for more information. -7/6/25
 			else
 				raise Unhandled_Prefix, expr.inspect
 			end

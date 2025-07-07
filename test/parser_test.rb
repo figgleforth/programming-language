@@ -645,7 +645,7 @@ class Parser_Test < Minitest::Test
 		out = parse 'return x unless y'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Prefix_Expr, out.first.when_false.first
-		assert_kind_of Identifier_Expr, out.first.when_false.first.expression.first
+		assert_kind_of Identifier_Expr, out.first.when_false.first.expression
 		assert_kind_of Identifier_Expr, out.first.condition
 	end
 
@@ -653,7 +653,7 @@ class Parser_Test < Minitest::Test
 		out = parse 'return 3 if true'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Prefix_Expr, out.first.when_true.first
-		assert_kind_of Number_Expr, out.first.when_true.first.expression.first
+		assert_kind_of Number_Expr, out.first.when_true.first.expression
 		assert_kind_of Identifier_Expr, out.first.condition
 	end
 
@@ -682,11 +682,10 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_complex_return_with_conditionals
-		skip 'This is currently broken'
-		out = parse 'return 1+2*3/4 if true'
+		out = parse 'return 4+2 if true'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Prefix_Expr, out.first.when_true.first
-		assert_kind_of Infix_Expr, out.first.when_true.first.expression.first
+		assert_kind_of Infix_Expr, out.first.when_true.first.expression
 		assert_kind_of Identifier_Expr, out.first.condition
 	end
 end

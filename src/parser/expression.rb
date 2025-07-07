@@ -1,4 +1,4 @@
-require './lang/constants'
+require './src/constants'
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location

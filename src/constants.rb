@@ -17,7 +17,7 @@ POSTFIX             = %w(=;)
 CIRCUMFIX           = %w( \( [ { | )
 CIRCUMFIX_GROUPINGS = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }.freeze
 
-COMPOUND_OPERATORS         = %w(||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >=).sort_by &SORT_BY_LENGTH_DESC
+COMPOUND_OPERATORS         = %w(||= &&= **= <<= >>= += -= *= |= /= %= &= ^=).sort_by &SORT_BY_LENGTH_DESC
 COMPARISON_OPERATORS       = %w(<=> == === != !== <= >= < > =~ !~).sort_by &SORT_BY_LENGTH_DESC
 ARITHMETIC_OPERATORS       = %w(+ - * ** / % ~ << >> ^ & |).sort_by &SORT_BY_LENGTH_DESC
 RANGE_OPERATORS            = %w(.. .< >. ><).sort_by &SORT_BY_LENGTH_DESC

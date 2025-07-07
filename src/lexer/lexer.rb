@@ -1,6 +1,6 @@
 class Lexer
-	require './lang/constants'
-	require './lang/lexer/lexeme'
+	require './src/constants'
+	require './src/lexer/lexeme'
 
 	attr_accessor :i, :col, :row, :input
 

@@ -1,8 +1,8 @@
-require './lang/constants'
-require './lang/lexer/lexer'
-require './lang/parser/parser'
-require './lang/interpreter/interpreter'
-require './lang/interpreter/constructs'
+require './src/constants'
+require './src/lexer/lexer'
+require './src/parser/parser'
+require './src/interpreter/interpreter'
+require './src/interpreter/constructs'
 
 def interp code
 	lexemes     = Lexer.new(code).output

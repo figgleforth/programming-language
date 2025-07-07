@@ -63,15 +63,11 @@ class Type < Scope
 end
 
 class Instance < Type
-	def initialize
-		super
-		# For now I'm adding a default constructor here. Maybe there's a better way to do this but for now this is fine. –7/5/25
-		constructor      = Func.new
-		constructor.name = 'new'
-		self[:new]       = constructor
-		@expressions     = []
-		@compositions    = []
-	end
+	# 7/5/25, For now I'm adding a default constructor here. Maybe there's a better way to do this but for now this is fine.
+	# 7/7/25, I'm actually removing it because as I'm researching for src/types/number.e, I noticed that Ruby's Integer class does not have an initializer. But here's the code in case I need it for later.
+	# constructor      = Func.new
+	# constructor.name = 'new'
+	# self[:new]       = constructor
 end
 
 class Runtime_Number < Instance

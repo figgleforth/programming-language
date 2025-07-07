@@ -538,4 +538,17 @@ class Interpreter_Test < Minitest::Test
 			something.4.8.15.16.23.42'
 		end
 	end
+
+	def test_complex_return_with_simple_conditional
+		out = interp 'return (1+2*3/4) + (1+2*3/4) if 1 + 2 > 2'
+		assert_equal 4, out
+	end
+
+	def test_greater_equals_regression
+		out = interp '2+1 >= 1'
+		assert out
+
+		out = interp 'return 1+2*3/4%5-6 unless 1 + 2 >= 10'
+		assert_equal -4, out
+	end
 end
