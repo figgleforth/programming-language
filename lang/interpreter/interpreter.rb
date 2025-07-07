@@ -6,7 +6,7 @@ class Interpreter
 
 	attr_accessor :i, :input, :stack, :global
 
-	def initialize input = [] # [Expression]
+	def initialize input = [] # of `Expression`s
 		@input  = input
 		@global = Scope.new
 		@stack  = [@global]
@@ -59,11 +59,12 @@ class Interpreter
 
 	def interpret expr
 		case expr
-		when Number_Expr, String_Expr
-			expr.value
+		when Array_Index_Expr
+			expr.indices_in_order # todo, Convert this to the Array builtin Type
 
-		when Symbol_Expr
-			expr.value.to_sym
+		when Number_Expr, String_Expr, Symbol_Expr
+			# todo, Convert them to their equivalent builtin Types, which is an instance of my own Integer or Float. :number_constructs
+			expr.value
 
 		when Identifier_Expr
 			return true if expr.value == 'true'
@@ -71,7 +72,7 @@ class Interpreter
 
 			receiver_scope = get_scope_containing(expr.value) || curr_scope
 			if not receiver_scope
-				raise Undeclared_Identifier.new expr.inspect
+				raise Undeclared_Identifier, expr.inspect
 			end
 			receiver_scope[expr.value]
 
@@ -85,8 +86,10 @@ class Interpreter
 				!interpret(expr.expression)
 			when './'
 				interpret expr.expression
+			when 'return'
+				interpret expr.expression.first # A note for myself, looking to change code that works for no reason. A return prefix should only ever have one value to return. The reason it has multiple here is that the Parser doesn't handle `return x if y` as a return "x if y" instead of "return x" if y. This is the most unobtrusive solution I have, along with the relevant code. Search the codebase for :fix_for_return_prefix for more information. -7/6/25
 			else
-				raise Unhandled_Prefix.new expr
+				raise Unhandled_Prefix, expr.inspect
 			end
 
 		when Infix_Expr
@@ -100,57 +103,60 @@ class Interpreter
 
 			elsif expr.operator == '='
 				if expr.left.value == expr.left.value.upcase
-					raise Cannot_Reassign_Constant
+					raise Cannot_Reassign_Constant, expr.inspect
 				end
 
 				receiver_scope = get_scope_containing(expr.left.value) || curr_scope
 				if receiver_scope[expr.left.value]
 					set_in_scope receiver_scope, expr.left.value, interpret(expr.right)
 				else
-					raise Cannot_Assign_Undeclared_Identifier
+					raise Cannot_Assign_Undeclared_Identifier, expr.inspect
 				end
 
-			elsif expr.operator == '.' && expr.right.value == 'new'
-				receiver_scope = get_scope_containing(expr.left.value)
-				if not receiver_scope
-					raise Cannot_Initialize_Undeclared_Identifier.new expr.left.value
+			elsif expr.operator == '.' && expr.right.is_a?(Identifier_Expr) &&
+				 expr.right.value == 'new'
+
+				receiver = interpret expr.left
+				unless receiver.is_a? Type
+					raise Cannot_Initialize_Undeclared_Identifier, expr.left.inspect
+					# Actually, why not? What can I do with this mechanic?
 				end
 
-				receiver = receiver_scope[expr.left.value]
+				instance              = Instance.new
+				instance.name         = receiver.name
+				instance.hash         = receiver.hash
+				instance.expressions  = receiver.expressions
+				instance.compositions = receiver.compositions
 
-				if receiver.is_a? Type
-					it             = Instance.new
-					it.name        = receiver.name
-					it.hash        = receiver.hash
-					it.expressions = receiver.expressions
-					# todo Don't separate compositions from expressions. It isn't necessary.
-					it.compositions = receiver.compositions
-					receiver        = it
+				temporarily_push_scope instance do
+					instance.expressions.each do |it|
+						interpret it
+					end
 				end
 
-				add_to_stack receiver
-				receiver.expressions.each do |it|
-					interpret it
-				end
-				stack.pop
-				receiver
+				instance
 
 			elsif expr.operator == '.'
-				left = interpret expr.left
+				receiver = interpret expr.left
 
-				case left
-				when Scope, Instance, Type
-				else
-					raise Undeclared_Identifier.new expr.left
+				if expr.right.is_a? Array_Index_Expr
+					raise Unhandled_Array_Index_Expr, expr.inspect
 				end
 
-				temporarily_push_scope left do
-					result = interpret(expr.right)
+				if receiver.is_a?(Integer) || receiver.is_a?(Float)
+					number       = Runtime_Number.new
+					number.value = receiver
+					receiver     = number
+				end
 
-					if not result
-						raise Undeclared_Identifier.new expr.right
-					end
-					return result
+				case receiver
+				when Scope
+					add_to_stack receiver
+					result = interpret expr.right
+					stack.pop
+					result
+				else
+					raise Invalid_Dot_Infix_Left_Operand, expr.inspect
 				end
 
 			elsif RANGE_OPERATORS.include? expr.operator
@@ -168,16 +174,16 @@ class Interpreter
 				end
 
 			elsif COMPARISON_OPERATORS.include? expr.operator
-				left  = interpret expr.left
-				right = interpret expr.right
-				left.send expr.operator, right
+				receiver = interpret expr.left
+				right    = interpret expr.right
+				receiver.send expr.operator, right
 
 			elsif COMPOUND_OPERATORS.include? expr.operator
 				left_scope = get_scope_containing(expr.left.value)
 				add_to_stack left_scope
-				left   = interpret expr.left
-				right  = interpret expr.right
-				result = left.send expr.operator[..-2], right
+				receiver = interpret expr.left
+				right    = interpret expr.right
+				result   = receiver.send expr.operator[..-2], right
 				stack.pop
 				result
 
@@ -195,9 +201,9 @@ class Interpreter
 
 			else
 				begin
-					left  = interpret expr.left
-					right = interpret expr.right
-					left.send expr.operator, right
+					receiver = interpret expr.left
+					right    = interpret expr.right
+					receiver.send expr.operator, right
 				rescue Exception => e
 					# A reminder not to naively rescue here, otherwise you won't be able to catch any raises from within interpreter.
 					raise e
@@ -212,7 +218,7 @@ class Interpreter
 				# #todo or Nil_Construct. Ruby has NilClass.
 				# when ';' #todo I want `identifier;` to behave just like `=;` but currently ';' does not resolve to a postfix expression.
 			else
-				raise Unhandled_Postfix.new expr
+				raise Unhandled_Postfix, expr.inspect
 			end
 
 		when Circumfix_Expr
@@ -246,17 +252,17 @@ class Interpreter
 							if it.left.is_a?(Identifier_Expr) || it.left.is_a?(Symbol_Expr)
 								dict[it.left.value.to_sym] = interpret it.right
 							else
-								raise Invalid_Dictionary_Key
+								raise Invalid_Dictionary_Key, it.inspect
 							end
 						else
-							raise Invalid_Dictionary_Infix_Operator
+							raise Invalid_Dictionary_Infix_Operator, it.inspect
 						end
 					end
 					dict # In case I forget, #reduce requires that the injected value be returned to be passed to the next iteration.
 				end
 
 			else
-				raise Unhandled_Circumfix_Expr.new expr
+				raise Unhandled_Circumfix_Expr, expr.inspect
 			end
 
 		when Call_Expr
@@ -316,13 +322,29 @@ class Interpreter
 			it.compositions = expr.composition_exprs
 			it.expressions  = expr.expressions
 
-			receiver_scope = get_scope_containing(expr.name) || curr_scope
-			set_in_scope receiver_scope, expr.name, it
+			add_to_stack it
+			it.expressions.each do |it|
+				interpret it
+			end
+			stack.pop
+
+			set_in_curr_scope expr.name, it
 
 			it
 
+		when Conditional_Expr
+			condition    = interpret expr.condition
+			to_interpret = if condition == true
+				expr.when_true
+			else
+				expr.when_false
+			end
+
+			to_interpret.each.inject(nil) do |result, it|
+				interpret it
+			end
 		else
-			raise Unhandled_Expr.new expr
+			raise Unhandled_Expr, expr.inspect
 		end
 	end
 end

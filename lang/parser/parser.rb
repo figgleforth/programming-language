@@ -9,27 +9,37 @@ class Parser
 		@i     = 0 # index of current lexeme
 	end
 
+	def output
+		expressions = []
+		while lexemes?
+			expressions << make_expression
+		end
+		expressions.compact
+	end
+
 	# Array of precedences and symbols for that precedence. if the lexeme provided matches one of the operator symbols then its precedence is returned. Nice reference: https://rosettacode.org/wiki/Operator_precedence
 	def precedence_for operator
-		# #todo Make this better
+		# todo, This is ugly. Maybe a case/when?
 		# higher number = tighter binding
 		[
-			[1200, %w(. .?)],
-			[1100, %w([ { \( )],
-			[1000, %w(! not)], # exponentiation
-			[900, %w(**)], # exponentiation
-			[800, %w(* / %)], # multiply, divide, modulo
-			[700, %w(+ -)], # add, subtract
-			[600, %w(<< >>)], # bitwise shifts
-			[550, %w(< <= <=> > >=)], # relational
-			[500, %w(== != === !==)], # equality
-			[400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
-			[300, %w(&& and)], # logical AND
-			[200, %w(|| or)], # logical OR (including keyword forms)
-			[140, %w(:)], # member access, labels
-			[100, %w(,)], # comma
-			[90, %w(= := += -= *= /= %= &= |= ^= <<= >>=)], # assignments
-			[80, %w(.. .< >. ><)], # ranges
+			 [1200, %w(. .?)],
+			 [1100, %w([ { \( )],
+			 [1000, %w(! not)], # exponentiation
+			 [900, %w(**)], # exponentiation
+			 [800, %w(* / %)], # multiply, divide, modulo
+			 [700, %w(+ -)], # add, subtract
+			 [600, %w(<< >>)], # bitwise shifts
+			 [550, %w(< <= <=> > >=)], # relational
+			 [500, %w(== != === !==)], # equality
+			 [400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
+			 [300, %w(&& and)], # logical AND
+			 [200, %w(|| or)], # logical OR (including keyword forms)
+			 [140, %w(:)], # member access, labels
+			 [100, %w(,)], # comma
+			 [90, %w(= := += -= *= /= %= &= |= ^= <<= >>=)], # assignments
+			 [80, %w(.. .< >. ><)], # ranges
+			 [70, %w(return)],
+			 [60, %w(unless)],
 		].each do |prec, ops|
 			return prec if ops.sort_by(&SORT_BY_LENGTH_DESC).include?(operator)
 		end
@@ -289,13 +299,27 @@ class Parser
 
 		elsif curr?(':', :identifier) || curr?(':', :Identifier) || curr?(':', :IDENTIFIER)
 			eat ':'
-			Symbol_Expr.new eat.value
+			Symbol_Expr.new eat.value.to_sym
 
 		elsif curr? :operator
 			Operator_Expr.new eat(:operator).value
 
 		elsif curr? :number
-			Number_Expr.new eat(:number).value
+			number       = Number_Expr.new
+			number.value = eat(:number).value
+			if number.value.count('.') > 1
+				number                  = Array_Index_Expr.new number.value
+				number.indices_in_order = number.value.split '.'
+				number.indices_in_order = number.indices_in_order.map &:to_i
+				# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2]
+			elsif number.value.include? '.'
+				number.type  = :float
+				number.value = number.value.to_f
+			else
+				number.type  = :integer
+				number.value = number.value.to_i
+			end
+			number
 
 		elsif curr? :string
 			String_Expr.new eat(:string).value
@@ -320,20 +344,13 @@ class Parser
 			eat and return expr
 		end
 
-		# The three scope identifiers are parsed here, ./, ../, and .../.
-		if expr.is('./')
+		scope_prefix = %w(./ ../ .../).find do |it|
+			expr.is it
+		end
+
+		if scope_prefix
 			expr            = Prefix_Expr.new
-			expr.operator   = './'
-			expr.expression = make_expression #(100000)
-			return modify_expression expr, precedence
-		elsif expr.is('../')
-			expr            = Prefix_Expr.new
-			expr.operator   = '../'
-			expr.expression = make_expression
-			return modify_expression expr, precedence
-		elsif expr.is('.../')
-			expr            = Prefix_Expr.new
-			expr.operator   = '.../'
+			expr.operator   = scope_prefix
 			expr.expression = make_expression
 			return modify_expression expr, precedence
 		end
@@ -349,8 +366,25 @@ class Parser
 				it.expression = make_expression precedence_for(it.operator)
 			end
 
-			unless expr.expression
+			if not expr.expression
 				raise "Prefix_Expr expected an expression after `#{expr.operator}`"
+			end
+
+			if expr.expression.is_a? Conditional_Expr
+				# :fix_for_return_prefix
+				it           = Conditional_Expr.new
+				it.condition = expr.expression.condition
+				it.type      = expr.expression.type
+
+				if %w(unless until).include? it.type
+					expr.expression = expr.expression.when_false
+					it.when_false   = [expr]
+				else
+					expr.expression = expr.expression.when_true
+					it.when_true    = [expr]
+				end
+
+				expr = it
 			end
 
 			return modify_expression expr, precedence
@@ -378,6 +412,14 @@ class Parser
 					expr.left     = left
 					expr.operator = eat(curr_lexeme.value).value
 					expr.right    = make_expression curr_operator_prec
+
+					if expr.left.is(Identifier_Expr) && expr.operator == '.' && expr.right.is(Number_Expr) && expr.right.type == :float
+						number                  = Array_Index_Expr.new expr.right.value.to_s
+						number.indices_in_order = number.value.split '.'
+						number.indices_in_order = number.indices_in_order.map &:to_i
+						# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2]
+						expr.right = number
+					end
 
 					return modify_expression expr, precedence
 				end
@@ -407,26 +449,19 @@ class Parser
 			return modify_expression it, precedence
 		end
 
-		if curr? %w(if while unless until)
+		if curr?(%w(if while unless until))
 			it           = Conditional_Expr.new
 			it.type      = eat.value # if, while, etc
-			it.condition = make_expression
+			it.condition = make_expression # precedence_for(it.type)
 			if %w(unless until).include? it.type
 				it.when_false = [expr]
 			else
 				it.when_true = [expr]
 			end
-			expr         = it
+			return modify_expression it, precedence
 		end
 
 		expr
 	end
 
-	def output
-		expressions = []
-		while lexemes?
-			expressions << make_expression
-		end
-		expressions.compact
-	end
 end

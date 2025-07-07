@@ -94,13 +94,13 @@ class Lexer
 		it    = String.new
 		valid = %w(. _) # An exception for _ is that it cannot be the last character because then you could miss underscored declarations like `1_decl`. This should be lexed as number 1, and identifier _decl.
 
+		# 7/7/25, I'm intentionally allowing multiple dots in a number for Array_Index_Expr
 		while chars? && (numeric? || valid.include?(curr))
 			break if valid.include?(curr) && !numeric?(peek)
 			break if it[-1] == '_' && !numeric?(curr)
 
 			it += eat
 			eat '_' while curr == '_' && numeric?(peek)
-			break if it.include?('.') && curr == '.'
 		end
 		it
 	end
@@ -192,7 +192,7 @@ class Lexer
 		end
 
 		without_leading__ = ident.gsub(/^#{Regexp.escape('_')}+/, '')
-		if %w(and or not).include? ident
+		if %w(and or not unless return).include? ident
 			:operator
 		elsif constant? without_leading__
 			:IDENTIFIER
@@ -286,7 +286,6 @@ class Lexer
 			end
 
 			next if whitespace?(token.value) && token.type != :string
-			# next if token.type == :comment # nocheckin
 
 			token.reserved = RESERVED.include? token.value
 			tokens << token

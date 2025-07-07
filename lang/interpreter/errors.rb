@@ -19,6 +19,10 @@ end
 class Invalid_Dictionary_Infix_Operator < RuntimeError
 end
 
+class Invalid_Dot_Infix_Left_Operand < RuntimeError
+
+end
+
 class Unhandled_Circumfix_Expr < RuntimeError
 end
 
@@ -32,4 +36,7 @@ class Unhandled_Postfix < RuntimeError
 end
 
 class Unhandled_Call_Receiver < RuntimeError
+end
+
+class Unhandled_Array_Index_Expr < RuntimeError
 end

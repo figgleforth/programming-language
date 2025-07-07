@@ -199,8 +199,8 @@ class Lexer_Test < Minitest::Test
 		 		input * input
 		 	 }'
 		assert_equal [
-			             :identifier, :delimiter, :identifier, :delimiter, :delimiter,
-			             :identifier, :operator, :identifier, :delimiter, :delimiter
+			              :identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			              :identifier, :operator, :identifier, :delimiter, :delimiter
 		             ], out.map(&:type)
 
 		out = lex 'wrap { number, limit;
@@ -209,10 +209,10 @@ class Lexer_Test < Minitest::Test
 		 		end
 		 	 }'
 		assert_equal [
-			             :identifier, :delimiter, :identifier, :delimiter, :identifier, :delimiter, :delimiter,
-			             :identifier, :identifier, :operator, :identifier, :delimiter,
-			             :identifier, :operator, :number, :delimiter,
-			             :identifier, :delimiter, :delimiter
+			              :identifier, :delimiter, :identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			              :identifier, :identifier, :operator, :identifier, :delimiter,
+			              :identifier, :operator, :number, :delimiter,
+			              :identifier, :delimiter, :delimiter
 		             ], out.map(&:type)
 	end
 
@@ -225,19 +225,19 @@ class Lexer_Test < Minitest::Test
 		 	rotation =;
 		 }'
 		assert_equal [
-			             :Identifier, :delimiter, :delimiter,
-			             :identifier, :operator, :delimiter,
-			             :identifier, :operator, :delimiter,
-			             :delimiter
+			              :Identifier, :delimiter, :delimiter,
+			              :identifier, :operator, :delimiter,
+			              :identifier, :operator, :delimiter,
+			              :delimiter
 		             ], out.map(&:type)
 
 		out = lex 'Entity {
 		 	|Transform
 		}'
 		assert_equal [
-			             :Identifier, :delimiter, :delimiter,
-			             :operator, :Identifier, :delimiter,
-			             :delimiter
+			              :Identifier, :delimiter, :delimiter,
+			              :operator, :Identifier, :delimiter,
+			              :delimiter
 		             ], out.map(&:type)
 
 		out = lex 'Player > Entity {}'
@@ -249,9 +249,9 @@ class Lexer_Test < Minitest::Test
 			celebrate()
 		end'
 		assert_equal [
-			             :identifier, :identifier, :delimiter,
-			             :identifier, :delimiter, :delimiter, :delimiter,
-			             :identifier
+			              :identifier, :identifier, :delimiter,
+			              :identifier, :delimiter, :delimiter, :delimiter,
+			              :identifier
 		             ], out.map(&:type)
 
 		out = lex 'if 1 + 2 * 3 == 7
@@ -262,13 +262,13 @@ class Lexer_Test < Minitest::Test
 			\'🤯\'
 		end'
 		assert_equal [
-			             :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
-			             :string, :delimiter,
-			             :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
-			             :string, :delimiter,
-			             :identifier, :delimiter,
-			             :string, :delimiter,
-			             :identifier
+			              :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
+			              :string, :delimiter,
+			              :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
+			              :string, :delimiter,
+			              :identifier, :delimiter,
+			              :string, :delimiter,
+			              :identifier
 		             ], out.map(&:type)
 
 		out = lex 'for [1, 2, 3, 4, 5]
@@ -277,11 +277,11 @@ class Lexer_Test < Minitest::Test
 			stop
 		end'
 		assert_equal [
-			             :identifier, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
-			             :identifier, :identifier, :identifier, :identifier, :delimiter, :delimiter, :operator, :number, :delimiter,
-			             :identifier, :delimiter,
-			             :identifier, :delimiter,
-			             :identifier
+			              :identifier, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
+			              :identifier, :identifier, :identifier, :identifier, :delimiter, :delimiter, :operator, :number, :delimiter,
+			              :identifier, :delimiter,
+			              :identifier, :delimiter,
+			              :identifier
 		             ], out.map(&:type)
 	end
 
@@ -297,4 +297,38 @@ class Lexer_Test < Minitest::Test
 		assert_equal :operator, out.first.type
 		assert_equal :operator, out.last.type
 	end
+
+	def test_return_is_an_operator
+		out = lex 'return 1 + 2'
+		assert_equal :operator, out.first.type
+	end
+
+	def test_identifier_dot_integer
+		out = lex 'array.0'
+		assert_equal :identifier, out.first.type
+		assert_equal 'array', out.first.value
+		assert_equal :operator, out[1].type
+		assert_equal '.', out[1].value
+		assert_equal :number, out.last.type
+		assert_equal '0', out.last.value
+		# :lexeme_type_helper
+	end
+
+	def test_identifier_dot_float
+		out = lex 'array.2.0'
+		assert_equal :identifier, out.first.type
+		assert_equal 'array', out.first.value
+		assert_equal :operator, out[1].type
+		assert_equal '.', out[1].value
+		assert_equal :number, out.last.type
+		assert_equal '2.0', out.last.value
+		# :lexeme_type_helper
+	end
+
+	def test_number_with_multiple_decimal_points
+		out = lex '1.2.3'
+		assert_equal 1, out.count
+		assert_equal :number, out.first.type
+	end
+
 end

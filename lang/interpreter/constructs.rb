@@ -73,3 +73,7 @@ class Instance < Type
 		@compositions    = []
 	end
 end
+
+class Runtime_Number < Instance
+	attr_accessor :value
+end

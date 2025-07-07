@@ -375,10 +375,8 @@ class Parser_Test < Minitest::Test
 		nothing { input;
 			return input
 		}'
-		assert_equal %w(return input), out.first.expressions.map(&:value)
-		out.first.expressions.each do
-			assert_kind_of Identifier_Expr, it
-		end
+		assert_kind_of Prefix_Expr, out.first.expressions.first
+		assert_kind_of Identifier_Expr, out.first.expressions.first.expression
 	end
 
 	def test_function_signatures
@@ -418,7 +416,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 'or', early_return.condition.operator
 		assert_kind_of Prefix_Expr, early_return.condition.left
 		assert_kind_of Prefix_Expr, early_return.condition.right
-		assert_equal 2, early_return.when_true.count # todo One for return and one for false in `return false`. Maybe I should make it a prefix keyword.
+		assert_equal 1, early_return.when_true.count # todo One for return and one for false in `return false`. Maybe I should make it a prefix keyword.
 
 		slice = out.first.expressions[1]
 		assert_kind_of Infix_Expr, slice
@@ -638,4 +636,57 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Number_Expr, out.first.arguments.first
 	end
 
+	def test_return_is_an_identifier
+		out = parse 'return 1 + 2'
+		assert_kind_of Prefix_Expr, out.first
+	end
+
+	def test_return_with_conditional_at_end_of_line
+		out = parse 'return x unless y'
+		assert_kind_of Conditional_Expr, out.first
+		assert_kind_of Prefix_Expr, out.first.when_false.first
+		assert_kind_of Identifier_Expr, out.first.when_false.first.expression.first
+		assert_kind_of Identifier_Expr, out.first.condition
+	end
+
+	def test_return_with_conditionals
+		out = parse 'return 3 if true'
+		assert_kind_of Conditional_Expr, out.first
+		assert_kind_of Prefix_Expr, out.first.when_true.first
+		assert_kind_of Number_Expr, out.first.when_true.first.expression.first
+		assert_kind_of Identifier_Expr, out.first.condition
+	end
+
+	def test_identifier_dot_integer_is_an_infix
+		out = parse 'something.4'
+		assert_kind_of Infix_Expr, out.first
+		assert_kind_of Identifier_Expr, out.first.left
+		assert_kind_of Number_Expr, out.first.right
+		assert_equal 4, out.first.right.value
+	end
+
+	def test_identifier_dot_float_is_an_infix
+		out = parse 'not_gonna_work.4.2'
+		assert_kind_of Infix_Expr, out.first
+		assert_kind_of Identifier_Expr, out.first.left
+		assert_kind_of Array_Index_Expr, out.first.right
+		assert_equal '4.2', out.first.right.value
+		assert_equal [4, 2], out.first.right.indices_in_order
+	end
+
+	def test_multidot_number_lexeme
+		out = parse '4.8.15.16.23.42'
+		assert_kind_of Array_Index_Expr, out.first
+		assert_equal '4.8.15.16.23.42', out.first.value
+		assert_equal [4, 8, 15, 16, 23, 42], out.first.indices_in_order
+	end
+
+	def test_complex_return_with_conditionals
+		skip 'This is currently broken'
+		out = parse 'return 1+2*3/4 if true'
+		assert_kind_of Conditional_Expr, out.first
+		assert_kind_of Prefix_Expr, out.first.when_true.first
+		assert_kind_of Infix_Expr, out.first.when_true.first.expression.first
+		assert_kind_of Identifier_Expr, out.first.condition
+	end
 end

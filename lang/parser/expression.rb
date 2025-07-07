@@ -88,27 +88,11 @@ class Type_Decl < Expression
 	end
 end
 
-# Useful reading
+# Useful reading.
 # https://stackoverflow.com/a/18533211/1426880
 # https://stackoverflow.com/a/1235891/1426880
 class Number_Expr < Expression
-	attr_accessor :type, :decimal_position
-
-	def initialize number
-		self.value = number
-	end
-
-	def value= val
-		@value = val.gsub('_', '')
-
-		if @value.include?('.')
-			@value = @value.to_f
-			@type  = :float
-		else
-			@value = @value.to_i
-			@type  = :integer
-		end
-	end
+	attr_accessor :type
 end
 
 class Symbol_Expr < Expression
@@ -133,16 +117,12 @@ end
 
 class Infix_Expr < Expression
 	attr_accessor :operator, :left, :right
-
-	def initialize
-		super
-	end
 end
 
 class Circumfix_Expr < Expression
 	attr_accessor :grouping, :expressions
 
-	def initialize(grouping = '(')
+	def initialize grouping = '('
 		@expressions = []
 		@grouping    = grouping
 	end
@@ -184,4 +164,8 @@ end
 
 class Subscript_Expr < Expression
 	attr_accessor :receiver, :expression
+end
+
+class Array_Index_Expr < Expression
+	attr_accessor :indices_in_order
 end

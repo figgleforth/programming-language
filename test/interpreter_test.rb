@@ -131,6 +131,15 @@ class Interpreter_Test < Minitest::Test
 		refute out.include? 42
 	end
 
+	def test_empty_left_and_right_exclusive_range
+		out = interp '0><0'
+		assert_equal 0...0, out
+		refute out.include? -1
+		refute out.include? 0
+		refute out.include? 1
+		refute out.include? 0.5
+	end
+
 	def test_simple_comparison_operators
 		out = interp '1 == 1'
 		assert out
@@ -212,7 +221,7 @@ class Interpreter_Test < Minitest::Test
 	def test_empty_dictionary
 		out = interp '{}'
 		assert_kind_of Hash, out
-		assert_equal out, {} # The correct order of arguments `assert_equal {}, out` crashes with a syntax error.
+		assert_equal out, {}
 	end
 
 	def test_create_dictionary_with_identifiers_as_keys
@@ -469,5 +478,64 @@ class Interpreter_Test < Minitest::Test
 		ref = interp '(1 + (2 / 3)) - (4 * 5)'
 		assert_equal ref, src
 		assert_equal -19, src
+	end
+
+	def test_long_dot_chain
+		shared_code = '
+		A {
+			B {
+				C {
+					d := 4
+				}
+			}
+		}'
+
+		out = interp "#{shared_code}
+		A.B"
+		assert_instance_of Type, out
+
+		out = interp "#{shared_code}
+		A.B.C.new"
+		assert_instance_of Instance, out
+	end
+
+	def test_long_dot_chain2
+		shared_code = '
+		A {
+			b := B {
+				c := C {
+					d := 4
+				}
+			}
+		}'
+
+		out = interp "#{shared_code}
+		A.new.B"
+		assert_instance_of Type, out
+
+		out = interp "#{shared_code}
+		A.new.B.new.C.new"
+		assert_instance_of Instance, out
+
+		out = interp "#{shared_code}
+		A.new.B.new.C.new.d"
+		assert_equal 4, out
+	end
+
+	def test_returns_with_end_of_line_conditional
+		out = interp 'return 3 if true'
+		assert_equal 3, out
+	end
+
+	def test_standalone_array_index_expr
+		out = interp '4.8.15.16.23.42'
+		assert_equal [4, 8, 15, 16, 23, 42], out
+	end
+
+	def test_array_index_expr
+		assert_raises Unhandled_Array_Index_Expr do
+			interp 'something := 1
+			something.4.8.15.16.23.42'
+		end
 	end
 end

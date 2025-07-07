@@ -1,11 +1,11 @@
-# #todo Clean up
-# todo should return be a prefix?
 SORT_BY_LENGTH_DESC    = ->(str) { -str.size }
 INTERPOLATE_CHAR       = '`' # "string with `interpolation`"
 COMMENT_CHAR           = '`'
 COMMENT_MULTILINE_CHAR = '```'
-PREFIX                 = %w(! - + ~ $ # ? & ^ ./ ../ .../ not).sort_by &SORT_BY_LENGTH_DESC
-INFIX                  = %w(
+PREFIX                 = %w(! - + ~ $ # ? & ^ ./ ../ .../ not return).sort_by &SORT_BY_LENGTH_DESC
+
+# todo, I'm considering switching up the := inferred initialization shortcut to ;= because it's easier for me to type and it's the opposite of =; which initializes to nil.
+INFIX               = %w(
 		+ - ^ * ** / % ~ == === ? .
 		= : := ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=
 		&& || & | << >>
@@ -13,9 +13,9 @@ INFIX                  = %w(
 		!= <= >= < > <=> < >
 		and or
 	).sort_by &SORT_BY_LENGTH_DESC
-POSTFIX                = %w(=;)
-CIRCUMFIX              = %w( \( [ { | )
-CIRCUMFIX_GROUPINGS    = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }.freeze
+POSTFIX             = %w(=;)
+CIRCUMFIX           = %w( \( [ { | )
+CIRCUMFIX_GROUPINGS = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }.freeze
 
 COMPOUND_OPERATORS         = %w(||= &&= **= <<= >>= += -= *= |= /= %= &= ^= != <= >=).sort_by &SORT_BY_LENGTH_DESC
 COMPARISON_OPERATORS       = %w(<=> == === != !== <= >= < > =~ !~).sort_by &SORT_BY_LENGTH_DESC
@@ -36,29 +36,9 @@ RESERVED                   = %w(
 		while ew elswhile elwhile elsewhile
 		unless until true false nil
 		skip stop and or return
-	).sort_by &SORT_BY_LENGTH_DESC
+	).sort_by &SORT_BY_LENGTH_DESC # todo, I want to add `remove` here as well but not is not the time.
 TYPE_COMPOSITION_OPERATORS = %w(| & - ^)
 ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
 STARTING_PRECEDENCE        = 0
 PRECEDENCE_OFFSET          = 100
 GSCOPE                     = :global
-COLORS                     = {
-	                             black:         0,
-	                             red:           1,
-	                             green:         2,
-	                             yellow:        3,
-	                             blue:          4,
-	                             magenta:       5,
-	                             cyan:          6,
-	                             white:         7,
-	                             gray:          236,
-	                             light_gray:    240,
-	                             lighter_gray:  244,
-	                             light_red:     9,
-	                             light_green:   10,
-	                             light_yellow:  11,
-	                             light_blue:    12,
-	                             light_magenta: 13,
-	                             light_cyan:    14,
-	                             light_white:   15
-                             }.freeze
