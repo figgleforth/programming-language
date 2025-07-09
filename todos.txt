@@ -15,3 +15,5 @@ Clean up Parser#parse_conditional_expr. It should just loop until curr?(end) rig
 Separate preload.e types into their own separate .e files.
 
 Custom test helpers like assert_operator(out), assert_type(:operator, out). I don't have a preference for either, but it's needed. :lexeme_type_helper.
+
+Interpreter#interp_dot_infix :extract_instance_creation for all instances. Right now this only contains the Number instance.

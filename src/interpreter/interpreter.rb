@@ -87,7 +87,6 @@ class Interpreter
 		else
 			expr.value
 		end
-
 	end
 
 	def interp_identifier expr
@@ -124,6 +123,7 @@ class Interpreter
 		if expr.operator == ':='
 			# Regular declarations where the type will be inferred later.
 			set_in_curr_scope expr.left.value, interpret(expr.right)
+
 		elsif expr.operator == '=' && expr.left.type
 			# These are `variable: Type` declaration so treat it as a := since I don't do anything with the type at the moment. Maybe this part won't be impacted by the implementation of types. We'll see.
 			expr.operator = ':='
@@ -142,51 +142,10 @@ class Interpreter
 			end
 
 		elsif expr.operator == '.' && expr.right.is('new')
-			receiver = interpret expr.left
-			unless receiver.is_a? Type
-				raise Cannot_Initialize_Undeclared_Identifier, expr.left.inspect
-			end
-
-			instance              = Instance.new
-			instance.name         = receiver.name
-			instance.hash         = receiver.hash
-			instance.expressions  = receiver.expressions
-			instance.compositions = receiver.compositions
-
-			temporarily_push_scope instance do
-				instance.expressions.each do |it|
-					interpret it
-				end
-			end
-
-			instance
+			interp_dot_new expr
 
 		elsif expr.operator == '.'
-			if expr.right.is_a? Array_Index_Expr
-				raise Unhandled_Array_Index_Expr, expr.inspect
-			end
-
-			receiver = if expr.left.is Number_Expr
-				number_type = global['Number']
-				raise "Couldn't find the Number Type in the global_scope" unless number_type
-
-				number_inst               = number_type.dup
-				number_inst[:numerator]   = interpret expr.left
-				number_inst[:denominator] = 1 # For now
-				number_inst
-			else
-				interpret expr.left
-			end
-
-			case receiver
-			when Scope
-				add_to_stack receiver
-				result = interpret expr.right
-				stack.pop
-				result
-			else
-				raise Invalid_Dot_Infix_Left_Operand, expr.inspect
-			end
+			interp_dot_infix expr
 
 		elsif RANGE_OPERATORS.include? expr.operator
 			start  = interpret expr.left
@@ -216,7 +175,7 @@ class Interpreter
 			stack.pop
 			result
 
-		elsif %w(&& & || | and or).include? expr.operator
+		elsif LOGICAL_OPERATORS.include? expr.operator
 			case expr.operator
 			when '&&', 'and'
 				interpret(expr.left) && interpret(expr.right)
@@ -237,6 +196,56 @@ class Interpreter
 				# A reminder not to naively rescue here, otherwise you won't be able to catch any raises from within interpreter.
 				raise e
 			end
+		end
+	end
+
+	def interp_dot_new expr
+		receiver = interpret expr.left
+		unless receiver.is_a? Type
+			raise Cannot_Initialize_Undeclared_Identifier, expr.left.inspect
+		end
+
+		instance              = Instance.new
+		instance.name         = receiver.name
+		instance.hash         = receiver.hash
+		instance.expressions  = receiver.expressions
+		instance.compositions = receiver.compositions
+
+		temporarily_push_scope instance do
+			instance.expressions.each do |it|
+				interpret it
+			end
+		end
+
+		instance
+	end
+
+	def interp_dot_infix expr
+		if expr.right.is_a? Array_Index_Expr
+			raise Unhandled_Array_Index_Expr, expr.inspect
+		end
+
+		receiver = if expr.left.is Number_Expr
+			# :extract_instance_creation
+			number_type = global['Number']
+			raise "Couldn't find the Number Type in the global_scope" unless number_type
+
+			number_inst               = number_type.dup
+			number_inst[:numerator]   = interpret expr.left
+			number_inst[:denominator] = 1 # For now
+			number_inst
+		else
+			interpret expr.left
+		end
+
+		case receiver
+		when Scope
+			add_to_stack receiver
+			result = interpret expr.right
+			stack.pop
+			result
+		else
+			raise Invalid_Dot_Infix_Left_Operand, expr.inspect
 		end
 	end
 
