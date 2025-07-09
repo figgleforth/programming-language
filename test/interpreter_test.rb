@@ -551,4 +551,15 @@ class Interpreter_Test < Minitest::Test
 		out = interp 'return 1+2*3/4%5-6 unless 1 + 2 >= 10'
 		assert_equal -4, out
 	end
+
+	def test_number_dot_e_instance
+		out = interp '123.numerator'
+		assert_equal 123, out
+	end
+
+	def test_number_instance_rationalize_function
+		out = interp '42.to_s()'
+		assert_equal "42", out
+		# Broken, but I don't want to work on it until I extract the large cases from #interpret
+	end
 end

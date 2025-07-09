@@ -1,0 +1,17 @@
+Collect errors and keep interpreting the program if possible. Then dump all errors once the program can't run any longer.
+
+Clean up usage of temporarily_push_scope v add_to_stack. I don't think using one or the other is preferred, I just don't want to use both.
+
+Interpreter#interp_string only handles non-interpolated strings.
+
+Split Interpreter#interp_infix into multiple functions.
+
+Don't separate compositions from expressions in a Type_Decl, they should be treated as one. I can special case them later if I need to.
+
+Improve Praser#precedence_for, get rid of that nested array format.
+
+Clean up Parser#parse_conditional_expr. It should just loop until curr?(end) right? It works as is for now, but it's ugly.
+
+Separate preload.e types into their own separate .e files.
+
+Custom test helpers like assert_operator(out), assert_type(:operator, out). I don't have a preference for either, but it's needed. :lexeme_type_helper.

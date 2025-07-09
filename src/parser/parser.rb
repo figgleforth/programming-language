@@ -135,7 +135,7 @@ class Parser
 		it.when_false = []
 		reduce_newlines
 
-		# todo Clean this up, what is this shit? It should just loop until curr?(end) right? It works, so whatever.
+		# @clean
 
 		until curr? %w(end else elsif elif ef elwhile elswhile elsewhile)
 			expr = make_expression
@@ -171,7 +171,7 @@ class Parser
 		closing = it.grouping[1]
 
 		until curr? closing
-			it.expressions << make_expression #(precedence_for(opening))
+			it.expressions << make_expression
 			break if curr? closing
 
 			eat if curr? ','
@@ -311,7 +311,7 @@ class Parser
 				number                  = Array_Index_Expr.new number.value
 				number.indices_in_order = number.value.split '.'
 				number.indices_in_order = number.indices_in_order.map &:to_i
-				# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2]
+				# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2].
 			elsif number.value.include? '.'
 				number.type  = :float
 				number.value = number.value.to_f
@@ -340,7 +340,7 @@ class Parser
 	def modify_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
 
-		if curr_lexeme.is ',' # This allows comma separating declarations
+		if curr_lexeme.is ','
 			eat and return expr
 		end
 
@@ -381,7 +381,7 @@ class Parser
 				return modify_expression it, precedence
 			else
 				while INFIX.include?(curr_lexeme.value) && curr?(:operator)
-					# It's very important that the && :operator check remains because otherwise it breaks Call_Expr when the receiver is an Infix_Expr. However, this breaks the and/or infix because those lex as :identifier.
+					# It's very important that the curr?(:operator) check here remains because otherwise it breaks Call_Expr when the receiver is an Infix_Expr.
 
 					curr_operator      = curr_lexeme.value
 					curr_operator_prec = precedence_for curr_operator
@@ -400,8 +400,8 @@ class Parser
 						number                  = Array_Index_Expr.new expr.right.value.to_s
 						number.indices_in_order = number.value.split '.'
 						number.indices_in_order = number.indices_in_order.map &:to_i
-						# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2]
-						expr.right = number
+						expr.right              = number
+						# Copypaste from above #make_expression when :number.
 					end
 
 					return modify_expression expr, precedence

@@ -1,0 +1,3 @@
+Make ; a postfix expression so `identifier;` can behave just like `=;`. I think currently ';' does not resolve to a postfix expression.
+
+Nil_Construct? Ruby has NilClass.
