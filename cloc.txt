@@ -43,7 +43,7 @@ Ruby
     script_exe ruby
     3rd_gen_scale 4.20
     end_of_line_continuation \\$
-E
+Emerald
     filter remove_matches ^\s*`
     filter remove_inline `.*$
     filter remove_between_general ``` ```

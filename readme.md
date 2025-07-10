@@ -1,4 +1,4 @@
-# .e
+# Emerald
 
 A for-fun programming language with random mechanics I like. Take a look at the [interpreter tests](./test/interpreter_test.rb) for an idea of the syntax and overall progress.
 ```bash
