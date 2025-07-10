@@ -29,6 +29,7 @@ class Interpreter
 	end
 
 	def output
+		prepend_builtin_types_for_interp
 		preload_global_scope
 		out = nil
 		input.each do |it|
@@ -37,10 +38,13 @@ class Interpreter
 		out
 	end
 
-	def preload_global_scope
+	def prepend_builtin_types_for_interp
 		all_type_expressions = parse_file './src/preload.e'
 		@input.prepend all_type_expressions
-		@input  = @input.flatten
+		@input = @input.flatten
+	end
+
+	def preload_global_scope
 		@global = Scope.new
 		add_to_stack global
 	end
@@ -62,12 +66,12 @@ class Interpreter
 		end
 	end
 
-	def set_in_curr_scope identifier, value = nil
+	def set_in_curr_scope identifier, value = Nil.new
 		scope = get_scope_containing(identifier) || curr_scope
 		set_in_scope scope, identifier, value
 	end
 
-	def set_in_scope scope, identifier, value = nil
+	def set_in_scope scope, identifier, value = Nil.new
 		scope.hash[identifier] = value
 	end
 
@@ -82,7 +86,7 @@ class Interpreter
 		receiver.params.zip(expr.arguments).each do |param, arg|
 			set_in_curr_scope param.name, interpret(arg)
 		end
-		result = nil
+		result = Nil.new
 		receiver.expressions.each do |e|
 			result = interpret e
 		end
@@ -129,13 +133,21 @@ class Interpreter
 	def interp_identifier expr
 		return true if expr.value == 'true'
 		return false if expr.value == 'false'
+		return Nil.new if expr.value == 'nil'
 
+		# We should always have a scope, there's no need to check whether we have receiver_scope. If that's nil then there's something very wrong.
 		receiver_scope = get_scope_containing(expr.value) || curr_scope
-		if not receiver_scope
-			raise Undeclared_Identifier, expr.inspect
+		value          = receiver_scope[expr.value]
+
+		if expr.type
+			receiver_scope[expr.value] = Nil.new
+		else
+			if value == nil
+				raise Undeclared_Identifier, expr.value.inspect
+			end
 		end
 
-		receiver_scope.hash[expr.value] || receiver_scope.hash[expr.value.to_s]
+		value
 	end
 
 	def interp_prefix expr
@@ -283,7 +295,7 @@ class Interpreter
 		case expr.operator
 		when '=;'
 			receiver_scope = get_scope_containing(expr.expression.value) || curr_scope
-			set_in_scope receiver_scope, expr.expression.value, nil
+			set_in_scope receiver_scope, expr.expression.value, Nil.new
 		else
 			raise Unhandled_Postfix, expr.inspect
 		end
@@ -312,7 +324,7 @@ class Interpreter
 		when '{}'
 			expr.expressions.reduce({}) do |dict, it|
 				if it.is_a? Identifier_Expr
-					dict[it.value.to_sym] = nil
+					dict[it.value.to_sym] = Nil.new
 				elsif it.is_a? Infix_Expr
 					case it.operator
 					when ':', '='
@@ -368,7 +380,7 @@ class Interpreter
 			receiver.params.zip(expr.arguments).each do |param, arg|
 				set_in_curr_scope param.name, interpret(arg)
 			end
-			result = nil
+			result = Nil.new
 			receiver.expressions.each do |e|
 				result = interpret e
 			end

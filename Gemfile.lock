@@ -3,9 +3,7 @@ GEM
   specs:
     logger (1.7.0)
     minitest (5.25.4)
-    ostruct (0.6.2)
-    recursive-open-struct (2.0.0)
-      ostruct
+    rake (13.3.0)
 
 PLATFORMS
   arm64-darwin-24
@@ -14,7 +12,7 @@ PLATFORMS
 DEPENDENCIES
   logger (= 1.7.0)
   minitest (= 5.25.4)
-  recursive-open-struct (= 2.0)
+  rake (~> 13.3)
 
 RUBY VERSION
    ruby 3.4.1p0

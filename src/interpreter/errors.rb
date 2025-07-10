@@ -43,3 +43,7 @@ end
 
 class Assert_Triggered < RuntimeError
 end
+
+class Multiple_Runtime_Errors < RuntimeError
+	attr_accessor :errors
+end

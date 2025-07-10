@@ -30,10 +30,12 @@ Func := Function {
 	signature {;}
 }
 
-assert { condition;
+assert { condition = false;
 	condition == true
 }
 
 assert(true)
 assert(Num == Number)
 assert(String != Number)
+
+`assert(false) `If you uncomment this, it'll crash every interpreter test, neat.

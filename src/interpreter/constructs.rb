@@ -23,6 +23,9 @@ class Tuple
 	attr_accessor :values
 end
 
+class Nil
+end
+
 class Scope
 	attr_accessor :name, :id, :hash
 	@@next_id = 0

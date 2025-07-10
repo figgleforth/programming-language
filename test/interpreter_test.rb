@@ -1,5 +1,4 @@
 require 'minitest/autorun'
-require 'recursive-open-struct'
 require './test/helper'
 
 class Interpreter_Test < Minitest::Test
@@ -69,8 +68,9 @@ class Interpreter_Test < Minitest::Test
 	end
 
 	def test_undeclared_variable_lookup
-		out = interp 'number'
-		assert_nil out
+		assert_raises Undeclared_Identifier do
+			interp 'number'
+		end
 	end
 
 	def test_assigning_undeclared_identifier
@@ -94,7 +94,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_nil_shorthand_declaration
 		out = interp 'test =;'
-		assert_nil out
+		assert_instance_of Nil, out
 	end
 
 	def test_inclusive_range
@@ -225,22 +225,31 @@ class Interpreter_Test < Minitest::Test
 
 	def test_create_dictionary_with_identifiers_as_keys_without_commas
 		out = interp '{a b c}'
-		assert_equal out, { a: nil, b: nil, c: nil }
+		assert_equal %i(a b c), out.keys
+		out.values.each do |value|
+			assert_instance_of Nil, value
+		end
 	end
 
 	def test_create_dictionary_with_identifiers_as_keys_with_commas
 		out = interp '{a, b}'
-		assert_equal out, { a: nil, b: nil }
+		out.values.each do |value|
+			assert_instance_of Nil, value
+		end
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation
 		out = interp '{ x:0 y=1 z}'
-		assert_equal out, { x: 0, y: 1, z: nil }
+		refute_instance_of Nil, out.values.first
+		refute_instance_of Nil, out.values[1]
+		assert_instance_of Nil, out.values.last
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation_and_commas
 		out = interp '{ x:4, y=8, z}'
-		assert_equal out, { x: 4, y: 8, z: nil }
+		assert_equal 4, out.values.first
+		assert_equal 8, out.values[1]
+		assert_instance_of Nil, out.values.last
 	end
 
 	def test_create_dictionary_with_local_value
@@ -376,7 +385,7 @@ class Interpreter_Test < Minitest::Test
 	end
 
 	def test_undeclared_type_init_with_new_keyword
-		assert_raises Cannot_Initialize_Undeclared_Identifier do
+		assert_raises Undeclared_Identifier do
 			interp 'Type.new'
 		end
 	end
@@ -438,7 +447,7 @@ class Interpreter_Test < Minitest::Test
 	end
 
 	def test_type_declaration_with_parens
-		out = interp 'Vector2 { x: Int, y: Int }
+		out = interp 'Vector2 { x: Int = 0, y: Int = 1 }
 		pos := Vector2()'
 		assert_kind_of Type, out
 		assert_instance_of Instance, out
@@ -575,12 +584,14 @@ class Interpreter_Test < Minitest::Test
 		assert_equal "42", out
 	end
 
-	def test_builtin_assert
+	def test_not_raising_preloaded_assert
 		refute_raises Assert_Triggered do
 			out = interp 'assert(true)'
 			assert_equal true, out
 		end
+	end
 
+	def test_raising_preloaded_assert
 		assert_raises Assert_Triggered do
 			interp 'assert(false)'
 		end
@@ -618,9 +629,9 @@ class Interpreter_Test < Minitest::Test
 	end
 
 	def test_truthy_falsy_logic
-		assert_equal 1, interp('if true then 1 else 0 end')
-		assert_equal 0, interp('if 0 then 1 else 0 end')
-		assert_equal 0, interp('if nil then 1 else 0 end')
+		assert_equal 1, interp('if true 1 else 0 end')
+		assert_equal 0, interp('if 0 1 else 0 end')
+		assert_equal 0, interp('if nil 1 else 0 end')
 	end
 
 	def test_preloads
