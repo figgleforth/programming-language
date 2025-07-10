@@ -273,6 +273,7 @@ class Parser
 
 		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || (curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
 			# I'm special-casing IDENTIFIERS of length 1 and allowing them to become Types too. So you can have types like G {}.
+			# bug :Identifier_function when parsing `Identifier {;}`
 			parse_type_decl
 
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)

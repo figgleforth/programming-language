@@ -150,7 +150,6 @@ class Interpreter
 			interpret expr.expression
 		when 'return'
 			interpret expr.expression
-			# A note for myself, looking to change code that works for no reason. A return prefix should only ever have one value to return. The reason it has multiple here is that the Parser doesn't handle `return x if y` as a return "x if y" instead of "return x" if y. This is the most unobtrusive solution I have, along with the relevant code. Search the codebase for :fix_for_return_prefix for more information. -7/6/25
 		else
 			raise Unhandled_Prefix, expr.inspect
 		end

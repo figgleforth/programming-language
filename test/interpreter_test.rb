@@ -6,7 +6,6 @@ class Interpreter_Test < Minitest::Test
 	def test_integer_literals
 		out = interp '48'
 		assert_equal 48, out
-
 	end
 
 	def test_underscored_numbers
@@ -614,9 +613,5 @@ class Interpreter_Test < Minitest::Test
 		refute_raises RuntimeError do
 			out = interp_file './src/preload.e'
 		end
-	end
-
-	def test_sanity
-		assert_equal 42, interp('42')
 	end
 end

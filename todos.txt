@@ -27,3 +27,5 @@ While loops. :while_loops
 When an assert is triggered, print out the actual *_Expr.
 
 Rake tasks for running tests. I'm using RubyMine but it would help others.
+
+Parsing `Identifier {;}` should raise a syntax error or something, because that's not valid syntax. Currently it loops indefinitely. I know where it happens, I just need to fix it. See :Identifier_function
