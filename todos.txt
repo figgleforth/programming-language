@@ -1,5 +1,3 @@
-Scope should extend Hash, less work for me.
-
 Collect errors and keep interpreting the program if possible. Then dump all errors once the program can't run any longer.
 
 Clean up usage of temporarily_push_scope v add_to_stack. I don't think using one or the other is preferred, I just don't want to use both.
@@ -20,12 +18,14 @@ Custom test helpers like assert_operator(out), assert_type(:operator, out). I do
 
 Interpreter#interp_dot_infix :extract_instance_creation for all instances. Right now this only contains the Number instance.
 
-Closures.
+Closures. There's one skipped test in interpreter_test.rb until closures are implemented.
 
-While loops. :while_loops
+While loops. Currently it treats while expressions as if expressions. :while_loops
 
 When an assert is triggered, print out the actual *_Expr.
 
 Rake tasks for running tests. I'm using RubyMine but it would help others.
 
 Parsing `Identifier {;}` should raise a syntax error or something, because that's not valid syntax. Currently it loops indefinitely. I know where it happens, I just need to fix it. See :Identifier_function
+
+Expression `x:=4, y:=2, { x y }` interprets but doesn't capture the existing x and y declarations, and yields an empty dictionary with keys x and y.

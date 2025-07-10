@@ -1,6 +1,15 @@
 Make ; a postfix expression so `identifier;` can behave just like `=;`. I think currently ';' does not resolve to a postfix expression.
 
-Nil_Construct? Ruby has NilClass.
+Some kind of Nil construct? Ruby has NilClass.
 
-Importing other code by retrieving them from whatever scope they're in. For example, rng := .../Random.new.
-Or Random := .../Random.
+Importing other code by retrieving them from whatever scope they're in. For example, rng := .../Random.new, Local_Math := .../Math, etc.
+
+Scope could extend Hash instead of having a @hash attribute, that would be less work for me, I think.
+
+Shorthand literals.
+@(1, 2, 3) could create Vector literals, and infer dimension based on number of expressions.
+#(abc 123) -> Hash {abc: nil, 123: nil} and if abc is defined locally, it should take its value too.
+%(this is a set)
+?(abc def) returns true if all truthy
+$(one two) strings
+:(one two) symbols

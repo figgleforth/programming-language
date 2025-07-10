@@ -223,22 +223,28 @@ class Interpreter_Test < Minitest::Test
 		assert_equal out, {}
 	end
 
-	def test_create_dictionary_with_identifiers_as_keys
+	def test_create_dictionary_with_identifiers_as_keys_without_commas
 		out = interp '{a b c}'
 		assert_equal out, { a: nil, b: nil, c: nil }
-
 	end
 
-	def test_create_dictionary_with_keys_and_values
+	def test_create_dictionary_with_identifiers_as_keys_with_commas
+		out = interp '{a, b}'
+		assert_equal out, { a: nil, b: nil }
+	end
+
+	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation
 		out = interp '{ x:0 y=1 z}'
 		assert_equal out, { x: 0, y: 1, z: nil }
+	end
 
+	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation_and_commas
 		out = interp '{ x:4, y=8, z}'
 		assert_equal out, { x: 4, y: 8, z: nil }
 	end
 
 	def test_create_dictionary_with_local_value
-		out = interp 'x:=4, y:=2, { x=x, y=y}'
+		out = interp 'x:=4, y:=2, { x=x, y=y }'
 		assert_equal out, { x: 4, y: 2 }
 	end
 
@@ -247,8 +253,18 @@ class Interpreter_Test < Minitest::Test
 		assert_equal out, { x: 1 }
 	end
 
+	def test_string_as_dictionary_keys
+		out = interp '{ "x" = 1 }'
+		assert_equal out, { x: 1 }
+	end
+
 	def test_colon_as_dictionary_infix_operator
 		out = interp 'x := 123, { x: x }'
+		assert_equal out, { x: 123 }
+	end
+
+	def test_equals_as_dictionary_infix_operator
+		out = interp 'x := 123, { x = x }'
 		assert_equal out, { x: 123 }
 	end
 
@@ -302,7 +318,6 @@ class Interpreter_Test < Minitest::Test
 		assert_kind_of Func, out
 		assert_equal 1, out.params.count
 		assert_equal 1, out.expressions.count
-		# #todo :homoiconic_expressions
 	end
 
 	def test_assigning_function_to_variable
@@ -330,7 +345,6 @@ class Interpreter_Test < Minitest::Test
 		assert_kind_of Composition_Expr, out.compositions.last
 		assert_equal 'Rotation', out.compositions.last.name
 		assert_equal '-', out.compositions.last.operator
-		# :homoiconic_expressions assert out.exprs.include? Some hash representing expressions somehow.
 	end
 
 	def test_composed_type_declaration_before_body

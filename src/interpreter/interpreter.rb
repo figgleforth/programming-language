@@ -316,7 +316,7 @@ class Interpreter
 				elsif it.is_a? Infix_Expr
 					case it.operator
 					when ':', '='
-						if it.left.is_a?(Identifier_Expr) || it.left.is_a?(Symbol_Expr)
+						if it.left.is_a?(Identifier_Expr) || it.left.is_a?(Symbol_Expr) || it.left.is_a?(String_Expr)
 							dict[it.left.value.to_sym] = interpret it.right
 						else
 							# The left operand should be allowed to be any hashable object. It's too early in the project to consider hashing but this'll be a good reminder.
