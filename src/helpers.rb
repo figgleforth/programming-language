@@ -32,3 +32,7 @@ def refute_raises * exceptions
 rescue *exceptions => e
 	flunk "Expected no exception, but got #{e.class}: #{e.message}"
 end
+
+def assert condition
+	raise "Expected condition to be truthy." unless condition
+end

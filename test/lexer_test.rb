@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './test/helper'
+require './src/helpers'
 
 class Lexer_Test < Minitest::Test
 	def test_single_linecomment

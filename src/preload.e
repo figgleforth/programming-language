@@ -7,7 +7,6 @@ Number {
 	}
 
 	negate {;
-		`(numerator / denominator) `I need a literal for a fraction.
 		-numerator
 	}
 }
@@ -38,4 +37,6 @@ assert(true)
 assert(Num == Number)
 assert(String != Number)
 
-`assert(false) `If you uncomment this, it'll crash every interpreter test, neat.
+`Uncomment one of these to crash all interpreter tests!
+`assert()
+`assert(false)

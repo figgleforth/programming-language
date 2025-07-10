@@ -27,21 +27,21 @@ class Nil
 end
 
 class Scope
-	attr_accessor :name, :id, :hash
+	attr_accessor :name, :id, :declarations
 	@@next_id = 0
 
 	def initialize
-		@hash     = {}
-		@id       = @@next_id
-		@@next_id += 1
+		@declarations = {}
+		@id           = @@next_id
+		@@next_id     += 1
 	end
 
 	def [](x)
-		@hash[x&.to_s]
+		@declarations[x&.to_s]
 	end
 
 	def []=(x, value)
-		@hash[x&.to_s] = value
+		@declarations[x&.to_s] = value
 	end
 end
 

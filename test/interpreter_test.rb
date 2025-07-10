@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './test/helper'
+require './src/helpers'
 
 class Interpreter_Test < Minitest::Test
 	def test_integer_literals
@@ -638,5 +638,38 @@ class Interpreter_Test < Minitest::Test
 		refute_raises RuntimeError do
 			out = interp_file './src/preload.e'
 		end
+	end
+
+	def test_sanity
+		out = interp 'add { amount = 1, to = 0;
+			to += amount
+		}
+		add(1, 41)'
+		assert_equal 42, out
+	end
+
+	def test_calling_functions
+		refute_raises RuntimeError do
+			out = interp '
+			square { input;
+				input * input
+			}
+
+			result := square(5)
+			assert(result == 5 ** 2)
+			result'
+			assert_equal 25, out
+		end
+	end
+
+	def test_function_call_as_argument
+		out = interp '
+		add { amount = 1, to = 4;
+			to += amount
+		}
+		inc := add() `should return 5
+		assert(inc == 5)
+		add(inc, 1)'
+		assert_equal 6, out
 	end
 end

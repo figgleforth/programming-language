@@ -3,6 +3,9 @@ class Interpreter
 	require './src/parser/expression'
 	require './src/interpreter/constructs'
 	require './src/interpreter/errors'
+	require './src/helpers'
+
+	@@skip_preload = false
 
 	attr_accessor :i, :input, :stack, :global
 
@@ -11,7 +14,7 @@ class Interpreter
 		@stack = []
 	end
 
-	def box value
+	def wrap_in_runtime_hash value
 		case value
 		when Integer, Float
 			number_type        = global['Number']
@@ -29,8 +32,11 @@ class Interpreter
 	end
 
 	def output
-		prepend_builtin_types_for_interp
-		preload_global_scope
+		@global = Scope.new
+		add_to_stack global
+
+		prepend_builtin_types_for_interp unless @@skip_preload
+
 		out = nil
 		input.each do |it|
 			out = interpret it
@@ -40,20 +46,17 @@ class Interpreter
 
 	def prepend_builtin_types_for_interp
 		all_type_expressions = parse_file './src/preload.e'
-		@input.prepend all_type_expressions
-		@input = @input.flatten
+		all_type_expressions.each_with_index do |it, at|
+			interpret it
+		end
 	end
 
-	def preload_global_scope
-		@global = Scope.new
-		add_to_stack global
-	end
-
-	def temporarily_push_scope scope, &block
-		already_top_scope = curr_scope == scope
-		stack << scope unless already_top_scope
-		yield scope if block_given?
-		stack.pop unless already_top_scope
+	def push_then_pop scope, &block
+		already_top = curr_scope == scope
+		stack << scope unless already_top
+		yield scope
+	ensure
+		stack.pop unless already_top || stack.count == 1
 	end
 
 	def add_to_stack scope
@@ -72,7 +75,8 @@ class Interpreter
 	end
 
 	def set_in_scope scope, identifier, value = Nil.new
-		scope.hash[identifier] = value
+		scope                          ||= @global
+		scope.declarations[identifier] = value
 	end
 
 	def curr_scope
@@ -82,15 +86,21 @@ class Interpreter
 	def interp_assert expr
 		# Copypaste from #interp_call when Func.
 		receiver = interpret expr.receiver
-		add_to_stack receiver
-		receiver.params.zip(expr.arguments).each do |param, arg|
-			set_in_curr_scope param.name, interpret(arg)
+		result   = Nil.new
+
+		push_then_pop receiver do
+			receiver.params.zip(expr.arguments).each do |param, arg|
+				if arg
+					set_in_curr_scope param.name, interpret(arg)
+				else
+					# todo, :make_use_of_type
+					set_in_curr_scope param.name, Nil.new
+				end
+			end
+			receiver.expressions.each do |e|
+				result = interpret e
+			end
 		end
-		result = Nil.new
-		receiver.expressions.each do |e|
-			result = interpret e
-		end
-		stack.pop
 
 		if result == false
 			raise Assert_Triggered, expr.inspect
@@ -137,6 +147,9 @@ class Interpreter
 
 		# We should always have a scope, there's no need to check whether we have receiver_scope. If that's nil then there's something very wrong.
 		receiver_scope = get_scope_containing(expr.value) || curr_scope
+		if not receiver_scope
+			raise Undeclared_Identifier, expr.value.inspect
+		end
 		value          = receiver_scope[expr.value]
 
 		if expr.type
@@ -216,11 +229,14 @@ class Interpreter
 
 		elsif COMPOUND_OPERATORS.include? expr.operator
 			left_scope = get_scope_containing(expr.left.value)
-			add_to_stack left_scope
-			receiver = interpret expr.left
-			right    = interpret expr.right
-			result   = receiver.send expr.operator[..-2], right
-			stack.pop
+			result     = nil
+			push_then_pop left_scope do
+				add_to_stack left_scope
+				receiver = interpret expr.left
+				right    = interpret expr.right
+				result   = receiver.send expr.operator[..-2], right
+				set_in_curr_scope expr.left.value, result
+			end
 			result
 
 		elsif LOGICAL_OPERATORS.include? expr.operator
@@ -255,11 +271,11 @@ class Interpreter
 
 		instance              = Instance.new
 		instance.name         = receiver.name
-		instance.hash         = receiver.hash
+		instance.declarations = receiver.declarations
 		instance.expressions  = receiver.expressions
 		instance.compositions = receiver.compositions
 
-		temporarily_push_scope instance do
+		push_then_pop instance do
 			instance.expressions.each do |it|
 				interpret it
 			end
@@ -275,16 +291,17 @@ class Interpreter
 
 		receiver = if expr.left.is Number_Expr
 			# :extract_instance_creation
-			box interpret(expr.left)
+			wrap_in_runtime_hash interpret(expr.left)
 		else
 			interpret expr.left
 		end
 
 		case receiver
 		when Scope
-			add_to_stack receiver
-			result = interpret expr.right
-			stack.pop
+			result = nil
+			push_then_pop wrap_in_runtime_hash(receiver) do
+				result = interpret expr.right
+			end
 			result
 		else
 			raise Invalid_Dot_Infix_Left_Operand, expr.inspect
@@ -355,36 +372,46 @@ class Interpreter
 		receiver_scope = nil
 		if expr.receiver.is(Infix_Expr) && expr.receiver.operator == '.'
 			receiver_scope = interpret expr.receiver.left
-			add_to_stack box receiver_scope
+			add_to_stack wrap_in_runtime_hash receiver_scope
 		end
 
 		receiver = interpret expr.receiver
 		case receiver
 		when Type
-			add_to_stack receiver
-			receiver.expressions.each do |it|
-				interpret it
+			push_then_pop receiver do
+				receiver.expressions.each do |it|
+					interpret it
+				end
 			end
-			stack.pop
 			receiver
 
 			it              = Instance.new
 			it.name         = receiver.name
-			it.hash         = receiver.hash
+			it.declarations = receiver.declarations
 			it.expressions  = receiver.expressions
 			it.compositions = receiver.compositions
 			it
 
 		when Func
-			add_to_stack receiver
-			receiver.params.zip(expr.arguments).each do |param, arg|
-				set_in_curr_scope param.name, interpret(arg)
-			end
 			result = Nil.new
-			receiver.expressions.each do |e|
-				result = interpret e
+
+			push_then_pop receiver do
+				receiver.params.zip(expr.arguments).each do |param, arg|
+					if arg
+						set_in_curr_scope param.name, interpret(arg)
+					elsif param.default
+						set_in_curr_scope param.name, interpret(param.default)
+					else
+						# todo, :make_use_of_type
+						set_in_curr_scope param.name, Nil.new
+					end
+				end
+				result = Nil.new
+				receiver.expressions.each do |e|
+					result = interpret e
+				end
 			end
-			stack.pop
+
 			result
 
 		else
@@ -412,11 +439,11 @@ class Interpreter
 		it.compositions = expr.composition_exprs
 		it.expressions  = expr.expressions
 
-		add_to_stack it
-		it.expressions.each do |it|
-			interpret it
+		push_then_pop it do
+			it.expressions.each do |e|
+				interpret e
+			end
 		end
-		stack.pop
 
 		set_in_curr_scope expr.name, it
 

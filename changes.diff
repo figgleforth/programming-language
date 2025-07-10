@@ -1,0 +1,406 @@
+diff --git a/src/helpers.rb b/src/helpers.rb
+index d1cf4ff..42746b0 100644
+--- a/src/helpers.rb
++++ b/src/helpers.rb
+@@ -32,3 +32,7 @@ def refute_raises * exceptions
+ rescue *exceptions => e
+ 	flunk "Expected no exception, but got #{e.class}: #{e.message}"
+ end
++
++def assert condition
++	raise "Expected condition to be truthy." unless condition
++end
+diff --git a/src/interpreter/constructs.rb b/src/interpreter/constructs.rb
+index 1f41ee2..bb50ac5 100644
+--- a/src/interpreter/constructs.rb
++++ b/src/interpreter/constructs.rb
+@@ -27,21 +27,21 @@ class Nil
+ end
+ 
+ class Scope
+-	attr_accessor :name, :id, :hash
++	attr_accessor :name, :id, :declarations
+ 	@@next_id = 0
+ 
+ 	def initialize
+-		@hash     = {}
+-		@id       = @@next_id
+-		@@next_id += 1
++		@declarations = {}
++		@id           = @@next_id
++		@@next_id     += 1
+ 	end
+ 
+ 	def [](x)
+-		@hash[x&.to_s]
++		@declarations[x&.to_s]
+ 	end
+ 
+ 	def []=(x, value)
+-		@hash[x&.to_s] = value
++		@declarations[x&.to_s] = value
+ 	end
+ end
+ 
+diff --git a/src/interpreter/interpreter.rb b/src/interpreter/interpreter.rb
+index f93b553..e461659 100644
+--- a/src/interpreter/interpreter.rb
++++ b/src/interpreter/interpreter.rb
+@@ -3,6 +3,9 @@ class Interpreter
+ 	require './src/parser/expression'
+ 	require './src/interpreter/constructs'
+ 	require './src/interpreter/errors'
++	require './src/helpers'
++
++	@@skip_preload = false
+ 
+ 	attr_accessor :i, :input, :stack, :global
+ 
+@@ -11,7 +14,7 @@ class Interpreter
+ 		@stack = []
+ 	end
+ 
+-	def box value
++	def wrap_in_runtime_hash value
+ 		case value
+ 		when Integer, Float
+ 			number_type        = global['Number']
+@@ -29,8 +32,11 @@ class Interpreter
+ 	end
+ 
+ 	def output
+-		prepend_builtin_types_for_interp
+-		preload_global_scope
++		@global = Scope.new
++		add_to_stack global
++
++		prepend_builtin_types_for_interp unless @@skip_preload
++
+ 		out = nil
+ 		input.each do |it|
+ 			out = interpret it
+@@ -40,20 +46,17 @@ class Interpreter
+ 
+ 	def prepend_builtin_types_for_interp
+ 		all_type_expressions = parse_file './src/preload.e'
+-		@input.prepend all_type_expressions
+-		@input = @input.flatten
+-	end
+-
+-	def preload_global_scope
+-		@global = Scope.new
+-		add_to_stack global
++		all_type_expressions.each_with_index do |it, at|
++			interpret it
++		end
+ 	end
+ 
+-	def temporarily_push_scope scope, &block
+-		already_top_scope = curr_scope == scope
+-		stack << scope unless already_top_scope
+-		yield scope if block_given?
+-		stack.pop unless already_top_scope
++	def push_then_pop scope, &block
++		already_top = curr_scope == scope
++		stack << scope unless already_top
++		yield scope
++	ensure
++		stack.pop unless already_top || stack.count == 1
+ 	end
+ 
+ 	def add_to_stack scope
+@@ -72,7 +75,8 @@ class Interpreter
+ 	end
+ 
+ 	def set_in_scope scope, identifier, value = Nil.new
+-		scope.hash[identifier] = value
++		scope                          ||= @global
++		scope.declarations[identifier] = value
+ 	end
+ 
+ 	def curr_scope
+@@ -82,15 +86,21 @@ class Interpreter
+ 	def interp_assert expr
+ 		# Copypaste from #interp_call when Func.
+ 		receiver = interpret expr.receiver
+-		add_to_stack receiver
+-		receiver.params.zip(expr.arguments).each do |param, arg|
+-			set_in_curr_scope param.name, interpret(arg)
+-		end
+-		result = Nil.new
+-		receiver.expressions.each do |e|
+-			result = interpret e
++		result   = Nil.new
++
++		push_then_pop receiver do
++			receiver.params.zip(expr.arguments).each do |param, arg|
++				if arg
++					set_in_curr_scope param.name, interpret(arg)
++				else
++					# todo, :make_use_of_type
++					set_in_curr_scope param.name, Nil.new
++				end
++			end
++			receiver.expressions.each do |e|
++				result = interpret e
++			end
+ 		end
+-		stack.pop
+ 
+ 		if result == false
+ 			raise Assert_Triggered, expr.inspect
+@@ -137,6 +147,9 @@ class Interpreter
+ 
+ 		# We should always have a scope, there's no need to check whether we have receiver_scope. If that's nil then there's something very wrong.
+ 		receiver_scope = get_scope_containing(expr.value) || curr_scope
++		if not receiver_scope
++			raise Undeclared_Identifier, expr.value.inspect
++		end
+ 		value          = receiver_scope[expr.value]
+ 
+ 		if expr.type
+@@ -216,11 +229,14 @@ class Interpreter
+ 
+ 		elsif COMPOUND_OPERATORS.include? expr.operator
+ 			left_scope = get_scope_containing(expr.left.value)
+-			add_to_stack left_scope
+-			receiver = interpret expr.left
+-			right    = interpret expr.right
+-			result   = receiver.send expr.operator[..-2], right
+-			stack.pop
++			result     = nil
++			push_then_pop left_scope do
++				add_to_stack left_scope
++				receiver = interpret expr.left
++				right    = interpret expr.right
++				result   = receiver.send expr.operator[..-2], right
++				set_in_curr_scope expr.left.value, result
++			end
+ 			result
+ 
+ 		elsif LOGICAL_OPERATORS.include? expr.operator
+@@ -255,11 +271,11 @@ class Interpreter
+ 
+ 		instance              = Instance.new
+ 		instance.name         = receiver.name
+-		instance.hash         = receiver.hash
++		instance.declarations = receiver.declarations
+ 		instance.expressions  = receiver.expressions
+ 		instance.compositions = receiver.compositions
+ 
+-		temporarily_push_scope instance do
++		push_then_pop instance do
+ 			instance.expressions.each do |it|
+ 				interpret it
+ 			end
+@@ -275,16 +291,17 @@ class Interpreter
+ 
+ 		receiver = if expr.left.is Number_Expr
+ 			# :extract_instance_creation
+-			box interpret(expr.left)
++			wrap_in_runtime_hash interpret(expr.left)
+ 		else
+ 			interpret expr.left
+ 		end
+ 
+ 		case receiver
+ 		when Scope
+-			add_to_stack receiver
+-			result = interpret expr.right
+-			stack.pop
++			result = nil
++			push_then_pop wrap_in_runtime_hash(receiver) do
++				result = interpret expr.right
++			end
+ 			result
+ 		else
+ 			raise Invalid_Dot_Infix_Left_Operand, expr.inspect
+@@ -355,36 +372,46 @@ class Interpreter
+ 		receiver_scope = nil
+ 		if expr.receiver.is(Infix_Expr) && expr.receiver.operator == '.'
+ 			receiver_scope = interpret expr.receiver.left
+-			add_to_stack box receiver_scope
++			add_to_stack wrap_in_runtime_hash receiver_scope
+ 		end
+ 
+ 		receiver = interpret expr.receiver
+ 		case receiver
+ 		when Type
+-			add_to_stack receiver
+-			receiver.expressions.each do |it|
+-				interpret it
++			push_then_pop receiver do
++				receiver.expressions.each do |it|
++					interpret it
++				end
+ 			end
+-			stack.pop
+ 			receiver
+ 
+ 			it              = Instance.new
+ 			it.name         = receiver.name
+-			it.hash         = receiver.hash
++			it.declarations = receiver.declarations
+ 			it.expressions  = receiver.expressions
+ 			it.compositions = receiver.compositions
+ 			it
+ 
+ 		when Func
+-			add_to_stack receiver
+-			receiver.params.zip(expr.arguments).each do |param, arg|
+-				set_in_curr_scope param.name, interpret(arg)
+-			end
+ 			result = Nil.new
+-			receiver.expressions.each do |e|
+-				result = interpret e
++
++			push_then_pop receiver do
++				receiver.params.zip(expr.arguments).each do |param, arg|
++					if arg
++						set_in_curr_scope param.name, interpret(arg)
++					elsif param.default
++						set_in_curr_scope param.name, interpret(param.default)
++					else
++						# todo, :make_use_of_type
++						set_in_curr_scope param.name, Nil.new
++					end
++				end
++				result = Nil.new
++				receiver.expressions.each do |e|
++					result = interpret e
++				end
+ 			end
+-			stack.pop
++
+ 			result
+ 
+ 		else
+@@ -412,11 +439,11 @@ class Interpreter
+ 		it.compositions = expr.composition_exprs
+ 		it.expressions  = expr.expressions
+ 
+-		add_to_stack it
+-		it.expressions.each do |it|
+-			interpret it
++		push_then_pop it do
++			it.expressions.each do |e|
++				interpret e
++			end
+ 		end
+-		stack.pop
+ 
+ 		set_in_curr_scope expr.name, it
+ 
+diff --git a/src/preload.e b/src/preload.e
+index 8b5a64a..fea6fec 100644
+--- a/src/preload.e
++++ b/src/preload.e
+@@ -7,7 +7,6 @@ Number {
+ 	}
+ 
+ 	negate {;
+-		`(numerator / denominator) `I need a literal for a fraction.
+ 		-numerator
+ 	}
+ }
+@@ -38,4 +37,6 @@ assert(true)
+ assert(Num == Number)
+ assert(String != Number)
+ 
+-`assert(false) `If you uncomment this, it'll crash every interpreter test, neat.
++`Uncomment one of these to crash all interpreter tests!
++`assert()
++`assert(false)
+diff --git a/test/interpreter_test.rb b/test/interpreter_test.rb
+index dc4a12c..ce2127d 100644
+--- a/test/interpreter_test.rb
++++ b/test/interpreter_test.rb
+@@ -1,5 +1,5 @@
+ require 'minitest/autorun'
+-require './test/helper'
++require './src/helpers'
+ 
+ class Interpreter_Test < Minitest::Test
+ 	def test_integer_literals
+@@ -639,4 +639,37 @@ class Interpreter_Test < Minitest::Test
+ 			out = interp_file './src/preload.e'
+ 		end
+ 	end
++
++	def test_sanity
++		out = interp 'add { amount = 1, to = 0;
++			to += amount
++		}
++		add(1, 41)'
++		assert_equal 42, out
++	end
++
++	def test_calling_functions
++		refute_raises RuntimeError do
++			out = interp '
++			square { input;
++				input * input
++			}
++
++			result := square(5)
++			assert(result == 5 ** 2)
++			result'
++			assert_equal 25, out
++		end
++	end
++
++	def test_function_call_as_argument
++		out = interp '
++		add { amount = 1, to = 4;
++			to += amount
++		}
++		inc := add() `should return 5
++		assert(inc == 5)
++		add(inc, 1)'
++		assert_equal 6, out
++	end
+ end
+diff --git a/test/lexer_test.rb b/test/lexer_test.rb
+index eb2ff50..edee923 100644
+--- a/test/lexer_test.rb
++++ b/test/lexer_test.rb
+@@ -1,5 +1,5 @@
+ require 'minitest/autorun'
+-require './test/helper'
++require './src/helpers'
+ 
+ class Lexer_Test < Minitest::Test
+ 	def test_single_linecomment
+diff --git a/test/parser_test.rb b/test/parser_test.rb
+index de2663a..84cdd75 100644
+--- a/test/parser_test.rb
++++ b/test/parser_test.rb
+@@ -1,5 +1,5 @@
+ require 'minitest/autorun'
+-require './test/helper'
++require './src/helpers'
+ 
+ class Parser_Test < Minitest::Test
+ 	def test_identifiers
+diff --git a/todos.txt b/todos.txt
+index 12c1278..6c7edd0 100644
+--- a/todos.txt
++++ b/todos.txt
+@@ -1,9 +1,7 @@
+-assert() `Unhandled_Expr: nil when no args are given. This seems the most urgent.
++Initialize value-less declarations based on their type rather than just Nil.new. :make_use_of_type
+ 
+ You can use any Type identifier when declaring a type and it won't crash, even when the identifier is made up. That might seem like a bug, and it is. But what if it only crashes when you actually assign? `some: Thing` will just set {some: nil} in the scope. So it could remain a placeholder until assignment.
+ 
+-Clean up usage of temporarily_push_scope v add_to_stack. I don't think using one or the other is preferred, I just don't want to use both.
+-
+ Interpreter#interp_string only handles non-interpolated strings.
+ 
+ Split Interpreter#interp_infix into multiple functions.
+@@ -33,6 +31,4 @@ Parsing `Identifier {;}` should raise a syntax error or something, because that'
+ 
+ Stress test error collecting. I haven't done that yet at all.
+ 
+-Cannot_Initialize_Undeclared_Identifier was removed because
+-
+ *_Expr classes have :start_location, :end_location defined, but this is never set. Being able to print relevant code in the output would reduce confusion with errors.

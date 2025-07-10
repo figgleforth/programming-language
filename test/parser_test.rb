@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './test/helper'
+require './src/helpers'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers

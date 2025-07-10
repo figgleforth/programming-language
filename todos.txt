@@ -1,8 +1,6 @@
-assert() `Unhandled_Expr: nil when no args are given. This seems the most urgent.
+Initialize value-less declarations based on their type rather than just Nil.new. :make_use_of_type
 
 You can use any Type identifier when declaring a type and it won't crash, even when the identifier is made up. That might seem like a bug, and it is. But what if it only crashes when you actually assign? `some: Thing` will just set {some: nil} in the scope. So it could remain a placeholder until assignment.
-
-Clean up usage of temporarily_push_scope v add_to_stack. I don't think using one or the other is preferred, I just don't want to use both.
 
 Interpreter#interp_string only handles non-interpolated strings.
 
@@ -32,7 +30,5 @@ Rake tasks for running tests. I'm using RubyMine but it would help others.
 Parsing `Identifier {;}` should raise a syntax error or something, because that's not valid syntax. Currently it loops indefinitely. I know where it happens, I just need to fix it. See :Identifier_function
 
 Stress test error collecting. I haven't done that yet at all.
-
-Cannot_Initialize_Undeclared_Identifier was removed because
 
 *_Expr classes have :start_location, :end_location defined, but this is never set. Being able to print relevant code in the output would reduce confusion with errors.
