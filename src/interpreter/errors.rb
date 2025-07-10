@@ -40,3 +40,6 @@ end
 
 class Unhandled_Array_Index_Expr < RuntimeError
 end
+
+class Assert_Triggered < RuntimeError
+end

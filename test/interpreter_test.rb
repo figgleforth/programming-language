@@ -560,6 +560,63 @@ class Interpreter_Test < Minitest::Test
 	def test_number_instance_rationalize_function
 		out = interp '42.to_s()'
 		assert_equal "42", out
-		# Broken, but I don't want to work on it until I extract the large cases from #interpret
+	end
+
+	def test_builtin_assert
+		refute_raises Assert_Triggered do
+			out = interp 'assert(true)'
+			assert_equal true, out
+		end
+
+		assert_raises Assert_Triggered do
+			interp 'assert(false)'
+		end
+	end
+
+	def test_complex_function_call_on_number_instance
+		out = interp '4815.negate()'
+		assert_equal -4815, out
+	end
+
+	def test_mutating_state_across_calls
+		out = interp '
+		counter := 0
+		increment {; counter = counter + 1 }
+		increment()
+		increment()
+		'
+		assert_equal 2, out
+	end
+
+	def test_closure_captures
+		skip "Closures!"
+		assert_raises Cannot_Assign_Undeclared_Identifier do
+			out = interp '
+		make_counter {;
+			count := 0
+			return {; count = count + 1 }
+		}
+		counter := make_counter()
+		counter()
+		counter()
+		'
+			assert_equal 3, out
+		end
+	end
+
+	def test_truthy_falsy_logic
+		assert_equal 1, interp('if true then 1 else 0 end')
+		assert_equal 0, interp('if 0 then 1 else 0 end')
+		assert_equal 0, interp('if nil then 1 else 0 end')
+	end
+
+	def test_preloads
+		refute_raises RuntimeError do
+			out = interp_file './src/preload.e'
+		end
+	end
+
+	def test_sanity
+		assert_equal 42, interp('42')
 	end
 end

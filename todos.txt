@@ -1,3 +1,5 @@
+Scope should extend Hash, less work for me.
+
 Collect errors and keep interpreting the program if possible. Then dump all errors once the program can't run any longer.
 
 Clean up usage of temporarily_push_scope v add_to_stack. I don't think using one or the other is preferred, I just don't want to use both.
@@ -6,14 +8,22 @@ Interpreter#interp_string only handles non-interpolated strings.
 
 Split Interpreter#interp_infix into multiple functions.
 
-Don't separate compositions from expressions in a Type_Decl, they should be treated as one. I can special case them later if I need to.
+Currently @compositions and @expressions are separated in a Type_Decl, they should be treated as one. I can special case them later if I need to.
 
 Improve Praser#precedence_for, get rid of that nested array format.
 
 Clean up Parser#parse_conditional_expr. It should just loop until curr?(end) right? It works as is for now, but it's ugly.
 
-Separate preload.e types into their own separate .e files.
+Separate preload.e types into their own separate .e files, and be able to reference them. That's currently not possible.
 
 Custom test helpers like assert_operator(out), assert_type(:operator, out). I don't have a preference for either, but it's needed. :lexeme_type_helper.
 
 Interpreter#interp_dot_infix :extract_instance_creation for all instances. Right now this only contains the Number instance.
+
+Closures.
+
+While loops. :while_loops
+
+When an assert is triggered, print out the actual *_Expr.
+
+Rake tasks for running tests. I'm using RubyMine but it would help others.

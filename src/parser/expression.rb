@@ -55,7 +55,7 @@ class Func_Expr < Expression
 		end.join(',')
 		sig += ';'
 		sig += '}'
-
+		sig
 		# #todo Maybe bring back extra signature details
 		# if expressions.any?
 		# 	n << '['

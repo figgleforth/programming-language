@@ -11,6 +11,23 @@ class Interpreter
 		@stack = []
 	end
 
+	def box value
+		case value
+		when Integer, Float
+			number_type        = global['Number']
+			inst               = number_type.dup
+			inst[:numerator]   = value
+			inst[:denominator] = if value.is_a? Float
+				1.0
+			else
+				1
+			end
+			inst
+		else
+			value
+		end
+	end
+
 	def output
 		preload_global_scope
 		out = nil
@@ -21,7 +38,7 @@ class Interpreter
 	end
 
 	def preload_global_scope
-		all_type_expressions = parse_file './src/types/preload.e'
+		all_type_expressions = parse_file './src/preload.e'
 		@input.prepend all_type_expressions
 		@input  = @input.flatten
 		@global = Scope.new
@@ -56,6 +73,26 @@ class Interpreter
 
 	def curr_scope
 		stack.last
+	end
+
+	def interp_assert expr
+		# Copypaste from #interp_call when Func.
+		receiver = interpret expr.receiver
+		add_to_stack receiver
+		receiver.params.zip(expr.arguments).each do |param, arg|
+			set_in_curr_scope param.name, interpret(arg)
+		end
+		result = nil
+		receiver.expressions.each do |e|
+			result = interpret e
+		end
+		stack.pop
+
+		if result == false
+			raise Assert_Triggered, expr.inspect
+		end
+
+		result
 	end
 
 	def interp_string expr
@@ -227,13 +264,7 @@ class Interpreter
 
 		receiver = if expr.left.is Number_Expr
 			# :extract_instance_creation
-			number_type = global['Number']
-			raise "Couldn't find the Number Type in the global_scope" unless number_type
-
-			number_inst               = number_type.dup
-			number_inst[:numerator]   = interpret expr.left
-			number_inst[:denominator] = 1 # For now
-			number_inst
+			box interpret(expr.left)
 		else
 			interpret expr.left
 		end
@@ -306,12 +337,17 @@ class Interpreter
 	end
 
 	def interp_call expr
-		receiver = if expr.receiver.is(Infix_Expr)
-			interpret expr.receiver # Recurse to resolve dot-chains.
-		else
-			interpret expr.receiver
+		if expr.receiver.value == 'assert'
+			return interp_assert expr
 		end
 
+		receiver_scope = nil
+		if expr.receiver.is(Infix_Expr) && expr.receiver.operator == '.'
+			receiver_scope = interpret expr.receiver.left
+			add_to_stack box receiver_scope
+		end
+
+		receiver = interpret expr.receiver
 		case receiver
 		when Type
 			add_to_stack receiver
@@ -341,7 +377,7 @@ class Interpreter
 			result
 
 		else
-			raise Unhandled_Call_Receiver, receiver.inspect
+			raise Undeclared_Identifier, expr.inspect
 		end
 	end
 
@@ -383,6 +419,8 @@ class Interpreter
 		else
 			expr.when_false
 		end
+
+		# todo, :while_loops
 
 		to_interpret.each.inject(nil) do |result, it|
 			interpret it

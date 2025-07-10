@@ -26,3 +26,9 @@ end
 def parse_file file_path
 	parse File.read file_path
 end
+
+def refute_raises * exceptions
+	yield
+rescue *exceptions => e
+	flunk "Expected no exception, but got #{e.class}: #{e.message}"
+end
