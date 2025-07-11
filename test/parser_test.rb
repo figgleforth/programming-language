@@ -93,11 +93,11 @@ class Parser_Test < Minitest::Test
 		assert_kind_of String_Expr, out.first
 		refute out.first.interpolated
 
-		out = parse '"An `interpolated` string"'
+		out = parse '"An |interpolated| string"'
 		assert_kind_of String_Expr, out.first
 		assert out.first.interpolated
 
-		out = parse "'Another `interpolated` string'"
+		out = parse "'Another |interpolated| string'"
 		assert_kind_of String_Expr, out.first
 		assert out.first.interpolated
 	end

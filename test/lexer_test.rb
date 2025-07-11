@@ -71,10 +71,10 @@ class Lexer_Test < Minitest::Test
 	end
 
 	def test_interpolated_strings
-		out = lex '"An `interpolated` string"'
+		out = lex '"An |interpolated| string"'
 		assert_equal :string, out.first.type
 
-		out = lex "'Another `interpolated` string'"
+		out = lex "'Another |interpolated| string'"
 		assert_equal :string, out.first.type
 	end
 

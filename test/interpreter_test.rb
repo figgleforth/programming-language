@@ -322,7 +322,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_function_param_labels
 		out = interp 'greet { person name = "Cooper";
-			"Hello `name`"
+			"Hello |name|"
 		}'
 		assert_kind_of Func, out
 		assert_equal 1, out.params.count
@@ -634,12 +634,6 @@ class Interpreter_Test < Minitest::Test
 		assert_equal 0, interp('if nil 1 else 0 end')
 	end
 
-	def test_preloads
-		refute_raises RuntimeError do
-			out = interp_file './src/preload.e'
-		end
-	end
-
 	def test_sanity
 		out = interp 'add { amount = 1, to = 0;
 			to += amount
@@ -672,4 +666,11 @@ class Interpreter_Test < Minitest::Test
 		add(inc, 1)'
 		assert_equal 6, out
 	end
+
+	def test_preloads
+		refute_raises RuntimeError do
+			out = interp_file './src/emerald/preload.e'
+		end
+	end
+
 end

@@ -1,5 +1,5 @@
 SORT_BY_LENGTH_DESC    = ->(str) { -str.size }
-INTERPOLATE_CHAR       = '`' # "string with `interpolation`"
+INTERPOLATE_CHAR       = '|' # "string with `interpolation`"
 COMMENT_CHAR           = '`'
 COMMENT_MULTILINE_CHAR = '```'
 PREFIX                 = %w(! - + ~ $ # ? & ^ ./ ../ .../ not return).sort_by &SORT_BY_LENGTH_DESC
