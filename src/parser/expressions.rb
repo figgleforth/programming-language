@@ -103,7 +103,7 @@ class String_Expr < Expression
 
 	def initialize string
 		super string
-		@interpolated = string.include? COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
+		@interpolated = string.include? INTERPOLATE_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
 	end
 end
 
