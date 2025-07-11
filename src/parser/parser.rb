@@ -1,5 +1,5 @@
 class Parser
-	require './src/parser/expression'
+	require './src/parser/expressions'
 	require './src/constants'
 
 	attr_accessor :i, :input

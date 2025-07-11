@@ -1,8 +1,8 @@
 class Interpreter
 	require './src/constants'
-	require './src/parser/expression'
+	require './src/parser/expressions'
 	require './src/interpreter/constructs'
-	require './src/interpreter/errors'
+	require './src/errors'
 	require './src/helpers'
 
 	@@skip_preload = false
@@ -45,7 +45,7 @@ class Interpreter
 	end
 
 	def prepend_builtin_types_for_interp
-		all_type_expressions = parse_file './src/preload.e'
+		all_type_expressions = parse_file './src/emerald/preload.e'
 		all_type_expressions.each_with_index do |it, at|
 			interpret it
 		end
