@@ -14,3 +14,18 @@ Shorthand literals, but maybe they should be two-letter shorthands like in Ruby.
 ?(abc def) returns true if all truthy
 $(one two) strings like %w() in Ruby
 :(one two) symbols like %i() in Ruby
+
+Some way to keep track of instance IDs as an integer. These would be strictly for constructs(.rb), not expressions(.rb).
+@instance_count_by_class = {
+	 Nil:                  0,
+	 Instance:             0,
+	 Type:                 0,
+	 Func:                 0,
+	 Scope:                0,
+	 Tuple:                0,
+	 Left_Exclusing_Range: 0,
+	 # The rest can be added at runtime
+}
+
+Take inspiration from Ruby unary operators for prefixes.
+def -@
