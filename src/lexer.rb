@@ -1,5 +1,5 @@
 require './src/shared/constants'
-require './src/lexer/lexeme'
+require './src/shared/lexeme'
 
 class Lexer
 	attr_accessor :i, :col, :row, :input

@@ -1,4 +1,4 @@
-require './src/parser/expressions'
+require './src/shared/expressions'
 require './src/shared/constants'
 
 class Parser

@@ -1,5 +1,5 @@
-require './src/interpreter/constructs'
-require './src/parser/expressions'
+require './src/shared/constructs'
+require './src/shared/expressions'
 require './src/shared/constants'
 require './src/shared/errors'
 require './src/shared/helpers'

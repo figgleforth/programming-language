@@ -35,5 +35,5 @@ Stress test error collecting. I haven't done that yet at all.
 
 Create a new Scope subclass for function calls. I'm having difficulty distinguishing between that scopes on the stack because they're all the same. Do the same for control flow bodies (if, while, etc). :func_call_scope
 
-Move src/interpreter/errors.rb to src/errors.rb. It'll be easy to find, contain errors for each stage.
+Move src/interpreter/shared/errors.rb to src/errors.rb. It'll be easy to find, contain errors for each stage.
 Also add namespaces to each error to make it easier to identifity, like Interpreter::Whatever_Error. Interpreter requires this file and done.

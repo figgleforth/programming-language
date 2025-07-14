@@ -1,8 +1,8 @@
 require './src/shared/constants'
-require './src/lexer/lexer'
-require './src/parser/parser'
-require './src/interpreter/interpreter'
-require './src/interpreter/constructs'
+require './src/shared/constructs'
+require './src/interpreter'
+require './src/lexer'
+require './src/parser'
 
 def interp code
 	lexemes      = lex code
