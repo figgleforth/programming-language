@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './src/helpers'
+require './src/shared/helpers'
 
 class Lexer_Test < Minitest::Test
 	def test_single_linecomment
@@ -199,8 +199,8 @@ class Lexer_Test < Minitest::Test
 		 		input * input
 		 	 }'
 		assert_equal [
-			              :identifier, :delimiter, :identifier, :delimiter, :delimiter,
-			              :identifier, :operator, :identifier, :delimiter, :delimiter
+			             :identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			             :identifier, :operator, :identifier, :delimiter, :delimiter
 		             ], out.map(&:type)
 
 		out = lex 'wrap { number, limit;
@@ -209,10 +209,10 @@ class Lexer_Test < Minitest::Test
 		 		end
 		 	 }'
 		assert_equal [
-			              :identifier, :delimiter, :identifier, :delimiter, :identifier, :delimiter, :delimiter,
-			              :identifier, :identifier, :operator, :identifier, :delimiter,
-			              :identifier, :operator, :number, :delimiter,
-			              :identifier, :delimiter, :delimiter
+			             :identifier, :delimiter, :identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			             :identifier, :identifier, :operator, :identifier, :delimiter,
+			             :identifier, :operator, :number, :delimiter,
+			             :identifier, :delimiter, :delimiter
 		             ], out.map(&:type)
 	end
 
@@ -225,19 +225,19 @@ class Lexer_Test < Minitest::Test
 		 	rotation =;
 		 }'
 		assert_equal [
-			              :Identifier, :delimiter, :delimiter,
-			              :identifier, :operator, :delimiter,
-			              :identifier, :operator, :delimiter,
-			              :delimiter
+			             :Identifier, :delimiter, :delimiter,
+			             :identifier, :operator, :delimiter,
+			             :identifier, :operator, :delimiter,
+			             :delimiter
 		             ], out.map(&:type)
 
 		out = lex 'Entity {
 		 	|Transform
 		}'
 		assert_equal [
-			              :Identifier, :delimiter, :delimiter,
-			              :operator, :Identifier, :delimiter,
-			              :delimiter
+			             :Identifier, :delimiter, :delimiter,
+			             :operator, :Identifier, :delimiter,
+			             :delimiter
 		             ], out.map(&:type)
 
 		out = lex 'Player > Entity {}'
@@ -249,9 +249,9 @@ class Lexer_Test < Minitest::Test
 			celebrate()
 		end'
 		assert_equal [
-			              :identifier, :identifier, :delimiter,
-			              :identifier, :delimiter, :delimiter, :delimiter,
-			              :identifier
+			             :identifier, :identifier, :delimiter,
+			             :identifier, :delimiter, :delimiter, :delimiter,
+			             :identifier
 		             ], out.map(&:type)
 
 		out = lex 'if 1 + 2 * 3 == 7
@@ -262,13 +262,13 @@ class Lexer_Test < Minitest::Test
 			\'🤯\'
 		end'
 		assert_equal [
-			              :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
-			              :string, :delimiter,
-			              :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
-			              :string, :delimiter,
-			              :identifier, :delimiter,
-			              :string, :delimiter,
-			              :identifier
+			             :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
+			             :string, :delimiter,
+			             :identifier, :number, :operator, :number, :operator, :number, :operator, :number, :delimiter,
+			             :string, :delimiter,
+			             :identifier, :delimiter,
+			             :string, :delimiter,
+			             :identifier
 		             ], out.map(&:type)
 
 		out = lex 'for [1, 2, 3, 4, 5]
@@ -277,11 +277,11 @@ class Lexer_Test < Minitest::Test
 			stop
 		end'
 		assert_equal [
-			              :identifier, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
-			              :identifier, :identifier, :identifier, :identifier, :delimiter, :delimiter, :operator, :number, :delimiter,
-			              :identifier, :delimiter,
-			              :identifier, :delimiter,
-			              :identifier
+			             :identifier, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
+			             :identifier, :identifier, :identifier, :identifier, :delimiter, :delimiter, :operator, :number, :delimiter,
+			             :identifier, :delimiter,
+			             :identifier, :delimiter,
+			             :identifier
 		             ], out.map(&:type)
 	end
 

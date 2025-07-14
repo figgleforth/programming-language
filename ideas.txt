@@ -27,5 +27,6 @@ Some way to keep track of instance IDs as an integer. These would be strictly fo
 	 # The rest can be added at runtime
 }
 
-Take inspiration from Ruby unary operators for prefixes.
-def -@
+Take inspiration from Ruby unary operators for prefixes. `def -@`
+
+Maybe bring back := as a declaration operator. I don't want to be forced to use it, but maybe it can be repurposed.

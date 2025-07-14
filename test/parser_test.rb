@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './src/helpers'
+require './src/shared/helpers'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers
@@ -112,14 +112,14 @@ class Parser_Test < Minitest::Test
 		out = parse 'numbers -= 1623'
 		assert_kind_of Infix_Expr, out.first
 
-		out = parse 'flag := 0'
+		out = parse 'flag = 0'
 		assert_kind_of Infix_Expr, out.first
 
 		out = parse 'flag |= 2'
 		assert_kind_of Infix_Expr, out.first
 	end
 
-	def test_broken_infixes
+	def test_infixes_regression # This is old but I'm keeping it around anyway. I just renamed it to reflect its purpose.
 		COMPOUND_OPERATORS.each do |operator|
 			code = "left #{operator} right"
 			out  = parse(code)
@@ -183,10 +183,10 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Number_Expr, out.first.right
 		assert_equal 1, out.count
 
-		out = parse 'numbers =;'
+		out = parse 'numbers;'
 		assert_kind_of Postfix_Expr, out.first
 		assert_kind_of Identifier_Expr, out.first.expression
-		assert_equal '=;', out.first.operator
+		assert_equal ';', out.first.operator
 
 		out = parse 'Type = {}'
 		assert_kind_of Infix_Expr, out.first
@@ -324,33 +324,33 @@ class Parser_Test < Minitest::Test
 		out = parse '{ with_param; }'
 		assert_equal 1, out.first.param_decls.count
 		out.first.param_decls.each do
-			assert_kind_of Param_Decl, it
+			assert_kind_of Param_Expr, it
 		end
 
 		out = parse 'named { with_param; }'
 		assert_equal 'named', out.first.name
 		assert_equal 1, out.first.param_decls.count
 		out.first.param_decls.each do
-			assert_kind_of Param_Decl, it
+			assert_kind_of Param_Expr, it
 		end
 		refute out.first.param_decls.first.label
 		refute out.first.param_decls.first.default
 		refute out.first.param_decls.first.type
 
 		out = parse '{ labeled param; }'
-		assert_kind_of Param_Decl, out.first.param_decls.first
+		assert_kind_of Param_Expr, out.first.param_decls.first
 		assert_equal 'labeled', out.first.param_decls.first.label
 		assert out.first.param_decls.first.label
 		refute out.first.param_decls.first.default
 		refute out.first.param_decls.first.type
 
 		out = parse '{ default_values = 4; }'
-		assert_kind_of Param_Decl, out.first.param_decls.first
+		assert_kind_of Param_Expr, out.first.param_decls.first
 		assert out.first.param_decls.first.default
 		assert_kind_of Number_Expr, out.first.param_decls.first.default
 
 		out = parse 'named { and_labeled with_default = 8; }'
-		assert_kind_of Param_Decl, out.first.param_decls.first
+		assert_kind_of Param_Expr, out.first.param_decls.first
 		assert_equal 'and_labeled', out.first.param_decls.first.label
 		assert_equal 'with_default', out.first.param_decls.first.name
 		assert_equal 'named', out.first.name
@@ -395,7 +395,7 @@ class Parser_Test < Minitest::Test
 
 			slice = remainder.slice(0, sequence.count)
 			slice.{;
-				expected := sequence[at]
+				expected = sequence[at]
 
 				if expected === Array
 					expected.any? {;
@@ -460,21 +460,21 @@ class Parser_Test < Minitest::Test
 
 	def test_types
 		out = parse 'String {}'
-		assert_kind_of Type_Decl, out.first
+		assert_kind_of Type_Expr, out.first
 		assert_equal 'String', out.first.name
 
 		out = parse 'Transform {
-			position =;
-			rotation =;
+			position;
+			rotation;
 		}'
 		assert_equal 2, out.first.expressions.count
 
 		out = parse 'Entity {
 			|Transform
 		}'
-		assert_kind_of Composition_Expr, out.first.composition_exprs.first
-		assert_equal '|', out.first.composition_exprs.first.operator
-		assert_equal 'Transform', out.first.composition_exprs.first.name
+		assert_kind_of Composition_Expr, out.first.expressions.first
+		assert_equal '|', out.first.expressions.first.operator
+		assert_equal 'Transform', out.first.expressions.first.name.value
 	end
 
 	def test_control_flows
@@ -622,11 +622,11 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_self_scope_prefixes
-		out = parse './x := 123'
+		out = parse './x = 123'
 		assert_kind_of Prefix_Expr, out.first
 		assert_equal './', out.first.operator
 		assert_kind_of Infix_Expr, out.first.expression
-		assert_equal ':=', out.first.expression.operator
+		assert_equal '=', out.first.expression.operator
 	end
 
 	def test_call_expr_improvement

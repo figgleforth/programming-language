@@ -1,7 +1,7 @@
-class Lexer
-	require './src/constants'
-	require './src/lexer/lexeme'
+require './src/shared/constants'
+require './src/lexer/lexeme'
 
+class Lexer
 	attr_accessor :i, :col, :row, :input
 
 	def initialize input = 'greeting = "hello world"'

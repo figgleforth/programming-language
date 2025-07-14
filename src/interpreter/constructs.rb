@@ -1,3 +1,105 @@
+class Scope
+	def initialize name, data = {}
+		@name = name
+		@data = data
+	end
+
+	def [] key
+		@data[key&.to_s] || @data[key&.to_sym]
+	end
+
+	def []= key, value
+		@data[key] = value
+	end
+
+	def is desired_name
+		@name == desired_name
+	end
+
+	def has? identifier
+		@data.include?(identifier.to_s) || @data.include?(identifier.to_sym)
+	end
+
+	def dig * identifiers
+		@data.dig *identifiers
+	end
+
+	def name
+		@name
+	end
+
+	def data
+		@data
+	end
+end
+
+class Type < Scope
+	attr_accessor :expressions, :types
+end
+
+class Instance < Scope
+end
+
+class Number < Instance
+	attr_accessor :numerator, :denominator, :type
+
+	def + other
+		numerator + other.numerator
+	end
+
+	def - other
+		numerator - other.numerator
+	end
+
+	def * other
+		numerator * other.numerator
+	end
+
+	def ** other
+		numerator ** other.numerator
+	end
+
+	def / other
+		numerator / other.numerator
+	end
+
+	def % other
+		numerator % other.numerator
+	end
+
+	def >> other
+		numerator >> other.numerator
+	end
+
+	def << other
+		numerator << other.numerator
+	end
+
+	def ^ other
+		numerator ^ other.numerator
+	end
+
+	def & other
+		numerator & other.numerator
+	end
+
+	def | other
+		numerator | other.numerator
+	end
+end
+
+class Func < Scope
+	attr_accessor :expressions
+end
+
+class Nil < Scope
+	def initialize
+		super 'nil'
+	end
+end
+
+######
+
 class Left_Exclusive_Range < Range
 	def initialize first, last, exclude_end: false
 		super first, last, exclude_end
@@ -17,58 +119,4 @@ class Left_Exclusive_Range < Range
 	def include? val
 		val > self.first && (exclude_end? ? val < self.last : val <= self.last)
 	end
-end
-
-class Tuple
-	attr_accessor :values
-end
-
-class Nil
-end
-
-class Scope
-	attr_accessor :name, :id, :declarations
-	@@next_id = 0
-
-	def initialize
-		@declarations = {}
-		@id           = @@next_id
-		@@next_id     += 1
-	end
-
-	def [](x)
-		@declarations[x&.to_s]
-	end
-
-	def []=(x, value)
-		@declarations[x&.to_s] = value
-	end
-end
-
-class Func < Scope
-	attr_accessor :expressions, :params
-
-	def initialize
-		super
-		@expressions = []
-		@params      = []
-	end
-end
-
-class Type < Scope
-	attr_accessor :expressions, :compositions
-
-	def initialize
-		super
-		@expressions  = []
-		@compositions = []
-	end
-end
-
-class Instance < Type
-	# 7/5/25, For now I'm adding a default constructor here. Maybe there's a better way to do this but for now this is fine.
-	# 7/7/25, I'm actually removing it because as I'm researching for src/preload.e, I noticed that Ruby's Integer class does not have an initializer. But here's the code in case I need it for later.
-	# constructor      = Func.new
-	# constructor.name = 'new'
-	# self[:new]       = constructor
 end

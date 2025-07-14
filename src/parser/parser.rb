@@ -1,7 +1,7 @@
-class Parser
-	require './src/parser/expressions'
-	require './src/constants'
+require './src/parser/expressions'
+require './src/shared/constants'
 
+class Parser
 	attr_accessor :i, :input
 
 	def initialize input = []
@@ -22,24 +22,24 @@ class Parser
 		# todo, This is ugly. Maybe a case/when?
 		# higher number = tighter binding
 		[
-			 [1200, %w(. .?)],
-			 [1100, %w([ { \( )],
-			 [1000, %w(! not)], # exponentiation
-			 [900, %w(**)], # exponentiation
-			 [800, %w(* / %)], # multiply, divide, modulo
-			 [700, %w(+ -)], # add, subtract
-			 [600, %w(<< >>)], # bitwise shifts
-			 [550, %w(< <= <=> > >=)], # relational
-			 [500, %w(== != === !==)], # equality
-			 [400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
-			 [300, %w(&& and)], # logical AND
-			 [200, %w(|| or)], # logical OR (including keyword forms)
-			 [140, %w(:)], # member access, labels
-			 [100, %w(,)], # comma
-			 [90, %w(= := += -= *= /= %= &= |= ^= <<= >>=)], # assignments
-			 [80, %w(.. .< >. ><)], # ranges
-			 [70, %w(return)],
-			 [60, %w(unless if while until)],
+			[1200, %w(. .?)],
+			[1100, %w([ { \( )],
+			[1000, %w(! not)], # exponentiation
+			[900, %w(**)], # exponentiation
+			[800, %w(* / %)], # multiply, divide, modulo
+			[700, %w(+ -)], # add, subtract
+			[600, %w(<< >>)], # bitwise shifts
+			[550, %w(< <= <=> > >=)], # relational
+			[500, %w(== != === !==)], # equality
+			[400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
+			[300, %w(&& and)], # logical AND
+			[200, %w(|| or)], # logical OR (including keyword forms)
+			[140, %w(:)], # member access, labels
+			[100, %w(,)], # comma
+			[90, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # assignments
+			[80, %w(.. .< >. ><)], # ranges
+			[70, %w(return)],
+			[60, %w(unless if while until)],
 		].each do |prec, ops|
 			return prec if ops.sort_by(&SORT_BY_LENGTH_DESC).include?(operator)
 		end
@@ -201,7 +201,7 @@ class Parser
 				eat if curr? ','
 
 				# name, label, type, default, portal
-				param = Param_Decl.new
+				param = Param_Expr.new
 
 				if curr? :identifier, :identifier
 					param.label = eat(:identifier).value
@@ -237,14 +237,14 @@ class Parser
 	def parse_type_decl
 		# Just to note again, allowing constant-style identifiers for single-letter types
 		valid_idents = %I(Identifier IDENTIFIER)
-		Type_Decl.new.tap do |decl|
+		Type_Expr.new.tap do |decl|
 			decl.name = eat.value
 
 			until curr? '{'
 				if curr?(TYPE_COMPOSITION_OPERATORS, valid_idents)
-					decl.composition_exprs << Composition_Expr.new.tap do
+					decl.expressions << Composition_Expr.new.tap do
 						it.operator = eat(:operator).value
-						it.name     = eat.value
+						it.name     = eat
 					end
 				end
 			end
@@ -253,13 +253,9 @@ class Parser
 
 			until curr? '}'
 				decl.expressions << make_expression
-				if decl.expressions.last.is_a? Composition_Expr
-					decl.composition_exprs << decl.expressions.pop
-				end
 			end
 
-			decl.expressions       = decl.expressions.compact
-			decl.composition_exprs = decl.composition_exprs.compact
+			decl.expressions = decl.expressions.compact
 
 			eat '}'
 		end
@@ -279,7 +275,7 @@ class Parser
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
 			Composition_Expr.new.tap do
 				it.operator = eat(:operator).value
-				it.name     = eat(:Identifier).value
+				it.name     = eat(:Identifier)
 			end
 
 		elsif curr? %w(if while unless until)
@@ -340,6 +336,14 @@ class Parser
 
 	def modify_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
+
+		if expr.is_a?(Identifier_Expr) && curr_lexeme.is(';')
+			left            = expr
+			expr            = Postfix_Expr.new
+			expr.expression = left
+			expr.operator   = eat(curr_lexeme.value).value
+			return expr
+		end
 
 		if curr_lexeme.is ','
 			eat and return expr

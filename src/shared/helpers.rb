@@ -1,22 +1,25 @@
-require './src/constants'
+require './src/shared/constants'
 require './src/lexer/lexer'
 require './src/parser/parser'
 require './src/interpreter/interpreter'
 require './src/interpreter/constructs'
 
 def interp code
-	lexemes     = Lexer.new(code).output
-	expressions = Parser.new(lexemes).output
-	Interpreter.new(expressions).output
+	lexemes      = lex code
+	expressions  = parse code
+	@interpreter = Interpreter.new expressions
+	@interpreter.output
 end
 
 def parse code
-	lexemes = Lexer.new(code).output
-	Parser.new(lexemes).output
+	lexemes = lex code
+	@parser = Parser.new lexemes
+	@parser.output
 end
 
 def lex code
-	Lexer.new(code).output
+	@lexer = Lexer.new code
+	@lexer.output
 end
 
 def interp_file file_path

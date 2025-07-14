@@ -1,4 +1,4 @@
-require './src/constants'
+require './src/shared/constants'
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location
@@ -24,7 +24,7 @@ class Expression
 	end
 end
 
-class Param_Decl < Expression
+class Param_Expr < Expression
 	attr_accessor :name, :label, :type, :default, :portal
 
 	def initialize
@@ -35,6 +35,8 @@ class Param_Decl < Expression
 		@label   = nil
 		@type    = nil
 	end
+
+	alias_method :expression, :default # todo, Replace @default with this
 end
 
 class Func_Expr < Expression
@@ -78,13 +80,12 @@ class Route_Decl < Func_Expr
 	end
 end
 
-class Type_Decl < Expression
-	attr_accessor :name, :expressions, :composition_exprs
+class Type_Expr < Expression
+	attr_accessor :name, :expressions
 
 	def initialize
 		super
-		@composition_exprs = []
-		@expressions       = []
+		@expressions = []
 	end
 end
 
@@ -122,7 +123,7 @@ end
 class Circumfix_Expr < Expression
 	attr_accessor :grouping, :expressions
 
-	def initialize grouping = '('
+	def initialize grouping = '()'
 		@expressions = []
 		@grouping    = grouping
 	end
