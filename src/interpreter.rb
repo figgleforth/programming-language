@@ -173,7 +173,7 @@ class Interpreter
 	def interp_postfix expr
 		case expr.operator
 		when ';'
-			declare expr.value, Nil.new
+			declare expr.expression.value, Nil.new
 		else
 			raise Unhandled_Postfix, expr.inspect
 		end
