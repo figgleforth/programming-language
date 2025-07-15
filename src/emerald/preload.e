@@ -1,6 +1,6 @@
 Number {
-	numerator =;
-	denominator =;
+	numerator;
+	denominator;
 
 	to_s {;
 		'the number is |numerator|!'
@@ -11,21 +11,21 @@ Number {
 	}
 }
 
-Num := Number
-Int := Integer | Number {}
-Flt := Float   | Number {}
+Num = Number
+Int = Integer | Number {}
+Flt = Float   | Number {}
 
 String {
-	value =;
+	value;
 	length {;}
 }
 
-Str := String
+Str = String
 
-Func := Function {
-	name =;
-	expressions =;
-	param_decls =;
+Func = Function {
+	name;
+	expressions;
+	param_decls;
 	signature {;}
 }
 

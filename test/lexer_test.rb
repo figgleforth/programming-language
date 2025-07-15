@@ -80,15 +80,7 @@ class Lexer_Test < Minitest::Test
 
 	def test_operators
 		# todo Should this be such a long test?
-		out = lex 'numbers := 4815162342'
-		assert_equal %I(identifier operator number), out.map(&:type)
-		assert_equal 3, out.count
-
 		out = lex 'numbers += 4815162342'
-		assert_equal %I(identifier operator number), out.map(&:type)
-		assert_equal 3, out.count
-
-		out = lex 'numbers = 123'
 		assert_equal %I(identifier operator number), out.map(&:type)
 		assert_equal 3, out.count
 
@@ -171,6 +163,16 @@ class Lexer_Test < Minitest::Test
 		out = lex '.../third_party'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
+	end
+
+	def test_declaration_operators
+		out = lex 'numbers := 4815162342' # This parses but I'm not using this any longer. Maybe I'll repurpose it.
+		assert_equal %I(identifier operator number), out.map(&:type)
+		assert_equal 3, out.count
+
+		out = lex 'numbers = 123'
+		assert_equal %I(identifier operator number), out.map(&:type)
+		assert_equal 3, out.count
 	end
 
 	def test_functions

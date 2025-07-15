@@ -38,6 +38,7 @@ class Type < Scope
 end
 
 class Instance < Scope
+	attr_accessor :expressions
 end
 
 class Number < Instance
@@ -96,6 +97,10 @@ class Nil < Scope
 	def initialize
 		super 'nil'
 	end
+end
+
+class Tuple < Scope
+	attr_accessor :values
 end
 
 ######

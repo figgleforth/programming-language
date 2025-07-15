@@ -134,6 +134,7 @@ class Operator_Expr < Expression
 end
 
 class Identifier_Expr < Expression
+	attr_accessor :kind
 end
 
 class Composition_Expr < Expression

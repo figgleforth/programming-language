@@ -7,16 +7,19 @@ class Emerald_Error < RuntimeError
 	end
 end
 
+class Undeclared_Identifier < Emerald_Error
+end
+
 class Cannot_Reassign_Constant < Emerald_Error
 end
 
-class Undeclared_Identifier < Emerald_Error
+class Cannot_Assign_Incompatible_Type < Emerald_Error
 end
 
 class Cannot_Assign_Undeclared_Identifier < Emerald_Error
 end
 
-class Cannot_Initialize_Undeclared_Identifier < Emerald_Error
+class Cannot_Initialize_Non_Type_Identifier < Emerald_Error
 end
 
 class Unhandled_Expr < Emerald_Error

@@ -66,6 +66,10 @@ class Parser
 		i < input.length
 	end
 
+	def reduce lexeme = %W(\n \r)
+		eat while lexemes? && curr?(lexeme)
+	end
+
 	def reduce_newlines
 		eat while lexemes? && curr?(%W(\n \r))
 	end
@@ -281,15 +285,17 @@ class Parser
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
-		elsif curr?(:identifier, ':', :Identifier)
-			Identifier_Expr.new.tap do
-				it.value = eat.value
+		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER)
+			it       = Identifier_Expr.new
+			it.value = eat.value
+
+			if curr?(':', :Identifier)
 				eat ':'
 				it.type = eat(:Identifier).value
 			end
 
-		elsif curr? ANY_IDENTIFIER
-			Identifier_Expr.new eat.value
+			it.kind = identifier_kind it.value
+			it
 
 		elsif curr? %w( [ \( { |)
 			parse_circumfix_expr opening: curr_lexeme.value
@@ -322,7 +328,10 @@ class Parser
 			String_Expr.new eat(:string).value
 
 		elsif curr? :delimiter
-			reduce_newlines
+			# I was worried that {;} being function syntax, would prevent this from parsing correctly. But that was solved by treating standalone ; as delimiters, in the same way that a comma is treated.
+			# Now, this doesn't mean you can do `x ; y ; z` because an identifier followed by ; is treated as a nil declaration while identifier followed by comma is treated as a separate expression.
+			# :reduce here might be temporary for now, because without it `Identifier {;}` never finishes parsing, just looping indefinitely.
+			reduce_newlines # or reduce ';'
 
 		elsif curr? :comment
 			eat and nil

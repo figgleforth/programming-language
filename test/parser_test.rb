@@ -688,4 +688,27 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Infix_Expr, out.first.when_true.first.expression
 		assert_kind_of Identifier_Expr, out.first.condition
 	end
+
+	def test_possibly_ambigous_type_and_func_syntax_mixture
+		out = parse 'x ; y ; z'
+		assert_kind_of Postfix_Expr, out.first
+		assert_kind_of Postfix_Expr, out[1]
+		assert_kind_of Identifier_Expr, out.last
+
+		out = parse 'x , y , z'
+		assert_kind_of Identifier_Expr, out.first
+		assert_kind_of Identifier_Expr, out[1]
+		assert_kind_of Identifier_Expr, out.last
+	end
+
+	def test_infinite_loop_bug
+		skip "Causes infinite looping, I'll worry about it later."
+		out = parse 'Identifier {;}'
+		assert_kind_of Type_Expr, out.first
+
+		out = parse 'x; , y; , z;'
+		assert_kind_of Postfix_Expr, out.first
+		assert_kind_of Postfix_Expr, out[1]
+		assert_kind_of Postfix_Expr, out.last
+	end
 end

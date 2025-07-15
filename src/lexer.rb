@@ -1,4 +1,5 @@
 require './src/shared/constants'
+require './src/shared/helpers'
 require './src/shared/lexeme'
 
 class Lexer
@@ -177,34 +178,6 @@ class Lexer
 		ident
 	end
 
-	def identifier_type ident
-		def constant? ident # ALL UPPER LIKE_THIS
-			test = ident&.gsub('_', '')&.gsub('%', '')
-			test&.chars&.all? { |c| c.upcase == c }
-		end
-
-		def class? ident # Capitalized Like_This or This
-			ident[0] && ident[0].upcase == ident[0] && !constant?(ident)
-		end
-
-		def member? ident # lowercased_FIRST_LETTER, lIKE_THIS or thIS or this
-			ident[0] && ident[0].downcase == ident[0]
-		end
-
-		without_leading__ = ident.gsub(/^#{Regexp.escape('_')}+/, '')
-		if %w(and or not unless return).include? ident
-			:operator
-		elsif constant? without_leading__
-			:IDENTIFIER
-		elsif class? without_leading__
-			:Identifier
-		elsif member? without_leading__
-			:identifier
-		else
-			raise "unknown identifier type #{ident.inspect}"
-		end
-	end
-
 	def output
 		tokens = []
 
@@ -238,7 +211,7 @@ class Lexer
 
 				elsif identifier? || %w(_).include?(curr)
 					it.value = lex_identifier
-					it.type  = identifier_type it.value
+					it.type  = identifier_kind it.value
 
 				elsif symbol? curr
 					it.type  = :operator

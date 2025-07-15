@@ -4,7 +4,7 @@ COMMENT_CHAR           = '`'
 COMMENT_MULTILINE_CHAR = '```'
 PREFIX                 = %w(! - + ~ $ # ? & ^ ./ ../ .../ not return).sort_by &SORT_BY_LENGTH_DESC
 INFIX                  = %w(
-		+ - ^ * ** / % ~ == === ? .
+		+ - ^ * ** / % ~ == === ? . .?
 		= : ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=
 		&& || & | << >>
 		.. >. .< ><
