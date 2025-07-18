@@ -22,4 +22,4 @@ Parsing `Identifier {;}` should raise a syntax error or something, because that'
 
 *_Expr classes have :start_location, :end_location defined, but this is never set. Being able to print relevant code in the output would reduce confusion with errors.
 
-Add namespaces to each error to make it easier to identifity, like Interpreter::Whatever_Error. Interpreter requires this file and done.
+Add namespaces to each error to make it easier to identify, like Interpreter::Whatever_Error. Interpreter requires this file and done.
