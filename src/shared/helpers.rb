@@ -4,30 +4,29 @@ require './src/interpreter'
 require './src/lexer'
 require './src/parser'
 
-def interp code
-	lexemes      = lex code
-	expressions  = parse code
+def interp_helper code
+	expressions  = parse_helper code
 	@interpreter = Interpreter.new expressions
 	@interpreter.output
 end
 
-def parse code
-	lexemes = lex code
+def parse_helper code
+	lexemes = lex_helper code
 	@parser = Parser.new lexemes
 	@parser.output
 end
 
-def lex code
+def lex_helper code
 	@lexer = Lexer.new code
 	@lexer.output
 end
 
 def interp_file file_path
-	interp File.read file_path
+	interp_helper File.read file_path
 end
 
 def parse_file file_path
-	parse File.read file_path
+	parse_helper File.read file_path
 end
 
 def refute_raises * exceptions

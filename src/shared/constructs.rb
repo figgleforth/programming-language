@@ -1,4 +1,9 @@
+module Emerald
+end
+
 class Scope
+	attr_accessor :enclosing_scope
+
 	def initialize name, data = {}
 		@name = name
 		@data = data
@@ -31,14 +36,34 @@ class Scope
 	def data
 		@data
 	end
+
+	def data= new_data
+		@data = new_data
+	end
 end
 
 class Type < Scope
 	attr_accessor :expressions, :types
 end
 
-class Instance < Scope
-	attr_accessor :expressions
+class Instance < Type
+end
+
+class Emerald::Array < Instance
+	attr_accessor :values
+
+	def initialize values = []
+		super 'Emerald::Array'
+		@values = values
+	end
+
+	def [] index
+		values[index]
+	end
+
+	def []= index, value
+		values[index] = value
+	end
 end
 
 class Number < Instance
@@ -99,11 +124,8 @@ class Nil < Scope
 	end
 end
 
-class Tuple < Scope
-	attr_accessor :values
+class Tuple < Emerald::Array
 end
-
-######
 
 class Left_Exclusive_Range < Range
 	def initialize first, last, exclude_end: false

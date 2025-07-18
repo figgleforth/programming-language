@@ -202,16 +202,17 @@ class Parser
 
 			# func: Optional_Type { label param: Optional_Type = optional_expr, etc ; }
 			until curr? ';'
-				eat if curr? ','
 
 				# name, label, type, default, portal
 				param = Param_Expr.new
 
 				if curr? :identifier, :identifier
 					param.label = eat(:identifier).value
+					param.name  = eat(:identifier).value
+				else
+					param.name = eat(:identifier).value
 				end
 
-				param.name = eat(:identifier).value
 				if curr? ':' and eat ':'
 					param.type = eat(:Identifier).value
 				end
@@ -220,7 +221,8 @@ class Parser
 					param.default = make_expression
 				end
 
-				expr.param_decls << param
+				expr.expressions << param
+				eat if curr? ','
 				reduce_newlines
 			end
 
@@ -232,14 +234,15 @@ class Parser
 				expr.expressions << statement
 			end
 
-			expr.expressions = expr.expressions.compact
+			expr.expressions = expr.expressions.compact.uniq # bug, The first Param is twice in the array, with the same object_id. Dedupe it for now. Figure out the real issue later.
 			eat '}'
 
 		end
 	end
 
 	def parse_type_decl
-		# Just to note again, allowing constant-style identifiers for single-letter types
+		# bug, :Identifier_function when parsing `Identifier {;}`.
+		# Just to note again, allowing constant-style identifiers for single-letter types.
 		valid_idents = %I(Identifier IDENTIFIER)
 		Type_Expr.new.tap do |decl|
 			decl.name = eat.value
@@ -271,9 +274,18 @@ class Parser
 		expression = if (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 			parse_func precedence, named: curr?(:identifier)
 
-		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || (curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
-			# I'm special-casing IDENTIFIERS of length 1 and allowing them to become Types too. So you can have types like G {}.
-			# bug :Identifier_function when parsing `Identifier {;}`
+		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || \
+			(curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
+			# todo, the | TYPE_COMPOSITION_OPERATOR is currently only working in #parse_type_decl. I can peek until end of line, if I see another | then it's a circumfix. However if there are more |s then maybe we can presume the expression type like this:
+			#
+			#   1 | = composition
+			#   2 | = circumfix
+			#   3+ odd probably  = composition
+			#   3+ even probably = circumfix
+			#
+			#   :absolute_value_circumfix
+			#
+			# Unrelated to the circumfix issue, to be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
 			parse_type_decl
 
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
@@ -298,6 +310,7 @@ class Parser
 			it
 
 		elsif curr? %w( [ \( { |)
+			# :absolute_value_circumfix
 			parse_circumfix_expr opening: curr_lexeme.value
 
 		elsif curr?(':', :identifier) || curr?(':', :Identifier) || curr?(':', :IDENTIFIER)
@@ -330,8 +343,7 @@ class Parser
 		elsif curr? :delimiter
 			# I was worried that {;} being function syntax, would prevent this from parsing correctly. But that was solved by treating standalone ; as delimiters, in the same way that a comma is treated.
 			# Now, this doesn't mean you can do `x ; y ; z` because an identifier followed by ; is treated as a nil declaration while identifier followed by comma is treated as a separate expression.
-			# :reduce here might be temporary for now, because without it `Identifier {;}` never finishes parsing, just looping indefinitely.
-			reduce_newlines # or reduce ';'
+			reduce_newlines
 
 		elsif curr? :comment
 			eat and nil

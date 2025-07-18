@@ -40,25 +40,27 @@ class Param_Expr < Expression
 end
 
 class Func_Expr < Expression
-	attr_accessor :name, :expressions, :param_decls, :signature
+	attr_accessor :name, :expressions, :signature
 
 	def initialize
-		@param_decls = []
 		@expressions = []
 	end
 
 	def signature
-		sig = name || ''
-		sig += '{'
-		sig += param_decls.map do |param|
+		sig         = name || ''
+		sig         += '{'
+		param_decls = expressions.select do |expr|
+			expr.is_a? Param_Expr
+		end
+		sig         += param_decls.map do |param|
 			label   = param.label ? "#{param.label}:" : ''
 			default = param.default ? "=#{param.default}" : ''
 			"#{label}#{param.name}#{default}"
 		end.join(',')
-		sig += ';'
-		sig += '}'
+		sig         += ';'
+		sig         += '}'
 		sig
-		# #todo Maybe bring back extra signature details
+		# todo, Maybe bring back extra signature details.
 		# if expressions.any?
 		# 	n << '['
 		# 	n << expressions.join(',')

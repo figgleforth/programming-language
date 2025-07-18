@@ -9,7 +9,7 @@ class Interpreter
 
 	def initialize input = []
 		@input = input
-		@stack = [Scope.new(:global)]
+		@stack = [Scope.new('Global')]
 	end
 
 	def output
@@ -50,8 +50,10 @@ class Interpreter
 			scope.numerator   = expr.value
 			scope.denominator = 1
 			scope
+
+		when Array
 		else
-			interpret expr
+			expr
 		end
 	end
 
@@ -113,26 +115,54 @@ class Interpreter
 					# I'm ignoring it in this case since we are assigning the constant if it doesn't exist. I'm not sure that I like having to rescue from #interpret. Oh well, for now.
 				end
 			end
-			declare expr.left.value, right
 
+			if stack.last.is_a? Func
+				target_scope = stack.reverse_each.find do |scope|
+					scope.is_a? Instance
+				end
+
+				if target_scope&.has? expr.left.value
+					declare expr.left.value, right, target_scope
+				else
+					declare expr.left.value, right
+				end
+			else
+				declare expr.left.value, right
+			end
 		when '.'
-			if expr.right.is('new')
+			if expr.right == 'new' || expr.right.is('new')
 				return interp_dot_new expr
 			end
 
-			left = interpret expr.left
+			left = maybe_instance interpret expr.left
 			unless left.is_a? Scope
 				raise Invalid_Dot_Infix_Left_Operand, expr.inspect
 			end
 
-			stack << left
-			result = interpret expr.right
-			stack.pop
-			result
+			if left.is_a? Emerald::Array
+				if expr.right.is Number_Expr
+					return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Number.
+				elsif expr.right.is Array_Index_Expr
+					array = left # Just for clarity.
 
+					expr.right.indices_in_order.each do |index|
+						array = array[index]
+					rescue NoMethodError => _
+						# We dug our way to a nonexistent array, because #[] doesn't exist on it.
+						raise "array[#{index}] is not an array, it's #{array.inspect}"
+					end
+
+					return array
+				end
+			else
+				stack << left
+				result = interpret expr.right
+				stack.pop
+				return result
+			end
 		else
 			if INFIX_ARITHMETIC_OPERATORS.include? expr.operator
-				left  = maybe_instance expr.left
+				left  = maybe_instance interpret expr.left
 				right = maybe_instance interpret expr.right
 				left.send expr.operator, right
 
@@ -140,6 +170,20 @@ class Interpreter
 				left  = interpret expr.left
 				right = interpret expr.right
 				left.send expr.operator, right
+
+			elsif COMPOUND_OPERATORS.include? expr.operator
+				# (a += b)  ==>  (a = (a + b))
+				assignment_infix          = Infix_Expr.new
+				assignment_infix.left     = expr.left
+				assignment_infix.operator = '='
+
+				right_side_infix          = Infix_Expr.new
+				right_side_infix.left     = expr.left
+				right_side_infix.operator = expr.operator[..-2] # This just trims the = from compound operators +=, -=, etc.
+				right_side_infix.right    = expr.right
+
+				assignment_infix.right = right_side_infix
+				interpret assignment_infix
 
 			elsif RANGE_OPERATORS.include? expr.operator
 				start  = interpret expr.left
@@ -182,9 +226,12 @@ class Interpreter
 	def interp_circumfix expr
 		case expr.grouping
 		when '[]'
+			array        = Emerald::Array.new
+			array.values = []
 			expr.expressions.reduce([]) do |values, expr|
-				values << interpret(expr)
+				array.values << interpret(expr)
 			end
+			array
 		when '()'
 			if expr.expressions.count == 0
 				Tuple.new 'Tuple' # For now, I guess. What else should I do with empty parens?
@@ -219,61 +266,93 @@ class Interpreter
 				dict
 			end
 		else
-			raise "circumfix #{expr.inspect}"
+			raise "Interpreter#interp_circumfix unhandled circumfix #{expr.inspect}"
 		end
 	end
 
 	def interp_call expr
 		receiver = interpret expr.receiver
-
 		case receiver
 		when Type
-			stack << receiver
-			receiver.expressions.each do |it|
-				interpret it
-			end
-			stack.pop
-			receiver
-
-			instance             = Instance.new receiver.name # :generalize_me
-			instance.expressions = receiver.expressions
-			instance
-
-			stack << instance
-			instance.expressions.each do |it|
-				interpret it
-			end
-			stack.pop
+			interp_type_call receiver, expr
 
 		when Func
-			# 7/14/25, This parameters filter might look silly, but I intentionally decided that both Type and Func will only have @expressions for simplicity. I'll treat them as such unless special cases expect a special set of expressions like several Param_Exprs. This seems like an okay way to handle this so it'll do.
-			parameters = receiver.expressions.select do |it|
-				it.is_a? Param_Expr
-			end
+			interp_func_call receiver, expr
 
-			result = Nil.new
-
-			stack << receiver
-			parameters.zip(expr.arguments).each do |param, arg|
-				if arg
-					declare param.name, interpret(arg)
-				elsif param.default
-					declare param.name, interpret(param.default)
-				else
-					# todo, :make_use_of_type
-					declare param.name, Nil.new
-				end
-			end
-			receiver.expressions.each do |e|
-				result = interpret e
-			end
-			stack.pop
-
-			result
+		when Instance
+			interp_instance_call receiver, expr
 
 		else
-			raise Undeclared_Identifier, expr.inspect
+			raise "Interpreter#interp_call unhandled #{receiver.inspect}"
 		end
+	end
+
+	def interp_type_call type, expr
+		instance = Instance.new type.name # :generalize_me
+
+		stack << instance
+
+		type.expressions.each do |expr|
+			interpret expr
+		end
+
+		func_new = instance[:new]
+		if func_new
+			interp_func_call func_new, expr
+		else
+			if expr.arguments.count > 0
+				raise "Given #{expr.arguments.count} arguments, but new{;} was not declared for #{type.inspect}"
+			end
+		end
+
+		stack.pop # Just for clarity, the pop returs the instance from above..
+	end
+
+	def interp_func_call func, expr
+		result = Nil.new
+
+		stack << func
+
+		params = func.expressions.select do |expr|
+			expr.is_a? Param_Expr
+		end
+
+		params.zip(expr.arguments).each do |param, arg|
+			value = if arg
+				interpret arg
+			elsif param.expression
+				interpret param.expression
+			else
+				Nil.new # Do I need this? Check later.
+			end
+
+			declare param.name, value
+		end
+
+		body = func.expressions - params
+
+		body.each do |e|
+			result = interpret e
+			# todo, Here's where returns should be respected. For now, the last expression's result will be the return value. And actually, I like that about Ruby so that's the default behavior I want.
+			# result = interpret e # This just reads the value, which is currently nil. What it should do, is some form of #declare like above, otherwise we're not overwriting the value.
+		end
+
+		stack.pop # func
+		result
+	end
+
+	def interp_instance_call instance, expr
+		stack << instance
+
+		func_new = instance[:new]
+		if func_new
+			interp_func_call func_new, expr
+		else
+			if expr.arguments.count > 0
+				raise "Given #{expr.arguments.count} arguments, but new{;} was not declared for #{instance.inspect}"
+			end
+		end
+		stack.pop # instance
 	end
 
 	def interp_type expr
@@ -291,21 +370,14 @@ class Interpreter
 		expr.expressions.each do |e|
 			interpret e
 		end
-		stack.pop
-
+		stack.pop # type
 	end
 
 	def interp_func expr
+		result = Nil.new
+
 		scope             = Func.new expr.name
 		scope.expressions = expr.expressions
-		scope.expressions.insert 0, *expr.param_decls
-
-		stack.push scope
-		expr.expressions.each do |e|
-			next unless e.is_a? Param_Expr
-			interpret e
-		end
-		stack.pop
 
 		declare expr.name, scope
 	end
@@ -321,7 +393,7 @@ class Interpreter
 
 			curr_scope = stack.last
 
-			# todo, Should this merge be more intelligent in some way? For example, what if two Types share keys> Both for - and |.
+			# todo, Should this merge be more intelligent in some way? For example, what if two Types share keys? Consider this for both for - and |.
 
 			scope_to_merge.data.each do |k, v|
 				curr_scope[k] ||= v
@@ -343,7 +415,6 @@ class Interpreter
 
 			keys_to_unmerge = scope_to_unmerge.data.keys
 
-			# Currently I assume the current scope is an Type and therefore am calling .types directly. But, Funcs will also be able to compose themselves with their arguments. So, this is :temporary.
 			curr_scope.types ||= []
 			curr_scope.types = curr_scope.types.reject do |type|
 				keys_to_unmerge.include? type
@@ -411,8 +482,7 @@ class Interpreter
 			expr.indices_in_order
 
 		else
-			# raise expr.inspect
-			expr
+			raise "Interpreter#interpret `when #{expr.inspect}` not implemented."
 		end
 	end
 end
