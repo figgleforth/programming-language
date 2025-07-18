@@ -1,4 +1,4 @@
-require './src/constants'
+require './src/shared/constants'
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location
@@ -24,7 +24,7 @@ class Expression
 	end
 end
 
-class Param_Decl < Expression
+class Param_Expr < Expression
 	attr_accessor :name, :label, :type, :default, :portal
 
 	def initialize
@@ -35,28 +35,32 @@ class Param_Decl < Expression
 		@label   = nil
 		@type    = nil
 	end
+
+	alias_method :expression, :default # todo, Replace @default with this
 end
 
 class Func_Expr < Expression
-	attr_accessor :name, :expressions, :param_decls, :signature
+	attr_accessor :name, :expressions, :signature
 
 	def initialize
-		@param_decls = []
 		@expressions = []
 	end
 
 	def signature
-		sig = name || ''
-		sig += '{'
-		sig += param_decls.map do |param|
+		sig         = name || ''
+		sig         += '{'
+		param_decls = expressions.select do |expr|
+			expr.is_a? Param_Expr
+		end
+		sig         += param_decls.map do |param|
 			label   = param.label ? "#{param.label}:" : ''
 			default = param.default ? "=#{param.default}" : ''
 			"#{label}#{param.name}#{default}"
 		end.join(',')
-		sig += ';'
-		sig += '}'
+		sig         += ';'
+		sig         += '}'
 		sig
-		# #todo Maybe bring back extra signature details
+		# todo, Maybe bring back extra signature details.
 		# if expressions.any?
 		# 	n << '['
 		# 	n << expressions.join(',')
@@ -78,13 +82,12 @@ class Route_Decl < Func_Expr
 	end
 end
 
-class Type_Decl < Expression
-	attr_accessor :name, :expressions, :composition_exprs
+class Type_Expr < Expression
+	attr_accessor :name, :expressions
 
 	def initialize
 		super
-		@composition_exprs = []
-		@expressions       = []
+		@expressions = []
 	end
 end
 
@@ -103,7 +106,7 @@ class String_Expr < Expression
 
 	def initialize string
 		super string
-		@interpolated = string.include? COMMENT_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
+		@interpolated = string.include? INTERPOLATE_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
 	end
 end
 
@@ -122,7 +125,7 @@ end
 class Circumfix_Expr < Expression
 	attr_accessor :grouping, :expressions
 
-	def initialize grouping = '('
+	def initialize grouping = '()'
 		@expressions = []
 		@grouping    = grouping
 	end
@@ -133,6 +136,7 @@ class Operator_Expr < Expression
 end
 
 class Identifier_Expr < Expression
+	attr_accessor :kind
 end
 
 class Composition_Expr < Expression

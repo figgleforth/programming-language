@@ -1,7 +1,7 @@
-class Parser
-	require './src/parser/expression'
-	require './src/constants'
+require './src/shared/expressions'
+require './src/shared/constants'
 
+class Parser
 	attr_accessor :i, :input
 
 	def initialize input = []
@@ -22,24 +22,24 @@ class Parser
 		# todo, This is ugly. Maybe a case/when?
 		# higher number = tighter binding
 		[
-			 [1200, %w(. .?)],
-			 [1100, %w([ { \( )],
-			 [1000, %w(! not)], # exponentiation
-			 [900, %w(**)], # exponentiation
-			 [800, %w(* / %)], # multiply, divide, modulo
-			 [700, %w(+ -)], # add, subtract
-			 [600, %w(<< >>)], # bitwise shifts
-			 [550, %w(< <= <=> > >=)], # relational
-			 [500, %w(== != === !==)], # equality
-			 [400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
-			 [300, %w(&& and)], # logical AND
-			 [200, %w(|| or)], # logical OR (including keyword forms)
-			 [140, %w(:)], # member access, labels
-			 [100, %w(,)], # comma
-			 [90, %w(= := += -= *= /= %= &= |= ^= <<= >>=)], # assignments
-			 [80, %w(.. .< >. ><)], # ranges
-			 [70, %w(return)],
-			 [60, %w(unless if while until)],
+			[1200, %w(. .?)],
+			[1100, %w([ { \( )],
+			[1000, %w(! not)], # exponentiation
+			[900, %w(**)], # exponentiation
+			[800, %w(* / %)], # multiply, divide, modulo
+			[700, %w(+ -)], # add, subtract
+			[600, %w(<< >>)], # bitwise shifts
+			[550, %w(< <= <=> > >=)], # relational
+			[500, %w(== != === !==)], # equality
+			[400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
+			[300, %w(&& and)], # logical AND
+			[200, %w(|| or)], # logical OR (including keyword forms)
+			[140, %w(:)], # member access, labels
+			[100, %w(,)], # comma
+			[90, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # assignments
+			[80, %w(.. .< >. ><)], # ranges
+			[70, %w(return)],
+			[60, %w(unless if while until)],
 		].each do |prec, ops|
 			return prec if ops.sort_by(&SORT_BY_LENGTH_DESC).include?(operator)
 		end
@@ -64,6 +64,10 @@ class Parser
 
 	def lexemes?
 		i < input.length
+	end
+
+	def reduce lexeme = %W(\n \r)
+		eat while lexemes? && curr?(lexeme)
 	end
 
 	def reduce_newlines
@@ -198,16 +202,17 @@ class Parser
 
 			# func: Optional_Type { label param: Optional_Type = optional_expr, etc ; }
 			until curr? ';'
-				eat if curr? ','
 
 				# name, label, type, default, portal
-				param = Param_Decl.new
+				param = Param_Expr.new
 
 				if curr? :identifier, :identifier
 					param.label = eat(:identifier).value
+					param.name  = eat(:identifier).value
+				else
+					param.name = eat(:identifier).value
 				end
 
-				param.name = eat(:identifier).value
 				if curr? ':' and eat ':'
 					param.type = eat(:Identifier).value
 				end
@@ -216,7 +221,8 @@ class Parser
 					param.default = make_expression
 				end
 
-				expr.param_decls << param
+				expr.expressions << param
+				eat if curr? ','
 				reduce_newlines
 			end
 
@@ -228,23 +234,24 @@ class Parser
 				expr.expressions << statement
 			end
 
-			expr.expressions = expr.expressions.compact
+			expr.expressions = expr.expressions.compact.uniq # bug, The first Param is twice in the array, with the same object_id. Dedupe it for now. Figure out the real issue later.
 			eat '}'
 
 		end
 	end
 
 	def parse_type_decl
-		# Just to note again, allowing constant-style identifiers for single-letter types
+		# bug, :Identifier_function when parsing `Identifier {;}`.
+		# Just to note again, allowing constant-style identifiers for single-letter types.
 		valid_idents = %I(Identifier IDENTIFIER)
-		Type_Decl.new.tap do |decl|
+		Type_Expr.new.tap do |decl|
 			decl.name = eat.value
 
 			until curr? '{'
 				if curr?(TYPE_COMPOSITION_OPERATORS, valid_idents)
-					decl.composition_exprs << Composition_Expr.new.tap do
+					decl.expressions << Composition_Expr.new.tap do
 						it.operator = eat(:operator).value
-						it.name     = eat.value
+						it.name     = eat
 					end
 				end
 			end
@@ -253,13 +260,9 @@ class Parser
 
 			until curr? '}'
 				decl.expressions << make_expression
-				if decl.expressions.last.is_a? Composition_Expr
-					decl.composition_exprs << decl.expressions.pop
-				end
 			end
 
-			decl.expressions       = decl.expressions.compact
-			decl.composition_exprs = decl.composition_exprs.compact
+			decl.expressions = decl.expressions.compact
 
 			eat '}'
 		end
@@ -271,31 +274,43 @@ class Parser
 		expression = if (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 			parse_func precedence, named: curr?(:identifier)
 
-		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || (curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
-			# I'm special-casing IDENTIFIERS of length 1 and allowing them to become Types too. So you can have types like G {}.
-			# bug :Identifier_function when parsing `Identifier {;}`
+		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || \
+			(curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
+			# todo, the | TYPE_COMPOSITION_OPERATOR is currently only working in #parse_type_decl. I can peek until end of line, if I see another | then it's a circumfix. However if there are more |s then maybe we can presume the expression type like this:
+			#
+			#   1 | = composition
+			#   2 | = circumfix
+			#   3+ odd probably  = composition
+			#   3+ even probably = circumfix
+			#
+			#   :absolute_value_circumfix
+			#
+			# Unrelated to the circumfix issue, to be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
 			parse_type_decl
 
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
 			Composition_Expr.new.tap do
 				it.operator = eat(:operator).value
-				it.name     = eat(:Identifier).value
+				it.name     = eat(:Identifier)
 			end
 
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
-		elsif curr?(:identifier, ':', :Identifier)
-			Identifier_Expr.new.tap do
-				it.value = eat.value
+		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER)
+			it       = Identifier_Expr.new
+			it.value = eat.value
+
+			if curr?(':', :Identifier)
 				eat ':'
 				it.type = eat(:Identifier).value
 			end
 
-		elsif curr? ANY_IDENTIFIER
-			Identifier_Expr.new eat.value
+			it.kind = identifier_kind it.value
+			it
 
 		elsif curr? %w( [ \( { |)
+			# :absolute_value_circumfix
 			parse_circumfix_expr opening: curr_lexeme.value
 
 		elsif curr?(':', :identifier) || curr?(':', :Identifier) || curr?(':', :IDENTIFIER)
@@ -326,6 +341,8 @@ class Parser
 			String_Expr.new eat(:string).value
 
 		elsif curr? :delimiter
+			# I was worried that {;} being function syntax, would prevent this from parsing correctly. But that was solved by treating standalone ; as delimiters, in the same way that a comma is treated.
+			# Now, this doesn't mean you can do `x ; y ; z` because an identifier followed by ; is treated as a nil declaration while identifier followed by comma is treated as a separate expression.
 			reduce_newlines
 
 		elsif curr? :comment
@@ -340,6 +357,14 @@ class Parser
 
 	def modify_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
+
+		if expr.is_a?(Identifier_Expr) && curr_lexeme.is(';')
+			left            = expr
+			expr            = Postfix_Expr.new
+			expr.expression = left
+			expr.operator   = eat(curr_lexeme.value).value
+			return expr
+		end
 
 		if curr_lexeme.is ','
 			eat and return expr

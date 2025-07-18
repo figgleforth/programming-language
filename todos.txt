@@ -1,12 +1,8 @@
+Replace Emerald_Error system. I don't like that I'm not having to rescue from my own exceptions, and I have to make sure that the proper error is bubbled up. It's already annoying and the Interpreter isn't even complicated.
+
 Initialize value-less declarations based on their type rather than just Nil.new. :make_use_of_type
 
 You can use any Type identifier when declaring a type and it won't crash, even when the identifier is made up. That might seem like a bug, and it is. But what if it only crashes when you actually assign? `some: Thing` will just set {some: nil} in the scope. So it could remain a placeholder until assignment.
-
-Interpreter#interp_string only handles non-interpolated strings.
-
-Split Interpreter#interp_infix into multiple functions.
-
-Currently @compositions and @expressions are separated in a Type_Decl, they should be treated as one. I can special case them later if I need to.
 
 Improve Praser#precedence_for, get rid of that nested array format.
 
@@ -16,11 +12,6 @@ Separate preload.e types into their own separate .e files, and be able to refere
 
 Custom test helpers like assert_operator(out), assert_type(:operator, out). I don't have a preference for either, but it's needed. :lexeme_type_helper.
 
-Interpreter#interp_dot_infix :extract_instance_creation for all instances. Right now this only contains the Number instance.
-
-Closures. There's one skipped test in interpreter_test.rb until closures are implemented.
-Also related, the expression `x:=4, y:=2, { x y }` interprets but doesn't capture the existing x and y declarations, and yields an empty dictionary with keys x and y.
-
 While loops. Currently it treats while expressions as if expressions. :while_loops
 
 When an assert is triggered, print out the actual *_Expr.
@@ -29,6 +20,6 @@ Rake tasks for running tests. I'm using RubyMine but it would help others.
 
 Parsing `Identifier {;}` should raise a syntax error or something, because that's not valid syntax. Currently it loops indefinitely. I know where it happens, I just need to fix it. See :Identifier_function
 
-Stress test error collecting. I haven't done that yet at all.
-
 *_Expr classes have :start_location, :end_location defined, but this is never set. Being able to print relevant code in the output would reduce confusion with errors.
+
+Add namespaces to each error to make it easier to identify, like Interpreter::Whatever_Error. Interpreter requires this file and done.
