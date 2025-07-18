@@ -118,7 +118,7 @@ class Func < Scope
 	attr_accessor :expressions
 end
 
-class Nil < Scope
+class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value.
 	def initialize
 		super 'nil'
 	end

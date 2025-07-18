@@ -41,7 +41,7 @@ class Interpreter
 	end
 
 	def maybe_instance expr
-		# todo, when String and so on, because everything needs to be some type of scope to live inside the Emerald runtime. Every object in Scope.data{} is either a primitive like String, Integer, Float, or they're a instanced version like Number.
+		# todo, when String and so on, because everything needs to be some type of scope to live inside the Emerald runtime. Every object in Scope.data{} is either a primitive like String, Integer, Float, or they're an instanced version like Number.
 		case expr
 		when Number_Expr
 			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.

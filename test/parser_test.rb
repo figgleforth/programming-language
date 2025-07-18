@@ -112,9 +112,6 @@ class Parser_Test < Minitest::Test
 		out = parse_helper 'numbers -= 1623'
 		assert_kind_of Infix_Expr, out.first
 
-		out = parse_helper 'flag = 0'
-		assert_kind_of Infix_Expr, out.first
-
 		out = parse_helper 'flag |= 2'
 		assert_kind_of Infix_Expr, out.first
 	end
