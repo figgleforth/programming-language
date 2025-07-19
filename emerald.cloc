@@ -1,3 +1,4 @@
+# This file was created using "--write-lang-def=". I then removed all languages except Ruby, and added Emerald.
 Ruby
     filter remove_matches ^\s*#
     filter remove_below_above ^=begin ^=end
