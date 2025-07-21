@@ -124,7 +124,7 @@ class Parser
 		if sequence.nil? || sequence.empty? || sequence.one?
 			eaten = curr_lexeme
 			if sequence&.one? && !eaten.is(sequence[0])
-				raise "#eat(#{sequence[0].inspect}) got #{eaten.value.inspect}), at #{curr_lexeme.inspect}, prev #{prev_lexeme.inspect}"
+				raise "Parser#eat ate #{eaten.value.inspect} but expected #{sequence[0].inspect}"
 			end
 			@i    += 1
 			return eaten
@@ -188,61 +188,74 @@ class Parser
 	end
 
 	def parse_func precedence, named: false
-		Func_Expr.new.tap do |expr|
-			if curr? :identifier
-				expr.name = eat(:identifier).value
+		func = Func_Expr.new
 
-				if curr? ':' and eat ':'
-					expr.type = eat(:Identifier).value
-				end
+		if curr? :identifier
+			func.name = eat(:identifier).value
+
+			if curr? ':' and eat ':'
+				func.type = eat(:Identifier).value
 			end
-
-			eat '{'
-			reduce_newlines
-
-			# func: Optional_Type { label param: Optional_Type = optional_expr, etc ; }
-			until curr? ';'
-
-				# name, label, type, default, portal
-				param = Param_Expr.new
-
-				if curr? :identifier, :identifier
-					param.label = eat(:identifier).value
-					param.name  = eat(:identifier).value
-				else
-					param.name = eat(:identifier).value
-				end
-
-				if curr? ':' and eat ':'
-					param.type = eat(:Identifier).value
-				end
-
-				if curr? '=' and eat '='
-					param.default = make_expression
-				end
-
-				expr.expressions << param
-				eat if curr? ','
-				reduce_newlines
-			end
-
-			eat ';'
-			reduce_newlines
-
-			until curr? '}'
-				statement = make_expression
-				expr.expressions << statement
-			end
-
-			expr.expressions = expr.expressions.compact.uniq # bug, The first Param is twice in the array, with the same object_id. Dedupe it for now. Figure out the real issue later.
-			eat '}'
-
 		end
+
+		eat '{'
+		reduce_newlines
+
+		until curr? ';'
+			param = Param_Expr.new
+
+			if curr? :identifier, :identifier
+				param.label = eat(:identifier).value
+				param.name  = eat(:identifier).value
+			else
+				param.name = eat(:identifier).value
+			end
+
+			if curr? ':' and eat ':'
+				param.type = eat(:Identifier).value
+			end
+
+			if curr? '=' and eat '='
+				param.default = make_expression
+			end
+
+			if param.default.is_a?(Postfix_Expr) && param.default.operator == ';'
+				param.default = param.default.expression
+				func.expressions << param.default.expression
+				break
+			end
+
+			func.expressions << param
+			eat if curr? ','
+			reduce_newlines
+		end
+
+		eat ';' if curr? ';'
+		reduce_newlines
+
+		until curr? '}'
+			statement = make_expression
+			func.expressions << statement
+		end
+
+		func.expressions = func.expressions.compact.uniq # bug, The first Param is twice in the array, with the same object_id. Dedupe it for now. Figure out the real issue later.
+		eat '}'
+
+		func
 	end
 
 	def parse_type_decl
-		# bug, :Identifier_function when parsing `Identifier {;}`.
-		# Just to note again, allowing constant-style identifiers for single-letter types.
+		# bug, When parsing `Identifier {;}`. :Identifier_function
+		# todo, The | TYPE_COMPOSITION_OPERATOR is currently only working in #parse_type_decl. I can peek until end of line, if I see another | then it's a circumfix. However if there are more |s then maybe we can presume the expression type like this:
+		#
+		#   1 | = composition
+		#   2 | = circumfix
+		#   3+ odd probably  = composition
+		#   3+ even probably = circumfix
+		#
+		#   :absolute_value_circumfix
+		#
+
 		valid_idents = %I(Identifier IDENTIFIER)
 		Type_Expr.new.tap do |decl|
 			decl.name = eat.value
@@ -268,81 +281,103 @@ class Parser
 		end
 	end
 
+	def parse_composition_expr
+		expr          = Composition_Expr.new
+		expr.operator = eat(:operator).value
+		expr.name     = eat(:Identifier)
+		expr
+	end
+
+	def parse_identifier_expr
+		expr       = Identifier_Expr.new
+		expr.value = eat.value
+
+		# 7/20/25, I'm storing the type as well, even though I haven't written any code to support types yet.
+
+		if curr?(':', :Identifier)
+			eat ':'
+			expr.type = eat(:Identifier).value
+		end
+
+		expr.kind = identifier_kind expr.value
+		expr
+	end
+
+	def parse_symbol_expr
+		eat ':'
+		Symbol_Expr.new eat.value.to_sym
+	end
+
+	def parse_operator_expr
+		# A method just for this might seem silly, but I thought the same when I decided #make_expr should be a giant method. This will help in the long run, and consistency is key to keeping this maintainable.
+		Operator_Expr.new eat(:operator).value
+	end
+
+	def parse_number_expr
+		expr       = Number_Expr.new
+		expr.value = eat(:number).value
+		if expr.value.count('.') > 1
+			expr                  = Array_Index_Expr.new expr.value
+			expr.indices_in_order = expr.value.split '.'
+			expr.indices_in_order = expr.indices_in_order.map &:to_i
+			# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2].
+		elsif expr.value.include? '.'
+			expr.type  = :float
+			expr.value = expr.value.to_f
+		else
+			expr.type  = :integer
+			expr.value = expr.value.to_i
+		end
+		expr
+	end
+
+	def parse_nil_init_postfix_expr
+		expr            = Postfix_Expr.new
+		expr.expression = parse_identifier_expr # eat # identifier
+		expr.operator   = eat.value
+		expr
+	end
+
 	def make_expression precedence = STARTING_PRECEDENCE
-		raise "No more lexems to #make_expression" unless lexemes?
+		raise "Parser#make_expression called but there are no lexemes remaining. #{remainder.inspect}" unless lexemes?
 
 		expression = if (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 			parse_func precedence, named: curr?(:identifier)
 
 		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || \
 			(curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
-			# todo, the | TYPE_COMPOSITION_OPERATOR is currently only working in #parse_type_decl. I can peek until end of line, if I see another | then it's a circumfix. However if there are more |s then maybe we can presume the expression type like this:
-			#
-			#   1 | = composition
-			#   2 | = circumfix
-			#   3+ odd probably  = composition
-			#   3+ even probably = circumfix
-			#
-			#   :absolute_value_circumfix
-			#
-			# Unrelated to the circumfix issue, to be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
+			# To be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
 			parse_type_decl
 
+		elsif curr? ANY_IDENTIFIER, ';'
+			parse_nil_init_postfix_expr
+
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
-			Composition_Expr.new.tap do
-				it.operator = eat(:operator).value
-				it.name     = eat(:Identifier)
-			end
+			parse_composition_expr
 
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
 		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER)
-			it       = Identifier_Expr.new
-			it.value = eat.value
-
-			if curr?(':', :Identifier)
-				eat ':'
-				it.type = eat(:Identifier).value
-			end
-
-			it.kind = identifier_kind it.value
-			it
+			parse_identifier_expr
 
 		elsif curr? %w( [ \( { |)
 			# :absolute_value_circumfix
 			parse_circumfix_expr opening: curr_lexeme.value
 
 		elsif curr?(':', :identifier) || curr?(':', :Identifier) || curr?(':', :IDENTIFIER)
-			eat ':'
-			Symbol_Expr.new eat.value.to_sym
+			parse_symbol_expr
 
 		elsif curr? :operator
-			Operator_Expr.new eat(:operator).value
+			parse_operator_expr
 
 		elsif curr? :number
-			number       = Number_Expr.new
-			number.value = eat(:number).value
-			if number.value.count('.') > 1
-				number                  = Array_Index_Expr.new number.value
-				number.indices_in_order = number.value.split '.'
-				number.indices_in_order = number.indices_in_order.map &:to_i
-				# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2].
-			elsif number.value.include? '.'
-				number.type  = :float
-				number.value = number.value.to_f
-			else
-				number.type  = :integer
-				number.value = number.value.to_i
-			end
-			number
+			parse_number_expr
 
 		elsif curr? :string
 			String_Expr.new eat(:string).value
 
 		elsif curr? :delimiter
-			# I was worried that {;} being function syntax, would prevent this from parsing correctly. But that was solved by treating standalone ; as delimiters, in the same way that a comma is treated.
-			# Now, this doesn't mean you can do `x ; y ; z` because an identifier followed by ; is treated as a nil declaration while identifier followed by comma is treated as a separate expression.
 			reduce_newlines
 
 		elsif curr? :comment
@@ -352,21 +387,14 @@ class Parser
 			raise "Unhandled lexeme: #{curr_lexeme.inspect}"
 		end
 
+		# 7/20/25, Unforunately, some other code depends on this being coupled with #modify_expression. That's okay for now, but lesson learned.
 		modify_expression expression, precedence
 	end
 
 	def modify_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
 
-		if expr.is_a?(Identifier_Expr) && curr_lexeme.is(';')
-			left            = expr
-			expr            = Postfix_Expr.new
-			expr.expression = left
-			expr.operator   = eat(curr_lexeme.value).value
-			return expr
-		end
-
-		if curr_lexeme.is ','
+		if curr_lexeme.is(',')
 			eat and return expr
 		end
 
@@ -402,13 +430,17 @@ class Parser
 				it          = Infix_Expr.new
 				it.left     = expr
 				it.operator = eat.value
-				it.right    = make_expression precedence_for(it.operator)
-
+				it.right    = make_expression precedence_for it.operator
+				return modify_expression it, precedence
+			elsif RANGE_OPERATORS.include? curr_lexeme.value
+				it          = Infix_Expr.new
+				it.left     = expr
+				it.operator = eat.value
+				it.right    = parse_number_expr
 				return modify_expression it, precedence
 			else
 				while INFIX.include?(curr_lexeme.value) && curr?(:operator)
 					# It's very important that the curr?(:operator) check here remains because otherwise it breaks Call_Expr when the receiver is an Infix_Expr.
-
 					curr_operator      = curr_lexeme.value
 					curr_operator_prec = precedence_for curr_operator
 

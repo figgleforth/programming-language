@@ -10,7 +10,7 @@ class Scope
 	end
 
 	def [] key
-		@data[key&.to_s] || @data[key&.to_sym]
+		@data[key&.to_s] || @data[key&.to_sym] || enclosing_scope&.[](key)
 	end
 
 	def []= key, value
@@ -22,7 +22,7 @@ class Scope
 	end
 
 	def has? identifier
-		@data.include?(identifier.to_s) || @data.include?(identifier.to_sym)
+		@data.include?(identifier.to_s) || @data.include?(identifier.to_sym) || enclosing_scope&.has?(identifier)
 	end
 
 	def dig * identifiers
@@ -42,11 +42,23 @@ class Scope
 	end
 end
 
+class Global < Scope
+end
+
 class Type < Scope
 	attr_accessor :expressions, :types
 end
 
 class Instance < Type
+end
+
+class Return < Scope
+	attr_accessor :value
+	
+	def initialize value
+		super 'Return'
+		@value = value
+	end
 end
 
 class Emerald::Array < Instance

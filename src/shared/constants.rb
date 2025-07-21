@@ -65,4 +65,4 @@ OPERATOR_PRECEDENCE_ARRAY = [
 	%w(unless if while until),
 	# Loosest binding
 ]
-STARTING_PRECEDENCE       = OPERATOR_PRECEDENCE_ARRAY.count
+STARTING_PRECEDENCE       = 0

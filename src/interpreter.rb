@@ -18,17 +18,17 @@ class Interpreter
 		end
 	end
 
-	def declare identifier, value = Nil.new, scope = stack.last
+	def declare identifier, value = Nil.new, scope = stack.last # :nil_me
 		scope[identifier] = value
 	end
 
 	def interp_identifier expr
-		return Nil.new if expr.value == 'nil'
+		return Nil.new if expr.value == 'nil' # :nil_me
 		return true if expr.value == 'true'
 		return false if expr.value == 'false'
 
 		stack.reverse_each do |scope|
-			# todo, Currently this is iterating all scopes, but depending on the type of identifier (:identifier, :Identifier, :IDENTIFIER) we might want to limit that. :CONSTANTS and :Types can search the whole stack, :vars_and_funcs shouldn't search past the first Instance type they encounter.
+			# todo, Currently this is iterating all scopes, but depending on the type of identifier (:identifier, :Identifier, :IDENTIFIER) we might want to limit that. :IDENTIFIER and :Identifier can search the whole stack, :identifier shouldn't search past the first Instance encountered.
 			return scope[expr.value] if scope.has? expr.value
 		end
 
@@ -37,21 +37,33 @@ class Interpreter
 
 	def interp_string expr
 		return expr.value unless expr.interpolated
-		expr.value # todo, Interpolation
+
+		interpolation_char_count = expr.value.count INTERPOLATE_CHAR
+		if interpolation_char_count == 1
+			return expr.value # For now... I think this is still not the correct approach.
+		elsif interpolation_char_count > 1
+			result    = expr.value
+			sub_exprs = result.scan(/\|(.*?)\|/).flatten
+			sub_exprs.each do |sub|
+				expression = _parse sub
+				value      = interpret expression.first
+				result     = result.gsub "|#{sub}|", "#{value}"
+			end
+			result
+		end
 	end
 
 	def maybe_instance expr
 		# todo, when String and so on, because everything needs to be some type of scope to live inside the Emerald runtime. Every object in Scope.data{} is either a primitive like String, Integer, Float, or they're an instanced version like Number.
 		case expr
-		when Number_Expr
+		when Integer, Float
 			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
-			scope             = Number.new expr.value
-			scope.type        = expr.type
-			scope.numerator   = expr.value
+			scope             = Number.new expr
+			scope.type        = type_of_number_expr? expr
+			scope.numerator   = expr
 			scope.denominator = 1
 			scope
 
-		when Array
 		else
 			expr
 		end
@@ -86,7 +98,8 @@ class Interpreter
 		when './'
 			interpret expr.expression
 		when 'return'
-			interpret expr.expression
+			returned = interpret expr.expression
+			Return.new returned
 		else
 			raise Unhandled_Prefix, expr.inspect
 		end
@@ -130,13 +143,14 @@ class Interpreter
 				declare expr.left.value, right
 			end
 		when '.'
+			# todo, This is getting messy. I need to factor out some of these cases. :factor_dot_calls
 			if expr.right == 'new' || expr.right.is('new')
 				return interp_dot_new expr
 			end
 
 			left = maybe_instance interpret expr.left
-			unless left.is_a? Scope
-				raise Invalid_Dot_Infix_Left_Operand, expr.inspect
+			if !left.is_a?(Scope) && !left.kind_of?(Range)
+				raise Invalid_Dot_Infix_Left_Operand, "#{left.inspect}"
 			end
 
 			if left.is_a? Emerald::Array
@@ -154,17 +168,48 @@ class Interpreter
 
 					return array
 				end
+			elsif left.kind_of? Range
+				if expr.right.is(Func_Expr) && expr.right.name == 'each'
+					left.each do |it|
+						each_scope = Scope.new 'each{;}'
+						stack << each_scope
+						declare 'it', it, each_scope
+						expr.right.expressions.each do |expr|
+							interpret expr
+						end
+						stack.pop
+					end
+				end
+				return left
 			else
 				stack << left
 				result = interpret expr.right
 				stack.pop
 				return result
 			end
+		when '<<'
+			left  = maybe_instance interpret expr.left
+			right = maybe_instance interpret expr.right
+
+			if left.is_a?(Emerald::Array)
+				left.values << right
+			else
+				begin
+					left.send expr.operator, right
+				rescue
+					raise "Unsupported << operator for #{expr.inspect}"
+				end
+			end
 		else
 			if INFIX_ARITHMETIC_OPERATORS.include? expr.operator
 				left  = maybe_instance interpret expr.left
 				right = maybe_instance interpret expr.right
-				left.send expr.operator, right
+
+				if left.is_a?(Emerald::Array) && expr.operator == '<<'
+					left.values << right
+				else
+					left.send expr.operator, right
+				end
 
 			elsif COMPARISON_OPERATORS.include? expr.operator
 				left  = interpret expr.left
@@ -192,7 +237,7 @@ class Interpreter
 				when '..'
 					Range.new start, finish
 				when '.<'
-					Range.new start, finish, true
+					Range.new start, finish, exclude_end: true
 				when '>.'
 					Left_Exclusive_Range.new start, finish
 				when '><'
@@ -208,6 +253,7 @@ class Interpreter
 				when '&'
 					interpret(expr.left) & interpret(expr.right)
 				when '|'
+					# todo, :composition_infix
 					interpret(expr.left) | interpret(expr.right)
 				end
 			end
@@ -217,7 +263,7 @@ class Interpreter
 	def interp_postfix expr
 		case expr.operator
 		when ';'
-			declare expr.expression.value, Nil.new
+			declare expr.expression.value, Nil.new # :nil_me
 		else
 			raise Unhandled_Postfix, expr.inspect
 		end
@@ -248,7 +294,7 @@ class Interpreter
 		when '{}'
 			expr.expressions.reduce({}) do |dict, it|
 				if it.is_a? Identifier_Expr
-					dict[it.value.to_sym] = Nil.new
+					dict[it.value.to_sym] = Nil.new # :nil_me
 				elsif it.is_a? Infix_Expr
 					case it.operator
 					when ':', '='
@@ -305,12 +351,11 @@ class Interpreter
 			end
 		end
 
-		stack.pop # Just for clarity, the pop returs the instance from above..
+		stack.pop # Just for clarity, the pop returns the instance from above..
 	end
 
 	def interp_func_call func, expr
-		result = Nil.new
-
+		result = Nil.new # :nil_me
 		stack << func
 
 		params = func.expressions.select do |expr|
@@ -323,18 +368,22 @@ class Interpreter
 			elsif param.expression
 				interpret param.expression
 			else
-				Nil.new # Do I need this? Check later.
+				Nil.new # todo, I want only one instance of Nil that's returned wherever nil is needed. :nil_me
 			end
 
 			declare param.name, value
 		end
 
 		body = func.expressions - params
-
 		body.each do |e|
+			next if e.is_a? Param_Expr
+
 			result = interpret e
-			# todo, Here's where returns should be respected. For now, the last expression's result will be the return value. And actually, I like that about Ruby so that's the default behavior I want.
-			# result = interpret e # This just reads the value, which is currently nil. What it should do, is some form of #declare like above, otherwise we're not overwriting the value.
+			break if result.is_a? Return
+		end
+
+		if func.name == 'assert'
+			raise Assert_Triggered, expr.inspect unless interpret(body.first) == true # Just to be explicit.
 		end
 
 		stack.pop # func
@@ -374,10 +423,11 @@ class Interpreter
 	end
 
 	def interp_func expr
-		result = Nil.new
+		result = Nil.new # :nil_me
 
-		scope             = Func.new expr.name
-		scope.expressions = expr.expressions
+		scope                 = Func.new expr.name
+		scope.expressions     = expr.expressions
+		scope.enclosing_scope = stack.last
 
 		declare expr.name, scope
 	end
@@ -435,8 +485,12 @@ class Interpreter
 
 		# todo, :while_loops
 
-		to_interpret.each.inject(nil) do |result, it|
-			interpret it
+		if to_interpret.is_a? Conditional_Expr
+			interp_conditional to_interpret
+		else
+			to_interpret.each.inject(nil) do |result, it|
+				interpret it
+			end
 		end
 	end
 

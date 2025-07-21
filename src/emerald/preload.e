@@ -1,3 +1,5 @@
+```This file is currently not being interpreted.
+```
 Number {
 	numerator;
 	denominator;
@@ -29,9 +31,10 @@ Func = Function {
 	signature {;}
 }
 
-assert { condition = false;
+assert { condition;
 	condition == true
 }
+
 
 `These should never raise.
 assert(true)

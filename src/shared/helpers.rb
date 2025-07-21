@@ -4,29 +4,29 @@ require './src/interpreter'
 require './src/lexer'
 require './src/parser'
 
-def interp_helper code
-	expressions  = parse_helper code
+def _interp code
+	expressions  = _parse code
 	@interpreter = Interpreter.new expressions
 	@interpreter.output
 end
 
-def parse_helper code
-	lexemes = lex_helper code
+def _parse code
+	lexemes = _lex code
 	@parser = Parser.new lexemes
 	@parser.output
 end
 
-def lex_helper code
+def _lex code
 	@lexer = Lexer.new code
 	@lexer.output
 end
 
-def interp_file file_path
-	interp_helper File.read file_path
+def _interp_file file_path
+	_interp File.read file_path
 end
 
-def parse_file file_path
-	parse_helper File.read file_path
+def _parse_file file_path
+	_parse File.read file_path
 end
 
 def refute_raises * exceptions
@@ -65,5 +65,15 @@ def identifier_kind ident
 		:identifier
 	else
 		raise "unknown identifier type #{ident.inspect}"
+	end
+end
+
+def type_of_number_expr? expr
+	if expr.to_s.count('.') > 1
+		:array_index
+	elsif expr.to_s.include? '.'
+		:float
+	else
+		:integer
 	end
 end

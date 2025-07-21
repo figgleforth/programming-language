@@ -106,7 +106,8 @@ class String_Expr < Expression
 
 	def initialize string
 		super string
-		@interpolated = string.include? INTERPOLATE_CHAR # if at least one ` is present then it should be interpolated, if formatted properly.
+		@interpolated = string.include? INTERPOLATE_CHAR
+		# todo, This is a naive check. What if there is only one | char? Then it can't be a valid interpolation.
 	end
 end
 
