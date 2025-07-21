@@ -1,30 +1,48 @@
-Importing other code by retrieving them from whatever scope they're in. For example, rng = .../Random.new, Local_Math = .../Math, etc. Or from a file with Local_Math = ~/math.e
+Replace Emerald_Error system. I don't like that I'm not having to rescue from my own exceptions, and I have to make sure that the proper error is bubbled up. It's already annoying and the Interpreter isn't even complicated.
+Maybe Interpreter#report_error, similar to Jai's interp->report_error.
+
+Importing other code by retrieving them from whatever scope they're in. For example, rng = .../Random.new, Local_Math = .../Math, etc. Or from a file with Local_Math = ~/math.e. I think this should create a File_Scope, which interprets the file upon assignment. That should open up the possibility of:
+	maths = ~/math.e
+	maths.sin, maths.cos, etc
+Or:
+	@ += ~/math.e
+	sin, cos, etc
+	@ -= ~/math.e   (or maybe @--, or something like that, to avoid having to type long paths)
+Or:
+	maths = ~/math.e
+	@ += maths
+	@ -= maths
 
 Scope could extend Hash instead of having a @hash attribute, that would be less work for me, I think.
 7/10/25, I tried this and it didn't go smoothly. I'll save this idea for another day!
 
-Shorthand literals, but maybe they should be two-letter shorthands like in Ruby.
-^(1, 2, 3) could create Vector literals, and infer dimension based on number of expressions.
-#(abc 123) -> Hash {abc: nil, 123: nil} and if abc is defined locally, it should take its value too.
-%(this is a set)
-?(abc def) returns true if all truthy
-$(one two) strings like %w() in Ruby
-:(one two) symbols like %i() in Ruby
+Shorthand literals, but maybe they should be two-letter shorthands like in Ruby. Here are ideas for one-letter shorthands:
+	#(abc 123) -> Hash {abc: nil, 123: nil} and if abc is defined locally, it should take its value too.
+	%(this is a set)
+	?(abc def) returns true if all truthy
+	$(one two) strings like %w() in Ruby
+	:(one two) symbols like %i() in Ruby
+	^()
+	etc...
 
 Some way to keep track of instance IDs as an integer. These would be strictly for constructs(.rb), not expressions(.rb).
-@instance_count_by_class = {
-	 Nil:                  0,
-	 Instance:             0,
-	 Type:                 0,
-	 Func:                 0,
-	 Scope:                0,
-	 Tuple:                0,
-	 Left_Exclusing_Range: 0,
-	 # The rest can be added at runtime
-}
+	@instance_count_by_class = {
+		 Nil:                  0,
+		 Instance:             0,
+		 Type:                 0,
+		 Func:                 0,
+		 Scope:                0,
+		 Tuple:                0,
+		 Left_Exclusing_Range: 0,
+		 # The rest can be added at runtime
+	}
 
 Take inspiration from Ruby unary operators for prefixes. `def -@`
 
-Maybe bring back = as a declaration operator. I don't want to be forced to use it, but maybe it can be repurposed.
+Maybe bring back := as a declaration operator. I don't want to be forced to use it, but maybe it can be repurposed?
 
-Closures. There's one skipped test in interpreter_test.rb until closures are implemented.
+Initialize value-less declarations based on their type rather than just Nil.new. :make_use_of_type
+
+You can use any Type identifier when declaring a type and it won't crash, even when the identifier is made up. That might seem like a bug, and it is. But what if it only crashes when you actually assign? `some: Thing` will just set {some: nil} in the scope. So it could remain a placeholder until assignment.
+
+Add namespaces to each error to make it easier to identify, like Interpreter::Whatever_Error. Interpreter requires this file and done.
