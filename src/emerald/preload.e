@@ -1,6 +1,6 @@
 Number {
 	numerator;
-	denominator;
+	denominator = 1
 
 	to_s {;
 		'the number is |numerator|!'

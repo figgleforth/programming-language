@@ -1,3 +1,23 @@
+Infix | between Type_Exprs must be specially handled. :composition_infix
+
+Interpreter#interp_infix is getting messy. I need to factor out some of the cases. :factor_dot_calls
+
+Improve Parser#precedence_for, get rid of that nested array format.
+
+Clean up Parser#parse_conditional_expr. It should just loop until curr?(end) right? It works as is for now, but it's ugly.
+
+Add more stuff to preload.e. Specifically, a context object that holds useful information about the runtime tree. It should probably hold a lot of information: caller, callee, code location, stack, current scope, etc.
+
+Custom test helpers like assert_operator(out), assert_type(:operator, out). I don't have a preference for either, but it's needed. :lexeme_type_helper.
+
+While loops. Currently it treats while expressions as if expressions. :while_loops
+
+Parsing `Identifier {;}` should raise a syntax error or something, because that's not valid syntax. Currently it loops indefinitely. I know where it happens, I just need to fix it. See :Identifier_function
+
+*_Expr classes have :start_location, :end_location defined, but this is never set. Being able to print relevant code in the output would reduce confusion with errors.
+
+Construct factory in Interpreter, so that I can be sure that I'm setting the required attributes every time! :generalize_me
+
 Replace Emerald_Error system. I don't like that I'm not having to rescue from my own exceptions, and I have to make sure that the proper error is bubbled up. It's already annoying and the Interpreter isn't even complicated.
 Maybe Interpreter#report_error, similar to Jai's interp->report_error.
 

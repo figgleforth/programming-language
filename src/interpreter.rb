@@ -13,8 +13,8 @@ class Interpreter
 	end
 
 	def output
-		input.each.inject nil do |out, expr|
-			out = interpret expr
+		input.each.inject nil do |result, expr|
+			result = interpret expr
 		end
 	end
 
@@ -508,20 +508,41 @@ class Interpreter
 	end
 
 	def interp_conditional expr
-		condition = interpret expr.condition
-		body      = if condition == true
-			expr.when_true
-		else
-			expr.when_false
-		end
+		# I'm being very explicit with the "== true" checks of the condition. It's easy to misread this to mean that as long as it's not nil. While the distinction in this case may not matter (in Ruby), I still haven't decided how this language will handle truthiness.
+		case expr.type
+		when 'while', 'ew', 'elwhile', 'elswhile', 'elsewhile'
+			result    = nil
+			condition = interpret(expr.condition)
+			while condition == true
+				expr.when_true.each do |stmt|
+					result = interpret(stmt)
+				end
+				condition = interpret(expr.condition)
+			end
 
-		# todo, :while_loops
+			if expr.when_false.is_a? Conditional_Expr
+				result = interp_conditional expr.when_false
+			elsif expr.when_false.is_a? Array
+				expr.when_false.each do |expr|
+					result = interpret expr
+				end
+			end
 
-		if body.is_a? Conditional_Expr
-			interp_conditional body
+			return result
 		else
-			body.each.inject(nil) do |result, it|
-				interpret it
+			condition = interpret expr.condition
+			body      = if condition == true
+				expr.when_true
+			else
+				expr.when_false
+			end
+
+			if body.is_a? Conditional_Expr
+				interp_conditional body
+			else
+				body.each.inject(nil) do |result, expr|
+					interpret expr
+				end
 			end
 		end
 	end

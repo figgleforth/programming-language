@@ -715,4 +715,30 @@ class Interpreter_Test < Minitest::Test
 		refute out.values.first.has? :new
 		refute out.values.last.has? :new
 	end
+
+	def test_while_loops
+		out = _interp '
+		x = 0
+		while x < 4
+			x += 1
+		end
+		x'
+		assert_equal 4, out
+	end
+
+	def test_fancy_while_loops
+		out = _interp '
+		x = 0
+		y = 0
+		z = 0
+		while x < 4
+			x += 1
+		elwhile y > -8
+			y -= 1
+		else
+			z = 1_516
+		end
+		(x, y, z)'
+		assert_equal [4, -8, 1516], out.values
+	end
 end
