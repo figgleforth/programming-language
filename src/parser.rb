@@ -501,7 +501,7 @@ class Parser
 			end
 
 			it           = Conditional_Expr.new
-			it.type      = eat.value
+			it.type      = eat.value # One of %w(if while unless until)
 			it_prec      = precedence_for it.type
 			it.condition = make_expression
 			if %w(unless until).include? it.type
