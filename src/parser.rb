@@ -289,7 +289,12 @@ class Parser
 	end
 
 	def parse_identifier_expr
-		expr       = Identifier_Expr.new
+		expr = Identifier_Expr.new
+		if curr? REFERENCE_PREFIX
+			expr.reference = true
+			eat REFERENCE_PREFIX
+		end
+
 		expr.value = eat.value
 
 		# 7/20/25, I'm storing the type as well, even though I haven't written any code to support types yet.
@@ -299,7 +304,7 @@ class Parser
 			expr.type = eat(:Identifier).value
 		end
 
-		expr.kind = identifier_kind expr.value
+		expr.kind = type_of_identifier expr.value
 		expr
 	end
 
@@ -358,7 +363,7 @@ class Parser
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
-		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER)
+		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier)
 			parse_identifier_expr
 
 		elsif curr? %w( [ \( { |)

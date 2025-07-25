@@ -28,9 +28,16 @@ class Interpreter
 		return false if expr.value == 'false'
 
 		stack.reverse_each do |scope|
-			# todo, Currently this is iterating all scopes, but depending on the type of identifier (:identifier, :Identifier, :IDENTIFIER) we might want to limit that. :IDENTIFIER and :Identifier can search the whole stack, :identifier shouldn't search past the first Instance encountered.
 			return scope[expr.value] if scope.has? expr.value
 		end
+
+		# todo, The above should ensure that :identifier lookups are limited to the current scope while :IDENTIFIER and :Identifier can search the whole stack.
+		# todo, Maybe closures. Without implementing closures, you have to always use ./ to access declarations on self.
+		#
+		# scope = stack.last
+		# while scope.respond_to?(:enclosing_scope) && scope.enclosing_scope
+		# 	return scope[expr.value] if scope.has? expr.value
+		# end
 
 		raise Undeclared_Identifier, expr.value
 	end
@@ -59,7 +66,7 @@ class Interpreter
 		when Integer, Float
 			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
 			scope             = Number.new expr
-			scope.type        = type_of_number_expr? expr
+			scope.type        = type_of_number_expr expr
 			scope.numerator   = expr
 			scope.denominator = 1
 			scope
@@ -96,7 +103,16 @@ class Interpreter
 		when '!', 'not'
 			!interpret(expr.expression)
 		when './'
-			interpret expr.expression
+			# The ./ operator lets you look up declarations in an Instance in the stack that encloses the current expression. I treat the global scope as an Instance here.
+			scope = stack.reverse_each.find do |scope|
+				scope.kind_of? Instance
+			end || stack[0]
+
+			stack << scope
+			result = interpret expr.expression
+			stack.pop
+
+			result
 		when 'return'
 			returned = interpret expr.expression
 			Return.new returned
@@ -111,7 +127,7 @@ class Interpreter
 			# todo, Maybe warn when overwriting an existing identifier.
 			right = interpret expr.right
 
-			case identifier_kind expr.left.value
+			case type_of_identifier expr.left.value
 			when :identifier
 				# Can assign anything
 			when :Identifier
@@ -130,14 +146,26 @@ class Interpreter
 			end
 
 			if stack.last.is_a? Func
-				target_scope = stack.reverse_each.find do |scope|
-					scope.is_a? Instance
+				name         = expr.left.value
+				target_scope = stack.reverse.find do |scope|
+					scope.has? name
 				end
 
-				if target_scope&.has? expr.left.value
-					declare expr.left.value, right, target_scope
+				if not target_scope
+					scope = stack.last
+					while scope.respond_to?(:enclosing_scope) && scope.enclosing_scope
+						scope = scope.enclosing_scope
+						if scope.has? name
+							target_scope = scope
+							break
+						end
+					end
+				end
+
+				if target_scope
+					target_scope[name] = right
 				else
-					declare expr.left.value, right
+					declare name, right
 				end
 			else
 				declare expr.left.value, right
@@ -319,13 +347,13 @@ class Interpreter
 	def interp_call expr
 		receiver = interpret expr.receiver
 		case receiver
-		when Type
+		when Type # Type()
 			interp_type_call receiver, expr
 
-		when Func
+		when Func # func()
 			interp_func_call receiver, expr
 
-		when Instance
+		when Instance # instance()
 			interp_instance_call receiver, expr
 
 		else
@@ -335,14 +363,13 @@ class Interpreter
 
 	def interp_type_call type, expr
 		instance = Instance.new type.name # :generalize_me
-
 		stack << instance
 
 		type.expressions.each do |expr|
 			interpret expr
 		end
 
-		func_new = instance[:new]
+		func_new = type[:new]
 		if func_new
 			interp_func_call func_new, expr
 		else
@@ -351,12 +378,17 @@ class Interpreter
 			end
 		end
 
+		instance.delete :new
 		stack.pop # Just for clarity, the pop returns the instance from above..
 	end
 
 	def interp_func_call func, expr
 		result = Nil.new # :nil_me
-		stack << func
+
+		call_scope                 = Scope.new "#{func.name}()"
+		call_scope.enclosing_scope = func.enclosing_scope
+
+		stack << call_scope
 
 		params = func.expressions.select do |expr|
 			expr.is_a? Param_Expr
@@ -371,7 +403,7 @@ class Interpreter
 				Nil.new # todo, I want only one instance of Nil that's returned wherever nil is needed. :nil_me
 			end
 
-			declare param.name, value
+			declare param.name, value, call_scope
 		end
 
 		body = func.expressions - params
@@ -386,7 +418,7 @@ class Interpreter
 			raise Assert_Triggered, expr.inspect unless interpret(body.first) == true # Just to be explicit.
 		end
 
-		stack.pop # func
+		stack.pop # This func's call_scope
 		result
 	end
 
@@ -401,6 +433,8 @@ class Interpreter
 				raise "Given #{expr.arguments.count} arguments, but new{;} was not declared for #{instance.inspect}"
 			end
 		end
+		instance.delete :new
+
 		stack.pop # instance
 	end
 
@@ -423,13 +457,11 @@ class Interpreter
 	end
 
 	def interp_func expr
-		result = Nil.new # :nil_me
+		func                 = Func.new expr.name
+		func.expressions     = expr.expressions
+		func.enclosing_scope = stack.last
 
-		scope                 = Func.new expr.name
-		scope.expressions     = expr.expressions
-		scope.enclosing_scope = stack.last
-
-		declare expr.name, scope
+		declare expr.name, func
 	end
 
 	def interp_composition expr
@@ -476,8 +508,8 @@ class Interpreter
 	end
 
 	def interp_conditional expr
-		condition    = interpret expr.condition
-		to_interpret = if condition == true
+		condition = interpret expr.condition
+		body      = if condition == true
 			expr.when_true
 		else
 			expr.when_false
@@ -485,10 +517,10 @@ class Interpreter
 
 		# todo, :while_loops
 
-		if to_interpret.is_a? Conditional_Expr
-			interp_conditional to_interpret
+		if body.is_a? Conditional_Expr
+			interp_conditional body
 		else
-			to_interpret.each.inject(nil) do |result, it|
+			body.each.inject(nil) do |result, it|
 				interpret it
 			end
 		end

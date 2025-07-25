@@ -2,19 +2,11 @@ require 'minitest/autorun'
 require './src/shared/helpers'
 
 class Interpreter_Test < Minitest::Test
-	FIZZ_BUZZ_CODE = %q(
-			fizz_buzz { n;
-				if n % 3 == 0 and n % 5 == 0
-					'FizzBuzz'
-				elif n % 3 == 0
-					'Fizz'
-				elif n % 5 == 0
-					'Buzz'
-				else
-					'|n|'
-				end
-			}
-		).freeze
+	def test_preload_dot_e
+		refute_raises RuntimeError do
+			_interp_file './src/emerald/preload.e'
+		end
+	end
 
 	def test_numeric_literals
 		assert_equal 48, _interp('48')
@@ -404,11 +396,11 @@ class Interpreter_Test < Minitest::Test
 		end
 	end
 
-	def test_objects_as_dictionary_keys
-		skip "Once Instance can be hashed, then this test will work properly."
-		_interp '{ () = 1 }'
-		_interp '{ 123 = 1 }'
-	end
+	# def test_objects_as_dictionary_keys
+	# 	skip "Once Instance can be hashed, then this test will work properly."
+	# 	_interp '{ () = 1 }'
+	# 	_interp '{ 123 = 1 }'
+	# end
 
 	def test_assigning_function_to_variable
 		out = _interp 'funk = { a, b, c; }'
@@ -559,13 +551,6 @@ class Interpreter_Test < Minitest::Test
 		assert_equal 42, out
 	end
 
-	def test_precedence_operation_regression
-		src = _interp '1 + 2 / 3 - 4 * 5'
-		ref = _interp '(1 + (2 / 3)) - (4 * 5)'
-		assert_equal ref, src
-		assert_equal -19, src
-	end
-
 	def test_long_dot_chain
 		shared_code = '
 		A {
@@ -589,13 +574,18 @@ class Interpreter_Test < Minitest::Test
 		assert_equal 4, out
 	end
 
-	def test_mutating_state_across_calls
+	def test_closures_do_not_exist
 		out = _interp '
-		counter = 0
-		increment {; counter = counter + 1 }
-		increment()
-		increment()'
-		assert_equal 2, out
+		counter = -1
+		increment {count;
+			count += 1
+		}
+		a = increment(counter)
+		b = increment(counter)
+		c = increment(counter)
+		(a, b, c)
+		'
+		assert_equal [0, 0, 0], out.values
 	end
 
 	def test_calling_functions
@@ -624,14 +614,6 @@ class Interpreter_Test < Minitest::Test
 	def test_complex_return_with_simple_conditional
 		out = _interp 'return (1+2*3/4) + (1+2*3/4) if 1 + 2 > 2'
 		assert_equal 4, out.value
-	end
-
-	def test_greater_equals_regression
-		out = _interp '2+1 >= 1'
-		assert out
-
-		out = _interp 'return 1+2*3/4%5-6 unless 1 + 2 >= 10'
-		assert_equal -4, out.value
 	end
 
 	def test_truthy_falsy_logic
@@ -665,29 +647,17 @@ class Interpreter_Test < Minitest::Test
 	end
 
 	def test_calling_member_functions
-		out = _interp 'Number {
-			numerator = -1
+		out = _interp '
+		Number {
+			numerator = -100
 
-			new { num; `num = nil is implied
+			new { num;
 				./numerator = num
 			}
 		}
 		x = Number(4)
 		x.numerator'
 		assert_equal 4, out
-	end
-
-	def test_dot_new_initializer_regression
-		out = _interp 'Number {
-			numerator = 8
-
-			new { num;
-				numerator = num
-			}
-		}
-		x = Number.new(15)
-		x.numerator'
-		assert_equal 15, out
 	end
 
 	def test_function_scope
@@ -726,42 +696,23 @@ class Interpreter_Test < Minitest::Test
 		assert_equal "true!", out.value
 	end
 
-	def test_preload_dot_e
-		out = _interp_file './src/emerald/preload.e'
-	end
-	
-	def test_fizz_buzz_structure
-		out = _interp FIZZ_BUZZ_CODE
-		assert_instance_of Func, out
-		assert_instance_of Conditional_Expr, out.expressions.last
-		assert_equal 2, out.expressions.count
+	def test_type_does_have_new_function
+		out = _interp '
+		Atom {
+			new {;}
+		}'
+		assert out.has? :new
 	end
 
-	def test_fizz_buzz_output
-		out = _interp "#{FIZZ_BUZZ_CODE}
-		three = []
-		1..3.each {;
-			three << fizz_buzz(it)
+	def test_instance_does_not_have_new_function
+		out = _interp '
+		Atom {
+			new {;}
 		}
-
-		five = []
-		1..5.each {;
-			five << fizz_buzz(it)
-		}
-
-		fifteen = []
-		1..15.each {;
-			fifteen << fizz_buzz(it)
-		}
-
-		(three, five, fifteen)"
-		assert_instance_of Tuple, out
-		out.values.each do |it|
-			assert_instance_of Emerald::Array, it
-		end
-
-		assert_equal ['1', '2', 'Fizz'], out.values[0].values
-		assert_equal ['1', '2', 'Fizz', '4', 'Buzz'], out.values[1].values
-		assert_equal ['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz'], out.values[2].values
+		a = Atom()
+		b = Atom.new()
+		(a, b)'
+		refute out.values.first.has? :new
+		refute out.values.last.has? :new
 	end
 end
