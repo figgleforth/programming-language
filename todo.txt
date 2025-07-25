@@ -2,7 +2,7 @@ Infix | between Type_Exprs must be specially handled. :composition_infix
 
 Interpreter#interp_infix is getting messy. I need to factor out some of the cases. :factor_dot_calls
 
-Improve Praser#precedence_for, get rid of that nested array format.
+Improve Parser#precedence_for, get rid of that nested array format.
 
 Clean up Parser#parse_conditional_expr. It should just loop until curr?(end) right? It works as is for now, but it's ugly.
 

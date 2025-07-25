@@ -511,13 +511,13 @@ class Interpreter
 		# I'm being very explicit with the "== true" checks of the condition. It's easy to misread this to mean that as long as it's not nil. While the distinction in this case may not matter (in Ruby), I still haven't decided how this language will handle truthiness.
 		case expr.type
 		when 'while', 'ew', 'elwhile', 'elswhile', 'elsewhile'
-			result = nil
-			if interpret(expr.condition) == true
-				while interpret(expr.condition) == true
-					expr.when_true.each do |stmt|
-						result = interpret(stmt)
-					end
+			result    = nil
+			condition = interpret(expr.condition)
+			while condition == true
+				expr.when_true.each do |stmt|
+					result = interpret(stmt)
 				end
+				condition = interpret(expr.condition)
 			end
 
 			if expr.when_false.is_a? Conditional_Expr
