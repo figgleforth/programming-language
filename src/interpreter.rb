@@ -147,11 +147,11 @@ class Interpreter
 
 			if stack.last.is_a? Func
 				name         = expr.left.value
-				target_scope = stack.reverse.find do |scope|
+				target_scope = stack.reverse_each.find do |scope|
 					scope.has? name
 				end
 
-				if not target_scope
+				unless target_scope
 					scope = stack.last
 					while scope.respond_to?(:enclosing_scope) && scope.enclosing_scope
 						scope = scope.enclosing_scope

@@ -425,7 +425,7 @@ class Parser
 				it.expression = make_expression precedence_for(it.operator)
 			end
 
-			if not expr.expression
+			unless expr.expression
 				raise "Prefix_Expr expected an expression after `#{expr.operator}`"
 			end
 

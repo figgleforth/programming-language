@@ -42,6 +42,7 @@ class Scope
 	end
 
 	def delete key
+		return nil unless key
 		@data.delete(key.to_s) || @data.delete(key.to_sym)
 	end
 end
