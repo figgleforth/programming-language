@@ -40,6 +40,11 @@ class Scope
 	def data= new_data
 		@data = new_data
 	end
+
+	def delete key
+		return nil unless key
+		@data.delete(key.to_s) || @data.delete(key.to_sym)
+	end
 end
 
 class Global < Scope
@@ -54,7 +59,7 @@ end
 
 class Return < Scope
 	attr_accessor :value
-	
+
 	def initialize value
 		super 'Return'
 		@value = value

@@ -338,4 +338,26 @@ class Lexer_Test < Minitest::Test
 		assert_equal :operator, out.first.type
 	end
 
+	def test_at_prefix
+		out = _lex '@count'
+		assert_equal :operator, out.first.type
+	end
+
+	def test_allowed_identifier_special_chars
+		out = _lex 'what?;'
+		assert_equal :identifier, out.first.type
+		assert_equal 'what?', out.first.value
+
+		out = _lex 'okay!;'
+		assert_equal :identifier, out.first.type
+		assert_equal 'okay!', out.first.value
+	end
+
+	def test_reference_prefix
+		out = _lex '^reference'
+		assert_equal :operator, out.first.type
+		assert_equal '^', out.first.value
+		assert_equal :identifier, out.last.type
+		assert_equal 'reference', out.last.value
+	end
 end

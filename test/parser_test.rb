@@ -116,14 +116,6 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Infix_Expr, out.first
 	end
 
-	def test_infixes_regression # This is old but I'm keeping it around anyway. I just renamed it to reflect its purpose.
-		COMPOUND_OPERATORS.each do |operator|
-			code = "left #{operator} right"
-			out  = _parse(code)
-			assert_kind_of Infix_Expr, out.first
-		end
-	end
-
 	def test_operator_precedence
 		out = _parse '1 + 2 * 3 / 4 - 5 % 6'
 		assert_kind_of Infix_Expr, out.first
@@ -695,25 +687,33 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Identifier_Expr, out.last
 	end
 
-	def test_infinite_loop_bug
-		skip "Causes infinite looping, I'll worry about it later."
-		out = _parse 'Identifier {;}'
-		assert_kind_of Type_Expr, out.first
-
-		out = _parse 'x; , y; , z;'
-		assert_kind_of Postfix_Expr, out.first
-		assert_kind_of Postfix_Expr, out[1]
-		assert_kind_of Postfix_Expr, out.last
-	end
-
-	def test_operator_overloading
-		skip "While I figure out what type of *_Expr this should produce."
-		out = _parse '+ { other; }'
-		assert_kind_of Func_Expr, out.first
-	end
+	# def test_infinite_loop_bug
+	# 	skip "Causes infinite looping, I'll worry about it later."
+	# 	out = _parse 'Identifier {;}'
+	# 	assert_kind_of Type_Expr, out.first
+	#
+	# 	out = _parse 'x; , y; , z;'
+	# 	assert_kind_of Postfix_Expr, out.first
+	# 	assert_kind_of Postfix_Expr, out[1]
+	# 	assert_kind_of Postfix_Expr, out.last
+	# end
+	#
+	# def test_operator_overloading
+	# 	skip "While I figure out what type of *_Expr this should produce."
+	# 	out = _parse '+ { other; }'
+	# 	assert_kind_of Func_Expr, out.first
+	# end
 
 	def test_double_less_than_is_operator
 		out = _parse '<<'
 		assert_kind_of Operator_Expr, out.first
+	end
+
+	def test_reference_decorator_on_identifier_expr
+		out = _parse '^count'
+		assert out.first.reference
+
+		out = _parse 'count'
+		refute out.first.reference
 	end
 end

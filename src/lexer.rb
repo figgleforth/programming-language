@@ -211,7 +211,7 @@ class Lexer
 
 				elsif identifier? || %w(_).include?(curr)
 					it.value = lex_identifier
-					it.type  = identifier_kind it.value
+					it.type  = type_of_identifier it.value
 
 				elsif symbol? curr
 					it.type  = :operator
