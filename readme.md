@@ -85,7 +85,7 @@ For comprehensive syntax examples and language features, see these test files:
 - Ruby 3.4.1 or higher
 - Bundler
 ```shell script
-$ git clone https://github.com/yourusername/emerald.git
+$ git clone https://github.com/figgleforth/emerald.git
 $ cd emerald
 $ bundle install
 ```
