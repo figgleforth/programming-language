@@ -1,5 +1,5 @@
-require './src/shared/expressions'
-require './src/shared/constants'
+require './code/shared/expressions'
+require './code/shared/constants'
 
 class Parser
 	attr_accessor :i, :input
@@ -12,7 +12,7 @@ class Parser
 	def output
 		expressions = []
 		while lexemes?
-			expressions << make_expression
+			expressions << parse_expression
 		end
 		expressions.compact
 	end
@@ -131,10 +131,41 @@ class Parser
 		end
 	end
 
+	def parse_for_loop_expr
+		eat 'for'
+		it = For_Loop_Expr.new
+
+		#
+		# for expr
+		# for expr by integer
+		#
+		# for ident in expr # it.custom_identifier is the ident
+		# for ident in expr by integer
+		#
+
+		it.iterable = parse_without_modify # todo, Assert iterable is composed with Iterable, or has the same shape as Iterable.
+		reduce_newlines
+
+		it.body = []
+		until curr? 'end'
+			it.body << parse_expression
+		end
+
+		# if curr? :identifier, 'in'
+		# 	# for ident in expr
+		# 	# for ident in expr by integer
+		# else
+		# 	# for expr
+		# 	# for expr by integer
+		# end
+
+		it
+	end
+
 	def parse_conditional_expr
 		it            = Conditional_Expr.new
 		it.type       = eat.value # One of %w(if while unless until)
-		it.condition  = make_expression
+		it.condition  = parse_expression
 		it.when_true  = []
 		it.when_false = []
 		reduce_newlines
@@ -142,7 +173,7 @@ class Parser
 		# @clean
 
 		until curr? %w(end else elsif elif ef elwhile elswhile elsewhile)
-			expr = make_expression
+			expr = parse_expression
 			it.when_true << expr if expr
 			reduce_newlines
 		end
@@ -152,7 +183,7 @@ class Parser
 
 		elsif curr? %w(else el) and eat
 			until curr? 'end'
-				expr = make_expression
+				expr = parse_expression
 				it.when_false << expr if expr
 				reduce_newlines
 			end
@@ -175,7 +206,7 @@ class Parser
 		closing = it.grouping[1]
 
 		until curr? closing
-			it.expressions << make_expression
+			it.expressions << parse_expression
 			break if curr? closing
 
 			eat if curr? ','
@@ -216,7 +247,7 @@ class Parser
 			end
 
 			if curr? '=' and eat '='
-				param.default = make_expression
+				param.default = parse_expression
 			end
 
 			if param.default.is_a?(Postfix_Expr) && param.default.operator == ';'
@@ -234,7 +265,7 @@ class Parser
 		reduce_newlines
 
 		until curr? '}'
-			statement = make_expression
+			statement = parse_expression
 			func.expressions << statement
 		end
 
@@ -272,7 +303,7 @@ class Parser
 			eat '{'
 
 			until curr? '}'
-				decl.expressions << make_expression
+				decl.expressions << parse_expression
 			end
 
 			decl.expressions = decl.expressions.compact
@@ -343,10 +374,12 @@ class Parser
 		expr
 	end
 
-	def make_expression precedence = STARTING_PRECEDENCE
-		raise "Parser#make_expression called but there are no lexemes remaining. #{remainder.inspect}" unless lexemes?
+	def parse_without_modify precedence = STARTING_PRECEDENCE
+		raise "Parser#parse_expression called but there are no lexemes remaining. #{remainder.inspect}" unless lexemes?
+		if curr? ANY_IDENTIFIER, ';'
+			parse_nil_init_postfix_expr
 
-		expression = if (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
+		elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 			parse_func precedence, named: curr?(:identifier)
 
 		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || \
@@ -354,11 +387,11 @@ class Parser
 			# To be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
 			parse_type_decl
 
-		elsif curr? ANY_IDENTIFIER, ';'
-			parse_nil_init_postfix_expr
-
 		elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
 			parse_composition_expr
+
+		elsif curr? 'for'
+			parse_for_loop_expr
 
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
@@ -391,7 +424,10 @@ class Parser
 		else
 			raise "Unhandled lexeme: #{curr_lexeme.inspect}"
 		end
+	end
 
+	def parse_expression precedence = STARTING_PRECEDENCE
+		expression = parse_without_modify precedence
 		# 7/20/25, Unforunately, some other code depends on this being coupled with #modify_expression. That's okay for now, but lesson learned.
 		modify_expression expression, precedence
 	end
@@ -410,7 +446,7 @@ class Parser
 		if scope_prefix
 			expr            = Prefix_Expr.new
 			expr.operator   = scope_prefix
-			expr.expression = make_expression
+			expr.expression = parse_expression
 			return modify_expression expr, precedence
 		end
 
@@ -422,7 +458,7 @@ class Parser
 		if prefix
 			expr = Prefix_Expr.new.tap do |it|
 				it.operator   = expr.value
-				it.expression = make_expression precedence_for(it.operator)
+				it.expression = parse_expression precedence_for(it.operator)
 			end
 
 			unless expr.expression
@@ -435,7 +471,7 @@ class Parser
 				it          = Infix_Expr.new
 				it.left     = expr
 				it.operator = eat.value
-				it.right    = make_expression precedence_for it.operator
+				it.right    = parse_expression precedence_for it.operator
 				return modify_expression it, precedence
 			elsif RANGE_OPERATORS.include? curr_lexeme.value
 				it          = Infix_Expr.new
@@ -457,14 +493,14 @@ class Parser
 					expr          = Infix_Expr.new
 					expr.left     = left
 					expr.operator = eat(curr_lexeme.value).value
-					expr.right    = make_expression curr_operator_prec
+					expr.right    = parse_expression curr_operator_prec
 
 					if expr.left.is(Identifier_Expr) && expr.operator == '.' && expr.right.is(Number_Expr) && expr.right.type == :float
 						number                  = Array_Index_Expr.new expr.right.value.to_s
 						number.indices_in_order = number.value.split '.'
 						number.indices_in_order = number.indices_in_order.map &:to_i
 						expr.right              = number
-						# Copypaste from above #make_expression when :number.
+						# Copypaste from above #parse_expression when :number.
 					end
 
 					return modify_expression expr, precedence
@@ -503,7 +539,7 @@ class Parser
 			it           = Conditional_Expr.new
 			it.type      = eat.value # One of %w(if while unless until)
 			it_prec      = precedence_for it.type
-			it.condition = make_expression
+			it.condition = parse_expression
 			if %w(unless until).include? it.type
 				it.when_false = [expr]
 			else

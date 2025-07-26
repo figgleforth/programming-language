@@ -34,7 +34,7 @@ RESERVED                   = %w(
 		@ ./ ../ .../
 		``` `
 
-
+		for
 		if ef el elif elsif else
 		while ew elswhile elwhile elsewhile
 		unless until

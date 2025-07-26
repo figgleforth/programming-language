@@ -1,6 +1,6 @@
-require './src/shared/constants'
-require './src/shared/helpers'
-require './src/shared/lexeme'
+require './code/shared/constants'
+require './code/shared/helpers'
+require './code/shared/lexeme'
 
 class Lexer
 	attr_accessor :i, :col, :row, :input
@@ -212,8 +212,11 @@ class Lexer
 				elsif identifier? || %w(_).include?(curr)
 					it.value = lex_identifier
 					it.type  = type_of_identifier it.value
+					if %w(for).include?(it.value)
+						it.type = :operator
+					end
 
-				elsif symbol? curr
+				elsif symbol?(curr)
 					it.type  = :operator
 					it.value = if %w(. | & ).include? curr
 						# #todo Is it possible to avoid having to do this?

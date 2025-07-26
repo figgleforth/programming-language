@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './src/shared/helpers'
+require './code/shared/helpers'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers
@@ -715,5 +715,14 @@ class Parser_Test < Minitest::Test
 
 		out = _parse 'count'
 		refute out.first.reference
+	end
+
+	def test_for_loops
+		out = _parse '
+		for []
+		end'
+		assert_empty out.first.body
+		assert_instance_of Circumfix_Expr, out.first.iterable # note, The iterable becomes an Array in the interpreter.
+		assert_equal '[]', out.first.iterable.grouping
 	end
 end
