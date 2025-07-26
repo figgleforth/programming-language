@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/shared/helpers'
+require './code/ruby/shared/helpers'
 
 class Regression_Test < Minitest::Test
 	def test_dot_new_initializer_regression

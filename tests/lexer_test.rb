@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/shared/helpers'
+require './code/ruby/shared/helpers'
 
 class Lexer_Test < Minitest::Test
 	def test_single_linecomment
@@ -364,5 +364,23 @@ class Lexer_Test < Minitest::Test
 	def test_for_keyword
 		out = _lex 'for'
 		assert_equal :operator, out.last.type
+	end
+
+	def test_single_line_code_location
+		out = _lex 'abracadabra'
+		assert_equal 1, out.last.l0
+		assert_equal 1, out.last.l1
+		assert_equal 1, out.last.c0
+		assert_equal 12, out.last.c1
+
+		out = _lex 'abracadabra = whatever'
+		assert_equal 1, out.last.l0
+		assert_equal 1, out.last.l1
+		assert_equal 15, out.last.c0
+		assert_equal 23, out.last.c1
+	end
+
+	def test_multiline_code_location
+		skip "The lexer currently doesn't handle this well, the numbers are off."
 	end
 end

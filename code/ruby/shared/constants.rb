@@ -68,3 +68,10 @@ OPERATOR_PRECEDENCE_ARRAY = [
 	# Loosest binding
 ]
 STARTING_PRECEDENCE       = 0
+DELIMITERS                = %W(, ; { } ( ) [ ] \n \t \r \s).freeze
+NEWLINES                  = %W(\r\n \t \n).freeze
+WHITESPACES               = %W(\t \s).freeze
+NUMERIC_REGEX             = /\A\d+\z/
+ALPHA_REGEX               = /\A\p{Alpha}+\z/
+ALPHANUMERIC_REGEX        = /\A\p{Alnum}+\z/
+SYMBOLIC_REGEX            = /\A[^\p{Alnum}\s]+\z/

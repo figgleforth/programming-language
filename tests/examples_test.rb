@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/shared/helpers'
+require './code/ruby/shared/helpers'
 
 class Examples_Test < Minitest::Test
 	def test_fizz_buzz

@@ -1,5 +1,5 @@
 require 'minitest/test_task'
-require './code/shared/helpers'
+require './code/ruby/shared/helpers'
 require 'pp'
 
 task :default => [:test, :cloc]

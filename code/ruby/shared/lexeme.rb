@@ -1,4 +1,4 @@
-Lexeme = Struct.new('Lexeme', :type, :value, :reserved, :line, :column) do
+Lexeme = Struct.new('Lexeme', :type, :value, :reserved, :l0, :c0, :l1, :c1) do
 	def is compare
 		if compare.is_a? Symbol
 			compare == type

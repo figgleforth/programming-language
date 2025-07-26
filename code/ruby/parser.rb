@@ -1,5 +1,5 @@
-require './code/shared/expressions'
-require './code/shared/constants'
+require './code/ruby/shared/expressions'
+require './code/ruby/shared/constants'
 
 class Parser
 	attr_accessor :i, :input
@@ -143,7 +143,7 @@ class Parser
 		# for ident in expr by integer
 		#
 
-		it.iterable = parse_without_modify # todo, Assert iterable is composed with Iterable, or has the same shape as Iterable.
+		it.iterable = begin_expression # todo, Assert iterable is composed with Iterable, or has the same shape as Iterable.
 		reduce_newlines
 
 		it.body = []
@@ -288,28 +288,28 @@ class Parser
 		#
 
 		valid_idents = %I(Identifier IDENTIFIER)
-		Type_Expr.new.tap do |decl|
-			decl.name = eat.value
+		it           = Type_Expr.new
+		it.name      = eat.value
 
-			until curr? '{'
-				if curr?(TYPE_COMPOSITION_OPERATORS, valid_idents)
-					decl.expressions << Composition_Expr.new.tap do
-						it.operator = eat(:operator).value
-						it.name     = eat
-					end
+		until curr? '{'
+			if curr?(TYPE_COMPOSITION_OPERATORS, valid_idents)
+				it.expressions << Composition_Expr.new.tap do |expr|
+					expr.operator = eat(:operator).value
+					expr.name     = eat
 				end
 			end
-
-			eat '{'
-
-			until curr? '}'
-				decl.expressions << parse_expression
-			end
-
-			decl.expressions = decl.expressions.compact
-
-			eat '}'
 		end
+
+		eat '{'
+
+		until curr? '}'
+			it.expressions << parse_expression
+		end
+
+		it.expressions = it.expressions.compact
+
+		eat '}'
+		it
 	end
 
 	def parse_composition_expr
@@ -374,8 +374,9 @@ class Parser
 		expr
 	end
 
-	def parse_without_modify precedence = STARTING_PRECEDENCE
+	def begin_expression precedence = STARTING_PRECEDENCE
 		raise "Parser#parse_expression called but there are no lexemes remaining. #{remainder.inspect}" unless lexemes?
+
 		if curr? ANY_IDENTIFIER, ';'
 			parse_nil_init_postfix_expr
 
@@ -419,7 +420,10 @@ class Parser
 			reduce_newlines
 
 		elsif curr? :comment
-			eat and nil
+			token        = eat
+			comment      = Comment_Expr.new token.value
+			comment.type = token.type
+			comment
 
 		else
 			raise "Unhandled lexeme: #{curr_lexeme.inspect}"
@@ -427,12 +431,20 @@ class Parser
 	end
 
 	def parse_expression precedence = STARTING_PRECEDENCE
-		expression = parse_without_modify precedence
-		# 7/20/25, Unforunately, some other code depends on this being coupled with #modify_expression. That's okay for now, but lesson learned.
-		modify_expression expression, precedence
+		# 7/20/25, Unforunately, some other code depends on this being coupled with #complete_expression. That's okay for now, but lesson learned.
+		#
+		# 7/26/25, It's decoupled now but still kind of ugly. This is fine though, because it will allow me to handle any partial expressions. An example of a partial expression would be the code prior to an inline conditional:
+		#
+		#   /————\           <~ partial expression
+		#   <code> if true
+		#   \————————————/   <~ complete expression
+		#
+
+		expression = begin_expression precedence
+		complete_expression expression, precedence
 	end
 
-	def modify_expression expr, precedence = STARTING_PRECEDENCE
+	def complete_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
 
 		if curr_lexeme.is(',')
@@ -447,7 +459,7 @@ class Parser
 			expr            = Prefix_Expr.new
 			expr.operator   = scope_prefix
 			expr.expression = parse_expression
-			return modify_expression expr, precedence
+			return complete_expression expr, precedence
 		end
 
 		prefix    = PREFIX.include? expr.value
@@ -465,20 +477,20 @@ class Parser
 				raise "Prefix_Expr expected an expression after `#{expr.operator}`"
 			end
 
-			return modify_expression expr, precedence
+			return complete_expression expr, precedence
 		elsif infix
 			if COMPOUND_OPERATORS.include? curr_lexeme.value
 				it          = Infix_Expr.new
 				it.left     = expr
 				it.operator = eat.value
 				it.right    = parse_expression precedence_for it.operator
-				return modify_expression it, precedence
+				return complete_expression it, precedence
 			elsif RANGE_OPERATORS.include? curr_lexeme.value
 				it          = Infix_Expr.new
 				it.left     = expr
 				it.operator = eat.value
 				it.right    = parse_number_expr
-				return modify_expression it, precedence
+				return complete_expression it, precedence
 			else
 				while INFIX.include?(curr_lexeme.value) && curr?(:operator)
 					# It's very important that the curr?(:operator) check here remains because otherwise it breaks Call_Expr when the receiver is an Infix_Expr.
@@ -496,14 +508,14 @@ class Parser
 					expr.right    = parse_expression curr_operator_prec
 
 					if expr.left.is(Identifier_Expr) && expr.operator == '.' && expr.right.is(Number_Expr) && expr.right.type == :float
+						# Copypaste from above #parse_expression when :number.
 						number                  = Array_Index_Expr.new expr.right.value.to_s
 						number.indices_in_order = number.value.split '.'
 						number.indices_in_order = number.indices_in_order.map &:to_i
 						expr.right              = number
-						# Copypaste from above #parse_expression when :number.
 					end
 
-					return modify_expression expr, precedence
+					return complete_expression expr, precedence
 				end
 			end
 
@@ -522,13 +534,13 @@ class Parser
 			expr           = Call_Expr.new
 			expr.receiver  = receiver
 			expr.arguments = fix.expressions
-			return modify_expression expr, precedence
+			return complete_expression expr, precedence
 		elsif subscript
 			it            = Subscript_Expr.new
 			it.receiver   = expr
 			it.expression = parse_circumfix_expr opening: curr_lexeme.value
 			it
-			return modify_expression it, precedence
+			return complete_expression it, precedence
 		end
 
 		if curr?(%w(if while unless until))
@@ -545,7 +557,7 @@ class Parser
 			else
 				it.when_true = [expr]
 			end
-			return modify_expression it, precedence
+			return complete_expression it, precedence
 		end
 
 		expr

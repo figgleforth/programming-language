@@ -1,7 +1,7 @@
-require './code/shared/constants'
+require './code/ruby/shared/constants'
 
 class Expression
-	attr_accessor :value, :type, :start_location, :end_location
+	attr_accessor :value, :type
 
 	def initialize value = nil
 		@value = value if value
@@ -177,4 +177,7 @@ end
 
 class For_Loop_Expr < Expression
 	attr_accessor :iterable, :custom_identifier, :stride, :body
+end
+
+class Comment_Expr < Expression
 end

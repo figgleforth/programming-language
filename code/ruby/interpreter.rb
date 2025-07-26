@@ -1,8 +1,8 @@
-require './code/shared/constructs'
-require './code/shared/expressions'
-require './code/shared/constants'
-require './code/shared/errors'
-require './code/shared/helpers'
+require './code/ruby/shared/constructs'
+require './code/ruby/shared/expressions'
+require './code/ruby/shared/constants'
+require './code/ruby/shared/errors'
+require './code/ruby/shared/helpers'
 
 class Interpreter
 	attr_accessor :i, :input, :stack
@@ -616,6 +616,7 @@ class Interpreter
 		when Array_Index_Expr
 			expr.indices_in_order
 
+		when Comment_Expr
 		else
 			raise "Interpreter#interpret `when #{expr.inspect}` not implemented."
 		end

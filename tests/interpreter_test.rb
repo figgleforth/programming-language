@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/shared/helpers'
+require './code/ruby/shared/helpers'
 
 class Interpreter_Test < Minitest::Test
 	def test_preload_dot_e

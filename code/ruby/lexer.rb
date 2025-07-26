@@ -1,27 +1,27 @@
-require './code/shared/constants'
-require './code/shared/helpers'
-require './code/shared/lexeme'
+require './code/ruby/shared/constants'
+require './code/ruby/shared/helpers'
+require './code/ruby/shared/lexeme'
 
 class Lexer
-	attr_accessor :i, :col, :row, :input
+	attr_accessor :i, :col, :line, :input
 
 	def initialize input = 'greeting = "hello world"'
 		@i     = 0 # index of current char in input string
 		@col   = 1 # short for column
-		@row   = 1 # short for line
+		@line  = 1 # short for line
 		@input = input
 	end
 
 	def whitespace? char = curr
-		char == "\t" || char == "\s"
+		WHITESPACES.include? char
 	end
 
 	def newline? char = curr
-		%W(\r\n \t \n).include? char
+		NEWLINES.include? char
 	end
 
 	def delimiter? char = curr
-		%W(, ; { } ( ) [ ] \n \t \r \s).include? char
+		DELIMITERS.include? char
 	end
 
 	def identifier? char = curr
@@ -29,19 +29,19 @@ class Lexer
 	end
 
 	def numeric? char = curr
-		char&.match? /\A\d+\z/
+		char&.match? NUMERIC_REGEX
 	end
 
 	def alpha? char = curr
-		char&.match? /\A\p{Alpha}+\z/
+		char&.match? ALPHA_REGEX
 	end
 
 	def alphanumeric? char = curr
-		char&.match? /\A\p{Alnum}+\z/
+		char&.match? ALPHANUMERIC_REGEX
 	end
 
 	def symbol? char = curr
-		char&.match? /\A[^\p{Alnum}\s]+\z/
+		char&.match? SYMBOLIC_REGEX
 	end
 
 	def chars?
@@ -66,15 +66,17 @@ class Lexer
 			raise "#eat expected #{expected.inspect} not #{curr.inspect}"
 		end
 
+		eaten = curr
+		@i    += 1
+
 		if newline? curr
-			@row += 1
-			@col = 1
+			@line += 1
+			@col  = 1
 		else
 			@col += 1
 		end
-		@i += 1
 
-		prev
+		eaten
 	end
 
 	def lex_many length = 1, expected_chars = nil
@@ -153,29 +155,29 @@ class Lexer
 	end
 
 	def lex_operator
-		oper = String.new
+		it = String.new
 		while chars? && symbol?
-			oper << eat
+			it << eat
 		end
 
-		oper
+		it
 	end
 
 	def lex_identifier
-		ident = String.new
-		ident << eat while curr == '_'
+		it = String.new
+		it << eat while curr == '_'
 		can_end_with = %w(! ?)
 
 		while chars? && (identifier? || numeric?)
-			ident << eat
+			it << eat
 			break if newline? || whitespace? || curr == '#'
 			if can_end_with.include? curr
-				ident << eat
+				it << eat
 				break
 			end
 		end
 
-		ident
+		it
 	end
 
 	def output
@@ -186,8 +188,8 @@ class Lexer
 			multiline = peek(0, COMMENT_MULTILINE_CHAR.length) == COMMENT_MULTILINE_CHAR
 
 			token = Lexeme.new.tap do
-				it.column = col
-				it.line   = row
+				it.l0 = line
+				it.c0 = col
 
 				if single || multiline
 					it.type  = :comment
@@ -262,6 +264,9 @@ class Lexer
 			end
 
 			next if whitespace?(token.value) && token.type != :string
+
+			token.l1 = line
+			token.c1 = col
 
 			token.reserved = RESERVED.include? token.value
 			tokens << token
