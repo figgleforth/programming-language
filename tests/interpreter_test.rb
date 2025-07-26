@@ -741,4 +741,41 @@ class Interpreter_Test < Minitest::Test
 		(x, y, z)'
 		assert_equal [4, -8, 1516], out.values
 	end
+
+	def test_control_flows_as_expressions
+		out = _interp '
+		condition = false
+		x = unless condition `Equivalent to "if !condition"
+			4
+		else
+			-4
+		end
+		'
+		assert_equal 4, out
+	end
+
+	def test_if_and_unless_control_flows
+		out = _interp '
+		a = if true
+			4
+		end
+
+		b = if false
+			8
+		end
+
+		c = unless true
+			15
+		end
+
+		d = if not true
+			23
+		else
+			16
+		end
+
+		(a, b, c, d)
+		'
+		assert_equal [4, nil, nil, 16], out.values
+	end
 end

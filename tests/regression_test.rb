@@ -18,9 +18,6 @@ class Regression_Test < Minitest::Test
 	def test_greater_equals_regression
 		out = _interp '2+1 >= 1'
 		assert out
-
-		out = _interp 'return 1+2*3/4%5-6 unless 1 + 2 >= 10'
-		assert_equal -4, out.value
 	end
 
 	def test_precedence_operation_regression

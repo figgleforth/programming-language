@@ -55,6 +55,9 @@ class Type < Scope
 end
 
 class Instance < Type
+	def initialize name
+		super (name || 'Instance')
+	end
 end
 
 class Return < Scope
@@ -70,7 +73,6 @@ class Emerald::Array < Instance
 	attr_accessor :values
 
 	def initialize values = []
-		super 'Emerald::Array'
 		@values = values
 	end
 
@@ -80,6 +82,12 @@ class Emerald::Array < Instance
 
 	def []= index, value
 		values[index] = value
+	end
+end
+
+class Tuple < Emerald::Array
+	def initialize values = []
+		@values = values
 	end
 end
 
@@ -139,9 +147,6 @@ class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value
 	def initialize
 		super 'nil'
 	end
-end
-
-class Tuple < Emerald::Array
 end
 
 class Left_Exclusive_Range < Range

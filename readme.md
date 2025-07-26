@@ -19,7 +19,7 @@ A for-fun programming language with mechanics I like.
   - [Prerequisites](#prerequisites)
   - [Running Tests](#running-tests)
   - [Running Your Own Programs](#running-your-own-programs)
-- [Todos](./docs/todo.txt)
+- [Todos](todo.txt)
 - [License](#license)
 ---
 

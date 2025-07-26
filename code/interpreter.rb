@@ -529,6 +529,24 @@ class Interpreter
 			end
 
 			return result
+		when 'unless'
+			# @Copypaste from the else clause below.
+			# The behavior of truthiness is not yet finalized.
+			condition = interpret expr.condition
+			body      = if condition == false || condition.nil?
+				expr.when_true
+			else
+				expr.when_false
+			end
+
+			if body.is_a? Conditional_Expr
+				interp_conditional body
+			else
+				body.each.inject(nil) do |result, expr|
+					interpret expr
+				end
+			end
+
 		else
 			condition = interpret expr.condition
 			body      = if condition == true
