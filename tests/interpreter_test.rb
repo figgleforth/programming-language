@@ -742,6 +742,30 @@ class Interpreter_Test < Minitest::Test
 		assert_equal [4, -8, 1516], out.values
 	end
 
+	def test_until_loops
+		out = _interp '
+		x = 1
+		until x >= 23
+			x += 2
+		end
+		'
+		assert_equal 23, out
+	end
+
+	def test_fancy_until_loops
+		out = _interp '
+		x = 1
+		y = 0
+		until x >= 23
+			x += 2
+		else
+			y = x
+		end
+		(x, y)
+		'
+		assert_equal [23, 23], out.values
+	end
+
 	def test_control_flows_as_expressions
 		out = _interp '
 		condition = false
