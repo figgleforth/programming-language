@@ -1,8 +1,8 @@
-require './src/shared/constructs'
-require './src/shared/expressions'
-require './src/shared/constants'
-require './src/shared/errors'
-require './src/shared/helpers'
+require './code/shared/constructs'
+require './code/shared/expressions'
+require './code/shared/constants'
+require './code/shared/errors'
+require './code/shared/helpers'
 
 class Interpreter
 	attr_accessor :i, :input, :stack

@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './src/shared/helpers'
+require './code/shared/helpers'
 
 class Lexer_Test < Minitest::Test
 	def test_single_linecomment
@@ -279,7 +279,7 @@ class Lexer_Test < Minitest::Test
 			stop
 		end'
 		assert_equal [
-			             :identifier, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
+			             :operator, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
 			             :identifier, :identifier, :identifier, :identifier, :delimiter, :delimiter, :operator, :number, :delimiter,
 			             :identifier, :delimiter,
 			             :identifier, :delimiter,
@@ -359,5 +359,10 @@ class Lexer_Test < Minitest::Test
 		assert_equal '^', out.first.value
 		assert_equal :identifier, out.last.type
 		assert_equal 'reference', out.last.value
+	end
+
+	def test_for_keyword
+		out = _lex 'for'
+		assert_equal :operator, out.last.type
 	end
 end

@@ -1,20 +1,20 @@
 require 'minitest/autorun'
-require './src/shared/helpers'
+require './code/shared/helpers'
 
 class Examples_Test < Minitest::Test
 	def test_fizz_buzz
 		out = _interp "
 		fizz_buzz { n;
-            if n % 3 == 0 and n % 5 == 0
-                'FizzBuzz'
-            elif n % 3 == 0
-                'Fizz'
-            elif n % 5 == 0
-                'Buzz'
-            else
-                '|n|'
-            end
-        }
+			if n % 3 == 0 and n % 5 == 0
+				'FizzBuzz'
+			elif n % 3 == 0
+				'Fizz'
+			elif n % 5 == 0
+				'Buzz'
+			else
+				'|n|'
+			end
+		}
 
 		three = []
 		1..3.each {;

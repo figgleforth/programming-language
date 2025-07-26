@@ -1,3 +1,5 @@
+A helper function to compare Types against Instances/Types to check composition or whether the Instance/Type is at least the same "shape" as another Type, "shape" meaning that it has the same members declared.
+
 Infix | between Type_Exprs must be specially handled. :composition_infix
 
 Interpreter#interp_infix is getting messy. I need to factor out some of the cases. :factor_dot_calls
@@ -66,3 +68,6 @@ Initialize value-less declarations based on their type rather than just Nil.new.
 You can use any Type identifier when declaring a type and it won't crash, even when the identifier is made up. That might seem like a bug, and it is. But what if it only crashes when you actually assign? `some: Thing` will just set {some: nil} in the scope. So it could remain a placeholder until assignment.
 
 Add namespaces to each error to make it easier to identify, like Interpreter::Whatever_Error. Interpreter requires this file and done.
+
+A "oneshot" mechanic that lets functions delete themselves after executing once or via keyword.
+A mechanic that lets functions convert themselves to instance variables after executing or via keyword.

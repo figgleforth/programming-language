@@ -1,4 +1,4 @@
-require './src/shared/constants'
+require './code/shared/constants'
 
 class Expression
 	attr_accessor :value, :type, :start_location, :end_location
@@ -173,4 +173,8 @@ end
 
 class Array_Index_Expr < Expression
 	attr_accessor :indices_in_order
+end
+
+class For_Loop_Expr < Expression
+	attr_accessor :iterable, :custom_identifier, :stride, :body
 end

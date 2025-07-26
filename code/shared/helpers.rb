@@ -1,8 +1,8 @@
-require './src/shared/constants'
-require './src/shared/constructs'
-require './src/interpreter'
-require './src/lexer'
-require './src/parser'
+require './code/shared/constants'
+require './code/shared/constructs'
+require './code/interpreter'
+require './code/lexer'
+require './code/parser'
 
 def _interp code
 	expressions  = _parse code

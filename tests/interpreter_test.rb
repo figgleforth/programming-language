@@ -1,10 +1,10 @@
 require 'minitest/autorun'
-require './src/shared/helpers'
+require './code/shared/helpers'
 
 class Interpreter_Test < Minitest::Test
 	def test_preload_dot_e
 		refute_raises RuntimeError do
-			_interp_file './src/emerald/preload.e'
+			_interp_file './code/emerald/preload.e'
 		end
 	end
 
