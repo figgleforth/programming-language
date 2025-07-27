@@ -21,3 +21,11 @@ task :interp, [:file] do |_, args|
 
 	pp _interp_file args[:file]
 end
+
+task :eval, [:source_string] do |_, args|
+	if args[:source_string].nil? || args[:source_string].empty?
+		raise ArgumentError, "rake eval expected file arguments `bundle exec rake eval[source_string]`"
+	end
+
+	pp _interp args[:source_string]
+end
