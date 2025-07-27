@@ -144,6 +144,12 @@ class Func < Scope
 end
 
 class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value.
+	def self.shared
+		@instance ||= new
+	end
+
+	private_class_method :new # prevent external instantiation
+
 	def initialize
 		super 'nil'
 	end

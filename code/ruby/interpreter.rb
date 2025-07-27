@@ -18,12 +18,12 @@ class Interpreter
 		end
 	end
 
-	def declare identifier, value = Nil.new, scope = stack.last # :nil_me
+	def declare identifier, value = Nil.shared, scope = stack.last
 		scope[identifier] = value
 	end
 
 	def interp_identifier expr
-		return Nil.new if expr.value == 'nil' # :nil_me
+		return Nil.shared if expr.value == 'nil'
 		return true if expr.value == 'true'
 		return false if expr.value == 'false'
 
@@ -291,7 +291,7 @@ class Interpreter
 	def interp_postfix expr
 		case expr.operator
 		when ';'
-			declare expr.expression.value, Nil.new # :nil_me
+			declare expr.expression.value, Nil.shared
 		else
 			raise Unhandled_Postfix, expr.inspect
 		end
@@ -322,7 +322,7 @@ class Interpreter
 		when '{}'
 			expr.expressions.reduce({}) do |dict, it|
 				if it.is_a? Identifier_Expr
-					dict[it.value.to_sym] = Nil.new # :nil_me
+					dict[it.value.to_sym] = Nil.shared
 				elsif it.is_a? Infix_Expr
 					case it.operator
 					when ':', '='
@@ -383,7 +383,7 @@ class Interpreter
 	end
 
 	def interp_func_call func, expr
-		result = Nil.new # :nil_me
+		result = Nil.shared
 
 		call_scope                 = Scope.new "#{func.name}()"
 		call_scope.enclosing_scope = func.enclosing_scope
@@ -400,7 +400,7 @@ class Interpreter
 			elsif param.expression
 				interpret param.expression
 			else
-				Nil.new # todo, I want only one instance of Nil that's returned wherever nil is needed. :nil_me
+				Nil.shared
 			end
 
 			declare param.name, value, call_scope

@@ -802,4 +802,11 @@ class Interpreter_Test < Minitest::Test
 		'
 		assert_equal [4, nil, nil, 16], out.values
 	end
+
+	def test_nil_instances_are_shared
+		out = _interp 'equal = x; == y;
+		(x, y, equal)'
+		assert_equal out.values[0].object_id, out.values[1].object_id
+		assert_equal true, out.values[2]
+	end
 end
