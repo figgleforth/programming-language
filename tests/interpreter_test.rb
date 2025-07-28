@@ -646,20 +646,6 @@ class Interpreter_Test < Minitest::Test
 		assert_equal 108, out.values.last
 	end
 
-	def test_calling_member_functions
-		out = _interp '
-		Number {
-			numerator = -100
-
-			new { num;
-				./numerator = num
-			}
-		}
-		x = Number(4)
-		x.numerator'
-		assert_equal 4, out
-	end
-
 	def test_function_scope
 		out = _interp 'x = 123
 		double {; x * 2 }

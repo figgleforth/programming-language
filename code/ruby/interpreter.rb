@@ -394,6 +394,10 @@ class Interpreter
 			expr.is_a? Param_Expr
 		end
 
+		if expr.arguments.count > params.count
+			raise "Arguments given, no params declared.", expr.inspect
+		end
+
 		params.zip(expr.arguments).each do |param, arg|
 			value = if arg
 				interpret arg
