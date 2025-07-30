@@ -138,7 +138,7 @@ bundle exec rake test
 #### Running Your Own Programs
 
 ```shell script
-bundle exec rake interp[./your_program.e]
+bundle exec rake interp[./your_program.em]
 ```
 
 #### Explore The Code
