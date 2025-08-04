@@ -222,10 +222,10 @@ class Parser
 		func = Func_Expr.new
 
 		if curr? :identifier
-			func.name = eat(:identifier).value
+			func.name = eat(:identifier)
 
 			if curr? ':' and eat ':'
-				func.type = eat(:Identifier).value
+				func.type = eat(:Identifier)
 			end
 		end
 
@@ -243,7 +243,7 @@ class Parser
 			end
 
 			if curr? ':' and eat ':'
-				param.type = eat(:Identifier).value
+				param.type = eat(:Identifier)
 			end
 
 			if curr? '=' and eat '='
@@ -252,7 +252,7 @@ class Parser
 
 			if param.default.is_a?(Postfix_Expr) && param.default.operator == ';'
 				param.default = param.default.expression
-				func.expressions << param.default.expression
+				func.expressions << param
 				break
 			end
 
@@ -289,13 +289,13 @@ class Parser
 
 		valid_idents = %I(Identifier IDENTIFIER)
 		it           = Type_Expr.new
-		it.name      = eat.value
+		it.name      = eat
 
 		until curr? '{'
 			if curr?(TYPE_COMPOSITION_OPERATORS, valid_idents)
 				it.expressions << Composition_Expr.new.tap do |expr|
-					expr.operator = eat(:operator).value
-					expr.name     = eat
+					expr.operator   = eat(:operator).value
+					expr.identifier = parse_identifier_expr
 				end
 			end
 		end
@@ -313,9 +313,11 @@ class Parser
 	end
 
 	def parse_composition_expr
-		expr          = Composition_Expr.new
-		expr.operator = eat(:operator).value
-		expr.name     = eat(:Identifier)
+		expr = Composition_Expr.new
+
+		# You might notice that whenever I eat(:identifier), I don't extract just the value because I want to store the Token. But in the case of an operator, the string is probably fine?
+		expr.operator   = eat(:operator).value
+		expr.identifier = parse_identifier_expr
 		expr
 	end
 
@@ -324,6 +326,8 @@ class Parser
 		if curr? REFERENCE_PREFIX
 			expr.reference = true
 			eat REFERENCE_PREFIX
+		elsif curr? SCOPE_OPERATORS
+			expr.scope_operator = parse_manual_scope
 		end
 
 		expr.value = eat.value
@@ -332,11 +336,48 @@ class Parser
 
 		if curr?(':', :Identifier)
 			eat ':'
-			expr.type = eat(:Identifier).value
+			expr.type = eat(:Identifier)
 		end
 
 		expr.kind = type_of_identifier expr.value
 		expr
+	end
+
+	#   Manual scoping notes.
+	#   Expected tokens: [<one or chain of SCOPE_OPERATORS>, <one of ANY_IDENTIFIER>]
+	#   ——————————————————————————————————————————
+	#   ./year      ../MODE     .../whatever(4, 8)
+	#   ./Atom      ../name     .../whatever + 15
+	#   ./VERSION   ../String   .../Array(16, 23)
+	#   —————————————————————————————————————————
+	#
+	#   ✅   ./            current instance's scope
+	#   ✅   ../           relative scope, chainable
+	#   ✅   .../          global scope, aka bottom of the stack
+	#
+	#   ✅   ../../        begins the chain at whatever scope is on on top of the stack
+	#   ✅   ./../../      begins the chain at the current instance
+	#
+	#   ❌   .../../../      cannot start with .../
+	#   ❌   ../../.../      cannot end with .../
+	#   ❌   ../.././        cannot end with ./
+	#
+	def parse_manual_scope
+		scope = eat.value
+
+		if scope == '../'
+			# It would be interesting to climb the stack like "../../../thing.whatever", especially if debugging.
+			while curr? '../'
+				scope += eat('../').value
+			end
+		end
+
+		if curr?(SCOPE_OPERATORS) || !curr?(ANY_IDENTIFIER)
+			# There should not be any more scope operators at this point. We've implicitly handled ./ and .../, and explicitly handled chains of ../ so it's either malformed or something
+			raise Malformed_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
+		end
+
+		scope
 	end
 
 	def parse_symbol_expr
@@ -397,7 +438,7 @@ class Parser
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
-		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier)
+		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier) || curr?(SCOPE_OPERATORS)
 			parse_identifier_expr
 
 		elsif curr? %w( [ \( { |)
@@ -456,10 +497,12 @@ class Parser
 		end
 
 		if scope_prefix
-			expr            = Prefix_Expr.new
-			expr.operator   = scope_prefix
-			expr.expression = parse_expression
-			return complete_expression expr, precedence
+			next_expr = begin_expression
+			if next_expr.is_a? Infix_Expr
+				expr            = Prefix_Expr.new
+				expr.operator   = scope_prefix
+				expr.expression = next_expr
+			end
 		end
 
 		prefix    = PREFIX.include? expr.value

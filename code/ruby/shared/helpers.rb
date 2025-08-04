@@ -21,6 +21,10 @@ def _lex code
 	@lexer.output
 end
 
+def _lex_file file_path
+	_lex File.read file_path
+end
+
 def _interp_file file_path
 	_interp File.read file_path
 end
@@ -35,8 +39,8 @@ rescue *exceptions => e
 	flunk "Expected no exception, but got #{e.class}: #{e.message}"
 end
 
-def assert condition
-	raise "Expected condition to be truthy." unless condition
+def _assert condition, message = "Expected condition to be truthy."
+	raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
 end
 
 def constant_identifier? ident

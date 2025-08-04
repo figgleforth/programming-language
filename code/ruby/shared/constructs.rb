@@ -1,8 +1,11 @@
+require './code/ruby/shared/helpers.rb'
+
 module Emerald
 end
 
 class Scope
 	attr_accessor :enclosing_scope
+	attr_reader :name, :data
 
 	def initialize name, data = {}
 		@name = name
@@ -10,31 +13,24 @@ class Scope
 	end
 
 	def [] key
-		@data[key&.to_s] || @data[key&.to_sym] || enclosing_scope&.[](key)
+		@data[key&.to_s]
 	end
 
 	def []= key, value
-		@data[key] = value
+		@data[key.to_s] = value
 	end
 
-	def is desired_name
-		@name == desired_name
+	def is compare
+		@name == compare
 	end
 
 	def has? identifier
-		@data.include?(identifier.to_s) || @data.include?(identifier.to_sym) || enclosing_scope&.has?(identifier)
+		@data.key?(identifier.to_s)
 	end
 
+	# Unused, I think
 	def dig * identifiers
 		@data.dig *identifiers
-	end
-
-	def name
-		@name
-	end
-
-	def data
-		@data
 	end
 
 	def data= new_data
@@ -43,11 +39,18 @@ class Scope
 
 	def delete key
 		return nil unless key
-		@data.delete(key.to_s) || @data.delete(key.to_sym)
+		@data.delete(key.to_s)
+	end
+
+	def declarations
+		@data.values
 	end
 end
 
 class Global < Scope
+	def initialize
+		super self.class.name
+	end
 end
 
 class Type < Scope
@@ -152,6 +155,29 @@ class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value
 
 	def initialize
 		super 'nil'
+	end
+end
+
+class Bool < Scope
+	attr_accessor :truthiness
+
+	def !
+		!@truthiness
+	end
+
+	def self.truthy
+		@truthy ||= new(true)
+	end
+
+	def self.falsy
+		@falsy ||= new(false)
+	end
+
+	private_class_method :new # prevent external instantiation
+
+	def initialize truthiness
+		super (!!truthiness).to_s.capitalize # Scope class only needs @name
+		@truthiness = !!truthiness
 	end
 end
 

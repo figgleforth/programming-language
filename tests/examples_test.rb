@@ -69,19 +69,19 @@ class Examples_Test < Minitest::Test
 		assert_equal [0, 1, 1, 2, 3, 5], out.values
 	end
 
-	# def test_finding_max_value_in_array
-	#   skip "This requires closures to exist."
-	# 	out = _interp '
-	# 	max? { list;
-	# 		max = -100
-	# 	    list.each {;
-	# 			if it > max
-	# 				max = it
-	# 			end
-	# 		}
-	# 	    max
-	# 	}
-	# 	max?([1,2,3,4,5])'
-	# 	assert_equal 5, out
-	# end
+	def test_finding_max_value_in_array
+		skip "This requires closures to exist and work properly."
+		out = _interp '
+		max? { list;
+			max = -100
+		    list.each {;
+				if it > max
+					max = it
+				end
+			}
+		    max
+		}
+		max?([1,2,3,4,5])'
+		assert_equal 5, out
+	end
 end

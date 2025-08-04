@@ -3,7 +3,7 @@ REFERENCE_PREFIX       = '^' # I'm not sold on this yet, tbd.
 INTERPOLATE_CHAR       = '|'
 COMMENT_CHAR           = '`'
 COMMENT_MULTILINE_CHAR = '```'
-PREFIX                 = %w(! - + ~ $ # ? & ^ ./ ../ .../ not return).sort_by &SORT_BY_LENGTH_DESC
+PREFIX                 = %w(! - + ~ $ # ? & ^ not return).sort_by &SORT_BY_LENGTH_DESC
 INFIX                  = %w(
 		+ - ^ * ** / % ~ == === ? . .?
 		= : ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=
@@ -44,6 +44,7 @@ RESERVED                   = %w(
 TYPE_COMPOSITION_OPERATORS = %w(| & - ^)
 ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
 GSCOPE                     = :global
+SCOPE_OPERATORS            = %w(./ ../ .../).sort_by &SORT_BY_LENGTH_DESC
 
 OPERATOR_PRECEDENCE_ARRAY = [
 	# Tightest binding
