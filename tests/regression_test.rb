@@ -161,7 +161,6 @@ class Regression_Test < Minitest::Test
 		assert_equal "Small-box", out.values[3]
 	end
 
-	# bug, Putting a ; after an infix = expression loops forever.
 	def test_identifier_lookup_regression
 		out = _interp "./x = 123, ./x"
 		assert_equal 123, out
@@ -184,7 +183,7 @@ class Regression_Test < Minitest::Test
 
 		out = _interp "y = 0
 		add { amount_to_add = 1;
-			./y += amount_to_add
+			y += amount_to_add
 		}
 		a = add(4)
 
@@ -214,7 +213,7 @@ class Regression_Test < Minitest::Test
 			out = _interp %Q(
 			Thing {
 				id;
-				name = "Thingy"
+				name = "Thingy";
 
 				new { new_name, id;
 					./name = new_name
@@ -222,7 +221,7 @@ class Regression_Test < Minitest::Test
 				}
 			}
 
-			t = Thing()
+			t = Thing() `This will raise
 			(t.id, t.name)
 			)
 			assert_equal [456, "Thingus"], out.values
@@ -233,7 +232,8 @@ class Regression_Test < Minitest::Test
 	        funk { it;
 				it == true
 			}
-			funk())
+			funk() `This will raise
+			)
 		end
 
 		refute_raises Undeclared_Identifier do

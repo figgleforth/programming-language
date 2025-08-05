@@ -47,7 +47,7 @@ class Func_Expr < Expression
 	end
 
 	def signature
-		sig         = name.value || ''
+		sig         = name&.value || ''
 		sig         += '{'
 		param_decls = expressions.select do |expr|
 			expr.is_a? Param_Expr

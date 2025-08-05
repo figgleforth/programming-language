@@ -457,6 +457,9 @@ class Parser
 		elsif curr? :string
 			String_Expr.new eat(:string).value
 
+		elsif curr? ';'
+			eat ';' and nil
+			
 		elsif curr? :delimiter
 			reduce_newlines
 

@@ -476,22 +476,13 @@ class Interpreter
 			elsif arg && !param
 				raise "Arg #{arg.inspect} given where none was expected."
 			elsif !arg && param
-				if param.expression
-					case param.expression
-					when true
-						true
-					when false
-						false
-					when nil
-						nil
-					else
-						interpret param.expression
-					end
+				if param.default
+					interpret param.default
 				else
 					raise Missing_Argument, param.inspect
 				end
 			else
-				raise "This should never happen lol"
+				raise "This should never happen."
 			end
 
 			declare param.name, value

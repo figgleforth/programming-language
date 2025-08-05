@@ -1,6 +1,6 @@
 ### Emerald Programming Language
 
-This is a for-fun programming language with mechanics I like. Some could be silly and some could be serious, or example:
+This is a for-fun programming language with mechanics I like. Some could be silly and some could be serious, for example:
 
 - While loops with elwhile clauses
 - Access nested arrays with dot-syntax `array.1.0.8`
