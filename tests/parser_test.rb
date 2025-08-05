@@ -184,12 +184,12 @@ class Parser_Test < Minitest::Test
 		assert_equal 1, out.count
 
 		out = _parse 'time: Float'
-		assert_equal 'Float', out.first.type
+		assert_equal 'Float', out.first.type.value
 
 		out = _parse 'num: Int = 1 + 2'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.right
-		assert_equal 'Int', out.first.left.type
+		assert_equal 'Int', out.first.left.type.value
 	end
 
 	def test_more_fixities
@@ -280,16 +280,16 @@ class Parser_Test < Minitest::Test
 
 	def test_scope_operators
 		out = _parse './this_instance'
-		assert_kind_of Prefix_Expr, out.first
-		assert_equal 1, out.count
+		assert_kind_of Identifier_Expr, out.first
+		assert_equal './', out.first.scope_operator
 
 		out = _parse '../global_scope'
-		assert_kind_of Prefix_Expr, out.first
-		assert_equal 1, out.count
+		assert_kind_of Identifier_Expr, out.first
+		assert_equal '../', out.first.scope_operator
 
 		out = _parse '.../third_party'
-		assert_kind_of Prefix_Expr, out.first
-		assert_equal 1, out.count
+		assert_kind_of Identifier_Expr, out.first
+		assert_equal '.../', out.first.scope_operator
 	end
 
 	def test_functions
@@ -304,7 +304,7 @@ class Parser_Test < Minitest::Test
 		refute out.first.name
 
 		out = _parse 'named_function {;}'
-		assert_equal 'named_function', out.first.name
+		assert_equal 'named_function', out.first.name.value
 	end
 
 	def test_function_params
@@ -315,7 +315,7 @@ class Parser_Test < Minitest::Test
 		end
 
 		out = _parse 'named { with_param; }'
-		assert_equal 'named', out.first.name
+		assert_equal 'named', out.first.name.value
 		assert_equal 1, out.first.expressions.count
 		out.first.expressions.each do
 			assert_kind_of Param_Expr, it
@@ -340,7 +340,7 @@ class Parser_Test < Minitest::Test
 		assert_kind_of Param_Expr, out.first.expressions.first
 		assert_equal 'and_labeled', out.first.expressions.first.label
 		assert_equal 'with_default', out.first.expressions.first.name
-		assert_equal 'named', out.first.name
+		assert_equal 'named', out.first.name.value
 
 		out = _parse 'named { with, multiple, even labeled = 4, params = 5; }'
 		assert_equal 4, out.first.expressions.count
@@ -393,7 +393,7 @@ class Parser_Test < Minitest::Test
 			}
 		}'
 		assert_kind_of Func_Expr, out.first
-		assert_equal 'curr?', out.first.name
+		assert_equal 'curr?', out.first.name.value
 		assert_equal 4, out.first.expressions.count
 
 		early_return = out.first.expressions[1]
@@ -447,7 +447,7 @@ class Parser_Test < Minitest::Test
 	def test_types
 		out = _parse 'String {}'
 		assert_kind_of Type_Expr, out.first
-		assert_equal 'String', out.first.name
+		assert_equal 'String', out.first.name.value
 
 		out = _parse 'Transform {
 			position;
@@ -460,7 +460,7 @@ class Parser_Test < Minitest::Test
 		}'
 		assert_kind_of Composition_Expr, out.first.expressions.first
 		assert_equal '|', out.first.expressions.first.operator
-		assert_equal 'Transform', out.first.expressions.first.name.value
+		assert_equal 'Transform', out.first.expressions.first.identifier.value
 	end
 
 	def test_control_flows
@@ -605,14 +605,6 @@ class Parser_Test < Minitest::Test
 	def test_func_call
 		out = _parse 'funk()'
 		assert_kind_of Call_Expr, out.first
-	end
-
-	def test_self_scope_prefixes
-		out = _parse './x = 123'
-		assert_kind_of Prefix_Expr, out.first
-		assert_equal './', out.first.operator
-		assert_kind_of Infix_Expr, out.first.expression
-		assert_equal '=', out.first.expression.operator
 	end
 
 	def test_call_expr_improvement

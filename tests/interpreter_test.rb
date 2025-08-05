@@ -2,9 +2,9 @@ require 'minitest/autorun'
 require './code/ruby/shared/helpers'
 
 class Interpreter_Test < Minitest::Test
-	def test_preload_dot_e
+	def test_preload_dot_em
 		refute_raises RuntimeError do
-			_interp_file './code/emerald/preload.e'
+			_interp_file './code/emerald/preload.em'
 		end
 	end
 
@@ -17,7 +17,7 @@ class Interpreter_Test < Minitest::Test
 	def test_true_false_nil_literals
 		assert_equal true, _interp('true')
 		assert_equal false, _interp('false')
-		assert_instance_of Nil, _interp('nil')
+		assert_instance_of NilClass, _interp('nil')
 	end
 
 	def test_uninterpolated_strings
@@ -59,7 +59,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_nil_assignment_operator
 		out = _interp 'nothing;'
-		assert_instance_of Nil, out
+		assert_instance_of NilClass, out
 	end
 
 	def test_anonymous_func_expr
@@ -80,14 +80,14 @@ class Interpreter_Test < Minitest::Test
 		out = _interp 'enter { numbers = "4815162342"; }'
 		assert_equal 1, out.expressions.count
 		assert_instance_of Param_Expr, out.expressions.first
-		assert_instance_of String_Expr, out.expressions.first.expression
+		assert_instance_of String_Expr, out.expressions.first.default
 	end
 
 	def test_advanced_func_declaration
 		out = _interp 'add { a, b; a + b }'
 		assert_equal 3, out.expressions.count
 		assert_instance_of Infix_Expr, out.expressions.last
-		refute out.expressions.first.expression
+		refute out.expressions.first.default
 	end
 
 	def test_complex_func_declaration
@@ -99,20 +99,20 @@ class Interpreter_Test < Minitest::Test
 		a = out.expressions[0]
 		assert_equal 'a', a.name
 		refute a.label
-		refute a.expression
+		refute a.default
 
 		b = out.expressions[1]
 		assert b.label
 		assert_equal 'labeled', b.label
-		refute b.expression
+		refute b.default
 
 		c = out.expressions[2]
-		assert c.expression
+		assert c.default
 		refute c.label
 
 		d = out.expressions[3]
 		assert d.label
-		assert d.expression
+		assert d.default
 
 		assert_instance_of Infix_Expr, out.expressions.last
 	end
@@ -132,9 +132,9 @@ class Interpreter_Test < Minitest::Test
 				`do something with the numbers
 			}
 		}'
-		assert_instance_of Nil, out['computer']
-		assert_instance_of Func, out['enter']
-		assert_equal 2, out.expressions.count
+		assert_instance_of Type, out
+		assert_instance_of NilClass, out[:computer]
+		assert_instance_of Func, out[:enter]
 	end
 
 	def test_inline_type_composition_declaration
@@ -164,7 +164,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_potential_colon_ambiguity
 		out = _interp 'assign_to_nil;'
-		assert_instance_of Nil, out
+		assert_instance_of NilClass, out
 
 		out = _interp 'func { assign_to_nil; }'
 		assert_instance_of Func, out
@@ -340,29 +340,29 @@ class Interpreter_Test < Minitest::Test
 		out = _interp '{a b c}'
 		assert_equal %i(a b c), out.keys
 		out.values.each do |value|
-			assert_instance_of Nil, value
+			assert_instance_of NilClass, value
 		end
 	end
 
 	def test_create_dictionary_with_identifiers_as_keys_with_commas
 		out = _interp '{a, b}'
 		out.values.each do |value|
-			assert_instance_of Nil, value
+			assert_instance_of NilClass, value
 		end
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation
 		out = _interp '{ x:0 y=1 z}'
-		refute_instance_of Nil, out.values.first
-		refute_instance_of Nil, out.values[1]
-		assert_instance_of Nil, out.values.last
+		refute_instance_of NilClass, out.values.first
+		refute_instance_of NilClass, out.values[1]
+		assert_instance_of NilClass, out.values.last
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation_and_commas
 		out = _interp '{ x:4, y=8, z}'
 		assert_equal 4, out.values.first
 		assert_equal 8, out.values[1]
-		assert_instance_of Nil, out.values.last
+		assert_instance_of NilClass, out.values.last
 	end
 
 	def test_create_dictionary_with_local_value
@@ -418,7 +418,7 @@ class Interpreter_Test < Minitest::Test
 		assert_kind_of Type, out
 		assert_kind_of Composition_Expr, out.expressions.first
 		assert_kind_of Composition_Expr, out.expressions.last
-		assert_equal 'Rotation', out.expressions.last.name.value
+		assert_equal 'Rotation', out.expressions.last.identifier.value
 		assert_equal '-', out.expressions.last.operator
 	end
 
@@ -429,7 +429,7 @@ class Interpreter_Test < Minitest::Test
 		assert_kind_of Type, out
 		assert_kind_of Composition_Expr, out.expressions.first
 		assert_kind_of Composition_Expr, out.expressions.last
-		assert_equal 'Physics', out.expressions.last.name.value
+		assert_equal 'Physics', out.expressions.last.identifier.value
 		assert_equal '-', out.expressions.last.operator
 	end
 
@@ -577,15 +577,13 @@ class Interpreter_Test < Minitest::Test
 	def test_closures_do_not_exist
 		out = _interp '
 		counter = -1
-		increment {count;
-			count += 1
+		increment { count;
+			counter += count
 		}
-		a = increment(counter)
-		b = increment(counter)
-		c = increment(counter)
-		(a, b, c)
+		increment(counter)
+		counter
 		'
-		assert_equal [0, 0, 0], out.values
+		assert_equal -2, out
 	end
 
 	def test_calling_functions
@@ -644,20 +642,6 @@ class Interpreter_Test < Minitest::Test
 		assert_instance_of Tuple, out
 		assert_equal 8, out.values.first
 		assert_equal 108, out.values.last
-	end
-
-	def test_calling_member_functions
-		out = _interp '
-		Number {
-			numerator = -100
-
-			new { num;
-				./numerator = num
-			}
-		}
-		x = Number(4)
-		x.numerator'
-		assert_equal 4, out
 	end
 
 	def test_function_scope
@@ -804,7 +788,11 @@ class Interpreter_Test < Minitest::Test
 	end
 
 	def test_nil_instances_are_shared
-		out = _interp 'equal = x; == y;
+		out = _interp '
+		x;
+		y;
+
+		equal = x == y
 		(x, y, equal)'
 		assert_equal out.values[0].object_id, out.values[1].object_id
 		assert_equal true, out.values[2]

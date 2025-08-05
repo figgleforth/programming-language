@@ -1,16 +1,16 @@
-### Emerald
+### Emerald Programming Language
 
-A for-fun programming language with mechanics I like. For example:
+This is a for-fun programming language with mechanics I like. Some could be silly and some could be serious, for example:
 
-- While loops with else-while clauses
+- While loops with elwhile clauses
 - Access nested arrays with dot-syntax `array.1.0.8`
-- Use `./` to access self
-- Composition over inheritance
-- Functions and types are first-class
+- Use `./` to access the current instance
+- Classes are called Types and are composable
+- Functions and Types are first-class
 - Built-in arrays, tuples, dictionaries, and ranges
 - Eliminate repetitive keywords like `class`/`def` by enforcing naming conventions at the language level:
-	- `UPPERCASE` identifiers are constants
-	- `Capitalized` identifiers are types
+	- `UPPERCASE` identifiers are constant
+	- `Capitalized` identifiers are Types
 	- `lowercase` identifiers are variables and functions
 
 ---
@@ -138,11 +138,12 @@ bundle exec rake test
 #### Running Your Own Programs
 
 ```shell script
-bundle exec rake interp[./your_program.e]
+bundle exec rake interp[./your_program.em]
 ```
 
 #### Explore The Code
 
+- [`code/readme`](./code/readme.md)contains detailed information on running your own programs
 - [`code/emerald`](./code/emerald) contains code written in the toy language
 - [`code/ruby`](./code/ruby) contains code implementing the toy language
 	- [Lexer#output](./code/ruby/lexer.rb) - Source code to Lexemes

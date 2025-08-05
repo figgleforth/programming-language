@@ -25,15 +25,15 @@ class Expression
 end
 
 class Param_Expr < Expression
-	attr_accessor :name, :label, :type, :default, :portal
+	attr_accessor :name, :label, :type, :default, :expects_reference
 
 	def initialize
 		super
-		@portal  = false
-		@default = nil
-		@name    = nil
-		@label   = nil
-		@type    = nil
+		@expects_reference = false
+		@default           = nil
+		@name              = nil
+		@label             = nil
+		@type              = nil
 	end
 
 	alias_method :expression, :default # todo, Replace @default with this
@@ -47,7 +47,7 @@ class Func_Expr < Expression
 	end
 
 	def signature
-		sig         = name || ''
+		sig         = name&.value || ''
 		sig         += '{'
 		param_decls = expressions.select do |expr|
 			expr.is_a? Param_Expr
@@ -137,11 +137,11 @@ class Operator_Expr < Expression
 end
 
 class Identifier_Expr < Expression
-	attr_accessor :kind, :reference
+	attr_accessor :kind, :reference, :scope_operator
 end
 
 class Composition_Expr < Expression
-	attr_accessor :operator, :name
+	attr_accessor :operator, :identifier
 end
 
 class Conditional_Expr < Expression

@@ -56,6 +56,8 @@ end
 class Assert_Triggered < Emerald_Error
 end
 
-class Multiple_Runtime_Errors < Emerald_Error
-	attr_accessor :errors
+class Malformed_Scoped_Identifier < Emerald_Error
+end
+
+class Missing_Argument < Emerald_Error
 end

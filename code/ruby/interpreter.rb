@@ -9,7 +9,7 @@ class Interpreter
 
 	def initialize input = []
 		@input = input
-		@stack = [Scope.new('Global')]
+		@stack = [Global.new]
 	end
 
 	def output
@@ -18,28 +18,94 @@ class Interpreter
 		end
 	end
 
-	def declare identifier, value = Nil.shared, scope = stack.last
+	def push_scope scope
+		scope ||= stack.last
+
+		stack << scope
+	end
+
+	def pop_scope
+		if stack.length == 1
+			stack.last
+		else
+			stack.pop
+		end
+	end
+
+	def push_then_pop scope
+		raise "Attempting to push `nil` value as scope" if scope == nil
+
+		push_scope scope
+		if block_given?
+			yield scope
+		end
+		pop_scope
+	end
+
+	def declare identifier, value, scope = stack.last
+		scope             ||= stack.last
 		scope[identifier] = value
 	end
 
-	def interp_identifier expr
-		return Nil.shared if expr.value == 'nil'
-		return true if expr.value == 'true'
-		return false if expr.value == 'false'
-
-		stack.reverse_each do |scope|
-			return scope[expr.value] if scope.has? expr.value
+	def scope_for_identifier expr
+		if !expr.is_a?(Identifier_Expr)
+			return stack.last
 		end
 
-		# todo, The above should ensure that :identifier lookups are limited to the current scope while :IDENTIFIER and :Identifier can search the whole stack.
-		# todo, Maybe closures. Without implementing closures, you have to always use ./ to access declarations on self.
-		#
-		# scope = stack.last
-		# while scope.respond_to?(:enclosing_scope) && scope.enclosing_scope
-		# 	return scope[expr.value] if scope.has? expr.value
-		# end
+		# ident
+		# ./ident
+		# ../ident
+		# .../ident
 
-		raise Undeclared_Identifier, expr.value
+		case expr.scope_operator
+		when '.../'
+			stack.first
+		when '../'
+			raise "../ not implemented in #scope_for_identifier"
+		when './'
+			# Should default to the global scope if no Instance is present.
+			scope = stack.reverse_each.find do |scope|
+				(scope.is_a?(Instance) || scope.is_a?(Global)) && scope.has?(expr.value)
+			end
+			scope || stack.first
+		else
+			scope = stack.reverse_each.find do |scope|
+				scope.has? expr.value
+			end
+
+			scope || stack.last
+		end
+	end
+
+	def interp_identifier expr
+		raise "Expected Identifier_Expr because this method reliea on its @scope_operator value, but got #{expr.inspect}" unless expr.is_a? Identifier_Expr
+		return nil if expr.value == 'nil'
+		return true if expr.value == 'true' # todo, Return Bool.truthy
+		return false if expr.value == 'false' # todo, Return Bool.falsy
+
+		scope = scope_for_identifier expr
+
+		value = if scope.is_a? Array
+			found = scope.reverse_each.find do |scope|
+				scope.has? expr.value
+			end
+
+			if found && found.has?(expr.value)
+				found[expr.value]
+			else
+				raise Undeclared_Identifier, expr.inspect
+			end
+		elsif scope
+			raise Undeclared_Identifier, expr.inspect unless scope.has? expr.value
+			scope[expr.value]
+		else
+			# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
+			scope = stack.last
+			raise Undeclared_Identifier, expr.inspect unless scope.has? expr.value
+			scope[expr.value]
+		end
+
+		value
 	end
 
 	def interp_string expr
@@ -61,7 +127,7 @@ class Interpreter
 	end
 
 	def maybe_instance expr
-		# todo, when String and so on, because everything needs to be some type of scope to live inside the Emerald runtime. Every object in Scope.data{} is either a primitive like String, Integer, Float, or they're an instanced version like Number.
+		# todo, when String and so on, because everything needs to be some type of scope to live inside the Feather runtime. Every object in Scope.data{} is either a primitive like String, Integer, Float, or they're an instanced version like Number.
 		case expr
 		when Integer, Float
 			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
@@ -70,7 +136,12 @@ class Interpreter
 			scope.numerator   = expr
 			scope.denominator = 1
 			scope
-
+		when true
+			Bool.truthy
+		when false
+			Bool.falsy
+		when nil
+			Nil.shared
 		else
 			expr
 		end
@@ -85,11 +156,11 @@ class Interpreter
 		instance             = Instance.new receiver.name # :generalize_me
 		instance.expressions = receiver.expressions
 
-		stack << instance
+		push_scope instance
 		instance.expressions.each do |it|
 			interpret it
 		end
-		stack.pop
+		pop_scope
 
 		instance
 	end
@@ -102,17 +173,6 @@ class Interpreter
 			+interpret(expr.expression)
 		when '!', 'not'
 			!interpret(expr.expression)
-		when './'
-			# The ./ operator lets you look up declarations in an Instance in the stack that encloses the current expression. I treat the global scope as an Instance here.
-			scope = stack.reverse_each.find do |scope|
-				scope.kind_of? Instance
-			end || stack[0]
-
-			stack << scope
-			result = interpret expr.expression
-			stack.pop
-
-			result
 		when 'return'
 			returned = interpret expr.expression
 			Return.new returned
@@ -121,100 +181,95 @@ class Interpreter
 		end
 	end
 
+	# @param expr [Infix_Expr]
+	def interp_infix_equals expr
+		assignment_scope = scope_for_identifier expr.left
+		evaluation_scope = scope_for_identifier expr.right
+
+		push_scope(evaluation_scope) if evaluation_scope
+		right_value = interpret expr.right
+		pop_scope if evaluation_scope
+
+		case type_of_identifier expr.left.value
+		when :IDENTIFIER
+			# It can only be assigned once, so if the declaration exists, fail.
+			if assignment_scope.has? expr.left.value
+				raise Cannot_Reassign_Constant, expr.inspect
+			end
+		when :Identifier
+			# It can only be assigned `value` of Type.
+			if !right_value.is_a?(Type)
+				raise Cannot_Assign_Incompatible_Type, expr.inspect
+			end
+		when :identifier
+			# It can be assigned and reassigned, so do nothing.
+		end
+
+		declare expr.left.value, right_value, assignment_scope
+		return right_value
+	end
+
+	# @param expr [Infix_Expr]
+	def interp_infix_dot expr
+		# todo, This is getting messy. I need to factor out some of these cases. :factor_dot_calls
+		if expr.right == 'new' || expr.right.is('new')
+			return interp_dot_new expr
+		end
+
+		left = maybe_instance interpret expr.left
+		if !left.kind_of?(Scope) && !left.kind_of?(Range)
+			raise Invalid_Dot_Infix_Left_Operand, "#{expr.inspect}"
+		end
+
+		if left.is_a? Emerald::Array
+			if expr.right.is Number_Expr
+				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Number.
+			elsif expr.right.is Array_Index_Expr
+				array = left # Just for clarity.
+
+				expr.right.indices_in_order.each do |index|
+					array = array[index]
+				rescue NoMethodError => _
+					# We dug our way to a nonexistent array, because #[] doesn't exist on it.
+					raise "array[#{index}] is not an array, it's #{array.inspect}"
+				end
+
+				return array
+			end
+		elsif left.kind_of? Range
+			if expr.right.is(Func_Expr) && expr.right.name.value == 'each'
+				# todo, Should be handled by #interp_func_call?
+
+				left.each do |it|
+					each_scope = Scope.new 'each{;}'
+					push_scope each_scope
+					declare 'it', it, each_scope
+					expr.right.expressions.each do |expr|
+						interpret expr
+					end
+					pop_scope
+				end
+			end
+			return left
+
+		else
+			raise "Expected left to be non-nil for a dot infix." if left == nil
+
+			push_scope left
+			result = interpret expr.right
+			pop_scope
+
+			return result
+		end
+	end
+
+	# @param expr [Infix_Expr]
 	def interp_infix expr
 		case expr.operator
 		when '='
-			# todo, Maybe warn when overwriting an existing identifier.
-			right = interpret expr.right
-
-			case type_of_identifier expr.left.value
-			when :identifier
-				# Can assign anything
-			when :Identifier
-				# Only Types
-				raise Cannot_Assign_Incompatible_Type, expr.inspect unless right.is_a? Type
-			when :IDENTIFIER
-				# Anything but it cannot be reassigned
-				begin
-					left = interpret expr.left
-					if left
-						raise Cannot_Reassign_Constant, expr.inspect
-					end
-				rescue Undeclared_Identifier
-					# I'm ignoring it in this case since we are assigning the constant if it doesn't exist. I'm not sure that I like having to rescue from #interpret. Oh well, for now.
-				end
-			end
-
-			if stack.last.is_a? Func
-				name         = expr.left.value
-				target_scope = stack.reverse_each.find do |scope|
-					scope.has? name
-				end
-
-				unless target_scope
-					scope = stack.last
-					while scope.respond_to?(:enclosing_scope) && scope.enclosing_scope
-						scope = scope.enclosing_scope
-						if scope.has? name
-							target_scope = scope
-							break
-						end
-					end
-				end
-
-				if target_scope
-					target_scope[name] = right
-				else
-					declare name, right
-				end
-			else
-				declare expr.left.value, right
-			end
+			interp_infix_equals expr
 		when '.'
-			# todo, This is getting messy. I need to factor out some of these cases. :factor_dot_calls
-			if expr.right == 'new' || expr.right.is('new')
-				return interp_dot_new expr
-			end
-
-			left = maybe_instance interpret expr.left
-			if !left.is_a?(Scope) && !left.kind_of?(Range)
-				raise Invalid_Dot_Infix_Left_Operand, "#{left.inspect}"
-			end
-
-			if left.is_a? Emerald::Array
-				if expr.right.is Number_Expr
-					return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Number.
-				elsif expr.right.is Array_Index_Expr
-					array = left # Just for clarity.
-
-					expr.right.indices_in_order.each do |index|
-						array = array[index]
-					rescue NoMethodError => _
-						# We dug our way to a nonexistent array, because #[] doesn't exist on it.
-						raise "array[#{index}] is not an array, it's #{array.inspect}"
-					end
-
-					return array
-				end
-			elsif left.kind_of? Range
-				if expr.right.is(Func_Expr) && expr.right.name == 'each'
-					left.each do |it|
-						each_scope = Scope.new 'each{;}'
-						stack << each_scope
-						declare 'it', it, each_scope
-						expr.right.expressions.each do |expr|
-							interpret expr
-						end
-						stack.pop
-					end
-				end
-				return left
-			else
-				stack << left
-				result = interpret expr.right
-				stack.pop
-				return result
-			end
+			interp_infix_dot expr
 		when '<<'
 			left  = maybe_instance interpret expr.left
 			right = maybe_instance interpret expr.right
@@ -291,7 +346,7 @@ class Interpreter
 	def interp_postfix expr
 		case expr.operator
 		when ';'
-			declare expr.expression.value, Nil.shared
+			declare expr.expression.value, nil
 		else
 			raise Unhandled_Postfix, expr.inspect
 		end
@@ -322,7 +377,7 @@ class Interpreter
 		when '{}'
 			expr.expressions.reduce({}) do |dict, it|
 				if it.is_a? Identifier_Expr
-					dict[it.value.to_sym] = Nil.shared
+					dict[it.value.to_sym] = nil
 				elsif it.is_a? Infix_Expr
 					case it.operator
 					when ':', '='
@@ -353,23 +408,42 @@ class Interpreter
 		when Func # func()
 			interp_func_call receiver, expr
 
-		when Instance # instance()
-			interp_instance_call receiver, expr
-
 		else
 			raise "Interpreter#interp_call unhandled #{receiver.inspect}"
 		end
 	end
 
 	def interp_type_call type, expr
-		instance = Instance.new type.name # :generalize_me
-		stack << instance
+		#
+		# Type_Expr is converted to Type in #interp_type.
+		# Instance inherits Type's @name and @types.
+		#
+		#     (See constructs.rb for Type and Instance declarations)
+		#     (See expressions.rb for Type_Expr declaration)
+		#
+		# - Push instance onto stack
+		# - Interpret type.expressions so the declarations are made on the instance
+		# - Keep instance on the stack
+		# - For each Func declared on instance, set `func.enclosing_scope = instance`
+		# - Interpret instance[:new], the initializer
+		# - Delete :new from instance, no longer needed
+		#
 
+		# :generalize_me
+		instance       = Instance.new type.name
+		instance.types = type.types
+
+		push_scope instance
 		type.expressions.each do |expr|
 			interpret expr
 		end
 
-		func_new = type[:new]
+		instance.declarations.each do |decl|
+			next unless decl.is_a? Func
+			decl.enclosing_scope = instance
+		end
+
+		func_new = instance[:new]
 		if func_new
 			interp_func_call func_new, expr
 		else
@@ -379,34 +453,47 @@ class Interpreter
 		end
 
 		instance.delete :new
-		stack.pop # Just for clarity, the pop returns the instance from above..
+		pop_scope # Just for clarity, the pop returns the instance from above..
+		instance
 	end
 
 	def interp_func_call func, expr
-		result = Nil.shared
-
-		call_scope                 = Scope.new "#{func.name}()"
-		call_scope.enclosing_scope = func.enclosing_scope
-
-		stack << call_scope
+		call_scope = Scope.new "#{func.name}() Func Call"
 
 		params = func.expressions.select do |expr|
 			expr.is_a? Param_Expr
 		end
 
+		if expr.arguments.count > params.count
+			raise "Arguments given, no params declared #{expr.inspect}"
+		end
+
+		push_scope func.enclosing_scope
+		push_scope call_scope
 		params.zip(expr.arguments).each do |param, arg|
-			value = if arg
+			value = if arg && param
 				interpret arg
-			elsif param.expression
-				interpret param.expression
+			elsif arg && !param
+				raise "Arg #{arg.inspect} given where none was expected."
+			elsif !arg && param
+				if param.default
+					interpret param.default
+				else
+					raise Missing_Argument, param.inspect
+				end
 			else
-				Nil.shared
+				raise "This should never happen."
 			end
 
-			declare param.name, value, call_scope
+			declare param.name, value
 		end
 
 		body = func.expressions - params
+		if func.name == 'assert'
+			raise Assert_Triggered, expr.inspect unless interpret(body.first) == true # Just to be explicit.
+		end
+
+		result = nil
 		body.each do |e|
 			next if e.is_a? Param_Expr
 
@@ -414,60 +501,49 @@ class Interpreter
 			break if result.is_a? Return
 		end
 
-		if func.name == 'assert'
-			raise Assert_Triggered, expr.inspect unless interpret(body.first) == true # Just to be explicit.
-		end
+		_assert (pop_scope == call_scope)
+		_assert (pop_scope == func.enclosing_scope)
 
-		stack.pop # This func's call_scope
 		result
 	end
 
-	def interp_instance_call instance, expr
-		stack << instance
+	def interp_type expr
+		type             = Type.new expr.name.value
+		type.expressions = expr.expressions
 
-		func_new = instance[:new]
-		if func_new
-			interp_func_call func_new, expr
+		if type.types
+			type.types << type.name
 		else
-			if expr.arguments.count > 0
-				raise "Given #{expr.arguments.count} arguments, but new{;} was not declared for #{instance.inspect}"
+			type.types = [type.name]
+		end
+
+		declare type.name, type
+
+		push_then_pop type do |scope|
+			expr.expressions.each do |expr|
+				interpret expr
 			end
 		end
-		instance.delete :new
 
-		stack.pop # instance
-	end
-
-	def interp_type expr
-		scope             = Type.new expr.name
-		scope.expressions = expr.expressions
-
-		if scope.types
-			scope.types << expr.name
-		else
-			scope.types = [expr.name]
-		end
-
-		declare expr.name, scope
-		stack.push scope
-		expr.expressions.each do |e|
-			interpret e
-		end
-		stack.pop # type
+		type
 	end
 
 	def interp_func expr
-		func                 = Func.new expr.name
+		func                 = Func.new expr.name&.value
 		func.expressions     = expr.expressions
 		func.enclosing_scope = stack.last
 
-		declare expr.name, func
+		if func.name
+			declare func.name, func
+		else
+			func
+		end
 	end
 
 	def interp_composition expr
 		case expr.operator
 		when '|'
-			scope_to_merge = interp_identifier expr.name
+			scope_to_merge = interp_identifier expr.identifier
 
 			unless scope_to_merge.is_a? Scope
 				raise "Expected a scope to compose with, got #{scope_to_merge.inspect}"
@@ -487,7 +563,7 @@ class Interpreter
 			curr_scope.types = curr_scope.types.uniq
 		when '-'
 			# Copypaste from when '|'
-			scope_to_unmerge = interp_identifier expr.name
+			scope_to_unmerge = interp_identifier expr.identifier
 
 			unless scope_to_unmerge.is_a? Scope
 				raise "Expected a scope to compose with, got #{scope_to_unmerge.inspect}"
@@ -568,9 +644,11 @@ class Interpreter
 			if body.is_a? Conditional_Expr
 				interp_conditional body
 			else
-				body.each.inject(nil) do |result, expr|
+				result = body.each.inject(nil) do |result, expr|
 					interpret expr
 				end
+
+				result || nil
 			end
 		end
 	end
@@ -617,6 +695,7 @@ class Interpreter
 			expr.indices_in_order
 
 		when Comment_Expr
+			# todo, Something?
 		else
 			raise "Interpreter#interpret `when #{expr.inspect}` not implemented."
 		end
