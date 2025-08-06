@@ -84,4 +84,42 @@ class Examples_Test < Minitest::Test
 		max?([1,2,3,4,5])'
 		assert_equal 5, out
 	end
+
+	def test_more_realistic_example
+		out = _interp "
+		Server {
+			port;
+			running = false
+
+			new { port = 4815;
+				./port = port
+			}
+
+			start! {;
+				./running = true
+			}
+
+			stop! {;
+				running = false
+			}
+
+			running? {;
+				running
+			}
+
+		}
+
+		s = Server()
+		_running? = s.running?()
+		s.start!()
+		a = s.running?()
+		s.stop!()
+		b = s.running?()
+		(_running?, a, b, s.port, s, s.start!, s.running?)
+		"
+		assert_equal [false, true, false, 4815], out.values[0..3]
+		assert_instance_of Instance, out.values[4]
+		assert_instance_of Func, out.values[5]
+		assert_instance_of Func, out.values[6]
+	end
 end

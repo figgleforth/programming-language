@@ -191,10 +191,10 @@ class Regression_Test < Minitest::Test
 		assert_equal [4, 4], out.values
 
 		refute_raises Undeclared_Identifier do
-			out = _interp %Q(
+			out = _interp "
 			Thing {
 				id;
-				name = "Thingy"
+				name = 'Thingy'
 
 				new { new_name = '', id = 123;
 					./name = new_name
@@ -203,17 +203,17 @@ class Regression_Test < Minitest::Test
 			}
 
 			t1 = Thing()
-			t2 = Thing("Thingus", 456)
+			t2 = Thing('Thingus', 456)
 
-			(t1.id, t1.name, t2.id, t2.name))
+			(t1.id, t1.name, t2.id, t2.name)"
 			assert_equal [123, "", 456, "Thingus"], out.values
 		end
 
 		assert_raises Missing_Argument do
-			out = _interp %Q(
+			out = _interp "
 			Thing {
 				id;
-				name = "Thingy";
+				name = 'Thingy';
 
 				new { new_name, id;
 					./name = new_name
@@ -222,72 +222,71 @@ class Regression_Test < Minitest::Test
 			}
 
 			t = Thing() `This will raise
-			(t.id, t.name)
-			)
+			(t.id, t.name)"
 			assert_equal [456, "Thingus"], out.values
 		end
 
 		assert_raises Missing_Argument do
-			_interp %Q(
+			_interp "
 	        funk { it;
 				it == true
 			}
 			funk() `This will raise
-			)
+			"
 		end
 
 		refute_raises Undeclared_Identifier do
-			_interp %Q(
+			_interp "
 			funk { it;
 				it == true
 			}
 			funk(true), funk(false)
-			)
+			"
 		end
 
 		refute_raises Undeclared_Identifier do
-			_interp %Q(
-			funk { it = "true";
+			_interp "
+			funk { it = \"true\";
 				it == true
 			}
 			funk(true), funk()
-			)
+			"
 		end
 
 		refute_raises Undeclared_Identifier do
-			_interp %Q(
-			funk { it = "false";
+			_interp "
+			funk { it = \"false\";
 				it == true
 			}
 			funk(true), funk()
-			)
+			"
 		end
 
 		refute_raises Undeclared_Identifier do
-			_interp %Q(
+			_interp "
 			funk { it = true;
 				it == true
 			}
 			funk(true), funk()
-			)
+			"
 		end
 
 		refute_raises Undeclared_Identifier do
-			_interp %Q(
+			_interp "
 			funk { funkit = false;
 				funkit == true
 			}
 			funk(true), funk()
-			)
+			"
 		end
 
 		refute_raises Undeclared_Identifier do
-			_interp %Q(
+			_interp "
 		funk { it = nil;
 			it == true
 		}
 		funk(true), funk()
-		)
+		"
 		end
 	end
 end
