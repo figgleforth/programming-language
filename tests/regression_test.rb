@@ -93,7 +93,7 @@ class Regression_Test < Minitest::Test
 	end
 
 	def test_identifier_lookup_regression
-		out = _interp 'Emerald {}, Emerald'
+		out = _interp 'Air {}, Air'
 		assert_instance_of Type, out
 	end
 

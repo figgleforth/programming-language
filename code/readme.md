@@ -1,13 +1,13 @@
 ### What's here?
 
-The [`ruby`](./ruby) folder contains the implementation of Emerald.
+The [`ruby`](./ruby) folder contains the implementation of Air.
 
 The [
-`emerald`](./emerald) folder contains code written in Emerald. Depending on when you're reading this, there may be zero or several files in this directory. I plan to put all runtime declarations there.
+`air`](./air) folder contains code written in Air. Depending on when you're reading this, there may be zero or several files in this directory. I plan to put all runtime declarations there.
 
 ### Running Your Own Programs With Ruby
 
-To run an Emerald program, the source code must go through the [Lexer](./ruby/lexer.rb), whose output goes through the [Parser](./ruby/parser.rb), whose output goes through the [Interpreter](./ruby/interpreter.rb), resulting in final program output.
+To run an Air program, the source code must go through the [Lexer](./ruby/lexer.rb), whose output goes through the [Parser](./ruby/parser.rb), whose output goes through the [Interpreter](./ruby/interpreter.rb), resulting in final program output.
 
 ```ruby
 require './code/ruby/lexer'

@@ -4,7 +4,7 @@ require './code/ruby/shared/helpers'
 class Interpreter_Test < Minitest::Test
 	def test_preload_dot_em
 		refute_raises RuntimeError do
-			_interp_file './code/emerald/preload.em'
+			_interp_file './code/air/preload.air'
 		end
 	end
 
@@ -311,17 +311,17 @@ class Interpreter_Test < Minitest::Test
 	def test_empty_array
 		out = _interp '[]'
 		assert_equal [], out.values
-		assert_instance_of Emerald::Array, out
+		assert_instance_of Air::Array, out
 	end
 
 	def test_non_empty_arrays
 		out = _interp '[1]'
-		assert_instance_of Emerald::Array, out
+		assert_instance_of Air::Array, out
 		assert_equal [1], out.values
 
 		out = _interp '[1, "test", 5]'
-		assert_instance_of Emerald::Array, out
-		assert_equal Emerald::Array.new([1, 'test', 5]).values, out.values
+		assert_instance_of Air::Array, out
+		assert_equal Air::Array.new([1, 'test', 5]).values, out.values
 	end
 
 	def test_create_tuple

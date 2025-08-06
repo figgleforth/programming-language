@@ -11,7 +11,7 @@ Minitest::TestTask.create(:test) do |t|
 end
 
 task :cloc do
-	sh "\ncloc --quiet --force-lang-def=emerald.cloc ."
+	sh "\ncloc --quiet --force-lang-def=air.cloc ."
 end
 
 task :interp, [:file] do |_, args|

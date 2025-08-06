@@ -1,6 +1,6 @@
 require './code/ruby/shared/helpers.rb'
 
-module Emerald
+module Air
 end
 
 class Scope
@@ -72,7 +72,7 @@ class Return < Scope
 	end
 end
 
-class Emerald::Array < Instance
+class Air::Array < Instance
 	attr_accessor :values
 
 	def initialize values = []
@@ -88,7 +88,7 @@ class Emerald::Array < Instance
 	end
 end
 
-class Tuple < Emerald::Array
+class Tuple < Air::Array
 	def initialize values = []
 		@values = values
 	end

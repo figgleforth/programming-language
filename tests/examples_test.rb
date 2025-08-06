@@ -34,7 +34,7 @@ class Examples_Test < Minitest::Test
 		(three, five, fifteen)"
 		assert_instance_of Tuple, out
 		out.values.each do |it|
-			assert_instance_of Emerald::Array, it
+			assert_instance_of Air::Array, it
 		end
 
 		assert_equal ['1', '2', 'Fizz'], out.values[0].values

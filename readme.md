@@ -1,4 +1,4 @@
-### Emerald Programming Language
+### Air Programming Language
 
 This is a for-fun programming language with mechanics I like. Some could be silly and some could be serious, for example:
 
@@ -144,7 +144,7 @@ bundle exec rake interp[./your_program.em]
 #### Explore The Code
 
 - [`code/readme`](./code/readme.md)contains detailed information on running your own programs
-- [`code/emerald`](./code/emerald) contains code written in the toy language
+- [`code/air`](./code/air) contains code written in the toy language
 - [`code/ruby`](./code/ruby) contains code implementing the toy language
 	- [Lexer#output](./code/ruby/lexer.rb) - Source code to Lexemes
 	- [Parser#output](./code/ruby/parser.rb) - Lexemes to Expressions

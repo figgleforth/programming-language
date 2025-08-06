@@ -1,4 +1,4 @@
-class Emerald_Error < RuntimeError
+class Air_Error < RuntimeError
 	attr_accessor :expr
 
 	def initialize expr
@@ -7,57 +7,57 @@ class Emerald_Error < RuntimeError
 	end
 end
 
-class Undeclared_Identifier < Emerald_Error
+class Undeclared_Identifier < Air_Error
 end
 
-class Cannot_Reassign_Constant < Emerald_Error
+class Cannot_Reassign_Constant < Air_Error
 end
 
-class Cannot_Assign_Incompatible_Type < Emerald_Error
+class Cannot_Assign_Incompatible_Type < Air_Error
 end
 
-class Cannot_Assign_Undeclared_Identifier < Emerald_Error
+class Cannot_Assign_Undeclared_Identifier < Air_Error
 end
 
-class Cannot_Initialize_Non_Type_Identifier < Emerald_Error
+class Cannot_Initialize_Non_Type_Identifier < Air_Error
 end
 
-class Unhandled_Expr < Emerald_Error
+class Unhandled_Expr < Air_Error
 end
 
-class Invalid_Dictionary_Key < Emerald_Error
+class Invalid_Dictionary_Key < Air_Error
 end
 
-class Invalid_Dictionary_Infix_Operator < Emerald_Error
+class Invalid_Dictionary_Infix_Operator < Air_Error
 end
 
-class Invalid_Dot_Infix_Left_Operand < Emerald_Error
+class Invalid_Dot_Infix_Left_Operand < Air_Error
 
 end
 
-class Unhandled_Circumfix_Expr < Emerald_Error
+class Unhandled_Circumfix_Expr < Air_Error
 end
 
-class Unhandled_Infix < Emerald_Error
+class Unhandled_Infix < Air_Error
 end
 
-class Unhandled_Prefix < Emerald_Error
+class Unhandled_Prefix < Air_Error
 end
 
-class Unhandled_Postfix < Emerald_Error
+class Unhandled_Postfix < Air_Error
 end
 
-class Unhandled_Call_Receiver < Emerald_Error
+class Unhandled_Call_Receiver < Air_Error
 end
 
-class Unhandled_Array_Index_Expr < Emerald_Error
+class Unhandled_Array_Index_Expr < Air_Error
 end
 
-class Assert_Triggered < Emerald_Error
+class Assert_Triggered < Air_Error
 end
 
-class Malformed_Scoped_Identifier < Emerald_Error
+class Malformed_Scoped_Identifier < Air_Error
 end
 
-class Missing_Argument < Emerald_Error
+class Missing_Argument < Air_Error
 end

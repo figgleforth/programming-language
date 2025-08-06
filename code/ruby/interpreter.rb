@@ -221,7 +221,7 @@ class Interpreter
 			raise Invalid_Dot_Infix_Left_Operand, "#{expr.inspect}"
 		end
 
-		if left.is_a? Emerald::Array
+		if left.is_a? Air::Array
 			if expr.right.is Number_Expr
 				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Number.
 			elsif expr.right.is Array_Index_Expr
@@ -274,7 +274,7 @@ class Interpreter
 			left  = maybe_instance interpret expr.left
 			right = maybe_instance interpret expr.right
 
-			if left.is_a?(Emerald::Array)
+			if left.is_a?(Air::Array)
 				left.values << right
 			else
 				begin
@@ -288,7 +288,7 @@ class Interpreter
 				left  = maybe_instance interpret expr.left
 				right = maybe_instance interpret expr.right
 
-				if left.is_a?(Emerald::Array) && expr.operator == '<<'
+				if left.is_a?(Air::Array) && expr.operator == '<<'
 					left.values << right
 				else
 					left.send expr.operator, right
@@ -355,7 +355,7 @@ class Interpreter
 	def interp_circumfix expr
 		case expr.grouping
 		when '[]'
-			array        = Emerald::Array.new
+			array        = Air::Array.new
 			array.values = []
 			expr.expressions.reduce([]) do |values, expr|
 				array.values << interpret(expr)
