@@ -369,8 +369,8 @@ class Lexer_Test < Minitest::Test
 	def test_single_line_code_location
 		out = _lex 'abracadabra'
 		assert_equal 1, out.last.l0
-		assert_equal 1, out.last.l1
 		assert_equal 1, out.last.c0
+		assert_equal 1, out.last.l1
 		assert_equal 12, out.last.c1
 
 		out = _lex 'abracadabra = whatever'
@@ -381,6 +381,20 @@ class Lexer_Test < Minitest::Test
 	end
 
 	def test_multiline_code_location
-		skip "The lexer currently doesn't handle this well, the numbers are off."
+		out = _lex \
+			"Thing {
+	id;
+	name;
+}"
+		assert_equal "1:1..1:6", out[0].line_col # Thing
+		assert_equal "1:7..1:8", out[1].line_col # {
+		assert_equal "1:8..2:1", out[2].line_col # \n
+		assert_equal "2:2..2:4", out[3].line_col # id, Starts at column 2 because of indentation.
+		assert_equal "2:4..2:5", out[4].line_col # ;
+		assert_equal "2:5..3:1", out[5].line_col # \n
+		assert_equal "3:2..3:6", out[6].line_col # name
+		assert_equal "3:6..3:7", out[7].line_col # ;
+		assert_equal "3:7..4:1", out[8].line_col # \n
+		assert_equal "4:1..4:2", out[9].line_col # }
 	end
 end

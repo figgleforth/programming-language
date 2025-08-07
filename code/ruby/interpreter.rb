@@ -222,7 +222,20 @@ class Interpreter
 		end
 
 		if left.is_a? Air::Array
-			if expr.right.is Number_Expr
+			if expr.right.is(Func_Expr) && expr.right.name.value == 'each'
+				left.values.each do |it|
+					each_scope                 = Scope.new 'each{;}'
+					each_scope.enclosing_scope = stack.last
+					push_scope each_scope
+					declare 'it', it, each_scope
+					expr.right.expressions.each do |expr|
+						interpret expr
+					end
+					pop_scope
+				end
+
+				return left
+			elsif expr.right.is Number_Expr
 				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Number.
 			elsif expr.right.is Array_Index_Expr
 				array = left # Just for clarity.

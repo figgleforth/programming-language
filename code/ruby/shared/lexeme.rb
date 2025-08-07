@@ -16,4 +16,8 @@ Lexeme = Struct.new('Lexeme', :type, :value, :reserved, :l0, :c0, :l1, :c1) do
 	def isnt compare
 		is(compare) == false
 	end
+
+	def line_col
+		"#{l0}:#{c0}..#{l1}:#{c1}"
+	end
 end

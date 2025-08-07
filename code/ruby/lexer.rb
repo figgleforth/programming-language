@@ -69,7 +69,7 @@ class Lexer
 		eaten = curr
 		@i    += 1
 
-		if newline? curr
+		if newline? eaten
 			@line += 1
 			@col  = 1
 		else
@@ -203,6 +203,10 @@ class Lexer
 					it.type  = :delimiter
 					it.value = eat
 
+				elsif whitespace? curr
+					it.type = :whitespace
+					it.value = eat
+
 				elsif numeric?
 					it.type  = :number
 					it.value = lex_number
@@ -263,7 +267,7 @@ class Lexer
 				end
 			end
 
-			next if whitespace?(token.value) && token.type != :string
+			next if whitespace?(token.value)
 
 			token.l1 = line
 			token.c1 = col

@@ -70,7 +70,6 @@ class Examples_Test < Minitest::Test
 	end
 
 	def test_finding_max_value_in_array
-		skip "This requires closures to exist and work properly."
 		out = _interp '
 		max? { list;
 			max = -100
@@ -121,5 +120,29 @@ class Examples_Test < Minitest::Test
 		assert_instance_of Instance, out.values[4]
 		assert_instance_of Func, out.values[5]
 		assert_instance_of Func, out.values[6]
+	end
+
+	def test_nested_scopes
+		out = _interp "
+		outer = 1
+
+		global_add { left, right; left + right }
+
+		increment { value = 1;
+			inner = 3
+
+			add { value;
+				increment {;
+					.../global_add(outer, value) `.../ is the decorator/prefix that says to look in the global scope directly for 'global_add'
+				}
+
+				increment()
+			}
+
+			add(inner)
+		}
+
+		increment()"
+		assert_equal 4, out
 	end
 end
