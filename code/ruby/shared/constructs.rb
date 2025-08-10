@@ -41,10 +41,6 @@ class Scope
 		return nil unless key
 		@data.delete(key.to_s)
 	end
-
-	def declarations
-		@data.values
-	end
 end
 
 class Global < Scope

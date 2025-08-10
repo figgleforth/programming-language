@@ -463,6 +463,19 @@ class Parser_Test < Minitest::Test
 		assert_equal 'Transform', out.first.expressions.first.identifier.value
 	end
 
+	def test_mixed_inline_compositions
+		out = _parse 'Xform | Transform ~ Vec2 & This ^ That {}'
+		assert_kind_of Composition_Expr, out.first.expressions.first
+		assert_equal '|', out.first.expressions[0].operator
+		assert_equal 'Transform', out.first.expressions[0].identifier.value
+		assert_equal '~', out.first.expressions[1].operator
+		assert_equal 'Vec2', out.first.expressions[1].identifier.value
+		assert_equal '&', out.first.expressions[2].operator
+		assert_equal 'This', out.first.expressions[2].identifier.value
+		assert_equal '^', out.first.expressions[3].operator
+		assert_equal 'That', out.first.expressions[3].identifier.value
+	end
+
 	def test_control_flows
 		out = _parse 'if true
 			celebrate()

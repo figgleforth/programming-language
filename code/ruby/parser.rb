@@ -292,11 +292,8 @@ class Parser
 		it.name      = eat
 
 		until curr? '{'
-			if curr?(TYPE_COMPOSITION_OPERATORS, valid_idents)
-				it.expressions << Composition_Expr.new.tap do |expr|
-					expr.operator   = eat(:operator).value
-					expr.identifier = parse_identifier_expr
-				end
+			if curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER)
+				it.expressions << parse_composition_expr
 			end
 		end
 

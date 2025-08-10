@@ -41,7 +41,7 @@ RESERVED                   = %w(
 		true false nil
 		skip stop and or return
 	).sort_by &SORT_BY_LENGTH_DESC # todo, I want to add `remove` here as well but not is not the time.
-TYPE_COMPOSITION_OPERATORS = %w(| & - ^)
+TYPE_COMPOSITION_OPERATORS = %w(| & ~ ^) # Union, Intersection, Removal, Symmetric Difference
 ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
 GSCOPE                     = :global
 SCOPE_OPERATORS            = %w(./ ../ .../).sort_by &SORT_BY_LENGTH_DESC

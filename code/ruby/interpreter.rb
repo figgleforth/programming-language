@@ -78,7 +78,7 @@ class Interpreter
 	end
 
 	def interp_identifier expr
-		raise "Expected Identifier_Expr because this method reliea on its @scope_operator value, but got #{expr.inspect}" unless expr.is_a? Identifier_Expr
+		raise "Expected Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Identifier_Expr
 		return nil if expr.value == 'nil'
 		return true if expr.value == 'true' # todo, Return Bool.truthy
 		return false if expr.value == 'false' # todo, Return Bool.falsy
@@ -349,7 +349,6 @@ class Interpreter
 				when '&'
 					interpret(expr.left) & interpret(expr.right)
 				when '|'
-					# todo, :composition_infix
 					interpret(expr.left) | interpret(expr.right)
 				end
 			end
@@ -451,7 +450,7 @@ class Interpreter
 			interpret expr
 		end
 
-		instance.declarations.each do |decl|
+		instance.data.values.each do |decl|
 			next unless decl.is_a? Func
 			decl.enclosing_scope = instance
 		end
@@ -554,43 +553,72 @@ class Interpreter
 	end
 
 	def interp_composition expr
+		# These are interpreted sequentially so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
+
+		operand_scope = interp_identifier expr.identifier
+		unless operand_scope.is_a? Scope
+			raise "Expected a scope to compose with, got #{operand_scope.inspect}"
+		end
+		curr_scope    = stack.last
+
 		case expr.operator
 		when '|'
-			scope_to_merge = interp_identifier expr.identifier
+			# Union with Type
 
-			unless scope_to_merge.is_a? Scope
-				raise "Expected a scope to compose with, got #{scope_to_merge.inspect}"
+			operand_scope.data.each do |key, value|
+				curr_scope[key] ||= value
 			end
 
-			curr_scope = stack.last
-
-			# todo, Should this merge be more intelligent in some way? For example, what if two Types share keys? Consider this for both for - and |.
-
-			scope_to_merge.data.each do |k, v|
-				curr_scope[k] ||= v
-			end
-
-			# Currently I assume the current scope is an Type and therefore am calling .types directly. But, Funcs will also be able to compose themselves with their arguments. So maybe this is :temporary, or more likely, I'll have a separate function for func_composition? Idk yet.
 			curr_scope.types ||= []
-			curr_scope.types += scope_to_merge.types
+			curr_scope.types += operand_scope.types
 			curr_scope.types = curr_scope.types.uniq
-		when '-'
-			# Copypaste from when '|'
-			scope_to_unmerge = interp_identifier expr.identifier
+		when '~'
+			# Removal of Type
 
-			unless scope_to_unmerge.is_a? Scope
-				raise "Expected a scope to compose with, got #{scope_to_unmerge.inspect}"
+			operand_keys_to_remove = operand_scope.data.keys
+
+			# Maybe I'll have other keys to protect in the future.
+			operand_keys_to_remove.reject! do |key|
+				key.to_s == 'new'
 			end
 
-			curr_scope = stack.last
+			operand_keys_to_remove.each do |key|
+				curr_scope.delete key
+			end
 
-			keys_to_unmerge = scope_to_unmerge.data.keys
-
-			curr_scope.types ||= []
 			curr_scope.types = curr_scope.types.reject do |type|
-				keys_to_unmerge.include? type
+				type == expr.identifier.value
 			end
-			curr_scope.types = curr_scope.types.uniq
+		when '&'
+			# Intersection of Types, aka what they share.
+
+			shared_keys    = operand_scope.data.keys.each do |key|
+				curr_scope.has? key
+			end
+			keys_to_delete = curr_scope.data.keys - shared_keys
+
+			keys_to_delete.each do |key|
+				curr_scope.data.delete key
+			end
+
+		when '^'
+			# Symmetric difference of Types, aka what the don't share.
+
+			shared_keys = curr_scope.data.keys.select do |key|
+				operand_scope.has? key
+			end
+
+			current_unique_keys = curr_scope.data.keys - shared_keys
+			operand_unique_keys = operand_scope.data.keys - shared_keys
+			keys_to_keep        = current_unique_keys + operand_unique_keys
+
+			curr_scope.data.delete_if do |key, _|
+				!keys_to_keep.include? key
+			end
+
+			operand_unique_keys.each do |key|
+				curr_scope[key] ||= operand_scope[key]
+			end
 		else
 			raise "Unknown composition operator #{expr.operator}"
 		end
