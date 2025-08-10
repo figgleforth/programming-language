@@ -592,7 +592,7 @@ class Interpreter
 		when '&'
 			# Intersection of Types, aka what they share.
 
-			shared_keys    = operand_scope.data.keys.each do |key|
+			shared_keys    = operand_scope.data.keys.select do |key|
 				curr_scope.has? key
 			end
 			keys_to_delete = curr_scope.data.keys - shared_keys
@@ -602,7 +602,7 @@ class Interpreter
 			end
 
 		when '^'
-			# Symmetric difference of Types, aka what the don't share.
+			# Symmetric difference of Types, aka what they don't share.
 
 			shared_keys = curr_scope.data.keys.select do |key|
 				operand_scope.has? key
