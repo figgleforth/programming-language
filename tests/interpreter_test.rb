@@ -396,12 +396,6 @@ class Interpreter_Test < Minitest::Test
 		end
 	end
 
-	# def test_objects_as_dictionary_keys
-	# 	skip "Once Instance can be hashed, then this test will work properly."
-	# 	_interp '{ () = 1 }'
-	# 	_interp '{ 123 = 1 }'
-	# end
-
 	def test_assigning_function_to_variable
 		out = _interp 'funk = { a, b, c; }'
 		assert_equal 3, out.expressions.count
@@ -413,24 +407,24 @@ class Interpreter_Test < Minitest::Test
 		Rotation {}
 		Entity {
 			| Transform
-			- Rotation
+			~ Rotation
 		}'
 		assert_kind_of Type, out
 		assert_kind_of Composition_Expr, out.expressions.first
 		assert_kind_of Composition_Expr, out.expressions.last
 		assert_equal 'Rotation', out.expressions.last.identifier.value
-		assert_equal '-', out.expressions.last.operator
+		assert_equal '~', out.expressions.last.operator
 	end
 
 	def test_composed_type_declaration_before_body
 		out = _interp '
 		Transform {}, Physics {}
-		Entity | Transform - Physics {}'
+		Entity | Transform ~ Physics {}'
 		assert_kind_of Type, out
 		assert_kind_of Composition_Expr, out.expressions.first
 		assert_kind_of Composition_Expr, out.expressions.last
 		assert_equal 'Physics', out.expressions.last.identifier.value
-		assert_equal '-', out.expressions.last.operator
+		assert_equal '~', out.expressions.last.operator
 	end
 
 	def test_complex_type_declaration
@@ -488,7 +482,6 @@ class Interpreter_Test < Minitest::Test
 		assert_kind_of Array, out.expressions
 		assert_equal 6, out.expressions.count
 		assert_kind_of Func_Expr, out.expressions.last
-		# It would be nice if an Instance's @data also contained :expressions, but those interpreted into Func. So Instance.expressions is [Func_Expr], instance.data is [Func].
 	end
 
 	def test_complex_type_with_value_lookup
@@ -796,5 +789,199 @@ class Interpreter_Test < Minitest::Test
 		(x, y, equal)'
 		assert_equal out.values[0].object_id, out.values[1].object_id
 		assert_equal true, out.values[2]
+	end
+
+	def test_accessing_declarations_through_type_composition
+		out = _interp "
+		Vec2 {
+			x = 0, y = 0
+
+			new { x, y;
+				./x = x
+				./y = y
+			}
+
+			multiply! { times;
+				./x *= times
+				./y *= times
+			}
+
+		}
+
+		Transform | Vec2 {
+			new { position = Vec2();
+				./x = position.x
+				y = position.y
+			}
+
+			to_s {;
+				'Transform(|x|,|y|)'
+			}
+
+			scale! { value;
+				multiply!(value)
+			}
+		}
+
+		pos = Vec2(4, 8)
+		t = Transform(pos)
+		a = t.to_s()
+		t.scale!(3)
+		b = t.to_s()
+
+		`Let's remove Vec2 from a type that composes with Transform
+		Xform | Transform ~ Vec2 {}
+
+		(a, b, t)"
+
+		# Testing in order of the values in the tuple
+		assert_equal "Transform(4,8)", out.values[0]
+		assert_equal "Transform(12,24)", out.values[1]
+
+		assert_instance_of Instance, out.values[2]
+		assert_equal 12, out.values[2][:x]
+		assert_equal 24, out.values[2][:y]
+	end
+
+	def test_random_composition_example
+		refute_raises Undeclared_Identifier do
+			out = _interp "
+			Vec2 {
+				x = 0, y = 0
+
+				new { x, y;
+					./x = x
+					./y = y
+				}
+			}
+
+			Transform | Vec2 {
+				new { position = Vec2();
+					./x = position.x
+					y = position.y
+				}
+			}
+
+			Xform | Transform ~ Vec2 {}
+
+			Xform(Vec2(23, 42))
+			"
+			assert_instance_of Instance, out
+			assert_equal ['Xform', 'Transform'], out.types
+		end
+	end
+
+	def test_union_composition
+		refute_raises Undeclared_Identifier do
+			out = _interp '
+			Aa { a = 1 }
+			Bb { a = 4; b = 2; unique = 10 }
+
+			Union | Aa | Bb {}
+
+			u = Union()
+			(u.a, u.b, u.unique)
+			'
+			assert_equal [1, 2, 10], out.values
+		end
+	end
+
+	def test_difference_composition
+		shared_code = "
+			Aa {
+				a = 4
+				common = 15
+			}
+
+			Bb {
+				b = 42
+				common = 16
+			}
+
+			AaBb | Aa | Bb {}
+
+			Diff | AaBb ~ Bb {
+				common = 23
+			}
+
+			d = Diff()".freeze
+
+		refute_raises Undeclared_Identifier do
+			out = _interp "#{shared_code}
+			a = Aa()
+			b = Bb()
+			(a.common, b.common, d.common)"
+			assert_equal [15, 16, 23], out.values
+		end
+
+		assert_raises Undeclared_Identifier do
+			_interp "#{shared_code}
+			d.b"
+		end
+	end
+
+	def test_intersection_composition
+		shared_code = "
+			Aa { a = 4;  common = 8 }
+			Bb { b = 15; common = 16 }
+
+			Intersected | Aa & Bb {}
+
+			i = Intersected()"
+
+		refute_raises Undeclared_Identifier do
+			out = _interp "#{shared_code}
+			i.common"
+			assert_equal 8, out
+		end
+
+		assert_raises Undeclared_Identifier do
+			_interp "#{shared_code}
+			i.a"
+		end
+
+		assert_raises Undeclared_Identifier do
+			_interp "#{shared_code}
+			i.b"
+		end
+	end
+
+	def test_symmetric_difference_composition
+		shared_code = "
+			Aa { a = 4; common = 10 }
+			Bb { b = 8; common = 10 }
+
+			Sym_Diff | Aa ^ Bb {}
+			s = Sym_Diff()\n"
+
+		out = _interp "#{shared_code} (s.a, s.b)"
+		assert_equal [4, 8], out.values
+
+		assert_raises Undeclared_Identifier do
+			_interp "#{shared_code} s.common"
+		end
+	end
+
+	def test_union_composition_is_left_biased
+		out = _interp "
+		Aa { a = 4 }
+		Bb { a = 8 }
+		Union | Aa | Bb {}
+		Union().a"
+		assert_equal 4, out
+	end
+
+	def test_composition_with_inbody_declarations
+		out = _interp "
+		Aa { a = 15 }
+		Bb { a = 16; b; }
+		Union {
+			`With or without space is valid
+			| Aa
+			|Bb
+		}
+		u = Union()
+		(u.a, u.b)"
+		assert_equal [15, nil], out.values
 	end
 end
