@@ -1,5 +1,4 @@
-![Status of project Ruby tests]
-(https://github.com/figgleforth/programming-language/actions/workflows/ruby.yml/badge.svg)
+![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/ruby.yml/badge.svg)
 
 ### Air Programming Language
 
