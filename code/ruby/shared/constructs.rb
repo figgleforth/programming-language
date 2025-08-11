@@ -3,19 +3,19 @@ require_relative 'air'
 module Air
 	class Scope
 		attr_accessor :enclosing_scope
-		attr_reader :name, :data
+		attr_reader :name, :declarations
 
-		def initialize name, data = {}
-			@name = name
-			@data = data
+		def initialize name = nil
+			@name         = name
+			@declarations = {}
 		end
 
 		def [] key
-			@data[key&.to_s]
+			@declarations[key&.to_s]
 		end
 
 		def []= key, value
-			@data[key.to_s] = value
+			@declarations[key.to_s] = value
 		end
 
 		def is compare
@@ -23,21 +23,21 @@ module Air
 		end
 
 		def has? identifier
-			@data.key?(identifier.to_s)
+			@declarations.key?(identifier.to_s)
 		end
 
 		# Unused, I think
 		def dig * identifiers
-			@data.dig *identifiers
+			@declarations.dig *identifiers
 		end
 
-		def data= new_data
-			@data = new_data
+		def declarations= new_declarations
+			@declarations = new_declarations
 		end
 
 		def delete key
 			return nil unless key
-			@data.delete(key.to_s)
+			@declarations.delete(key.to_s)
 		end
 	end
 
@@ -49,6 +49,11 @@ module Air
 
 	class Type < Scope
 		attr_accessor :expressions, :types
+
+		def initialize name = nil
+			super name
+			@types = [name]
+		end
 	end
 
 	class Instance < Type

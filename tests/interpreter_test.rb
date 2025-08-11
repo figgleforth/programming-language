@@ -509,7 +509,7 @@ class Interpreter_Test < Minitest::Test
 		pos = Vector2()'
 		assert_instance_of Air::Instance, out
 		data = { 'x' => 0, 'y' => 1 }
-		assert_equal data, out.data
+		assert_equal data, out.declarations
 	end
 
 	def test_dot_slash
@@ -987,5 +987,30 @@ class Interpreter_Test < Minitest::Test
 		u = Union()
 		(u.a, u.b)"
 		assert_equal [15, nil], out.values
+	end
+
+	def test_server_type
+		# Since this is the first test to use Server, I want to call out that I'm passing `true` as the second arg to #_interp so that it'll call #preload_intrinsics on the Interpreter, so that Server is available
+		out = _interp "
+		App | Server {}
+
+		app = App(4815)
+		(app, app.port, app.routes)
+		", true
+		assert_instance_of Air::Instance, out.values[0]
+		assert_equal %w(App Server), out.values[0].types
+
+		assert out.values[0].has? :routes
+		assert_nil out.values[0][:routes]
+		assert out.values[0].has? :port
+		assert_equal 4815, out.values[0][:port]
+
+		assert_equal 4815, out.values[1]
+		assert_nil out.values[2]
+
+		assert_raises Undeclared_Identifier do
+			# Passing false as the second argument (default behavior) does not preload intrinsics (which is where Server is declared)
+			_interp "App | Server {}", false
+		end
 	end
 end

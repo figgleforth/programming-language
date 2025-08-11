@@ -1,42 +1,23 @@
 Number {
 	numerator;
 	denominator = 1
+}
 
-	to_s {;
-		'the number is |numerator|!'
+Server {
+	port;
+	routes;
+
+	new { port = nil;
+		./port = port
 	}
-
-	negate {;
-		-numerator
-	}
 }
 
-Num = Number
-Int = Integer | Number {}
-Flt = Float   | Number {}
-
-String {
-	value;
-	length {;}
-}
-
-Str = String
-
-Func = Function {
-	name;
-	expressions;
-	param_decls;
-	signature {;}
-}
 
 assert { condition;
 	condition == true
 }
 
-`These won't crash.
-assert(true)
-assert(Num == Number)
-assert(String != Number)
 
-`Uncomment to crash.
-`assert(false) or assert(true)
+`Uncomment one of these to crash the program.
+`assert(false)
+`assert(true)
