@@ -14,18 +14,22 @@ task :cloc do
 	sh "\ncloc --quiet --force-lang-def=air.cloc ."
 end
 
-task :interp, [:file] do |_, args|
-	if args[:file].nil? || args[:file].empty?
-		raise ArgumentError, "rake interp expected file arguments `bundle exec rake interp[path_to_file]`"
+task :interp, [:string] do |_, args|
+	if args[:string].nil? || args[:string].empty?
+		raise ArgumentError, "rake interp expected file arguments `bundle exec rake interp[\"Hello!\"]`"
 	end
 
-	pp _interp_file args[:file]
+	pp _interp(args[:string].to_s)
+rescue Exception => e
+	raise "This seems to be broken... Do tests pass? Try `rake`.\n#{e}"
 end
 
-task :interp_string, [:source_string] do |_, args|
-	if args[:source_string].nil? || args[:source_string].empty?
-		raise ArgumentError, "rake interp_string expected file arguments `bundle exec rake interp_string[source_string]`"
+task :interp_file, [:file] do |_, args|
+	if args[:file].nil? || args[:file].empty?
+		raise ArgumentError, "rake interp_file expected file arguments `bundle exec rake interp_file[file]`"
 	end
 
-	pp _interp args[:source_string]
+	pp _interp_file(args[:file])
+rescue Exception => e
+	raise "This seems to be broken... Do tests pass? Try `rake`.\n#{e}"
 end

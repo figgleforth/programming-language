@@ -874,8 +874,12 @@ class Interpreter_Test < Minitest::Test
 	def test_union_composition
 		refute_raises Undeclared_Identifier do
 			out = _interp '
-			Aa { a = 1 }
-			Bb { a = 4; b = 2; unique = 10 }
+			Aa {
+				a = 1
+			}
+			Bb {
+				a = 4; b = 2; unique = 10
+			}
 
 			Union | Aa | Bb {}
 
@@ -889,7 +893,7 @@ class Interpreter_Test < Minitest::Test
 	def test_difference_composition
 		shared_code = "
 			Aa {
-				a = 4
+				a = 8
 				common = 15
 			}
 
@@ -910,8 +914,8 @@ class Interpreter_Test < Minitest::Test
 			out = _interp "#{shared_code}
 			a = Aa()
 			b = Bb()
-			(a.common, b.common, d.common)"
-			assert_equal [15, 16, 23], out.values
+			(d.a, a.common, b.common, d.common)"
+			assert_equal [8, 15, 16, 23], out.values
 		end
 
 		assert_raises Undeclared_Identifier do

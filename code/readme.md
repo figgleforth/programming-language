@@ -35,7 +35,7 @@ lexemes     = _lex source # => array of Lexemes
 expressions = _parse source # => array of Expressions
 result      = _interp source # => Hello, Again!
 
-source_file = './my_program.em'
+source_file = './my_program.air'
 lexemes     = _lex_file source_file # => array of Lexemes
 expressions = _parse_file source_file # => array of Expressions
 result      = _interp_file source_file
@@ -50,6 +50,6 @@ Note that `#_parse*` uses Lexer to get its input, and
 This is the quickest way to run code.
 
 ```bash
-rake interp[my_program.em]
-rake interp_string["4 + 8"] # => 12
+rake interp_file["my_program.air"]
+rake interp["4 + 8"] # => 12
 ```

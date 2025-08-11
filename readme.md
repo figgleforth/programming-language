@@ -114,6 +114,120 @@ repo = Repo('figgleforth', 'programming-language')
 NAME = repo.to_s()
 ```
 
+#### Type Composition
+
+- `|` Union
+- `~` Difference
+- `&` Intersection
+- `^` Symmetric Difference
+
+Composition applies operators sequentially, left to right. There is no implicit precedence, so
+compositions, regardless of inline or inbody, are evaluated exactly as written. Note that union (
+`|`) is left-biased when the same declarations exist on both sides, meaning the left-hand declaration is the one that takes precedence whose value will be for the assignment.
+
+---
+
+Union, where left-hand and right-hand declarations are merged into the left-hand Type. Conflicts are resolved by keeping the left-hand declaration.
+
+```
+Aa {
+	a = 1
+}
+
+Bb {
+	a = 4; b = 2; unique = 10
+}
+
+Aa | Bb {}
+a = Aa()
+a.a `=> 1 due to the left-bias retaining Aa's declaration of "a"
+
+Cc | Bb {
+	c = 42
+}
+
+c = Cc()
+c.a `=> 4
+c.b `=> 2
+c.unique `=> 10
+
+Union | Cc {
+	a = 100
+}
+
+u = Union()
+u.a `=> 100
+u.b `=> 2
+u.unique `=> 10
+```
+
+Difference, where declarations of the right-hand Type are removed from the left-hand Type.
+
+```
+Aa {
+	a = 4
+	common = 15
+}
+
+Bb {
+	b = 42
+	common = 16
+}
+
+AaBb | Aa | Bb {}
+
+Difference | AaBb ~ Bb {
+	common = 23
+}
+
+d = Difference()
+d.a `=> 4
+d.b `=> Undeclared_Identifier
+d.common `=> 23
+```
+
+Intersection, where only mutual left-hand and right-hand declarations are declared on the left-hand Type.
+
+```
+Aa {
+	a = 4
+	common = 8
+}
+
+Bb {
+	b = 15
+	common = 16
+}
+
+Intersected | Aa & Bb {}
+
+i = Intersected()
+i.common `=> 8
+i.a `=> Undeclared_Identifier
+i.b `=> Undeclared_Identifier
+```
+
+Symmetric difference, where unique declarations from both left-hand and right-hand side are declared, while the intersection is discarded.
+
+```
+Aa {
+	a = 4
+	common = 10
+}
+
+Bb {
+	b = 8
+	common = 10
+}
+
+Symmetric_Difference | Aa ^ Bb {}
+
+s = Symmetric_Difference()
+s.a `=> 4
+s.b `=> 8
+s.common `=> Undeclared_Identifier
+```
+
 ---
 
 ### Getting Started
@@ -135,15 +249,9 @@ bundle install
 bundle exec rake test
 ```
 
-#### Running Your Own Programs
-
-```shell script
-bundle exec rake interp[./your_program.em]
-```
-
 #### Explore The Code
 
-- [`code/readme`](./code/readme.md)contains detailed information on running your own programs
+- [`code/readme`](./code/readme.md) contains detailed information on running your own programs
 - [`code/air`](./code/air) contains code written in the toy language
 - [`code/ruby`](./code/ruby) contains code implementing the toy language
 	- [Lexer#output](./code/ruby/lexer.rb) - Source code to Lexemes
