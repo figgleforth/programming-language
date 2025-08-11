@@ -1,8 +1,8 @@
-require './code/ruby/shared/constants'
-require './code/ruby/shared/constructs'
-require './code/ruby/interpreter'
-require './code/ruby/lexer'
-require './code/ruby/parser'
+require_relative 'constants'
+require_relative 'constructs'
+require_relative '../interpreter'
+require_relative '../lexer'
+require_relative '../parser'
 
 def _interp code
 	expressions  = _parse code

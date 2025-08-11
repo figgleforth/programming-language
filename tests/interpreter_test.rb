@@ -64,14 +64,14 @@ class Interpreter_Test < Minitest::Test
 
 	def test_anonymous_func_expr
 		out = _interp '{;}'
-		assert_instance_of Func, out
+		assert_instance_of Air::Func, out
 		assert_empty out.expressions
 		assert_nil out.name
 	end
 
 	def test_empty_func_declaration
 		out = _interp 'open {;}'
-		assert_instance_of Func, out
+		assert_instance_of Air::Func, out
 		assert_empty out.expressions
 		assert_equal 'open', out.name
 	end
@@ -119,7 +119,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_empty_type_declaration
 		out = _interp 'Island {}'
-		assert_instance_of Type, out
+		assert_instance_of Air::Type, out
 		assert_empty out.expressions
 		assert_equal 'Island', out.name
 	end
@@ -132,15 +132,15 @@ class Interpreter_Test < Minitest::Test
 				`do something with the numbers
 			}
 		}'
-		assert_instance_of Type, out
+		assert_instance_of Air::Type, out
 		assert_instance_of NilClass, out[:computer]
-		assert_instance_of Func, out[:enter]
+		assert_instance_of Air::Func, out[:enter]
 	end
 
 	def test_inline_type_composition_declaration
 		out = _interp 'Number {}
 		Integer | Number {}'
-		assert_instance_of Type, out
+		assert_instance_of Air::Type, out
 		assert_equal %w(Integer Number), out.types
 	end
 
@@ -152,7 +152,7 @@ class Interpreter_Test < Minitest::Test
 		Float {
 			| Number
 		}'
-		assert_instance_of Type, out
+		assert_instance_of Air::Type, out
 		assert_equal %w(Float Number Numeric), out.types
 	end
 
@@ -167,7 +167,7 @@ class Interpreter_Test < Minitest::Test
 		assert_instance_of NilClass, out
 
 		out = _interp 'func { assign_to_nil; }'
-		assert_instance_of Func, out
+		assert_instance_of Air::Func, out
 		assert_instance_of Param_Expr, out.expressions.first
 		assert_equal 'assign_to_nil', out.expressions.first.name
 	end
@@ -190,7 +190,7 @@ class Interpreter_Test < Minitest::Test
 		}
 
 		Island.Hatch.Commodore_64'
-		assert_instance_of Type, out
+		assert_instance_of Air::Type, out
 	end
 
 	def test_constants_cannot_be_reassigned
@@ -326,7 +326,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_create_tuple
 		out = _interp 'x = (1, 2)'
-		assert_kind_of Tuple, out
+		assert_kind_of Air::Tuple, out
 		assert_equal [1, 2], out.values
 	end
 
@@ -409,7 +409,7 @@ class Interpreter_Test < Minitest::Test
 			| Transform
 			~ Rotation
 		}'
-		assert_kind_of Type, out
+		assert_kind_of Air::Type, out
 		assert_kind_of Composition_Expr, out.expressions.first
 		assert_kind_of Composition_Expr, out.expressions.last
 		assert_equal 'Rotation', out.expressions.last.identifier.value
@@ -420,7 +420,7 @@ class Interpreter_Test < Minitest::Test
 		out = _interp '
 		Transform {}, Physics {}
 		Entity | Transform ~ Physics {}'
-		assert_kind_of Type, out
+		assert_kind_of Air::Type, out
 		assert_kind_of Composition_Expr, out.expressions.first
 		assert_kind_of Composition_Expr, out.expressions.last
 		assert_equal 'Physics', out.expressions.last.identifier.value
@@ -459,7 +459,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_declared_type_init_with_new_keyword
 		out = _interp 'Type {}, Type.new'
-		assert_instance_of Instance, out
+		assert_instance_of Air::Instance, out
 		assert_equal 'Type', out.name
 	end
 
@@ -477,7 +477,7 @@ class Interpreter_Test < Minitest::Test
 
 			new { position; }
 		}, Transform.new'
-		assert_kind_of Instance, out
+		assert_kind_of Air::Instance, out
 		assert_equal 'Transform', out.name
 		assert_kind_of Array, out.expressions
 		assert_equal 6, out.expressions.count
@@ -499,15 +499,15 @@ class Interpreter_Test < Minitest::Test
 		t = Transform.new
 		(t.position, t.position.y)
 		'
-		assert_kind_of Tuple, out
-		assert_kind_of Instance, out.values.first
+		assert_kind_of Air::Tuple, out
+		assert_kind_of Air::Instance, out.values.first
 		assert_equal 2, out.values.last
 	end
 
 	def test_type_declaration_with_parens
 		out = _interp 'Vector2 { x = 0, y = 1 }
 		pos = Vector2()'
-		assert_instance_of Instance, out
+		assert_instance_of Air::Instance, out
 		data = { 'x' => 0, 'y' => 1 }
 		assert_equal data, out.data
 	end
@@ -556,11 +556,11 @@ class Interpreter_Test < Minitest::Test
 
 		out = _interp "#{shared_code}
 		A.B"
-		assert_instance_of Type, out
+		assert_instance_of Air::Type, out
 
 		out = _interp "#{shared_code}
 		A.B.C.new"
-		assert_instance_of Instance, out
+		assert_instance_of Air::Instance, out
 
 		out = _interp "#{shared_code}
 		A.B.C.new.d"
@@ -632,7 +632,7 @@ class Interpreter_Test < Minitest::Test
 	def test_nested_array_access_by_dot_index
 		out = _interp 'things = [4, [8, 15, 16], 23, [42, 108, 418, 3]]
 		(things.1.0, things.3.1)'
-		assert_instance_of Tuple, out
+		assert_instance_of Air::Tuple, out
 		assert_equal 8, out.values.first
 		assert_equal 108, out.values.last
 	end
@@ -657,7 +657,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_returns
 		out = _interp 'return 1'
-		assert_instance_of Return, out
+		assert_instance_of Air::Return, out
 		assert_equal 1, out.value
 
 		out = _interp '
@@ -669,7 +669,7 @@ class Interpreter_Test < Minitest::Test
 			return "should not get here"
 		}
 		eject()'
-		assert_instance_of Return, out
+		assert_instance_of Air::Return, out
 		assert_equal "true!", out.value
 	end
 
@@ -838,7 +838,7 @@ class Interpreter_Test < Minitest::Test
 		assert_equal "Transform(4,8)", out.values[0]
 		assert_equal "Transform(12,24)", out.values[1]
 
-		assert_instance_of Instance, out.values[2]
+		assert_instance_of Air::Instance, out.values[2]
 		assert_equal 12, out.values[2][:x]
 		assert_equal 24, out.values[2][:y]
 	end
@@ -866,7 +866,7 @@ class Interpreter_Test < Minitest::Test
 
 			Xform(Vec2(23, 42))
 			"
-			assert_instance_of Instance, out
+			assert_instance_of Air::Instance, out
 			assert_equal ['Xform', 'Transform'], out.types
 		end
 	end

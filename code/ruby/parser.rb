@@ -1,5 +1,5 @@
-require './code/ruby/shared/expressions'
-require './code/ruby/shared/constants'
+require_relative 'shared/expressions'
+require_relative 'shared/constants'
 
 class Parser
 	attr_accessor :i, :input

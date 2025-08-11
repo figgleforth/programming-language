@@ -1,15 +1,17 @@
-require './code/ruby/shared/constructs'
-require './code/ruby/shared/expressions'
-require './code/ruby/shared/constants'
-require './code/ruby/shared/errors'
-require './code/ruby/shared/helpers'
+require_relative 'shared/constructs'
+require_relative 'shared/intrinsics'
+require_relative 'shared/expressions'
+require_relative 'shared/constants'
+require_relative 'shared/errors'
+require_relative 'shared/helpers'
+require_relative 'shared/air'
 
 class Interpreter
 	attr_accessor :i, :input, :stack
 
 	def initialize input = []
 		@input = input
-		@stack = [Global.new]
+		@stack = [Air::Global.new]
 	end
 
 	def output
@@ -63,9 +65,9 @@ class Interpreter
 		when '../'
 			raise "../ not implemented in #scope_for_identifier"
 		when './'
-			# Should default to the global scope if no Instance is present.
+			# Should default to the global scope if no Air::Instance is present.
 			scope = stack.reverse_each.find do |scope|
-				(scope.is_a?(Instance) || scope.is_a?(Global)) && scope.has?(expr.value)
+				(scope.is_a?(Air::Instance) || scope.is_a?(Air::Global)) && scope.has?(expr.value)
 			end
 			scope || stack.first
 		else
@@ -80,12 +82,12 @@ class Interpreter
 	def interp_identifier expr
 		raise "Expected Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Identifier_Expr
 		return nil if expr.value == 'nil'
-		return true if expr.value == 'true' # todo, Return Bool.truthy
-		return false if expr.value == 'false' # todo, Return Bool.falsy
+		return true if expr.value == 'true' # todo, return Air::Bool.truthy
+		return false if expr.value == 'false' # todo, return Air::Bool.falsy
 
 		scope = scope_for_identifier expr
 
-		value = if scope.is_a? Array
+		value = if scope.is_a? Array # Intentionally not Air::Array
 			found = scope.reverse_each.find do |scope|
 				scope.has? expr.value
 			end
@@ -127,21 +129,21 @@ class Interpreter
 	end
 
 	def maybe_instance expr
-		# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Scope.data{} is either a primitive like String, Integer, Float, or they're an instanced version like Number.
+		# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Air::Scope.data{} is either a primitive like String, Integer, Float, or they're an instanced version like Air::Number.
 		case expr
 		when Integer, Float
 			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
-			scope             = Number.new expr
+			scope             = Air::Number.new expr
 			scope.type        = type_of_number_expr expr
 			scope.numerator   = expr
 			scope.denominator = 1
 			scope
-		when true
-			Bool.truthy
-		when false
-			Bool.falsy
 		when nil
-			Nil.shared
+			Air::Nil.shared
+		when true
+			Air::Bool.truthy
+		when false
+			Air::Bool.falsy
 		else
 			expr
 		end
@@ -149,11 +151,11 @@ class Interpreter
 
 	def interp_dot_new expr
 		receiver = interpret expr.left
-		unless receiver.is_a? Type
+		unless receiver.is_a? Air::Type
 			raise Cannot_Initialize_Non_Type_Identifier, expr.left.inspect
 		end
 
-		instance             = Instance.new receiver.name # :generalize_me
+		instance             = Air::Instance.new receiver.name # :generalize_me
 		instance.expressions = receiver.expressions
 
 		push_scope instance
@@ -175,7 +177,7 @@ class Interpreter
 			!interpret(expr.expression)
 		when 'return'
 			returned = interpret expr.expression
-			Return.new returned
+			Air::Return.new returned
 		else
 			raise Unhandled_Prefix, expr.inspect
 		end
@@ -197,8 +199,8 @@ class Interpreter
 				raise Cannot_Reassign_Constant, expr.inspect
 			end
 		when :Identifier
-			# It can only be assigned `value` of Type.
-			if !right_value.is_a?(Type)
+			# It can only be assigned `value` of Air::Type.
+			if !right_value.is_a?(Air::Type)
 				raise Cannot_Assign_Incompatible_Type, expr.inspect
 			end
 		when :identifier
@@ -217,14 +219,14 @@ class Interpreter
 		end
 
 		left = maybe_instance interpret expr.left
-		if !left.kind_of?(Scope) && !left.kind_of?(Range)
+		if !left.kind_of?(Air::Scope) && !left.kind_of?(Range)
 			raise Invalid_Dot_Infix_Left_Operand, "#{expr.inspect}"
 		end
 
 		if left.is_a? Air::Array
 			if expr.right.is(Func_Expr) && expr.right.name.value == 'each'
 				left.values.each do |it|
-					each_scope                 = Scope.new 'each{;}'
+					each_scope                 = Air::Scope.new 'each{;}'
 					each_scope.enclosing_scope = stack.last
 					push_scope each_scope
 					declare 'it', it, each_scope
@@ -236,7 +238,7 @@ class Interpreter
 
 				return left
 			elsif expr.right.is Number_Expr
-				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Number.
+				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Air::Number.
 			elsif expr.right.is Array_Index_Expr
 				array = left # Just for clarity.
 
@@ -254,7 +256,7 @@ class Interpreter
 				# todo, Should be handled by #interp_func_call?
 
 				left.each do |it|
-					each_scope = Scope.new 'each{;}'
+					each_scope = Air::Scope.new 'each{;}'
 					push_scope each_scope
 					declare 'it', it, each_scope
 					expr.right.expressions.each do |expr|
@@ -335,9 +337,9 @@ class Interpreter
 				when '.<'
 					Range.new start, finish, exclude_end: true
 				when '>.'
-					Left_Exclusive_Range.new start, finish
+					Air::Left_Exclusive_Range.new start, finish
 				when '><'
-					Left_Exclusive_Range.new start, finish, exclude_end: true
+					Air::Left_Exclusive_Range.new start, finish, exclude_end: true
 				end
 
 			elsif LOGICAL_OPERATORS.include? expr.operator
@@ -375,14 +377,14 @@ class Interpreter
 			array
 		when '()'
 			if expr.expressions.empty?
-				Tuple.new 'Tuple' # For now, I guess. What else should I do with empty parens?
+				Air::Tuple.new 'Tuple' # For now, I guess. What else should I do with empty parens?
 			elsif expr.expressions.count == 1
 				interpret expr.expressions.first
 			else
 				values       = expr.expressions.reduce([]) do |arr, expr|
 					arr << interpret(expr)
 				end
-				tuple        = Tuple.new 'Tuple'
+				tuple        = Air::Tuple.new 'Tuple'
 				tuple.values = values
 				tuple
 			end
@@ -414,10 +416,10 @@ class Interpreter
 	def interp_call expr
 		receiver = interpret expr.receiver
 		case receiver
-		when Type # Type()
+		when Air::Type # Air::Type()
 			interp_type_call receiver, expr
 
-		when Func # func()
+		when Air::Func # func()
 			interp_func_call receiver, expr
 
 		else
@@ -427,22 +429,22 @@ class Interpreter
 
 	def interp_type_call type, expr
 		#
-		# Type_Expr is converted to Type in #interp_type.
-		# Instance inherits Type's @name and @types.
+		# Type_Expr is converted to Air::Type in #interp_type.
+		# Air::Instance inherits Air::Type's @name and @types.
 		#
-		#     (See constructs.rb for Type and Instance declarations)
+		#     (See constructs.rb for Air::Type and Air::Instance declarations)
 		#     (See expressions.rb for Type_Expr declaration)
 		#
 		# - Push instance onto stack
 		# - Interpret type.expressions so the declarations are made on the instance
 		# - Keep instance on the stack
-		# - For each Func declared on instance, set `func.enclosing_scope = instance`
+		# - For each Air::Func declared on instance, set `func.enclosing_scope = instance`
 		# - Interpret instance[:new], the initializer
 		# - Delete :new from instance, no longer needed
 		#
 
 		# :generalize_me
-		instance       = Instance.new type.name
+		instance       = Air::Instance.new type.name
 		instance.types = type.types
 
 		push_scope instance
@@ -451,7 +453,7 @@ class Interpreter
 		end
 
 		instance.data.values.each do |decl|
-			next unless decl.is_a? Func
+			next unless decl.is_a? Air::Func
 			decl.enclosing_scope = instance
 		end
 
@@ -470,7 +472,7 @@ class Interpreter
 	end
 
 	def interp_func_call func, expr
-		call_scope = Scope.new "#{func.name}() Func Call"
+		call_scope = Air::Scope.new "#{func.name}() Air::Func Call"
 
 		params = func.expressions.select do |expr|
 			expr.is_a? Param_Expr
@@ -510,7 +512,7 @@ class Interpreter
 			next if e.is_a? Param_Expr
 
 			result = interpret e
-			break if result.is_a? Return
+			break if result.is_a? Air::Return
 		end
 
 		_assert (pop_scope == call_scope)
@@ -520,7 +522,7 @@ class Interpreter
 	end
 
 	def interp_type expr
-		type             = Type.new expr.name.value
+		type             = Air::Type.new expr.name.value
 		type.expressions = expr.expressions
 
 		if type.types
@@ -541,7 +543,7 @@ class Interpreter
 	end
 
 	def interp_func expr
-		func                 = Func.new expr.name&.value
+		func                 = Air::Func.new expr.name&.value
 		func.expressions     = expr.expressions
 		func.enclosing_scope = stack.last
 
@@ -556,14 +558,14 @@ class Interpreter
 		# These are interpreted sequentially so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
 		operand_scope = interp_identifier expr.identifier
-		unless operand_scope.is_a? Scope
+		unless operand_scope.is_a? Air::Scope
 			raise "Expected a scope to compose with, got #{operand_scope.inspect}"
 		end
 		curr_scope    = stack.last
 
 		case expr.operator
 		when '|'
-			# Union with Type
+			# Union with Air::Type
 
 			operand_scope.data.each do |key, value|
 				curr_scope[key] ||= value
@@ -573,7 +575,7 @@ class Interpreter
 			curr_scope.types += operand_scope.types
 			curr_scope.types = curr_scope.types.uniq
 		when '~'
-			# Removal of Type
+			# Removal of Air::Type
 
 			operand_keys_to_remove = operand_scope.data.keys
 

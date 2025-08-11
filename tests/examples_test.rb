@@ -1,5 +1,6 @@
 require 'minitest/autorun'
 require './code/ruby/shared/helpers'
+require './code/ruby/shared/intrinsics'
 
 class Examples_Test < Minitest::Test
 	def test_fizz_buzz
@@ -32,7 +33,7 @@ class Examples_Test < Minitest::Test
 		}
 
 		(three, five, fifteen)"
-		assert_instance_of Tuple, out
+		assert_instance_of Air::Tuple, out
 		out.values.each do |it|
 			assert_instance_of Air::Array, it
 		end
@@ -117,9 +118,9 @@ class Examples_Test < Minitest::Test
 		(_running?, a, b, s.port, s, s.start!, s.running?)
 		"
 		assert_equal [false, true, false, 4815], out.values[0..3]
-		assert_instance_of Instance, out.values[4]
-		assert_instance_of Func, out.values[5]
-		assert_instance_of Func, out.values[6]
+		assert_instance_of Air::Instance, out.values[4]
+		assert_instance_of Air::Func, out.values[5]
+		assert_instance_of Air::Func, out.values[6]
 	end
 
 	def test_nested_scopes
