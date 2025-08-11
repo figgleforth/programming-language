@@ -1,3 +1,6 @@
+![Status of project Ruby tests]
+(https://github.com/figgleforth/programming-language/actions/workflows/ruby.yml/badge.svg)
+
 ### Air Programming Language
 
 This is a for-fun programming language with mechanics I like. Some could be silly and some could be serious, for example:
@@ -22,7 +25,6 @@ This is a for-fun programming language with mechanics I like. Some could be sill
 - [Getting Started](#getting-started)
 	- [Prerequisites](#prerequisites)
 	- [Running Tests](#running-tests)
-	- [Running Your Own Programs](#running-your-own-programs)
 	- [Explore The Code](#explore-the-code)
 - [License](#license)
 
