@@ -52,13 +52,13 @@ module Air
 
 		def initialize name = nil
 			super name
-			@types = [name]
+			@types = [name].compact
 		end
 	end
 
 	class Instance < Type
-		def initialize name
-			super (name || 'Instance')
+		def initialize name = 'Instance'
+			super name
 		end
 	end
 
