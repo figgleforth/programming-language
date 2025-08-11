@@ -14,6 +14,15 @@ class Interpreter
 		@stack = [Air::Global.new]
 	end
 
+	def preload_intrinsics
+		original_input = @input
+
+		@input = _parse_file './code/air/preload.air'
+		output # So the preloads are declared on this instance of Interpreter
+
+		@input = original_input
+	end
+
 	def output
 		input.each.inject nil do |result, expr|
 			result = interpret expr
@@ -81,11 +90,19 @@ class Interpreter
 
 	def interp_identifier expr
 		raise "Expected Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Identifier_Expr
-		return nil if expr.value == 'nil'
-		return true if expr.value == 'true' # todo, return Air::Bool.truthy
-		return false if expr.value == 'false' # todo, return Air::Bool.falsy
 
-		scope = scope_for_identifier expr
+		scope = case expr.value
+		when 'nil'
+			return nil
+		when 'true'
+			# todo, return Air::Bool.truthy
+			return true
+		when 'false'
+			# todo, return Air::Bool.falsy
+			return false
+		else
+			scope_for_identifier expr
+		end
 
 		value = if scope.is_a? Array # Intentionally not Air::Array
 			found = scope.reverse_each.find do |scope|
@@ -129,7 +146,7 @@ class Interpreter
 	end
 
 	def maybe_instance expr
-		# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Air::Scope.data{} is either a primitive like String, Integer, Float, or they're an instanced version like Air::Number.
+		# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Air::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Air::Number.
 		case expr
 		when Integer, Float
 			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
@@ -452,7 +469,7 @@ class Interpreter
 			interpret expr
 		end
 
-		instance.data.values.each do |decl|
+		instance.declarations.values.each do |decl|
 			next unless decl.is_a? Air::Func
 			decl.enclosing_scope = instance
 		end
@@ -522,7 +539,8 @@ class Interpreter
 	end
 
 	def interp_type expr
-		type             = Air::Type.new expr.name.value
+		type = Air::Type.new expr.name.value
+
 		type.expressions = expr.expressions
 
 		if type.types
@@ -566,8 +584,7 @@ class Interpreter
 		case expr.operator
 		when '|'
 			# Union with Air::Type
-
-			operand_scope.data.each do |key, value|
+			operand_scope.declarations.each do |key, value|
 				curr_scope[key] ||= value
 			end
 
@@ -577,7 +594,7 @@ class Interpreter
 		when '~'
 			# Removal of Air::Type
 
-			operand_keys_to_remove = operand_scope.data.keys
+			operand_keys_to_remove = operand_scope.declarations.keys
 
 			# Maybe I'll have other keys to protect in the future.
 			operand_keys_to_remove.reject! do |key|
@@ -594,27 +611,27 @@ class Interpreter
 		when '&'
 			# Intersection of Types, aka what they share.
 
-			shared_keys    = operand_scope.data.keys.select do |key|
+			shared_keys    = operand_scope.declarations.keys.select do |key|
 				curr_scope.has? key
 			end
-			keys_to_delete = curr_scope.data.keys - shared_keys
+			keys_to_delete = curr_scope.declarations.keys - shared_keys
 
 			keys_to_delete.each do |key|
-				curr_scope.data.delete key
+				curr_scope.declarations.delete key
 			end
 
 		when '^'
 			# Symmetric difference of Types, aka what they don't share.
 
-			shared_keys = curr_scope.data.keys.select do |key|
+			shared_keys = curr_scope.declarations.keys.select do |key|
 				operand_scope.has? key
 			end
 
-			current_unique_keys = curr_scope.data.keys - shared_keys
-			operand_unique_keys = operand_scope.data.keys - shared_keys
+			current_unique_keys = curr_scope.declarations.keys - shared_keys
+			operand_unique_keys = operand_scope.declarations.keys - shared_keys
 			keys_to_keep        = current_unique_keys + operand_unique_keys
 
-			curr_scope.data.delete_if do |key, _|
+			curr_scope.declarations.delete_if do |key, _|
 				!keys_to_keep.include? key
 			end
 
@@ -651,7 +668,7 @@ class Interpreter
 
 			if expr.when_false.is_a? Conditional_Expr
 				result = interp_conditional expr.when_false
-			elsif expr.when_false.is_a? Array
+			elsif expr.when_false.is_a? Array # Also intentionally not Air::Array
 				expr.when_false.each do |expr|
 					result = interpret expr
 				end

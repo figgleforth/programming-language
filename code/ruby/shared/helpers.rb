@@ -4,9 +4,10 @@ require_relative '../interpreter'
 require_relative '../lexer'
 require_relative '../parser'
 
-def _interp code
+def _interp code, preload_intrinsics = false
 	expressions  = _parse code
 	@interpreter = Interpreter.new expressions
+	@interpreter.preload_intrinsics if preload_intrinsics
 	@interpreter.output
 end
 
@@ -25,8 +26,8 @@ def _lex_file file_path
 	_lex File.read file_path
 end
 
-def _interp_file file_path
-	_interp File.read file_path
+def _interp_file file_path, preload_intrinsics = false
+	_interp File.read(file_path), preload_intrinsics
 end
 
 def _parse_file file_path

@@ -129,4 +129,14 @@ module Air
 		end
 	end
 
+	class Server < Type
+		attr_accessor :port, :routes
+
+		def initialize
+			super 'Server'
+
+			@declarations['port']   = nil
+			@declarations['routes'] = nil
+		end
+	end
 end
