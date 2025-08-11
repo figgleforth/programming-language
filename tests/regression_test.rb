@@ -156,7 +156,7 @@ class Regression_Test < Minitest::Test
 		s2 = b2.to_s()
 		(b1, s1, b2, s2)
 		'
-		assert_instance_of Instance, out.values[0]
+		assert_instance_of Air::Instance, out.values[0]
 		assert_equal "Big-box", out.values[1]
 		assert_equal "Small-box", out.values[3]
 	end

@@ -1,4 +1,4 @@
-require './code/ruby/shared/constants'
+require_relative 'constants'
 
 class Expression
 	attr_accessor :value, :type

@@ -1,6 +1,6 @@
-require './code/ruby/shared/constants'
-require './code/ruby/shared/helpers'
-require './code/ruby/shared/lexeme'
+require_relative 'shared/constants'
+require_relative 'shared/helpers'
+require_relative 'shared/lexeme'
 
 class Lexer
 	attr_accessor :i, :col, :line, :input
@@ -204,7 +204,7 @@ class Lexer
 					it.value = eat
 
 				elsif whitespace? curr
-					it.type = :whitespace
+					it.type  = :whitespace
 					it.value = eat
 
 				elsif numeric?
