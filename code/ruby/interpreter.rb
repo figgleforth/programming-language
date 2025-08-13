@@ -646,7 +646,7 @@ class Interpreter
 	def interp_conditional expr
 		# I'm being very explicit with the "== true" checks of the condition. It's easy to misread this to mean that as long as it's not nil. While the distinction in this case may not matter (in Ruby), I still haven't decided how this language will handle truthiness.
 		case expr.type
-		when 'while', 'until', 'ew', 'elwhile', 'elswhile', 'elsewhile'
+		when 'while', 'until', 'elwhile'
 			result    = nil
 			condition = interpret(expr.condition)
 

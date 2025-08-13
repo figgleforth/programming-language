@@ -47,9 +47,9 @@ RESERVED = %w(
 		``` `
 
 		for
-		if ef el elif elsif else
-		while ew elswhile elwhile elsewhile
+		if elif else
+		while elwhile
 		unless until
 		true false nil
-		skip stop and or return
+		and or return
 	).sort_by &SORT_BY_LENGTH_DESC # todo, I want to add `remove` here as well but not is not the time.
