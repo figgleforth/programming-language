@@ -715,7 +715,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_reference_decorator_on_identifier_expr
-		out = _parse '^count'
+		out = _parse '@count'
 		assert out.first.reference
 
 		out = _parse 'count'
