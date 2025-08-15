@@ -1,5 +1,7 @@
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/ruby.yml/badge.svg)
 
+### ![](air.svg)
+
 ### Air Programming Language
 
 This is a for-fun programming language with mechanics I like. Some could be silly and some could be serious, for example:

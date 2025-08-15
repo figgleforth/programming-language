@@ -258,7 +258,7 @@ class Lexer_Test < Minitest::Test
 
 		out = _lex 'if 1 + 2 * 3 == 7
 			"This one!"
-		elsif 1 + 2 * 3 == 9
+		elif 1 + 2 * 3 == 9
 			\'No, this one!\'
 		else
 			\'🤯\'

@@ -2,7 +2,7 @@ require 'minitest/autorun'
 require './code/ruby/shared/helpers'
 
 class Interpreter_Test < Minitest::Test
-	def test_preload_dot_em
+	def test_preload_dot_air
 		refute_raises RuntimeError do
 			_interp_file './code/air/preload.air'
 		end
