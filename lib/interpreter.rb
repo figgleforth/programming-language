@@ -186,7 +186,7 @@ class Interpreter
 		case called_from
 		when 'assert'
 		else
-			raise "Intrinsic `#{called_from}` not implem ented yet."
+			raise "Intrinsic `#{called_from}` not implemented yet."
 		end
 	end
 
