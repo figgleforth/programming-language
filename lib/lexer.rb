@@ -1,6 +1,4 @@
-require_relative 'shared/constants'
-require_relative 'shared/helpers'
-require_relative 'shared/lexeme'
+require_relative 'air'
 
 class Lexer
 	attr_accessor :i, :col, :line, :input

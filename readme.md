@@ -1,33 +1,32 @@
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/ruby.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
 
 ### ![](air.svg)
 
 ### Air Programming Language
 
-This is a for-fun programming language with mechanics I like. Some could be silly and some could be serious, for example:
+A for-fun language with syntax and mechanics I like, some silly and some serious. This is a work in progress. Some features of the language:
 
-- While loops with elwhile clauses
-- Access nested arrays with dot-syntax `array.1.0.8`
-- Use `./` to access the current instance
-- Classes are called Types and are composable
-- Functions and Types are first-class
-- Built-in arrays, tuples, dictionaries, and ranges
-- Eliminate repetitive keywords like `class`/`def` by enforcing naming conventions at the language level:
-	- `UPPERCASE` identifiers are constant
-	- `Capitalized` identifiers are Types
+- Access nested arrays with dot-syntax `array.1.0.8`, excluding negative indices
+- Keyword `./` to access the current instance, think `self` in Ruby
+- Keyword `.../` to access the global scope, think `::` in Ruby
+- Classes (aka classes) and Functions are first-class
+- Classes compose instead of using inheritance
+- Built-in `Array`, `Tuple`, `Dictionary`, `Range`, and more to come
+- While loops with elwhile and else clauses
+- Eliminate repetitive keywords such as `class` or `def` by enforcing naming conventions at the language level
+	- `Capitalized` identifiers are Classes
 	- `lowercase` identifiers are variables and functions
+	- `UPPERCASE` identifiers are constant variables and enums
 
 ---
 
 - [Code Examples](#code-examples)
 	- [Variables](#variables)
 	- [Functions](#functions)
-	- [Types](#types)
+	- [Classes](#classes)
+	- [Class Composition](#class-composition)
 - [Getting Started](#getting-started)
-	- [Prerequisites](#prerequisites)
-	- [Running Tests](#running-tests)
-	- [Explore The Code](#explore-the-code)
-- [License](#license)
 
 ---
 
@@ -94,10 +93,10 @@ fizz_buzz { n;
 }
 ```
 
-#### Types
+#### Classes
 
 ```
-`The syntax for types is always "<capitalized_ident> { <body> }"
+`The syntax for classes is always "<capitalized_ident> { <body> }"
 
 Repo {
 	user;
@@ -117,7 +116,7 @@ repo = Repo('figgleforth', 'programming-language')
 NAME = repo.to_s()
 ```
 
-#### Type Composition
+#### Class Composition
 
 - `|` Union
 - `~` Difference
@@ -130,7 +129,7 @@ compositions, regardless of inline or inbody, are evaluated exactly as written. 
 
 ---
 
-Union, where left-hand and right-hand declarations are merged into the left-hand Type. Conflicts are resolved by keeping the left-hand declaration.
+Union, where left-hand and right-hand declarations are merged into the left-hand Class. Conflicts are resolved by keeping the left-hand declaration.
 
 ```
 Aa {
@@ -164,7 +163,7 @@ u.b `=> 2
 u.unique `=> 10
 ```
 
-Difference, where declarations of the right-hand Type are removed from the left-hand Type.
+Difference, where declarations of the right-hand Class are removed from the left-hand Class.
 
 ```
 Aa {
@@ -189,7 +188,7 @@ d.b `=> Undeclared_Identifier
 d.common `=> 23
 ```
 
-Intersection, where only mutual left-hand and right-hand declarations are declared on the left-hand Type.
+Intersection, where only mutual left-hand and right-hand declarations are declared on the left-hand Class.
 
 ```
 Aa {
@@ -235,34 +234,18 @@ s.common `=> Undeclared_Identifier
 
 ### Getting Started
 
-#### Prerequisites
-
-- Ruby 3.4.1 or higher
-- Bundler
+> Requires Ruby 3.4.1 or higher, and Bundler
 
 ```shell script
 git clone https://github.com/figgleforth/programming-language.git
 cd programming-language
 bundle install
-```
-
-#### Running Tests
-
-```shell script
 bundle exec rake test
 ```
 
-#### Explore The Code
-
-- [`code/readme`](./code/readme.md) contains detailed information on running your own programs
-- [`code/air`](./code/air) contains code written in the toy language
-- [`code/ruby`](./code/ruby) contains code implementing the toy language
-	- [Lexer#output](./code/ruby/lexer.rb) - Source code to Lexemes
-	- [Parser#output](./code/ruby/parser.rb) - Lexemes to Expressions
-	- [Interpreter#output](./code/ruby/interpreter.rb) - Expressions to values
-
-### License
-
-This project is licensed under the MIT License, see the [license](./license.md) file for details.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
+- [`lib/readme`](lib/readme.md) contains detailed information on running your own programs
+- [`air`](air) contains code written in Air
+- [`lib`](lib) contains code implementing Air
+	- [Lexer#output](lib/lexer.rb) – Source code to Lexemes
+	- [Parser#output](lib/parser.rb) – Lexemes to Expressions
+	- [Interpreter#output](lib/interpreter.rb) – Expressions to values

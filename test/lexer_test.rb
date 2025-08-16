@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/ruby/shared/helpers'
+require_relative '../lib/air'
 
 class Lexer_Test < Minitest::Test
 	def test_single_linecomment

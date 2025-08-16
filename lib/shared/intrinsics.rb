@@ -1,9 +1,8 @@
-require_relative 'air'
-require_relative 'constructs'
+require_relative '../air'
 
 module Air
 	# Just as a precaution, I want it to be obvious that references of the Array class in this module, so far, are meant for my implementation of Array, not the intrinsic Ruby array.
-	class Air::Array < Instance
+	class Array < Instance
 		attr_accessor :values
 
 		def initialize values = []
@@ -13,13 +12,13 @@ module Air
 		def [] index
 			values[index]
 		end
-
+ 
 		def []= index, value
 			values[index] = value
 		end
 	end
 
-	class Tuple < Air::Array
+	class Tuple < Array
 		def initialize values = []
 			@values = values
 		end
@@ -138,5 +137,10 @@ module Air
 			@declarations['port']   = nil
 			@declarations['routes'] = nil
 		end
+	end
+
+	def self.assert condition = false, message = nil
+		message ||= "TODO Assert triggered message"
+		raise message unless condition
 	end
 end

@@ -1,18 +1,15 @@
 ### What's here?
 
-The [`ruby`](./ruby) folder contains the implementation of Air.
-
-The [
-`air`](./air) folder contains code written in Air. Depending on when you're reading this, there may be zero or several files in this directory. I plan to put all runtime declarations there.
+This [`lib`](/lib) folder contains the implementation of Air in Ruby.
 
 ### Running Your Own Programs With Ruby
 
-To run an Air program, the source code must go through the [Lexer](./ruby/lexer.rb), whose output goes through the [Parser](./ruby/parser.rb), whose output goes through the [Interpreter](./ruby/interpreter.rb), resulting in final program output.
+To run an Air program, the source code must go through the [Lexer](lexer.rb), whose output goes through the [Parser](parser.rb), whose output goes through the [Interpreter](interpreter.rb), resulting in final program output.
 
 ```ruby
-require './code/ruby/lexer'
-require './code/ruby/parser'
-require './code/ruby/interpreter'
+require './lib/lexer'
+require './lib/parser'
+require './lib/interpreter'
 
 lexer   = Lexer.new 'Hello, World!'
 lexemes = lexer.output # => array of Lexemes
@@ -25,10 +22,10 @@ result      = interpreter.output # => Hello, World!
 ```
 
 Another option is to use one of the [`#_lex*`, `#_parse*`,
-`#_interp*`](./ruby/shared/helpers.rb) helpers, which saves you three lines if you only need the output.
+`#_interp*`](shared/helpers.rb) helpers, which saves you three lines if you only need the output.
 
 ```ruby
-require './code/shared/helpers'
+require './lib/shared/helpers'
 
 source      = 'Hello, Again!'
 lexemes     = _lex source # => array of Lexemes

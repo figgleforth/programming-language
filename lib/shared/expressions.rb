@@ -1,4 +1,4 @@
-require_relative 'constants'
+require_relative '../air'
 
 class Expression
 	attr_accessor :value, :type

@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/ruby/shared/helpers'
+require_relative '../lib/air'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers
@@ -730,4 +730,11 @@ class Parser_Test < Minitest::Test
 		assert_instance_of Circumfix_Expr, out.first.iterable # note, The iterable becomes an Array in the interpreter.
 		assert_equal '[]', out.first.iterable.grouping
 	end
+
+	def test_import_syntax
+		out = _parse '
+		project_root = ~/
+'
+	end
+
 end

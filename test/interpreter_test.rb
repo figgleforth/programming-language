@@ -1,10 +1,10 @@
 require 'minitest/autorun'
-require './code/ruby/shared/helpers'
+require_relative '../lib/air'
 
 class Interpreter_Test < Minitest::Test
 	def test_preload_dot_air
 		refute_raises RuntimeError do
-			_interp_file './code/air/preload.air'
+			_interp_file './air/preload.air'
 		end
 	end
 

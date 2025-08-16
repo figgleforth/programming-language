@@ -1,6 +1,5 @@
 require 'minitest/autorun'
-require './code/ruby/shared/helpers'
-require './code/ruby/shared/intrinsics'
+require_relative '../lib/air'
 
 class Examples_Test < Minitest::Test
 	def test_fizz_buzz

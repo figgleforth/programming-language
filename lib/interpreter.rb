@@ -1,10 +1,4 @@
-require_relative 'shared/constructs'
-require_relative 'shared/intrinsics'
-require_relative 'shared/expressions'
-require_relative 'shared/constants'
-require_relative 'shared/errors'
-require_relative 'shared/helpers'
-require_relative 'shared/air'
+require_relative 'air'
 
 class Interpreter
 	attr_accessor :i, :input, :stack
@@ -17,7 +11,7 @@ class Interpreter
 	def preload_intrinsics
 		original_input = @input
 
-		@input = _parse_file './code/air/preload.air'
+		@input = _parse_file './air/preload.air'
 		output # So the preloads are declared on this instance of Interpreter
 
 		@input = original_input
@@ -184,8 +178,22 @@ class Interpreter
 		instance
 	end
 
+	def interp_intrinsic expr
+		# Hm, I need access to the arguments in order to call the intrinsic function with the arguments.
+
+		# Probably won't need the argument, but just in case
+		called_from = stack.last.name
+		case called_from
+		when 'assert'
+		else
+			raise "Intrinsic `#{called_from}` not implem ented yet."
+		end
+	end
+
 	def interp_prefix expr
 		case expr.operator
+		when '#'
+			interp_intrinsic expr
 		when '-'
 			-interpret(expr.expression)
 		when '+'
@@ -489,7 +497,7 @@ class Interpreter
 	end
 
 	def interp_func_call func, expr
-		call_scope = Air::Scope.new "#{func.name}() Air::Func Call"
+		call_scope = Air::Scope.new func.name #"#{func.name}() Air::Func Call"
 
 		params = func.expressions.select do |expr|
 			expr.is_a? Param_Expr
@@ -524,6 +532,7 @@ class Interpreter
 			raise Assert_Triggered, expr.inspect unless interpret(body.first) == true # Just to be explicit.
 		end
 
+		# TODO Expressions in the body might include `#intrinsic` which depends on access to arguments.
 		result = nil
 		body.each do |e|
 			next if e.is_a? Param_Expr

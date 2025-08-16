@@ -1,5 +1,5 @@
 require 'minitest/test_task'
-require './code/ruby/shared/helpers'
+require_relative 'lib/air'
 require 'pp'
 
 task :default => [:test, :cloc]
@@ -7,7 +7,7 @@ task :default => [:test, :cloc]
 Minitest::TestTask.create(:test) do |t|
 	t.libs << 'test'
 	t.warning    = false
-	t.test_globs = ['tests/**/*_test.rb']
+	t.test_globs = ['test/**/*_test.rb']
 end
 
 task :cloc do

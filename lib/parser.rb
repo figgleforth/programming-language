@@ -1,5 +1,4 @@
-require_relative 'shared/expressions'
-require_relative 'shared/constants'
+require_relative 'air'
 
 class Parser
 	attr_accessor :i, :input
