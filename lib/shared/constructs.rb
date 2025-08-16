@@ -63,7 +63,7 @@ module Air
 	end
 
 	class Func < Scope
-		attr_accessor :expressions, :intrinsic
+		attr_accessor :expressions
 	end
 
 	class Return < Scope

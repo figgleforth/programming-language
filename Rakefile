@@ -14,25 +14,6 @@ task :cloc do
 	sh "\ncloc --quiet --force-lang-def=air.cloc ."
 end
 
-task :check_for_intrinsics_implementations do
-	# Ensures that all `air/intrinsics/*.air` files have implementations in `lib/intrinsics/*.rb`, whose names match and file extensions differ.
-
-	missing = []
-	Dir.new('air/intrinsics').each_child do |it|
-		next unless it.end_with? '.air'
-
-		implementation_file = "#{it[..-5]}.rb"
-
-		unless File.exist?("lib/intrinsics/#{implementation_file}")
-			missing << implementation_file
-		end
-	end
-
-	unless missing.empty?
-		raise "Missing implementation for these intrinsics:\n#{missing.join(', ')}"
-	end
-end
-
 task :interp, [:string] do |_, args|
 	if args[:string].nil? || args[:string].empty?
 		raise ArgumentError, "rake interp expected file arguments `bundle exec rake interp[\"Hello!\"]`"

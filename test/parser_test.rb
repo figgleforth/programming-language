@@ -722,6 +722,7 @@ class Parser_Test < Minitest::Test
 		refute out.first.reference
 	end
 
+	# TODO :incomplete
 	def test_for_loops
 		out = _parse '
 		for []
@@ -732,9 +733,6 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_import_syntax
-		out = _parse '
-		project_root = ~/
-'
+		out = _parse 'project_root = ~/'
 	end
-
 end

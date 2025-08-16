@@ -178,18 +178,6 @@ class Interpreter
 		instance
 	end
 
-	def interp_intrinsic expr
-		# Hm, I need access to the arguments in order to call the intrinsic function with the arguments.
-
-		# Probably won't need the argument, but just in case
-		called_from = stack.last.name
-		case called_from
-		when 'assert'
-		else
-			raise "Intrinsic `#{called_from}` not implemented yet."
-		end
-	end
-
 	def interp_prefix expr
 		case expr.operator
 		when '#'
@@ -532,7 +520,6 @@ class Interpreter
 			raise Assert_Triggered, expr.inspect unless interpret(body.first) == true # Just to be explicit.
 		end
 
-		# TODO Expressions in the body might include `#intrinsic` which depends on access to arguments.
 		result = nil
 		body.each do |e|
 			next if e.is_a? Param_Expr

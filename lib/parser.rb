@@ -131,6 +131,7 @@ class Parser
 	end
 
 	def parse_for_loop_expr
+		# TODO :incomplete
 		eat 'for'
 		it = For_Loop_Expr.new
 
@@ -429,6 +430,7 @@ class Parser
 			parse_composition_expr
 
 		elsif curr? 'for'
+			# TODO :incomplete
 			parse_for_loop_expr
 
 		elsif curr? %w(if while unless until)
