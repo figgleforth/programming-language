@@ -1,8 +1,4 @@
-require_relative 'constants'
-require_relative 'constructs'
-require_relative '../interpreter'
-require_relative '../lexer'
-require_relative '../parser'
+require_relative '../air'
 
 def _interp code, preload_intrinsics = false
 	expressions  = _parse code

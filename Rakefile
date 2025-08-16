@@ -1,5 +1,5 @@
 require 'minitest/test_task'
-require './code/ruby/shared/helpers'
+require_relative 'lib/air'
 require 'pp'
 
 task :default => [:test, :cloc]
@@ -7,11 +7,30 @@ task :default => [:test, :cloc]
 Minitest::TestTask.create(:test) do |t|
 	t.libs << 'test'
 	t.warning    = false
-	t.test_globs = ['tests/**/*_test.rb']
+	t.test_globs = ['test/**/*_test.rb']
 end
 
 task :cloc do
 	sh "\ncloc --quiet --force-lang-def=air.cloc ."
+end
+
+task :check_for_intrinsics_implementations do
+	# Ensures that all `air/intrinsics/*.air` files have implementations in `lib/intrinsics/*.rb`, whose names match and file extensions differ.
+
+	missing = []
+	Dir.new('air/intrinsics').each_child do |it|
+		next unless it.end_with? '.air'
+
+		implementation_file = "#{it[..-5]}.rb"
+
+		unless File.exist?("lib/intrinsics/#{implementation_file}")
+			missing << implementation_file
+		end
+	end
+
+	unless missing.empty?
+		raise "Missing implementation for these intrinsics:\n#{missing.join(', ')}"
+	end
 end
 
 task :interp, [:string] do |_, args|

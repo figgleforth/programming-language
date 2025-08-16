@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/ruby/shared/helpers'
+require_relative '../lib/air'
 
 class Lexer_Test < Minitest::Test
 	def test_single_linecomment
@@ -258,7 +258,7 @@ class Lexer_Test < Minitest::Test
 
 		out = _lex 'if 1 + 2 * 3 == 7
 			"This one!"
-		elsif 1 + 2 * 3 == 9
+		elif 1 + 2 * 3 == 9
 			\'No, this one!\'
 		else
 			\'🤯\'

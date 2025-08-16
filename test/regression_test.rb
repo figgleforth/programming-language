@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/ruby/shared/helpers'
+require_relative '../lib/air'
 
 class Regression_Test < Minitest::Test
 	def test_greater_equals_regression

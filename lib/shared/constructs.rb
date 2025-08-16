@@ -1,4 +1,4 @@
-require_relative 'air'
+require_relative '../air'
 
 module Air
 	class Scope
@@ -63,7 +63,7 @@ module Air
 	end
 
 	class Func < Scope
-		attr_accessor :expressions
+		attr_accessor :expressions, :intrinsic
 	end
 
 	class Return < Scope

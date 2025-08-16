@@ -1,0 +1,50 @@
+`Builtin types I'm experimenting with. Very much incomplete.
+
+Nil {}
+
+Range {}
+
+Array {
+	values;
+
+	each {;
+		#intrinsic
+	}
+}
+
+Tuple {
+	values;
+}
+
+Number {
+	denominator;
+	numerator;
+	type;
+}
+
+Bool {
+	truthiness;
+}
+
+String {
+    downcase {;
+		#intrinsic
+	}
+
+    upcase {;
+        #intrinsic
+	}
+
+    length {;
+        #intrinsic
+	}
+}
+
+Server {
+	port;
+	routes;
+
+	new { port = nil;
+		./port = port
+	}
+}

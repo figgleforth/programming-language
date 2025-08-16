@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require './code/ruby/shared/helpers'
+require_relative '../lib/air'
 
 class Parser_Test < Minitest::Test
 	def test_identifiers
@@ -492,7 +492,7 @@ class Parser_Test < Minitest::Test
 
 		out = _parse 'if 1 + 2 * 3 == 7
 			"This one!"
-		elsif 1 + 2 * 3 == 9
+		elif 1 + 2 * 3 == 9
 			\'No, this one!\'
 		else
 			\'🤯\'
@@ -529,13 +529,13 @@ class Parser_Test < Minitest::Test
 		assert_equal 'repeat_this', out.first.when_false.first.value
 	end
 
-	def test_silly_elswhile
+	def test_silly_elwhile
 		out        = _parse '
 		while a
 			1
 		elwhile b
 			2
-		elswhile c
+		elwhile c
 			3
 		else
 			4
@@ -554,29 +554,29 @@ class Parser_Test < Minitest::Test
 		assert_equal 2, elwhile.when_true.first.value
 		assert_kind_of Conditional_Expr, elwhile.when_false
 
-		elswhile = elwhile.when_false
-		assert_equal 'elswhile', elswhile.type
-		assert_kind_of Number_Expr, elswhile.when_true.first
-		assert_equal 3, elswhile.when_true.first.value
-		assert_kind_of Number_Expr, elswhile.when_false.first
-		assert_equal 4, elswhile.when_false.first.value
+		elwhile = elwhile.when_false
+		assert_equal 'elwhile', elwhile.type
+		assert_kind_of Number_Expr, elwhile.when_true.first
+		assert_equal 3, elwhile.when_true.first.value
+		assert_kind_of Number_Expr, elwhile.when_false.first
+		assert_equal 4, elwhile.when_false.first.value
 	end
 
 	def test_if_else
-		# Direct copy-past from test_silly_elswhile
+		# Direct copy-past from test_silly_elwhile
 		out = _parse '
 		if a
 			1
 		elif b
 			2
-		elsif c
+		elif c
 			3
 		else
 			4
 		end
 		'
 
-		# el elif elsif else
+		# elif elif else
 		if_case = out.first
 		assert_kind_of Conditional_Expr, if_case
 		assert_equal 'if', if_case.type
@@ -590,12 +590,12 @@ class Parser_Test < Minitest::Test
 		assert_equal 2, elif_case.when_true.first.value
 		assert_kind_of Conditional_Expr, elif_case.when_false
 
-		elsif_case = elif_case.when_false
-		assert_equal 'elsif', elsif_case.type
-		assert_kind_of Number_Expr, elsif_case.when_true.first
-		assert_equal 3, elsif_case.when_true.first.value
-		assert_kind_of Number_Expr, elsif_case.when_false.first
-		assert_equal 4, elsif_case.when_false.first.value
+		elif_case = elif_case.when_false
+		assert_equal 'elif', elif_case.type
+		assert_kind_of Number_Expr, elif_case.when_true.first
+		assert_equal 3, elif_case.when_true.first.value
+		assert_kind_of Number_Expr, elif_case.when_false.first
+		assert_equal 4, elif_case.when_false.first.value
 	end
 
 	def test_circumfixes
@@ -715,7 +715,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_reference_decorator_on_identifier_expr
-		out = _parse '^count'
+		out = _parse '@count'
 		assert out.first.reference
 
 		out = _parse 'count'
@@ -730,4 +730,11 @@ class Parser_Test < Minitest::Test
 		assert_instance_of Circumfix_Expr, out.first.iterable # note, The iterable becomes an Array in the interpreter.
 		assert_equal '[]', out.first.iterable.grouping
 	end
+
+	def test_import_syntax
+		out = _parse '
+		project_root = ~/
+'
+	end
+
 end

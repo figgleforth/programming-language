@@ -1,5 +1,4 @@
-require_relative 'shared/expressions'
-require_relative 'shared/constants'
+require_relative 'air'
 
 class Parser
 	attr_accessor :i, :input
@@ -172,16 +171,16 @@ class Parser
 
 		# @clean
 
-		until curr? %w(end else elsif elif ef elwhile elswhile elsewhile)
+		until curr? %w(end else elif elwhile)
 			expr = parse_expression
 			it.when_true << expr if expr
 			reduce_newlines
 		end
 
-		if curr? %w(elsif elif ef el elwhile elswhile elsewhile)
+		if curr? %w(elif elwhile)
 			it.when_false = parse_conditional_expr
 
-		elsif curr? %w(else el) and eat
+		elsif curr? %w(else) and eat
 			until curr? 'end'
 				expr = parse_expression
 				it.when_false << expr if expr
@@ -193,7 +192,7 @@ class Parser
 			eat
 
 		else
-			raise "\n\nYou messed your if/elsif/else up\n"
+			raise "\n\nYou messed your if/elif/else up\n"
 		end
 		it
 	end
