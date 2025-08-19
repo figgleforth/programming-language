@@ -69,16 +69,16 @@ class Func_Expr < Expression
 	end
 end
 
-# get '/' home {;}
-# put 'whatever/:id' do_something {;}
-# post 'book/:id/publish' do_something {;}
-class Route_Decl < Func_Expr
-	attr_accessor :name, :method, :path
+# #get '/' home {;}
+# #put 'whatever/:id' do_something {;}
+# #post 'book/:id/publish' do_something {;}
+class Route_Expr < Func_Expr
+	attr_accessor :name, :http_method, :path
 
-	def initialize name, method, path
-		@name   = name
-		@path   = path
-		@method = method
+	def initialize http_method, path, name = nil
+		@http_method = http_method
+		@name        = name
+		@path        = path
 	end
 end
 
@@ -137,7 +137,7 @@ class Operator_Expr < Expression
 end
 
 class Identifier_Expr < Expression
-	attr_accessor :kind, :reference, :scope_operator
+	attr_accessor :kind, :reference, :scope_operator, :directive
 end
 
 class Composition_Expr < Expression

@@ -1013,4 +1013,23 @@ class Interpreter_Test < Minitest::Test
 			_interp "App | Server {}", false
 		end
 	end
+
+	def test_routes
+		# TODO Test edge cases, route/func param mismatch, etc
+		out = _interp '#get "some/thing/:id" { id;
+			do_something()
+		}'
+
+		assert_instance_of Air::Route, out
+		refute out.name
+		assert_equal 'get', out.http_method.value
+		assert_equal 'some/thing/:id', out.path.value
+		assert_equal 2, out.expressions.count
+
+		out = _interp '#put "posts/:id" replace_post { id; }'
+		assert_equal 'replace_post', out.name
+		assert_equal 'put', out.http_method.value
+		assert_equal 'posts/:id', out.path.value
+		assert_equal 1, out.expressions.count
+	end
 end

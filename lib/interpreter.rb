@@ -556,6 +556,21 @@ class Interpreter
 		type
 	end
 
+	def interp_route expr
+		route             = Air::Route.new expr.name&.value
+		route.expressions = expr.expressions
+		route.http_method = expr.http_method
+		route.path        = expr.path
+
+		route.enclosing_scope = stack.last
+
+		if route.name
+			declare route.name, route
+		else
+			route
+		end
+	end
+
 	def interp_func expr
 		func                 = Air::Func.new expr.name&.value
 		func.expressions     = expr.expressions
@@ -722,6 +737,9 @@ class Interpreter
 
 		when Type_Expr
 			interp_type expr
+
+		when Route_Expr
+			interp_route expr
 
 		when Func_Expr
 			interp_func expr
