@@ -735,4 +735,19 @@ class Parser_Test < Minitest::Test
 	def test_import_syntax
 		out = _parse 'project_root = ~/'
 	end
+
+	def test_directive_identifier
+		out = _parse '#whatever'
+		assert_instance_of Identifier_Expr, out.first
+		assert out.first.directive
+	end
+
+	def test_route_expression
+		out = _parse '#get "something" {;
+			do_something()
+		}'
+		assert_instance_of Route_Expr, out.first
+		assert_equal 'get', out.first.http_method.value
+		assert_equal "something", out.first.path.value
+	end
 end

@@ -218,7 +218,7 @@ class Parser
 		it
 	end
 
-	def parse_func precedence, named: false
+	def parse_func precedence = STARTING_PRECEDENCE, named: false
 		func = Func_Expr.new
 
 		if curr? :identifier
@@ -323,6 +323,9 @@ class Parser
 		if curr? REFERENCE_PREFIX
 			expr.reference = true
 			eat REFERENCE_PREFIX
+		elsif curr? DIRECTIVE_PREFIX
+			expr.directive = true
+			eat DIRECTIVE_PREFIX
 		elsif curr? SCOPE_OPERATORS
 			expr.scope_operator = parse_manual_scope
 		end
@@ -436,7 +439,7 @@ class Parser
 		elsif curr? %w(if while unless until)
 			parse_conditional_expr
 
-		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier) || curr?(SCOPE_OPERATORS)
+		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier) || curr?(SCOPE_OPERATORS) || curr?(DIRECTIVE_PREFIX, :identifier)
 			parse_identifier_expr
 
 		elsif curr? %w( [ \( { |)
@@ -488,11 +491,22 @@ class Parser
 		complete_expression expression, precedence
 	end
 
+	# TODO Factor out the various branches of code in here.
 	def complete_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
 
 		if curr_lexeme.is(',')
 			eat and return expr
+		end
+
+		if expr.is_a?(Identifier_Expr) && expr.directive
+			# TODO Currently this applies to all directives, it should be specific.
+
+			path              = eat
+			function          = parse_func
+			route             = Route_Expr.new expr, path, function.name
+			route.expressions = function.expressions
+			return route
 		end
 
 		scope_prefix = %w(./ ../ .../).find do |it|

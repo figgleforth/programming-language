@@ -66,6 +66,10 @@ module Air
 		attr_accessor :expressions
 	end
 
+	class Route < Func
+		attr_accessor :http_method, :path
+	end
+
 	class Return < Scope
 		attr_accessor :value
 

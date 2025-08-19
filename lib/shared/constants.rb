@@ -1,6 +1,6 @@
 SORT_BY_LENGTH_DESC        = ->(str) { -str.size }
 REFERENCE_PREFIX           = '@' # TODO I'm not sold on this yet
-INTRINSIC_PREFIX           = '#'
+DIRECTIVE_PREFIX           = '#'
 INTERPOLATE_CHAR           = '|'
 COMMENT_CHAR               = '`'
 COMMENT_MULTILINE_CHAR     = '```'

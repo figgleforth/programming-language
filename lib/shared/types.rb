@@ -12,7 +12,7 @@ module Air
 		def [] index
 			values[index]
 		end
- 
+
 		def []= index, value
 			values[index] = value
 		end
@@ -137,10 +137,5 @@ module Air
 			@declarations['port']   = nil
 			@declarations['routes'] = nil
 		end
-	end
-
-	def self.assert condition = false, message = nil
-		message ||= "TODO Assert triggered message"
-		raise message unless condition
 	end
 end
