@@ -500,13 +500,14 @@ class Parser
 		end
 
 		if expr.is_a?(Identifier_Expr) && expr.directive
-			# TODO Currently this applies to all directives, it should be specific.
-
-			path              = eat
-			function          = parse_func
-			route             = Route_Expr.new expr, path, function.name
-			route.expressions = function.expressions
-			return route
+			# TODO This is where #assert calls with args should be parsed
+			if HTTP_DIRECTIVES.include?(expr.value) && curr?(:string)
+				path              = eat
+				function          = parse_func
+				route             = Route_Expr.new expr, path, function.name
+				route.expressions = function.expressions
+				return route
+			end
 		end
 
 		scope_prefix = %w(./ ../ .../).find do |it|

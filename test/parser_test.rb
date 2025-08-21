@@ -740,14 +740,37 @@ class Parser_Test < Minitest::Test
 		out = _parse '#whatever'
 		assert_instance_of Identifier_Expr, out.first
 		assert out.first.directive
+
+		out = _parse '#whatever(a, b)'
+		assert_instance_of Call_Expr, out.first
+		assert_instance_of Identifier_Expr, out.first.receiver
+		assert out.first.receiver.directive
 	end
 
-	def test_route_expression
-		out = _parse '#get "something" {;
-			do_something()
-		}'
+	def test_all_http_methods
+		HTTP_DIRECTIVES.each do |m|
+			assert_instance_of Route_Expr, _parse("##{m} 'path' {;}").first
+		end
+	end
+
+	def test_route_declaration_with_http_method_directives
+		out = _parse '#get "something" {;}'
 		assert_instance_of Route_Expr, out.first
 		assert_equal 'get', out.first.http_method.value
 		assert_equal "something", out.first.path.value
+
+		out = _parse '#put "book/:id" replace_book {id;}'
+		assert_instance_of Route_Expr, out.first
+		assert_equal 'put', out.first.http_method.value
+		assert_equal "book/:id", out.first.path.value
+		assert_equal 'replace_book', out.first.name.value
+		assert_equal 1, out.first.expressions.count
+
+		out = _parse '#pretend_method "endpoint" {;}'
+		refute_instance_of Route_Expr, out.first
+		assert_equal 3, out.count
+		assert_instance_of Identifier_Expr, out[0]
+		assert_instance_of String_Expr, out[1]
+		assert_instance_of Func_Expr, out[2]
 	end
 end
