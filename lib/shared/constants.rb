@@ -1,6 +1,7 @@
 SORT_BY_LENGTH_DESC        = ->(str) { -str.size }
 REFERENCE_PREFIX           = '@' # TODO I'm not sold on this yet
 DIRECTIVE_PREFIX           = '#'
+HTTP_DIRECTIVES            = %w(get put patch post delete head options connect trace)
 INTERPOLATE_CHAR           = '|'
 COMMENT_CHAR               = '`'
 COMMENT_MULTILINE_CHAR     = '```'
