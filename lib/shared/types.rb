@@ -16,6 +16,11 @@ module Air
 		def []= index, value
 			values[index] = value
 		end
+
+		def == other
+			# I think there's more to this than a simple evaluation. Tbd...
+			values == other.values
+		end
 	end
 
 	class Tuple < Array
