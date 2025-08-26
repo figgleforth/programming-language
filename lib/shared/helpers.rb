@@ -36,10 +36,6 @@ rescue *exceptions => e
 	flunk "Expected no exception, but got #{e.class}: #{e.message}"
 end
 
-def _assert condition, message = "Expected condition to be truthy."
-	raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
-end
-
 def constant_identifier? ident
 	# ALL UPPER LIKE_THIS
 	test = ident&.gsub('_', '')&.gsub('%', '')

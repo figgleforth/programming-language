@@ -995,18 +995,15 @@ class Interpreter_Test < Minitest::Test
 		App | Server {}
 
 		app = App(4815)
-		(app, app.port, app.routes)
+		(app, app.port)
 		", true
 		assert_instance_of Air::Instance, out.values[0]
 		assert_equal %w(App Server), out.values[0].types
 
-		assert out.values[0].has? :routes
-		assert_nil out.values[0][:routes]
 		assert out.values[0].has? :port
 		assert_equal 4815, out.values[0][:port]
 
 		assert_equal 4815, out.values[1]
-		assert_nil out.values[2]
 
 		assert_raises Undeclared_Identifier do
 			# Passing false as the second argument (default behavior) does not preload intrinsics (which is where Server is declared)
@@ -1024,12 +1021,26 @@ class Interpreter_Test < Minitest::Test
 		refute out.name
 		assert_equal 'get', out.http_method.value
 		assert_equal 'some/thing/:id', out.path.value
-		assert_equal 2, out.expressions.count
+		assert_equal 2, out.handler.expressions.count
 
 		out = _interp '#put "posts/:id" replace_post { id; }'
-		assert_equal 'replace_post', out.name
+		assert_equal 'replace_post', out.handler.name
 		assert_equal 'put', out.http_method.value
 		assert_equal 'posts/:id', out.path.value
-		assert_equal 1, out.expressions.count
+		assert_equal 1, out.handler.expressions.count
 	end
+
+	# def test_start_server_directive
+	# 	out = _interp '
+	# 		App | Server {
+	# 			#get "" {;
+	# 				">: 4 8 15 16 23 42"
+	# 			}
+	# 		}
+	# 		app = App(4815)
+	# 		#start_server app
+	# 	', true # Reminder, `true` preloads preload.air which declares `Server`
+	# 	out
+	# 	assert_instance_of Air::Instance, out
+	# end
 end

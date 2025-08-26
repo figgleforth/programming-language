@@ -71,15 +71,13 @@ end
 
 # #get '/' home {;}
 # #put 'whatever/:id' do_something {;}
-# #post 'book/:id/publish' do_something {;}
-class Route_Expr < Func_Expr
-	attr_accessor :name, :http_method, :path
+# #post 'book/:id/publish' do_something
+class Route_Expr < Expression
+	attr_accessor :http_method, :path, :expression # The expression can be a function or an identifier
+end
 
-	def initialize http_method, path, name = nil
-		@http_method = http_method
-		@name        = name
-		@path        = path
-	end
+class Directive_Expr < Expression
+	attr_accessor :name, :expression
 end
 
 class Type_Expr < Expression

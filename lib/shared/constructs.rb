@@ -67,7 +67,7 @@ module Air
 	end
 
 	class Route < Func
-		attr_accessor :http_method, :path
+		attr_accessor :http_method, :path, :handler
 	end
 
 	class Return < Scope

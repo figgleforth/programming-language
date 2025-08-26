@@ -374,7 +374,7 @@ class Parser
 
 		if curr?(SCOPE_OPERATORS) || !curr?(ANY_IDENTIFIER)
 			# There should not be any more scope operators at this point. We've implicitly handled ./ and .../, and explicitly handled chains of ../ so it's either malformed or something
-			raise Malformed_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
+			raise Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
 		end
 
 		scope
@@ -416,7 +416,7 @@ class Parser
 	end
 
 	def begin_expression precedence = STARTING_PRECEDENCE
-		raise "Parser#parse_expression called but there are no lexemes remaining. #{remainder.inspect}" unless lexemes?
+		raise Out_Of_Tokens unless lexemes?
 
 		if curr? ANY_IDENTIFIER, ';'
 			parse_nil_init_postfix_expr
@@ -502,11 +502,23 @@ class Parser
 		if expr.is_a?(Identifier_Expr) && expr.directive
 			# TODO This is where #assert calls with args should be parsed
 			if HTTP_DIRECTIVES.include?(expr.value) && curr?(:string)
-				path              = eat
-				function          = parse_func
-				route             = Route_Expr.new expr, path, function.name
-				route.expressions = function.expressions
+				route             = Route_Expr.new
+				route.http_method = expr
+				route.path        = eat(:string)
+
+				handler = begin_expression
+				unless handler.is_a?(Func_Expr) || handler.is_a?(Identifier_Expr)
+					raise Invalid_Http_Directive_Handler, handler.inspect
+				end
+
+				route.expression = handler
+
 				return route
+			else
+				directive            = Directive_Expr.new
+				directive.name       = expr
+				directive.expression = begin_expression
+				return complete_expression directive, precedence
 			end
 		end
 

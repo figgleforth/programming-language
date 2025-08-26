@@ -138,4 +138,8 @@ module Air
 			@declarations['routes'] = nil
 		end
 	end
+
+	class Runtime < Scope
+		attr_accessor :functions, :routes, :servers
+	end
 end

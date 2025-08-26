@@ -1,11 +1,15 @@
 require_relative 'air'
 
 class Interpreter
-	attr_accessor :i, :input, :stack
+	attr_accessor :i, :input, :stack, :runtime
 
 	def initialize input = []
-		@input = input
-		@stack = [Air::Global.new]
+		@input             = input
+		@stack             = [Air::Global.new]
+		@runtime           = Air::Runtime.new
+		@runtime.functions = {}
+		@runtime.routes    = {}
+		@runtime.servers   = []
 	end
 
 	def preload_intrinsics
@@ -528,8 +532,8 @@ class Interpreter
 			break if result.is_a? Air::Return
 		end
 
-		_assert (pop_scope == call_scope)
-		_assert (pop_scope == func.enclosing_scope)
+		Air.assert pop_scope == call_scope
+		Air.assert pop_scope == func.enclosing_scope
 
 		result
 	end
@@ -557,15 +561,17 @@ class Interpreter
 	end
 
 	def interp_route expr
-		route             = Air::Route.new expr.name&.value
-		route.expressions = expr.expressions
-		route.http_method = expr.http_method
-		route.path        = expr.path
+		handler = interpret expr.expression
 
+		route                 = Air::Route.new # expr.name&.value
 		route.enclosing_scope = stack.last
+		route.handler         = handler
+		route.http_method     = expr.http_method
+		route.path            = expr.path
 
-		if route.name
-			declare route.name, route
+		if handler.name
+			@runtime.routes[handler.name] = route
+			declare handler.name, route
 		else
 			route
 		end
@@ -573,10 +579,11 @@ class Interpreter
 
 	def interp_func expr
 		func                 = Air::Func.new expr.name&.value
-		func.expressions     = expr.expressions
 		func.enclosing_scope = stack.last
+		func.expressions     = expr.expressions
 
 		if func.name
+			@runtime.functions[func.name] = func
 			declare func.name, func
 		else
 			func
@@ -724,6 +731,19 @@ class Interpreter
 		end
 	end
 
+	def interp_directive expr
+		case expr.name.value
+		when 'start_server'
+			# TODO Signal.trap 'INT'
+			server = interpret expr.expression
+			@runtime.servers << server
+			puts "Server added to runtime: #{@runtime.servers.inspect}"
+			server
+		else
+			raise Directive_Not_Implemented, expr.inspect
+		end
+	end
+
 	def interpret expr
 		case expr
 		when Number_Expr, Symbol_Expr
@@ -768,10 +788,13 @@ class Interpreter
 		when Array_Index_Expr
 			expr.indices_in_order
 
+		when Directive_Expr
+			interp_directive expr
+
 		when Comment_Expr
 			# todo, Something?
 		else
-			raise "Interpreter#interpret `when #{expr.inspect}` not implemented."
+			raise Interpret_Expr_Not_Implemented, expr
 		end
 	end
 end

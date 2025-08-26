@@ -1,4 +1,7 @@
 module Air
+	def self.assert condition, message = "Expected condition to be truthy."
+		raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
+	end
 end
 
 require_relative 'shared/constants'

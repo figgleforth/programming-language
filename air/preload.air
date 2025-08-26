@@ -38,9 +38,24 @@ String {
 
 Server {
 	port;
-	routes;
 
-	new { port = nil;
+	new { port = 4815;
 		./port = port
 	}
 }
+
+Request {}
+
+Response {
+	html_string;
+
+	new { html;
+		html_string = html
+	}
+
+	render {;
+		#html_escape(html_string)
+	}
+}
+
+`#get "/" home `RuntimeError: Parser#eat ate "\n" but expected "{" in lib/parser.rb:232:in 'Parser#parse_func'
