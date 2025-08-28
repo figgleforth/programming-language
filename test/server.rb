@@ -14,27 +14,16 @@ result     = interpreter.output do |result, runtime, stack|
 end
 Air.assert air_server
 
-puts routes.inspect
-
-class Simple < WEBrick::HTTPServlet::AbstractServlet
-	def do_GET request, response
-		response.status          = 200
-		response['Content-Type'] = 'text/plain'
-		response.body            = 'Hello, World!'
-	end
-end
-
 server = WEBrick::HTTPServer.new :Port => air_server[:port]
-server.mount '/simple', Simple
 
-# routes.each do |name, route|
-# 	server.mount_proc route.path do |req, res|
-# 		puts "request: #{req.inspect}"
-# 		interpreter.input = route.handler.expressions
-# 		res.body          = interpreter.output
-# 	end
-# 	puts "Mounted:\t#{name} => #{route.path}"
-# end
+routes.each do |name, route|
+	server.mount_proc route.path do |req, res|
+		puts "Request: #{req.inspect}"
+		interpreter.input = route.handler.expressions
+		res.body          = interpreter.output
+	end
+	puts "Mounted:\t#{name} => #{route.path}"
+end
 
 begin
 	server.start
