@@ -36,14 +36,6 @@ String {
 	}
 }
 
-Server {
-	port;
-
-	new { port = 4815;
-		./port = port
-	}
-}
-
 Request {}
 
 Response {
@@ -58,4 +50,33 @@ Response {
 	}
 }
 
-`#get "/" home `RuntimeError: Parser#eat ate "\n" but expected "{" in lib/parser.rb:232:in 'Parser#parse_func'
+Server {
+	port;
+
+	new { port = 80;
+		./port = port
+	}
+}
+
+`TODO Currently only named functions are supported because they are stored in Runtime.routes of type {route_name, route_function}
+
+Web_App | Server {
+	#get '/' home {;
+		"Hello, Ruza!"
+	}
+
+	#get '/numbers' numbers {;
+		'4 8 15 16 23 42'
+	}
+
+	#get '/vedran' vedro {;
+		"Vedro je cool"
+	}
+
+	#get '/:id' get_id {;
+		"I want the ID!"
+	}
+}
+
+app = Web_App()
+#serve app

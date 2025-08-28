@@ -21,10 +21,16 @@ class Interpreter
 		@input = original_input
 	end
 
-	def output
-		input.each.inject nil do |result, expr|
+	def output & block
+		result = input.each.inject nil do |result, expr|
 			result = interpret expr
 		end
+
+		if block_given?
+			yield result, runtime, stack
+		end
+
+		result
 	end
 
 	def push_scope scope
@@ -113,7 +119,7 @@ class Interpreter
 				raise Undeclared_Identifier, expr.inspect
 			end
 		elsif scope
-			raise Undeclared_Identifier, expr.inspect unless scope.has? expr.value
+			raise Undeclared_Identifier, "#{expr.inspect}\n#{scope.inspect}" unless scope.has? expr.value
 			scope[expr.value]
 		else
 			# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
@@ -567,7 +573,7 @@ class Interpreter
 		route.enclosing_scope = stack.last
 		route.handler         = handler
 		route.http_method     = expr.http_method
-		route.path            = expr.path
+		route.path            = expr.path.value
 
 		if handler.name
 			@runtime.routes[handler.name] = route
@@ -733,11 +739,12 @@ class Interpreter
 
 	def interp_directive expr
 		case expr.name.value
-		when 'start_server'
+		when 'serve'
+			# Spawn thread, run server in it.
 			# TODO Signal.trap 'INT'
 			server = interpret expr.expression
 			@runtime.servers << server
-			puts "Server added to runtime: #{@runtime.servers.inspect}"
+			# puts "Server added to runtime: #{@runtime.servers.inspect}"
 			server
 		else
 			raise Directive_Not_Implemented, expr.inspect
