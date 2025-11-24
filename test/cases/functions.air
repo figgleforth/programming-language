@@ -1,0 +1,70 @@
+`Anonymous function expression
+{;} `=> Air::Func
+
+`Empty function declaration
+open {;} `=> Air::Func
+
+`Function with parameters
+`=> 12
+add { a, b; a + b }
+add(4, 8)
+
+`Function with default parameters
+`=> 42
+add { amount = 1, to = 0;
+	to += amount
+}
+add(5, 37)
+
+`Function calls
+`=> 25
+square { input;
+	input * input
+}
+square(5)
+
+`Function call as argument
+`=> 6
+add { amount = 1, to = 4;
+	to + amount
+}
+inc = add()
+add(inc, 1)
+
+`Function scope
+`=> 246
+x = 123
+double {; x * 2 }
+double()
+
+`Function with returns
+`=> Air::Return
+eject {;
+	if true
+		return "true!"
+	end
+
+	return "should not get here"
+}
+eject()
+
+`Closures do not exist
+`=> -2
+counter = -1
+increment { count;
+	counter += count
+}
+increment(counter)
+counter
+
+`=> 5
+max? { list;
+	max = -100
+    list.each {;
+		if it > max
+			max = it
+		end
+	}
+    max
+}
+max?([1,2,3,4,5])
