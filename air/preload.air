@@ -50,33 +50,43 @@ Response {
 	}
 }
 
+
+
+
+
+
+
 Server {
 	port;
 
 	new { port = 80;
 		./port = port
 	}
+
+	hello {;
+		"From server instane"
+	}
 }
 
 `TODO Currently only named functions are supported because they are stored in Runtime.routes of type {route_name, route_function}
 
 Web_App | Server {
-	#get '/' home {;
-		"Hello, Ruza!"
-	}
 
-	#get '/numbers' numbers {;
-		'4 8 15 16 23 42'
-	}
-
-	#get '/vedran' vedro {;
-		"Vedro je cool"
-	}
-
-	#get '/:id' get_id {;
-		"I want the ID!"
+	hello {;
+		'<div style="background-color: #ccc; color: #333; padding: 23px;"><h1>Hello, Andy!</h1></div>'
 	}
 }
 
 app = Web_App()
-#serve app
+
+#get 'greeting' app.hello `bug: must all be on the same line
+#serve_http app
+
+
+`#get route app.hello
+`#get '/hello' ./hello `bug: doesn't work when prefixed with ./
+
+`Possible alternate syntax
+`get:// 'test/:arg/' name_required_bug { arg;
+`	"Dynamic arg in .air file: |dynamic_arg|"
+`}

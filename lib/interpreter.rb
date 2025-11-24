@@ -439,7 +439,7 @@ class Interpreter
 	def interp_call expr
 		receiver = interpret expr.receiver
 		case receiver
-		when Air::Type # Air::Type()
+		when Air::Type, Air::Html_Element # Air::Type()
 			interp_type_call receiver, expr
 
 		when Air::Func # func()
@@ -566,18 +566,47 @@ class Interpreter
 		type
 	end
 
-	def interp_route expr
-		handler = interpret expr.expression
+	def interp_element expr
+		element             = Air::Html_Element.new expr.element.value
+		element.expressions = expr.expressions
+		# element.attributes = filtered element.expressions
 
-		route                 = Air::Route.new # expr.name&.value
+		declare element.name, element
+
+		push_then_pop element do |scope|
+			expr.expressions.each do |expr|
+				# TODO: When evaluating render{;}, it should expect one of the following:
+				# - string
+				# - another Html_Element
+				# - array of Html_Elements
+				interpret expr
+			end
+		end
+
+		element
+	end
+
+	def interp_route expr
+		expression = interpret expr.expression
+
+		route                 = Air::Route.new
 		route.enclosing_scope = stack.last
-		route.handler         = handler
+		route.handler         = expression
 		route.http_method     = expr.http_method
 		route.path            = expr.path.value
+		route.path            = route.path[1..] if route.path.start_with? '/'
 
-		if handler.name
-			@runtime.routes[handler.name] = route
-			declare handler.name, route
+		route.parts = route.path.split('/').reject do
+			_1.empty?
+		end
+
+		unless expression.is_a?(Air::Func)
+			raise Invalid_Http_Directive_Handler, expression.inspect
+		end
+
+		if expression.name
+			@runtime.routes[expression.name] = route
+			declare expression.name, route
 		else
 			route
 		end
@@ -597,7 +626,7 @@ class Interpreter
 	end
 
 	def interp_composition expr
-		# These are interpreted sequentially so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
+		# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
 		operand_scope = interp_identifier expr.identifier
 		unless operand_scope.is_a? Air::Scope
@@ -739,12 +768,12 @@ class Interpreter
 
 	def interp_directive expr
 		case expr.name.value
-		when 'serve'
+		when 'serve_http'
+			# TODO ensure Type contains Server
+			# TODO Ensure Signal.trap(INT) somewhere
 			# Spawn thread, run server in it.
-			# TODO Signal.trap 'INT'
 			server = interpret expr.expression
 			@runtime.servers << server
-			# puts "Server added to runtime: #{@runtime.servers.inspect}"
 			server
 		else
 			raise Directive_Not_Implemented, expr.inspect
@@ -764,6 +793,9 @@ class Interpreter
 
 		when Type_Expr
 			interp_type expr
+
+		when Html_Element_Expr
+			interp_element expr
 
 		when Route_Expr
 			interp_route expr
@@ -801,7 +833,7 @@ class Interpreter
 		when Comment_Expr
 			# todo, Something?
 		else
-			raise Interpret_Expr_Not_Implemented, expr
+			raise Interpret_Expr_Not_Implemented, expr.inspect
 		end
 	end
 end

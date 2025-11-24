@@ -1043,4 +1043,25 @@ class Interpreter_Test < Minitest::Test
 	# 	out
 	# 	assert_instance_of Air::Instance, out
 	# end
+
+	def test_html_element
+		out = _interp "<My_Div> {
+			element = 'div'
+
+			id = 'my_div'
+			class = 'my_class'
+			data_something = 'some data attribute'
+
+			render {;
+				'Text content of this div'
+			}
+		}
+
+		it = My_Div()
+		(My_Div, it, it.render())"
+		assert_instance_of Air::Html_Element, out.values[0]
+		assert_instance_of Air::Instance, out.values[1]
+		assert_instance_of String, out.values[2]
+		assert_equal 'Text content of this div', out.values[2]
+	end
 end

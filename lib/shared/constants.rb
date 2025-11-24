@@ -54,4 +54,6 @@ RESERVED = %w(
 		unless until
 		true false nil
 		and or return
-	).sort_by &SORT_BY_LENGTH_DESC # todo, I want to add `remove` here as well but not is not the time.
+	).sort_by &SORT_BY_LENGTH_DESC
+
+HTML_ATTRS = %w(id class href)

@@ -309,6 +309,27 @@ class Parser
 		it
 	end
 
+	def parse_html_expr
+		# TODO: Should attributes and data attributes be filtered out of @expressions and into their own attr like :attributes, :data_attributes, etc?
+		# TODO: :html_vs_type_expr
+
+		eat '<'
+		it = Html_Element_Expr.new eat
+		eat '>'
+
+		eat '{'
+		it.expressions = []
+		until curr? '}'
+			it.expressions << parse_expression
+		end
+
+		it.expressions.compact!
+		# TODO: Print a warning if a `render` function isn't declared?
+
+		eat '}'
+		it
+	end
+
 	def parse_composition_expr
 		expr = Composition_Expr.new
 
@@ -425,7 +446,7 @@ class Parser
 			parse_func precedence, named: curr?(:identifier)
 
 		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || \
-			(curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
+		      (curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
 			# To be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
 			parse_type_decl
 
@@ -441,6 +462,9 @@ class Parser
 
 		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier) || curr?(SCOPE_OPERATORS) || curr?(DIRECTIVE_PREFIX, :identifier)
 			parse_identifier_expr
+
+		elsif curr?('<', ANY_IDENTIFIER, '>')
+			parse_html_expr
 
 		elsif curr? %w( [ \( { |)
 			# :absolute_value_circumfix
@@ -499,6 +523,10 @@ class Parser
 			eat and return expr
 		end
 
+		if expr.is_a?(Html_Element_Expr)
+
+		end
+
 		if expr.is_a?(Identifier_Expr) && expr.directive
 			# TODO This is where #assert calls with args should be parsed
 			if HTTP_DIRECTIVES.include?(expr.value) && curr?(:string)
@@ -506,12 +534,7 @@ class Parser
 				route.http_method = expr
 				route.path        = eat(:string)
 
-				handler = begin_expression
-				unless handler.is_a?(Func_Expr) || handler.is_a?(Identifier_Expr)
-					raise Invalid_Http_Directive_Handler, handler.inspect
-				end
-
-				route.expression = handler
+				route.expression = parse_expression
 
 				return route
 			else

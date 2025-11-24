@@ -766,14 +766,42 @@ class Parser_Test < Minitest::Test
 			assert_equal "thing/:id", out.first.path.value
 		end
 
-		assert_raises Invalid_Http_Directive_Handler do
-			_parse '#post "whatever/:id" 1234'
-		end
+		# assert_raises Invalid_Http_Directive_Handler do
+		# 	_parse '#post "whatever/:id" 1234'
+		# end
 
 		out = _parse '#pretend_method "endpoint" {;}'
 		assert_equal 2, out.count
 		refute_instance_of Route_Expr, out.first
 		assert_instance_of Directive_Expr, out[0]
 		assert_instance_of Func_Expr, out[1]
+	end
+
+	def test_empty_html_element_expression
+		out = _parse '<element> {}'
+		assert_equal 1, out.count
+
+		assert_instance_of Html_Element_Expr, out.first
+		assert_equal 'element', out.first.element.value
+		assert_empty out.first.expressions
+	end
+
+	def test_simple_html_element_expression
+		out = _parse "<My_Div> {
+			element = 'div'
+
+			id = 'my_div'
+			class = 'my_class'
+			data_something = 'some data attribute'
+
+			render {;
+				'Text content of this div'
+			}
+		}"
+		assert_equal 1, out.count
+		assert_instance_of Html_Element_Expr, out.first
+		assert_equal 'My_Div', out.first.element.value
+
+		assert_equal 5, out.first.expressions.count
 	end
 end

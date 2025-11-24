@@ -179,3 +179,17 @@ end
 
 class Comment_Expr < Expression
 end
+
+class Html_Element_Expr < Expression
+	# <element> {
+	#     ...attributes
+	#     render {;}
+	# }
+	# 11/2/25, TODO: Maybe this class should inherit from Type_Expr since this is just a type/class anyway? :html_vs_type_expr
+	attr_accessor :expressions, :element
+
+	def initialize element
+		super element
+		@element = element
+	end
+end
