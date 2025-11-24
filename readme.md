@@ -5,19 +5,32 @@
 
 ### Air Programming Language
 
-A for-fun language with syntax and mechanics I like, some silly and some serious. This is a work in progress. Some features of the language:
+A clean, expressive language that replaces inheritance with class composition and eliminates boilerplate through naming conventions.
 
-- Access nested arrays with dot-syntax `array.1.0.8`, excluding negative indices
-- Keyword `./` to access the current instance, think `self` in Ruby
-- Keyword `.../` to access the global scope, think `::` in Ruby
-- Classes (aka classes) and Functions are first-class
-- Classes compose instead of using inheritance
-- Built-in `Array`, `Tuple`, `Dictionary`, `Range`, and more to come
-- While loops with elwhile and else clauses
-- Eliminate repetitive keywords such as `class` or `def` by enforcing naming conventions at the language level
-	- `Capitalized` identifiers are Classes
-	- `lowercase` identifiers are variables and functions
-	- `UPPERCASE` identifiers are constant variables and enums
+```air
+`Define a function - no "def" needed
+greet { name;
+	"Hello, |name|!"
+}
+
+`Define a class - no "class" needed
+Person {
+	name;
+	new { name; ./name = name }
+	greet {; greet(./name) }
+}
+
+Person('World').greet()  `=> "Hello, World!"
+```
+
+**Key Features:**
+
+- **Naming conventions replace keywords** - `Capitalized` = classes, `lowercase` = functions/vars, `UPPERCASE` = constants
+- **Class composition over inheritance** - Use `|` `&` `~` `^` operators to compose classes
+- **Clean syntax** - No `class`, `def`, `self`, or `::` keywords
+- **Dot notation for everything** - `array.1.0.8` accesses nested structures, `./name` accesses instance vars
+- **First-class functions and classes** - Pass them around like any other value
+- **Built-in data types** - `Array`, `Tuple`, `Dictionary`, `Range`
 
 ---
 
@@ -70,14 +83,13 @@ dict = { v=version, l=lines }   `{v: "0.0.0", l: 3000}
 #### Functions
 
 ```
-`The syntax for functions is always "<lowercase_ident> { <params> ; <body> }"
-`The colon separator between params and body is required, even without params
-`The last expression in the body is also the return value but you can be explicit
+`Functions use lowercase names - no "def" keyword needed
+`Format: "name { params ; body }"
 
 noop_function {;}
 
 current_year {;
-	return 2025
+	2025  `Last expression is returned
 }
 
 fizz_buzz { n;
@@ -96,40 +108,36 @@ fizz_buzz { n;
 #### Classes
 
 ```
-`The syntax for classes is always "<capitalized_ident> { <body> }"
+`Classes are defined with capitalized names - no "class" keyword needed
 
 Repo {
 	user;
 	name;
-	
-	`This is the constructor/initializer called during instantiation
+
+	`"new" is the constructor
 	new { user, name;
-		./name = name   `Equivalent to "this.name" or "self.name"
+		./name = name   `./ is like "this" or "self"
 	}
-	
+
 	to_s {;
 		"|user|/|name|"
 	}
 }
 
 repo = Repo('figgleforth', 'programming-language')
-NAME = repo.to_s()
+NAME = repo.to_s()  `=> "figgleforth/programming-language"
 ```
 
 #### Class Composition
 
-- `|` Union
-- `~` Difference
-- `&` Intersection
-- `^` Symmetric Difference
+Air uses operators to combine classes instead of inheritance:
 
-Composition applies operators sequentially, left to right. There is no implicit precedence, so
-compositions, regardless of inline or inbody, are evaluated exactly as written. Note that union (
-`|`) is left-biased when the same declarations exist on both sides, meaning the left-hand declaration is the one that takes precedence whose value will be for the assignment.
+- `|` Union - merge classes (left side wins conflicts)
+- `~` Difference - remove declarations
+- `&` Intersection - keep only shared declarations
+- `^` Symmetric Difference - keep unique declarations from both sides
 
----
-
-Union, where left-hand and right-hand declarations are merged into the left-hand Class. Conflicts are resolved by keeping the left-hand declaration.
+**Union** - Merge two classes together:
 
 ```
 Aa {
@@ -163,7 +171,7 @@ u.b `=> 2
 u.unique `=> 10
 ```
 
-Difference, where declarations of the right-hand Class are removed from the left-hand Class.
+**Difference** - Remove declarations from a class:
 
 ```
 Aa {
@@ -188,7 +196,7 @@ d.b `=> Undeclared_Identifier
 d.common `=> 23
 ```
 
-Intersection, where only mutual left-hand and right-hand declarations are declared on the left-hand Class.
+**Intersection** - Keep only shared declarations:
 
 ```
 Aa {
@@ -209,7 +217,7 @@ i.a `=> Undeclared_Identifier
 i.b `=> Undeclared_Identifier
 ```
 
-Symmetric difference, where unique declarations from both left-hand and right-hand side are declared, while the intersection is discarded.
+**Symmetric Difference** - Keep only unique declarations from each side:
 
 ```
 Aa {

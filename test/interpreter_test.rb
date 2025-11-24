@@ -324,10 +324,19 @@ class Interpreter_Test < Minitest::Test
 		assert_equal Air::Array.new([1, 'test', 5]).values, out.values
 	end
 
-	def test_create_tuple
-		out = _interp 'x = (1, 2)'
+	def test_tuples
+		out = _interp '(1, 2)'
 		assert_kind_of Air::Tuple, out
 		assert_equal [1, 2], out.values
+
+		out = _interp 't = ("Hello", "from" ,"Tuple")
+		t_first = t.0
+		t2 = (t.0, t.1, t.2)
+		(t_first, t == t2, t_first == t2, t2)'
+		assert_equal "Hello", out.values.first
+		assert out.values[1]
+		refute out.values[2]
+		assert_equal ["Hello", "from", "Tuple"], out.values.last.values
 	end
 
 	def test_empty_dictionary

@@ -246,7 +246,7 @@ class Interpreter
 			raise Invalid_Dot_Infix_Left_Operand, "#{expr.inspect}"
 		end
 
-		if left.is_a? Air::Array
+		if left.is_a?(Air::Array) || left.kind_of?(Air::Tuple)
 			if expr.right.is(Func_Expr) && expr.right.name.value == 'each'
 				left.values.each do |it|
 					each_scope                 = Air::Scope.new 'each{;}'
@@ -263,17 +263,18 @@ class Interpreter
 			elsif expr.right.is Number_Expr
 				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Air::Number.
 			elsif expr.right.is Array_Index_Expr
-				array = left # Just for clarity.
+				array_or_tuple = left # Just for clarity.
 
 				expr.right.indices_in_order.each do |index|
-					array = array[index]
+					array_or_tuple = array_or_tuple[index]
 				rescue NoMethodError => _
 					# We dug our way to a nonexistent array, because #[] doesn't exist on it.
-					raise "array[#{index}] is not an array, it's #{array.inspect}"
+					raise "array[#{index}] is not an array, it's #{array_or_tuple.inspect}"
 				end
 
-				return array
+				return array_or_tuple
 			end
+
 		elsif left.kind_of? Range
 			if expr.right.is(Func_Expr) && expr.right.name.value == 'each'
 				# todo, Should be handled by #interp_func_call?
