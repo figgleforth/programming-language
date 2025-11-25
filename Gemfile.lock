@@ -11,10 +11,10 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  logger (~> 1.7)
-  minitest (~> 5.25)
-  rake (~> 13.3)
-  webrick (~> 1.9)
+  logger (= 1.7.0)
+  minitest (= 5.25.4)
+  rake (= 13.3.0)
+  webrick (= 1.9.1)
 
 RUBY VERSION
    ruby 3.4.1p0
