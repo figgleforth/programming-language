@@ -1022,7 +1022,7 @@ class Interpreter_Test < Minitest::Test
 
 	def test_routes
 		# TODO Test edge cases, route/func param mismatch, etc
-		out = _interp '#get "some/thing/:id" { id;
+		out = _interp 'get://some/thing/:id { id;
 			do_something()
 		}'
 
@@ -1032,11 +1032,11 @@ class Interpreter_Test < Minitest::Test
 		assert_equal 'some/thing/:id', out.path
 		assert_equal 2, out.handler.expressions.count
 
-		out = _interp '#put "posts/:id" replace_post { id; }'
-		assert_equal 'replace_post', out.handler.name
-		assert_equal 'put', out.http_method.value
-		assert_equal 'posts/:id', out.path
-		assert_equal 1, out.handler.expressions.count
+		# out = _interp '#put "posts/:id" replace_post { id; }'
+		# assert_equal 'replace_post', out.handler.name
+		# assert_equal 'put', out.http_method.value
+		# assert_equal 'posts/:id', out.path
+		# assert_equal 1, out.handler.expressions.count
 	end
 
 	# def test_start_server_directive

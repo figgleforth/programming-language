@@ -1,0 +1,18 @@
+`=> "Hello, World!"
+greet { name;
+	"Hello, |name|!"
+}
+
+Person {
+	name;
+
+	new { name;
+		./name = name
+	}
+
+	greet {;
+		"Hello, |./name|!"
+	}
+}
+
+Person('World').greet()

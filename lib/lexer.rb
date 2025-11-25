@@ -189,7 +189,7 @@ class Lexer
 	end
 
 	def lex_route
-		verb = ''
+		verb = String.new
 		while chars? && (identifier? || alphanumeric?)
 			break unless HTTP_VERBS.any? { |v| v.start_with?(verb + curr) }
 			verb << eat
@@ -201,7 +201,7 @@ class Lexer
 			raise "Expected '://' in route declaration, got #{protocol_sep.inspect}"
 		end
 
-		path = ''
+		path = String.new
 		while chars? && !whitespace? && !newline? && curr != '{'
 			path << eat
 		end

@@ -16,16 +16,23 @@ greet { name;
 `Define a class - no "class" needed
 Person {
 	name;
-	new { name; ./name = name }
-	greet {; greet(./name) }
+
+	new { name;
+		./name = name
+	}
+
+	greet {;
+		"Hello, |./name|!"
+	}
 }
 
-Person('World').greet()  `=> "Hello, World!"
+Person('World').greet() `=> "Hello, World!"
 ```
 
 **Key Features:**
 
-- **Naming conventions replace keywords** - `Capitalized` = classes, `lowercase` = functions/vars, `UPPERCASE` = constants
+- **Naming conventions replace keywords** - `Capitalized` = classes, `lowercase` = functions/vars,
+  `UPPERCASE` = constants
 - **Class composition over inheritance** - Use `|` `&` `~` `^` operators to compose classes
 - **Clean syntax** - No `class`, `def`, `self`, or `::` keywords
 - **Dot notation for everything** - `array.1.0.8` accesses nested structures, `./name` accesses instance vars

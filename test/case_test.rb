@@ -51,7 +51,7 @@ class Case_Test < Minitest::Test
 		test_cases.each do |file_path|
 			parser = Case_Parser.new file_path
 			parser.parse
-			
+
 			relative_path = file_path.sub "#{cases_dir}/", ''
 
 			parser.test_cases.each_with_index do |test_case, index|
@@ -113,7 +113,7 @@ class Case_Test < Minitest::Test
 				assert_equal expected, actual, failure(test_case, "Expected #{expected.inspect} but got #{actual.inspect}")
 
 			rescue StandardError => e
-				flunk failure(test_case, "Test raised unexpected error: #{e.class}: #{e.message}")
+				flunk failure(test_case, "#{e.class}: #{e.message}")
 			end
 
 		when :error

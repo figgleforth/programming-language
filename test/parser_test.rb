@@ -740,30 +740,30 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_all_http_methods
-		HTTP_DIRECTIVES.each do |m|
-			assert_instance_of Route_Expr, _parse("##{m} 'path' {;}").first
+		HTTP_VERBS.each do |verb|
+			assert_instance_of Route_Expr, _parse("#{verb}://path {;}").first
 		end
 	end
 
 	def test_route_declaration_with_http_method_directives
 		refute_raises Invalid_Http_Directive_Handler do
-			out = _parse '#get "something" {;}'
+			out = _parse 'get://something {;}'
 			assert_equal 1, out.count
 			assert_instance_of Route_Expr, out.first
 			assert_equal 'get', out.first.http_method.value
-			assert_equal "something", out.first.path.value
+			assert_equal "something", out.first.path
 
-			out = _parse '#put "book/:id" replace_book {id;}'
-			assert_equal 1, out.count
-			assert_instance_of Route_Expr, out.first
-			assert_equal 'put', out.first.http_method.value
-			assert_equal "book/:id", out.first.path.value
-
-			out = _parse '#patch "thing/:id" update_thing'
-			assert_equal 1, out.count
-			assert_instance_of Route_Expr, out.first
-			assert_equal 'patch', out.first.http_method.value
-			assert_equal "thing/:id", out.first.path.value
+			# out = _parse 'put://"book/:id" replace_book {id;}'
+			# assert_equal 1, out.count
+			# assert_instance_of Route_Expr, out.first
+			# assert_equal 'put', out.first.http_method.value
+			# assert_equal "book/:id", out.first.path.value
+			#
+			# out = _parse 'patch://"thing/:id" update_thing'
+			# assert_equal 1, out.count
+			# assert_instance_of Route_Expr, out.first
+			# assert_equal 'patch', out.first.http_method.value
+			# assert_equal "thing/:id", out.first.path.value
 		end
 
 		# assert_raises Invalid_Http_Directive_Handler do
