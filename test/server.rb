@@ -9,8 +9,6 @@ interpreter = Interpreter.new expressions
 port   = nil
 routes = nil
 result = interpreter.output do |result, runtime, stack|
-	Air.assert runtime.servers.count == 1 # note: I don't want to deal with multiple servers while this is WIP.
-
 	port   = runtime.servers.first[:port]
 	routes = runtime.routes
 end

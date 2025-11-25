@@ -539,8 +539,8 @@ class Interpreter
 			break if result.is_a? Air::Return
 		end
 
-		Air.assert pop_scope == call_scope
-		Air.assert pop_scope == func.enclosing_scope
+		_assert pop_scope == call_scope
+		_assert pop_scope == func.enclosing_scope
 
 		result
 	end
@@ -609,8 +609,8 @@ class Interpreter
 		popped_call      = pop_scope
 		popped_enclosing = pop_scope
 
-		Air.assert popped_call == call_scope
-		Air.assert popped_enclosing == handler.enclosing_scope
+		_assert popped_call == call_scope
+		_assert popped_enclosing == handler.enclosing_scope
 
 		result
 	end

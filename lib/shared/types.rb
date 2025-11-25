@@ -107,7 +107,7 @@ module Air
 		private_class_method :new # prevent external instantiation
 
 		def initialize truthiness
-			super (!!truthiness).to_s.capitalize # Scope class only needs @name
+			super((!!truthiness).to_s.capitalize) # Scope class only needs @name
 			@truthiness = !!truthiness
 		end
 	end
@@ -151,8 +151,8 @@ module Air
 			super 'Request'
 			@path    = nil
 			@method  = nil
-			@query   = {}  # Hash of query string params (?key=value)
-			@params  = {}  # Hash of URL params (:id in route)
+			@query   = {} # Query string params (?key=value)
+			@params  = {} # Url params (:id in route)
 			@headers = {}
 			@body    = nil
 
@@ -170,8 +170,8 @@ module Air
 
 		def initialize
 			super 'Response'
-			@status = 200
-			@headers = { 'Content-Type' => 'text/html; charset=utf-8' }
+			@status       = 200
+			@headers      = { 'Content-Type' => 'text/html; charset=utf-8' }
 			@body_content = ''
 
 			@declarations['status']  = @status
