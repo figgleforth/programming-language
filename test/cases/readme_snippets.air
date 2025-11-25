@@ -1,18 +1,14 @@
-`=> "Hello, World!"
-greet { name;
-	"Hello, |name|!"
-}
+`=> "Hi, World!"
+Hello {
+	subject;
 
-Person {
-	name;
-
-	new { name;
-		./name = name
+	new { subject;
+		./subject = subject
 	}
 
-	greet {;
-		"Hello, |./name|!"
+	output {;
+		"Hi, |subject|!"
 	}
 }
 
-Person('World').greet()
+Hello('World').output()

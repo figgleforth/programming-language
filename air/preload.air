@@ -36,26 +36,3 @@ String {
     length {;
 	}
 }
-
-Request {
-	path;
-	method;
-	query;
-	params;
-	headers;
-	body;
-}
-
-Response {
-	status;
-	headers;
-	body;
-}
-
-Server {
-	port;
-
-	new { port = 80;
-		./port = port
-	}
-}

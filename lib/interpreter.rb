@@ -545,13 +545,12 @@ class Interpreter
 		result
 	end
 
-	# Execute a route handler with intrinsic request/response objects
 	# @param route [Air::Route] The route to execute
-	# @param request_obj [Air::Request] Request object to inject
-	# @param response_obj [Air::Response] Response object to inject
+	# @param req [Air::Request] Request object to inject
+	# @param res [Air::Response] Response object to inject
 	# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
 	# @return The result of handler execution
-	def execute_route_handler route, request_obj, response_obj, url_params = {}
+	def interp_route_handler route, req, res, url_params = {}
 		handler = route.handler
 		params  = handler.expressions.select { |e| e.is_a? Param_Expr }
 
@@ -560,8 +559,8 @@ class Interpreter
 		push_scope call_scope
 
 		# Make request and response available without explicit declaration
-		declare 'request', request_obj, call_scope
-		declare 'response', response_obj, call_scope
+		declare 'request', req, call_scope
+		declare 'response', res, call_scope
 
 		# Bind URL parameters as function arguments. For example, get://:abc/:def { abc, def; }
 		params.each do |param|
@@ -600,9 +599,9 @@ class Interpreter
 		end
 
 		# If result is a string and response.body not set, use result as body
-		if result.is_a?(String) && response_obj.body_content.empty?
-			response_obj.body_content         = result
-			response_obj.declarations['body'] = result
+		if result.is_a?(String) && res.body_content.empty?
+			res.body_content         = result
+			res.declarations['body'] = result
 		end
 
 		# Clean up scopes

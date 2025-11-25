@@ -998,27 +998,27 @@ class Interpreter_Test < Minitest::Test
 		assert_equal [15, nil], out.values
 	end
 
-	def test_server_type
-		# Since this is the first test to use Server, I want to call out that I'm passing `true` as the second arg to #_interp so that it'll call #preload_intrinsics on the Interpreter, so that Server is available
-		out = _interp "
-		App | Server {}
-
-		app = App(4815)
-		(app, app.port)
-		", true
-		assert_instance_of Air::Instance, out.values[0]
-		assert_equal %w(App Server), out.values[0].types
-
-		assert out.values[0].has? :port
-		assert_equal 4815, out.values[0][:port]
-
-		assert_equal 4815, out.values[1]
-
-		assert_raises Undeclared_Identifier do
-			# Passing false as the second argument (default behavior) does not preload intrinsics (which is where Server is declared)
-			_interp "App | Server {}", false
-		end
-	end
+	# def test_server_type
+	# 	# Since this is the first test to use Server, I want to call out that I'm passing `true` as the second arg to #_interp so that it'll call #preload_intrinsics on the Interpreter, so that Server is available
+	# 	out = _interp "
+	# 	App | Server {}
+	#
+	# 	app = App(4815)
+	# 	(app, app.port)
+	# 	", true
+	# 	assert_instance_of Air::Instance, out.values[0]
+	# 	assert_equal %w(App Server), out.values[0].types
+	#
+	# 	assert out.values[0].has? :port
+	# 	assert_equal 4815, out.values[0][:port]
+	#
+	# 	assert_equal 4815, out.values[1]
+	#
+	# 	assert_raises Undeclared_Identifier do
+	# 		# Passing false as the second argument (default behavior) does not preload intrinsics (which is where Server is declared)
+	# 		_interp "App | Server {}", false
+	# 	end
+	# end
 
 	def test_routes
 		# TODO Test edge cases, route/func param mismatch, etc

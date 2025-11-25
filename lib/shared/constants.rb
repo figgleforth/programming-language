@@ -1,6 +1,7 @@
 SORT_BY_LENGTH_DESC        = ->(str) { -str.size }
 REFERENCE_PREFIX           = '@' # TODO I'm not sold on this yet
 DIRECTIVE_PREFIX           = '#'
+HTML_ATTRS                 = %w(id class href)
 HTTP_VERBS                 = %w(get put patch post delete head options connect trace)
 HTTP_VERB_SEPARATOR        = '://'
 INTERPOLATE_CHAR           = '|'
@@ -56,5 +57,3 @@ RESERVED = %w(
 		true false nil
 		and or return
 	).sort_by &SORT_BY_LENGTH_DESC
-
-HTML_ATTRS = %w(id class href)

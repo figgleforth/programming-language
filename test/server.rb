@@ -2,7 +2,7 @@ require 'webrick'
 require './lib/air.rb'
 require './lib/shared/helpers.rb'
 
-expressions = _parse File.read('./air/preload.air').to_s
+expressions = _parse File.read('./air/server.air').to_s
 interpreter = Interpreter.new expressions
 
 # Run a single instance of Air::Server (for now)
@@ -77,7 +77,7 @@ server.mount_proc '' do |req, res|
 
 		# Execute route handler with intrinsic request/response
 		begin
-			result = interpreter.execute_route_handler target_route, air_req, air_res, url_params
+			result = interpreter.interp_route_handler target_route, air_req, air_res, url_params
 
 			# Apply response object's configuration to WEBrick response
 			res.status = air_res.status

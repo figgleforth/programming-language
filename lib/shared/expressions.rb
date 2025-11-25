@@ -69,9 +69,9 @@ class Func_Expr < Expression
 	end
 end
 
-# #get '/' home {;}
-# #put 'whatever/:id' do_something {;}
-# #post 'book/:id/publish' do_something
+# get:// {;}
+# put://whatever/:id {id;}
+# post://book/:id/publish {id;}
 class Route_Expr < Expression
 	attr_accessor :http_method, :path, :expression, :param_names # The expression can be a function or an identifier
 end

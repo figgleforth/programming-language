@@ -2,45 +2,6 @@ require 'minitest/autorun'
 require_relative '../lib/air'
 require_relative 'case_parser'
 
-##
-# Automatically discovers and runs Air language test cases from .air files.
-#
-# This test class uses a literate testing approach where test cases are written
-# directly in .air files with inline directives that specify expected behavior.
-# At load time, it scans the test/cases/ directory for .air files and dynamically
-# generates Minitest test methods for each directive found.
-#
-# ==== Test Discovery Process
-#
-# 1. Scans test/cases/ directory for all .air files
-# 2. Parses each file using Case_Parser to extract test cases
-# 3. Dynamically defines a test method for each test case using define_method
-# 4. Test method names are derived from file path and line number for traceability
-#
-# ==== Supported Directives
-#
-# Test cases use directives to specify expected behavior:
-# - `=> value - Assert the code returns the specified value
-# - `error: ErrorType - Assert the code raises the specified exception
-# - `skip - Skip this test (optionally with a reason)
-#
-# ==== Example Test File
-#
-#   # test/cases/arithmetic.air
-#   `=> 5
-#   2 + 3
-#
-#   1 / 0 `error: ZeroDivisionError
-#
-# This would generate two test methods that verify the addition returns 5
-# and the division raises a ZeroDivisionError.
-#
-# ==== Value Comparison
-#
-# For `=> directives, the test system:
-# - Checks if the expected value is a class name (e.g., "Air::Func") and performs
-#   instance type checking
-# - Otherwise evaluates the expected value as Ruby code and compares normalized values
 class Case_Test < Minitest::Test
 	cases_dir = File.join __dir__, 'cases'
 
