@@ -73,7 +73,7 @@ end
 # #put 'whatever/:id' do_something {;}
 # #post 'book/:id/publish' do_something
 class Route_Expr < Expression
-	attr_accessor :http_method, :path, :expression # The expression can be a function or an identifier
+	attr_accessor :http_method, :path, :expression, :param_names # The expression can be a function or an identifier
 end
 
 class Directive_Expr < Expression

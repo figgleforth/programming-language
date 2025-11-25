@@ -36,25 +36,20 @@ String {
 	}
 }
 
-Request {}
-
-Response {
-	html_string;
-
-	new { html;
-		html_string = html
-	}
-
-	render {;
-		#html_escape(html_string)
-	}
+Request {
+	path;
+	method;
+	query;
+	params;
+	headers;
+	body;
 }
 
-
-
-
-
-
+Response {
+	status;
+	headers;
+	body;
+}
 
 Server {
 	port;
@@ -71,22 +66,23 @@ Server {
 `TODO Currently only named functions are supported because they are stored in Runtime.routes of type {route_name, route_function}
 
 Web_App | Server {
+	` Protocol-style route examples
+	get:// {;
+		"Hi!"
+	}
 
-	hello {;
-		'<div style="background-color: #ccc; color: #333; padding: 23px;"><h1>Hello, Andy!</h1></div>'
+	get://users/:id { id;
+		"<h1>User Profile</h1><p>User ID: |id|</p>"
+	}
+
+	get://greet/:name { name;
+		"<div style='background-color: #e3f2fd; padding: 20px; font-family: sans-serif;'><h1>Hello, |name|!</h1><p>Welcome to Air's protocol-style routing.</p></div>"
+	}
+
+	post://submit/:form_id { form_id;
+		"<h2>Form Submitted</h2><p>Form ID: |form_id|</p><p>Method: |request.method|</p>"
 	}
 }
 
 app = Web_App()
-
-#get 'greeting' app.hello `bug: must all be on the same line
 #serve_http app
-
-
-`#get route app.hello
-`#get '/hello' ./hello `bug: doesn't work when prefixed with ./
-
-`Possible alternate syntax
-`get:// 'test/:arg/' name_required_bug { arg;
-`	"Dynamic arg in .air file: |dynamic_arg|"
-`}

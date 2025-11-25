@@ -5,55 +5,110 @@ require './lib/shared/helpers.rb'
 expressions = _parse File.read('./air/preload.air').to_s
 interpreter = Interpreter.new expressions
 
-# Run a single instance of Air::Server
-air_server = nil
-routes     = nil
-result     = interpreter.output do |result, runtime, stack|
-	Air.assert runtime.servers.count == 1
-	air_server = runtime.servers.first
-	routes     = runtime.routes
+# Run a single instance of Air::Server (for now)
+port   = nil
+routes = nil
+result = interpreter.output do |result, runtime, stack|
+	Air.assert runtime.servers.count == 1 # note: I don't want to deal with multiple servers while this is WIP.
+
+	port   = runtime.servers.first[:port]
+	routes = runtime.routes
 end
-Air.assert air_server
 
-# Use air_server to build WEBrick config
-server = WEBrick::HTTPServer.new :Port => air_server[:port]
+# Configure WEBrick
+server = WEBrick::HTTPServer.new :Port => port
 server.mount_proc '' do |req, res|
-	# The empty string is a wildcard to intercept every route.
-	path_string = req.path # /abc/123/def ...
-	query       = req.query_string # id=123&what=456
-	type        = req.request_method # GET, PUT, ...
-	parts       = req.path.split('/').reject do
-		_1.empty?
-	end
+	# note: The empty string when mounting is a wildcard to intercept every route.
+	path_string  = req.path
+	query_string = req.query_string
+	http_method  = req.request_method.downcase
+	path_parts   = req.path.split('/').reject { _1.empty? }
 
-	# TODO This current structure is weird, it's hard to know how to evaluate the air_route value? It points to a function, so we need to execute it, and give it the proper arguments based on the request
+	# Find matching route by HTTP method and path structure
+	target_route = routes.values.find do |route|
+		# 1. HTTP method must match
+		next unless route.http_method.value == http_method
 
-	# routes = { :string_path => Air::Route }
-	target_route = routes.values.find do |air_route|
+		# 2. Path segment count must match
+		next unless route.parts.count == path_parts.count
 
-		# Air::Route < Air::Func -> :http_method, :path, :handler, :parts
-		identical_path = air_route.path == path_string
-		next unless air_route.parts.count == parts.count
-
-		matching_parts = parts.zip(air_route.parts).all? do |req_path_part, air_path_part|
-			(req_path_part == air_path_part) || (air_path_part[0] == ':')
+		# 3. All segments must match (considering :param placeholders)
+		matching_parts = path_parts.zip(route.parts).all? do |req_part, route_part|
+			(req_part == route_part) || (route_part.start_with?(':'))
 		end
 
-		identical_path || matching_parts
+		matching_parts
 	end
-
-	res.body = "<div>"
 
 	if target_route
-		interpreter.input = target_route.handler.expressions #.expressions
-		res.body          += "#{interpreter.output}"
-	else
-		res.body += "404"
-	end
+		# Extract URL parameters from path
+		url_params = {}
+		path_parts.zip(target_route.parts).each do |req_part, route_part|
+			if route_part.start_with? ':'
+				param_name             = route_part[1..-1] # Remove leading ':'
+				url_params[param_name] = req_part
+			end
+		end
 
-	res.body                   += "<hr /><h3>URL Parts</h3><p>#{parts}</p><h3>Currently Declared Routes</h3><p>#{routes.values.map(&:path)}</p>"
-	res.body                   += "</div>"
-	res.header['Content-Type'] = 'text/html; charset=utf-8' # See https://developer.mozilla.org/en-US/docs/Glossary/Request_header
+		# Parse query string into hash
+		query_params = {}
+		if query_string
+			query_string.split('&').each do |pair|
+				key, value        = pair.split '=', 2
+				query_params[key] = CGI.unescape(value || '')
+			end
+		end
+
+		# Create Request and Response objects
+		air_res         = Air::Response.new
+		air_req         = Air::Request.new
+		air_req.path    = path_string
+		air_req.method  = http_method
+		air_req.query   = query_params
+		air_req.params  = url_params
+		air_req.headers = req.header.to_h
+		air_req.body    = req.body
+
+		# Update declarations to match instance variables
+		air_req.declarations['path']    = air_req.path
+		air_req.declarations['method']  = air_req.method
+		air_req.declarations['query']   = air_req.query
+		air_req.declarations['params']  = air_req.params
+		air_req.declarations['headers'] = air_req.headers
+		air_req.declarations['body']    = air_req.body
+
+		# Execute route handler with intrinsic request/response
+		begin
+			result = interpreter.execute_route_handler target_route, air_req, air_res, url_params
+
+			# Apply response object's configuration to WEBrick response
+			res.status = air_res.status
+			air_res.headers.each { |k, v| res.header[k] = v }
+			res.body = air_res.body_content.to_s
+
+		rescue => e
+			res.status = 500
+			res.body   = <<~HTML
+			    <h1>500 Internal Server Error</h1>
+			    <h2>#{e.class}: #{e.message}</h2>
+			    <pre>#{e.backtrace.join("\n")}</pre>
+			HTML
+			res.header['Content-Type'] = 'text/html; charset=utf-8'
+		end
+	else
+		# target_route is nil, so show 404
+		res.status = 404
+		res.body   = <<~HTML
+		    <h1>404 Not Found</h1>
+		    <p>No route matches #{http_method.upcase} #{path_string}</p>
+		    <hr>
+		    <h3>Available Routes:</h3>
+		    <ul>
+		    	#{routes.values.map { |r| "<li>#{r.http_method.value.upcase} /#{r.path}</li>" }.join("\n")}
+		    </ul>
+		HTML
+		res.header['Content-Type'] = 'text/html; charset=utf-8' # See https://developer.mozilla.org/en-US/docs/Glossary/Request_header
+	end
 end
 
 begin
@@ -67,12 +122,3 @@ ensure
 	Thread.kill server_thread
 	puts "Killed server thread #{server_thread}"
 end
-
-# /abc/123/def
-# ['abc', dynamic, 'def']
-# A match is when:
-#   1) path == route.path
-#   2) parts == route.parts where fixed parts match with dynamic parts
-#                           parts       = [abc, 123, def, whatever]
-#                           route.parts = [abc, :id, def, :word]
-#

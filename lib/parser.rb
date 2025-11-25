@@ -406,6 +406,48 @@ class Parser
 		Symbol_Expr.new eat.value.to_sym
 	end
 
+	def parse_route_expr
+		route_token = eat :route
+
+		# Split "get://users/:id" => ["get", "users/:id"]
+		parts       = route_token.value.split HTTP_VERB_SEPARATOR
+		http_method = parts[0]
+		path_string = parts[1] || ''
+
+		# Extract parameter names from dynamic path segments. ":id/:action" => ["id", "action"]
+		path_segments = path_string.split '/'
+		param_names   = path_segments
+		                .select { |segment| segment.start_with?(':') }
+		                .map { |segment| segment[1..-1] } # Remove ':' prefix
+
+		# Parse handler function (must follow route declaration).
+		# todo: Consider being able to use an existing identifier in place of a function expression
+		reduce_newlines
+		handler = parse_func
+
+		# Validate: handler params must include all route params
+		handler_params = handler.expressions
+		                 .select { |expr| expr.is_a?(Param_Expr) }
+		                 .map(&:name)
+
+		missing_params = param_names - handler_params
+		unless missing_params.empty?
+			# todo: Add this error to lib/shared/errors.rb
+			raise "Route parameters #{missing_params.inspect} not found in handler parameters"
+		end
+
+		route             = Route_Expr.new
+		route.http_method = Identifier_Expr.new.tap do |expr|
+			expr.value = http_method
+			expr.kind  = :identifier
+		end
+		route.path        = path_string
+		route.expression  = handler
+		route.param_names = param_names
+
+		route
+	end
+
 	def parse_operator_expr
 		# A method just for this might seem silly, but I thought the same when I decided #make_expr should be a giant method. This will help in the long run, and consistency is key to keeping this maintainable.
 		Operator_Expr.new eat(:operator).value
@@ -439,7 +481,10 @@ class Parser
 	def begin_expression precedence = STARTING_PRECEDENCE
 		raise Out_Of_Tokens unless lexemes?
 
-		if curr? ANY_IDENTIFIER, ';'
+		if curr? :route
+			parse_route_expr
+
+		elsif curr? ANY_IDENTIFIER, ';'
 			parse_nil_init_postfix_expr
 
 		elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
@@ -515,7 +560,7 @@ class Parser
 		complete_expression expression, precedence
 	end
 
-	# TODO Factor out the various branches of code in here.
+	# todo: Factor out the various branches of code in here?
 	def complete_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
 
@@ -528,21 +573,11 @@ class Parser
 		end
 
 		if expr.is_a?(Identifier_Expr) && expr.directive
-			# TODO This is where #assert calls with args should be parsed
-			if HTTP_DIRECTIVES.include?(expr.value) && curr?(:string)
-				route             = Route_Expr.new
-				route.http_method = expr
-				route.path        = eat(:string)
+			directive            = Directive_Expr.new
+			directive.name       = expr
+			directive.expression = begin_expression
 
-				route.expression = parse_expression
-
-				return route
-			else
-				directive            = Directive_Expr.new
-				directive.name       = expr
-				directive.expression = begin_expression
-				return complete_expression directive, precedence
-			end
+			return complete_expression directive, precedence
 		end
 
 		scope_prefix = %w(./ ../ .../).find do |it|

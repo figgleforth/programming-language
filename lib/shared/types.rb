@@ -144,6 +144,42 @@ module Air
 		end
 	end
 
+	class Request < Scope
+		attr_accessor :path, :method, :query, :params, :headers, :body
+
+		def initialize
+			super 'Request'
+			@path    = nil
+			@method  = nil
+			@query   = {}  # Hash of query string params (?key=value)
+			@params  = {}  # Hash of URL params (:id in route)
+			@headers = {}
+			@body    = nil
+
+			@declarations['path']    = @path
+			@declarations['method']  = @method
+			@declarations['query']   = @query
+			@declarations['params']  = @params
+			@declarations['headers'] = @headers
+			@declarations['body']    = @body
+		end
+	end
+
+	class Response < Scope
+		attr_accessor :status, :headers, :body_content
+
+		def initialize
+			super 'Response'
+			@status = 200
+			@headers = { 'Content-Type' => 'text/html; charset=utf-8' }
+			@body_content = ''
+
+			@declarations['status']  = @status
+			@declarations['headers'] = @headers
+			@declarations['body']    = @body_content
+		end
+	end
+
 	class Runtime < Scope
 		attr_accessor :functions, :routes, :servers
 	end

@@ -42,6 +42,16 @@ class Lexer
 		char&.match? SYMBOLIC_REGEX
 	end
 
+	def route_pattern?
+		return false unless identifier?
+
+		verb_match = HTTP_VERBS.any? { |verb| peek(0, verb.length) == verb }
+		return false unless verb_match
+
+		verb_length = HTTP_VERBS.find { |verb| peek(0, verb.length) == verb }.length
+		peek(verb_length, 3) == '://'
+	end
+
 	def chars?
 		i < input.length
 	end
@@ -178,6 +188,27 @@ class Lexer
 		it
 	end
 
+	def lex_route
+		verb = ''
+		while chars? && (identifier? || alphanumeric?)
+			break unless HTTP_VERBS.any? { |v| v.start_with?(verb + curr) }
+			verb << eat
+		end
+
+		protocol_sep = lex_many 3, HTTP_VERB_SEPARATOR
+		unless protocol_sep == HTTP_VERB_SEPARATOR
+			# todo: #lex_many will raise if it doesn't match so this is redundant
+			raise "Expected '://' in route declaration, got #{protocol_sep.inspect}"
+		end
+
+		path = ''
+		while chars? && !whitespace? && !newline? && curr != '{'
+			path << eat
+		end
+
+		"#{verb}://#{path}"
+	end
+
 	def output
 		tokens = []
 
@@ -212,6 +243,10 @@ class Lexer
 				elsif %w(' ").include? curr
 					it.type  = :string
 					it.value = lex_string
+
+				elsif route_pattern?
+					it.type  = :route
+					it.value = lex_route
 
 				elsif identifier? || %w(_).include?(curr)
 					it.value = lex_identifier

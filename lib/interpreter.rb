@@ -545,6 +545,76 @@ class Interpreter
 		result
 	end
 
+	# Execute a route handler with intrinsic request/response objects
+	# @param route [Air::Route] The route to execute
+	# @param request_obj [Air::Request] Request object to inject
+	# @param response_obj [Air::Response] Response object to inject
+	# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
+	# @return The result of handler execution
+	def execute_route_handler route, request_obj, response_obj, url_params = {}
+		handler = route.handler
+		params  = handler.expressions.select { |e| e.is_a? Param_Expr }
+
+		call_scope = Air::Scope.new "#{handler.name || 'anonymous'}_route"
+		push_scope handler.enclosing_scope
+		push_scope call_scope
+
+		# Make request and response available without explicit declaration
+		declare 'request', request_obj, call_scope
+		declare 'response', response_obj, call_scope
+
+		# Bind URL parameters as function arguments. For example, get://:abc/:def { abc, def; }
+		params.each do |param|
+			# param: Param_Expr
+			value = url_params[param.name] || url_params[param.name.to_sym]
+
+			if value.nil?
+				# Check if this is a route parameter
+				if route.param_names.include? param.name
+					# todo: I haven't triggered this yet to ensure this works.
+					# todo: Write error in lib/shared/errors.rb and raise that instead.
+					raise "Route parameter '#{param.name}' expected but not found in URL"
+				end
+
+				# Use default value or raise
+				if param.default
+					value = interpret param.default
+				else
+					# todo: Is this reachable? I imagine
+					raise Missing_Argument, param.inspect
+				end
+			end
+
+			declare param.name, value, call_scope
+		end
+
+		# Execute handler body expressions without the param expressions.
+		body   = handler.expressions - params
+		result = nil
+
+		body.each do |expr|
+			next if expr.is_a? Param_Expr # Reminder, param expressions are part of the function body by design. This is redundant because I'm subtracting the params from the handler expressions a few lines above, but just in case!
+
+			result = interpret expr
+			break if result.is_a? Air::Return
+		end
+
+		# If result is a string and response.body not set, use result as body
+		if result.is_a?(String) && response_obj.body_content.empty?
+			response_obj.body_content         = result
+			response_obj.declarations['body'] = result
+		end
+
+		# Clean up scopes
+		popped_call      = pop_scope
+		popped_enclosing = pop_scope
+
+		Air.assert popped_call == call_scope
+		Air.assert popped_enclosing == handler.enclosing_scope
+
+		result
+	end
+
 	def interp_type expr
 		type = Air::Type.new expr.name.value
 
@@ -594,8 +664,9 @@ class Interpreter
 		route.enclosing_scope = stack.last
 		route.handler         = expression
 		route.http_method     = expr.http_method
-		route.path            = expr.path.value
+		route.path            = expr.path
 		route.path            = route.path[1..] if route.path.start_with? '/'
+		route.param_names     = expr.param_names || []
 
 		route.parts = route.path.split('/').reject do
 			_1.empty?
@@ -609,7 +680,9 @@ class Interpreter
 			@runtime.routes[expression.name] = route
 			declare expression.name, route
 		else
-			route
+			# Anonymous route with auto-generated key: "method:path"
+			route_key                  = "#{route.http_method.value}:#{route.path}"
+			@runtime.routes[route_key] = route
 		end
 	end
 
