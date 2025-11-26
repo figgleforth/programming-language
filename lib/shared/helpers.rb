@@ -1,9 +1,9 @@
 require_relative '../air'
 
-def _interp code, preload_intrinsics = false
+def _interp code, with_std = false
 	expressions  = _parse code
-	@interpreter = Interpreter.new expressions
-	@interpreter.preload_intrinsics if preload_intrinsics
+	global_scope = with_std ? Air::Global.with_standard_library : Air::Global.new
+	@interpreter = Interpreter.new expressions, global_scope
 	@interpreter.output
 end
 
@@ -22,8 +22,11 @@ def _lex_file file_path
 	_lex File.read file_path
 end
 
-def _interp_file file_path, preload_intrinsics = false
-	_interp File.read(file_path), preload_intrinsics
+def _interp_file file_path, with_std = false
+	expressions  = _parse File.read(file_path)
+	global_scope = with_std ? Air::Global.with_standard_library : Air::Global.new
+	@interpreter = Interpreter.new expressions, global_scope
+	@interpreter.output
 end
 
 def _parse_file file_path

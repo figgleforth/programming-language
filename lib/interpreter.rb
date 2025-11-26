@@ -3,22 +3,13 @@ require_relative 'air'
 class Interpreter
 	attr_accessor :i, :input, :stack, :runtime
 
-	def initialize input = []
+	def initialize input = [], global_scope = nil
 		@input             = input
-		@stack             = [Air::Global.new]
+		@stack             = [global_scope || Air::Global.new]
 		@runtime           = Air::Runtime.new
 		@runtime.functions = {}
 		@runtime.routes    = {}
 		@runtime.servers   = []
-	end
-
-	def preload_intrinsics
-		original_input = @input
-
-		@input = _parse_file './air/preload.air'
-		output # So the preloads are declared on this instance of Interpreter
-
-		@input = original_input
 	end
 
 	def output & block
@@ -848,6 +839,9 @@ class Interpreter
 			server = interpret expr.expression
 			@runtime.servers << server
 			server
+		when 'load'
+			filepath = interpret expr.expression
+			stack.first.load_file filepath
 		else
 			raise Directive_Not_Implemented, expr.inspect
 		end
