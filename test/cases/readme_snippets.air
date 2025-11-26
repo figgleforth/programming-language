@@ -1,0 +1,52 @@
+`=> "Hi, World!"
+Hello {
+	subject;
+
+	new { subject;
+		./subject = subject
+	}
+
+	output {;
+		"Hi, |subject|!"
+	}
+}
+
+Hello('World').output()
+
+`=> "figgleforth/programming-language"
+Repo {
+	user;
+	name;
+
+	`"new" is reserved for constructors
+	new { user, name;
+		./user = user
+		./name = name
+	}
+
+	to_s {;
+		"|user|/|name|"
+	}
+}
+
+Repo('figgleforth', 'programming-language').to_s()
+
+`=> "Lost"
+best_show {;
+	"Lost"  `Last expression is return value
+}
+best_show()
+
+`=> 'Fizz'
+fizz_buzz { n;
+	if n % 3 == 0 and n % 5 == 0
+		'FizzBuzz'
+	elif n % 3 == 0
+		'Fizz'
+	elif n % 5 == 0
+		'Buzz'
+	else
+		'|n|'
+	end
+}
+fizz_buzz(3)

@@ -118,6 +118,7 @@ Repo {
 
 	`"new" is reserved for constructors
 	new { user, name;
+		./user = user
 		./name = name
 	}
 
