@@ -1,7 +1,9 @@
 SORT_BY_LENGTH_DESC        = ->(str) { -str.size }
 REFERENCE_PREFIX           = '@' # TODO I'm not sold on this yet
 DIRECTIVE_PREFIX           = '#'
-HTTP_DIRECTIVES            = %w(get put patch post delete head options connect trace)
+HTML_ATTRS                 = %w(id class href)
+HTTP_VERBS                 = %w(get put patch post delete head options connect trace)
+HTTP_VERB_SEPARATOR        = '://'
 INTERPOLATE_CHAR           = '|'
 COMMENT_CHAR               = '`'
 COMMENT_MULTILINE_CHAR     = '```'
@@ -54,4 +56,4 @@ RESERVED = %w(
 		unless until
 		true false nil
 		and or return
-	).sort_by &SORT_BY_LENGTH_DESC # todo, I want to add `remove` here as well but not is not the time.
+	).sort_by &SORT_BY_LENGTH_DESC

@@ -23,47 +23,6 @@ class Case_Parser
 		@test_cases = []
 	end
 
-	##
-	# Parses the test case file and extracts test cases with their directives.
-	#
-	# Reads the file line by line and identifies two types of directives:
-	# 1. Above-line directives - Appear on their own line and apply to the
-	#    following block of code
-	# 2. End-of-line directives - Appear at the end of a code line and apply
-	#    only to that line
-	#
-	# Directives can be:
-	# - `=> value - Assert return value equals 'value'
-	# - `error: ErrorType - Assert ErrorType exception is raised
-	# - `skip - Skip this test
-	# - `skip: reason - Skip this test with reason
-	#
-	# ==== Above-line Directive Mechanism
-	#
-	# When an above-line directive is detected (a line starting with backtick
-	# followed by a directive keyword), the parser:
-	#
-	# 1. Extracts the directive information
-	# 2. Advances to the next line and begins collecting code lines
-	# 3. Continues collecting lines until one of these conditions:
-	#    - Another directive line is encountered (stops immediately)
-	#    - A blank line is found, triggering a lookahead check:
-	#      * Peeks at following lines to see if more code exists
-	#      * If more non-comment code is found, includes the blank line and continues
-	#      * If only blank lines or directives remain, stops collection
-	# 4. Once collection stops, creates a test case from all collected lines
-	#
-	# This lookahead mechanism allows code blocks to contain internal blank lines
-	# (for readability) while still correctly detecting the end of a test case.
-	#
-	# ==== Output
-	#
-	# Extracted test cases are stored in @test_cases as hashes containing:
-	# - :code - The code to execute
-	# - :directive - The directive type (:skip, :expect, or :error)
-	# - :expected - The expected value or error class
-	# - :line - Line number where the test starts (1-indexed)
-	# - :file - Path to the source file
 	def parse
 		content = File.read @file_path
 		lines   = content.lines.map &:chomp

@@ -28,7 +28,7 @@ class Regression_Test < Minitest::Test
 		]
 
 		invalid_samples.each do |sample|
-			assert_raises Malformed_Scoped_Identifier do
+			assert_raises Invalid_Scoped_Identifier do
 				_parse sample
 			end
 		end

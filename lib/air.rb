@@ -1,6 +1,3 @@
-module Air
-end
-
 require_relative 'shared/constants'
 require_relative 'shared/constructs'
 require_relative 'shared/errors'

@@ -998,47 +998,79 @@ class Interpreter_Test < Minitest::Test
 		assert_equal [15, nil], out.values
 	end
 
-	def test_server_type
-		# Since this is the first test to use Server, I want to call out that I'm passing `true` as the second arg to #_interp so that it'll call #preload_intrinsics on the Interpreter, so that Server is available
-		out = _interp "
-		App | Server {}
-
-		app = App(4815)
-		(app, app.port, app.routes)
-		", true
-		assert_instance_of Air::Instance, out.values[0]
-		assert_equal %w(App Server), out.values[0].types
-
-		assert out.values[0].has? :routes
-		assert_nil out.values[0][:routes]
-		assert out.values[0].has? :port
-		assert_equal 4815, out.values[0][:port]
-
-		assert_equal 4815, out.values[1]
-		assert_nil out.values[2]
-
-		assert_raises Undeclared_Identifier do
-			# Passing false as the second argument (default behavior) does not preload intrinsics (which is where Server is declared)
-			_interp "App | Server {}", false
-		end
-	end
+	# def test_server_type
+	# 	# Since this is the first test to use Server, I want to call out that I'm passing `true` as the second arg to #_interp so that it'll call #preload_intrinsics on the Interpreter, so that Server is available
+	# 	out = _interp "
+	# 	App | Server {}
+	#
+	# 	app = App(4815)
+	# 	(app, app.port)
+	# 	", true
+	# 	assert_instance_of Air::Instance, out.values[0]
+	# 	assert_equal %w(App Server), out.values[0].types
+	#
+	# 	assert out.values[0].has? :port
+	# 	assert_equal 4815, out.values[0][:port]
+	#
+	# 	assert_equal 4815, out.values[1]
+	#
+	# 	assert_raises Undeclared_Identifier do
+	# 		# Passing false as the second argument (default behavior) does not preload intrinsics (which is where Server is declared)
+	# 		_interp "App | Server {}", false
+	# 	end
+	# end
 
 	def test_routes
 		# TODO Test edge cases, route/func param mismatch, etc
-		out = _interp '#get "some/thing/:id" { id;
+		out = _interp 'get://some/thing/:id { id;
 			do_something()
 		}'
 
 		assert_instance_of Air::Route, out
 		refute out.name
 		assert_equal 'get', out.http_method.value
-		assert_equal 'some/thing/:id', out.path.value
-		assert_equal 2, out.expressions.count
+		assert_equal 'some/thing/:id', out.path
+		assert_equal 2, out.handler.expressions.count
 
-		out = _interp '#put "posts/:id" replace_post { id; }'
-		assert_equal 'replace_post', out.name
-		assert_equal 'put', out.http_method.value
-		assert_equal 'posts/:id', out.path.value
-		assert_equal 1, out.expressions.count
+		# out = _interp '#put "posts/:id" replace_post { id; }'
+		# assert_equal 'replace_post', out.handler.name
+		# assert_equal 'put', out.http_method.value
+		# assert_equal 'posts/:id', out.path
+		# assert_equal 1, out.handler.expressions.count
+	end
+
+	# def test_start_server_directive
+	# 	out = _interp '
+	# 		App | Server {
+	# 			#get "" {;
+	# 				">: 4 8 15 16 23 42"
+	# 			}
+	# 		}
+	# 		app = App(4815)
+	# 		#start_server app
+	# 	', true # Reminder, `true` preloads preload.air which declares `Server`
+	# 	out
+	# 	assert_instance_of Air::Instance, out
+	# end
+
+	def test_html_element
+		out = _interp "<My_Div> {
+			element = 'div'
+
+			id = 'my_div'
+			class = 'my_class'
+			data_something = 'some data attribute'
+
+			render {;
+				'Text content of this div'
+			}
+		}
+
+		it = My_Div()
+		(My_Div, it, it.render())"
+		assert_instance_of Air::Html_Element, out.values[0]
+		assert_instance_of Air::Instance, out.values[1]
+		assert_instance_of String, out.values[2]
+		assert_equal 'Text content of this div', out.values[2]
 	end
 end

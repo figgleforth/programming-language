@@ -69,17 +69,15 @@ class Func_Expr < Expression
 	end
 end
 
-# #get '/' home {;}
-# #put 'whatever/:id' do_something {;}
-# #post 'book/:id/publish' do_something {;}
-class Route_Expr < Func_Expr
-	attr_accessor :name, :http_method, :path
+# get:// {;}
+# put://whatever/:id {id;}
+# post://book/:id/publish {id;}
+class Route_Expr < Expression
+	attr_accessor :http_method, :path, :expression, :param_names # The expression can be a function or an identifier
+end
 
-	def initialize http_method, path, name = nil
-		@http_method = http_method
-		@name        = name
-		@path        = path
-	end
+class Directive_Expr < Expression
+	attr_accessor :name, :expression
 end
 
 class Type_Expr < Expression
@@ -180,4 +178,18 @@ class For_Loop_Expr < Expression
 end
 
 class Comment_Expr < Expression
+end
+
+class Html_Element_Expr < Expression
+	# <element> {
+	#     ...attributes
+	#     render {;}
+	# }
+	# 11/2/25, TODO: Maybe this class should inherit from Type_Expr since this is just a type/class anyway? :html_vs_type_expr
+	attr_accessor :expressions, :element
+
+	def initialize element
+		super element
+		@element = element
+	end
 end

@@ -107,7 +107,7 @@ module Air
 		private_class_method :new # prevent external instantiation
 
 		def initialize truthiness
-			super (!!truthiness).to_s.capitalize # Scope class only needs @name
+			super((!!truthiness).to_s.capitalize) # Scope class only needs @name
 			@truthiness = !!truthiness
 		end
 	end
@@ -142,5 +142,45 @@ module Air
 			@declarations['port']   = nil
 			@declarations['routes'] = nil
 		end
+	end
+
+	class Request < Scope
+		attr_accessor :path, :method, :query, :params, :headers, :body
+
+		def initialize
+			super 'Request'
+			@path    = nil
+			@method  = nil
+			@query   = {} # Query string params (?key=value)
+			@params  = {} # Url params (:id in route)
+			@headers = {}
+			@body    = nil
+
+			@declarations['path']    = @path
+			@declarations['method']  = @method
+			@declarations['query']   = @query
+			@declarations['params']  = @params
+			@declarations['headers'] = @headers
+			@declarations['body']    = @body
+		end
+	end
+
+	class Response < Scope
+		attr_accessor :status, :headers, :body_content
+
+		def initialize
+			super 'Response'
+			@status       = 200
+			@headers      = { 'Content-Type' => 'text/html; charset=utf-8' }
+			@body_content = ''
+
+			@declarations['status']  = @status
+			@declarations['headers'] = @headers
+			@declarations['body']    = @body_content
+		end
+	end
+
+	class Runtime < Scope
+		attr_accessor :functions, :routes, :servers
 	end
 end

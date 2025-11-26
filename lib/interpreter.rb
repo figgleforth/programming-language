@@ -1,11 +1,15 @@
 require_relative 'air'
 
 class Interpreter
-	attr_accessor :i, :input, :stack
+	attr_accessor :i, :input, :stack, :runtime
 
 	def initialize input = []
-		@input = input
-		@stack = [Air::Global.new]
+		@input             = input
+		@stack             = [Air::Global.new]
+		@runtime           = Air::Runtime.new
+		@runtime.functions = {}
+		@runtime.routes    = {}
+		@runtime.servers   = []
 	end
 
 	def preload_intrinsics
@@ -17,10 +21,16 @@ class Interpreter
 		@input = original_input
 	end
 
-	def output
-		input.each.inject nil do |result, expr|
-			result = interpret expr
+	def output & block
+		result = input.each.inject nil do |result, expr|
+			interpret expr
 		end
+
+		if block_given?
+			yield result, runtime, stack
+		end
+
+		result
 	end
 
 	def push_scope scope
@@ -109,7 +119,7 @@ class Interpreter
 				raise Undeclared_Identifier, expr.inspect
 			end
 		elsif scope
-			raise Undeclared_Identifier, expr.inspect unless scope.has? expr.value
+			raise Undeclared_Identifier, "#{expr.inspect}\n#{scope.inspect}" unless scope.has? expr.value
 			scope[expr.value]
 		else
 			# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
@@ -430,7 +440,7 @@ class Interpreter
 	def interp_call expr
 		receiver = interpret expr.receiver
 		case receiver
-		when Air::Type # Air::Type()
+		when Air::Type, Air::Html_Element # Air::Type()
 			interp_type_call receiver, expr
 
 		when Air::Func # func()
@@ -529,8 +539,77 @@ class Interpreter
 			break if result.is_a? Air::Return
 		end
 
-		_assert (pop_scope == call_scope)
-		_assert (pop_scope == func.enclosing_scope)
+		_assert pop_scope == call_scope
+		_assert pop_scope == func.enclosing_scope
+
+		result
+	end
+
+	# @param route [Air::Route] The route to execute
+	# @param req [Air::Request] Request object to inject
+	# @param res [Air::Response] Response object to inject
+	# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
+	# @return The result of handler execution
+	def interp_route_handler route, req, res, url_params = {}
+		handler = route.handler
+		params  = handler.expressions.select { |e| e.is_a? Param_Expr }
+
+		call_scope = Air::Scope.new "#{handler.name || 'anonymous'}_route"
+		push_scope handler.enclosing_scope
+		push_scope call_scope
+
+		# Make request and response available without explicit declaration
+		declare 'request', req, call_scope
+		declare 'response', res, call_scope
+
+		# Bind URL parameters as function arguments. For example, get://:abc/:def { abc, def; }
+		params.each do |param|
+			# param: Param_Expr
+			value = url_params[param.name] || url_params[param.name.to_sym]
+
+			if value.nil?
+				# Check if this is a route parameter
+				if route.param_names.include? param.name
+					# todo: I haven't triggered this yet to ensure this works.
+					# todo: Write error in lib/shared/errors.rb and raise that instead.
+					raise "Route parameter '#{param.name}' expected but not found in URL"
+				end
+
+				# Use default value or raise
+				if param.default
+					value = interpret param.default
+				else
+					# todo: Is this reachable? I imagine
+					raise Missing_Argument, param.inspect
+				end
+			end
+
+			declare param.name, value, call_scope
+		end
+
+		# Execute handler body expressions without the param expressions.
+		body   = handler.expressions - params
+		result = nil
+
+		body.each do |expr|
+			next if expr.is_a? Param_Expr # Reminder, param expressions are part of the function body by design. This is redundant because I'm subtracting the params from the handler expressions a few lines above, but just in case!
+
+			result = interpret expr
+			break if result.is_a? Air::Return
+		end
+
+		# If result is a string and response.body not set, use result as body
+		if result.is_a?(String) && res.body_content.empty?
+			res.body_content         = result
+			res.declarations['body'] = result
+		end
+
+		# Clean up scopes
+		popped_call      = pop_scope
+		popped_enclosing = pop_scope
+
+		_assert popped_call == call_scope
+		_assert popped_enclosing == handler.enclosing_scope
 
 		result
 	end
@@ -557,27 +636,62 @@ class Interpreter
 		type
 	end
 
+	def interp_element expr
+		element             = Air::Html_Element.new expr.element.value
+		element.expressions = expr.expressions
+		# element.attributes = filtered element.expressions
+
+		declare element.name, element
+
+		push_then_pop element do |scope|
+			expr.expressions.each do |expr|
+				# TODO: When evaluating render{;}, it should expect one of the following:
+				# - string
+				# - another Html_Element
+				# - array of Html_Elements
+				interpret expr
+			end
+		end
+
+		element
+	end
+
 	def interp_route expr
-		route             = Air::Route.new expr.name&.value
-		route.expressions = expr.expressions
-		route.http_method = expr.http_method
-		route.path        = expr.path
+		expression = interpret expr.expression
 
+		route                 = Air::Route.new
 		route.enclosing_scope = stack.last
+		route.handler         = expression
+		route.http_method     = expr.http_method
+		route.path            = expr.path
+		route.path            = route.path[1..] if route.path.start_with? '/'
+		route.param_names     = expr.param_names || []
 
-		if route.name
-			declare route.name, route
+		route.parts = route.path.split('/').reject do
+			_1.empty?
+		end
+
+		unless expression.is_a?(Air::Func)
+			raise Invalid_Http_Directive_Handler, expression.inspect
+		end
+
+		if expression.name
+			@runtime.routes[expression.name] = route
+			declare expression.name, route
 		else
-			route
+			# Anonymous route with auto-generated key: "method:path"
+			route_key                  = "#{route.http_method.value}:#{route.path}"
+			@runtime.routes[route_key] = route
 		end
 	end
 
 	def interp_func expr
 		func                 = Air::Func.new expr.name&.value
-		func.expressions     = expr.expressions
 		func.enclosing_scope = stack.last
+		func.expressions     = expr.expressions
 
 		if func.name
+			@runtime.functions[func.name] = func
 			declare func.name, func
 		else
 			func
@@ -585,7 +699,7 @@ class Interpreter
 	end
 
 	def interp_composition expr
-		# These are interpreted sequentially so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
+		# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
 		operand_scope = interp_identifier expr.identifier
 		unless operand_scope.is_a? Air::Scope
@@ -725,6 +839,20 @@ class Interpreter
 		end
 	end
 
+	def interp_directive expr
+		case expr.name.value
+		when 'serve_http'
+			# TODO ensure Type contains Server
+			# TODO Ensure Signal.trap(INT) somewhere
+			# Spawn thread, run server in it.
+			server = interpret expr.expression
+			@runtime.servers << server
+			server
+		else
+			raise Directive_Not_Implemented, expr.inspect
+		end
+	end
+
 	def interpret expr
 		case expr
 		when Number_Expr, Symbol_Expr
@@ -738,6 +866,9 @@ class Interpreter
 
 		when Type_Expr
 			interp_type expr
+
+		when Html_Element_Expr
+			interp_element expr
 
 		when Route_Expr
 			interp_route expr
@@ -769,10 +900,13 @@ class Interpreter
 		when Array_Index_Expr
 			expr.indices_in_order
 
+		when Directive_Expr
+			interp_directive expr
+
 		when Comment_Expr
 			# todo, Something?
 		else
-			raise "Interpreter#interpret `when #{expr.inspect}` not implemented."
+			raise Interpret_Expr_Not_Implemented, expr.inspect
 		end
 	end
 end

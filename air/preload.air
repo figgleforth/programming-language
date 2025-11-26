@@ -1,4 +1,5 @@
-`Builtin types I'm experimenting with. Very much incomplete.
+`Builtin types I'm experimenting with, very much incomplete.
+`Each of these should have an equivalent Air::Type in lib/shared/types.rb
 
 Nil {}
 
@@ -33,14 +34,5 @@ String {
 	}
 
     length {;
-	}
-}
-
-Server {
-	port;
-	routes;
-
-	new { port = nil;
-		./port = port
 	}
 }

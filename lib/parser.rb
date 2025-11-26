@@ -309,6 +309,27 @@ class Parser
 		it
 	end
 
+	def parse_html_expr
+		# TODO: Should attributes and data attributes be filtered out of @expressions and into their own attr like :attributes, :data_attributes, etc?
+		# TODO: :html_vs_type_expr
+
+		eat '<'
+		it = Html_Element_Expr.new eat
+		eat '>'
+
+		eat '{'
+		it.expressions = []
+		until curr? '}'
+			it.expressions << parse_expression
+		end
+
+		it.expressions.compact!
+		# TODO: Print a warning if a `render` function isn't declared?
+
+		eat '}'
+		it
+	end
+
 	def parse_composition_expr
 		expr = Composition_Expr.new
 
@@ -374,7 +395,7 @@ class Parser
 
 		if curr?(SCOPE_OPERATORS) || !curr?(ANY_IDENTIFIER)
 			# There should not be any more scope operators at this point. We've implicitly handled ./ and .../, and explicitly handled chains of ../ so it's either malformed or something
-			raise Malformed_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
+			raise Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
 		end
 
 		scope
@@ -383,6 +404,48 @@ class Parser
 	def parse_symbol_expr
 		eat ':'
 		Symbol_Expr.new eat.value.to_sym
+	end
+
+	def parse_route_expr
+		route_token = eat :route
+
+		# Split "get://users/:id" => ["get", "users/:id"]
+		parts       = route_token.value.split HTTP_VERB_SEPARATOR
+		http_method = parts[0]
+		path_string = parts[1] || ''
+
+		# Extract parameter names from dynamic path segments. ":id/:action" => ["id", "action"]
+		path_segments = path_string.split '/'
+		param_names   = path_segments
+		                .select { |segment| segment.start_with?(':') }
+		                .map { |segment| segment[1..-1] } # Remove ':' prefix
+
+		# Parse handler function (must follow route declaration).
+		# todo: Consider being able to use an existing identifier in place of a function expression
+		reduce_newlines
+		handler = parse_func
+
+		# Validate: handler params must include all route params
+		handler_params = handler.expressions
+		                 .select { |expr| expr.is_a?(Param_Expr) }
+		                 .map(&:name)
+
+		missing_params = param_names - handler_params
+		unless missing_params.empty?
+			# todo: Add this error to lib/shared/errors.rb
+			raise "Route parameters #{missing_params.inspect} not found in handler parameters"
+		end
+
+		route             = Route_Expr.new
+		route.http_method = Identifier_Expr.new.tap do |expr|
+			expr.value = http_method
+			expr.kind  = :identifier
+		end
+		route.path        = path_string
+		route.expression  = handler
+		route.param_names = param_names
+
+		route
 	end
 
 	def parse_operator_expr
@@ -416,16 +479,19 @@ class Parser
 	end
 
 	def begin_expression precedence = STARTING_PRECEDENCE
-		raise "Parser#parse_expression called but there are no lexemes remaining. #{remainder.inspect}" unless lexemes?
+		raise Out_Of_Tokens unless lexemes?
 
-		if curr? ANY_IDENTIFIER, ';'
+		if curr? :route
+			parse_route_expr
+
+		elsif curr? ANY_IDENTIFIER, ';'
 			parse_nil_init_postfix_expr
 
 		elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 			parse_func precedence, named: curr?(:identifier)
 
 		elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || \
-			(curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
+		      (curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
 			# To be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
 			parse_type_decl
 
@@ -441,6 +507,9 @@ class Parser
 
 		elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier) || curr?(SCOPE_OPERATORS) || curr?(DIRECTIVE_PREFIX, :identifier)
 			parse_identifier_expr
+
+		elsif curr?('<', ANY_IDENTIFIER, '>')
+			parse_html_expr
 
 		elsif curr? %w( [ \( { |)
 			# :absolute_value_circumfix
@@ -491,7 +560,7 @@ class Parser
 		complete_expression expression, precedence
 	end
 
-	# TODO Factor out the various branches of code in here.
+	# todo: Factor out the various branches of code in here?
 	def complete_expression expr, precedence = STARTING_PRECEDENCE
 		return expr unless expr && lexemes?
 
@@ -500,14 +569,11 @@ class Parser
 		end
 
 		if expr.is_a?(Identifier_Expr) && expr.directive
-			# TODO This is where #assert calls with args should be parsed
-			if HTTP_DIRECTIVES.include?(expr.value) && curr?(:string)
-				path              = eat
-				function          = parse_func
-				route             = Route_Expr.new expr, path, function.name
-				route.expressions = function.expressions
-				return route
-			end
+			directive            = Directive_Expr.new
+			directive.name       = expr
+			directive.expression = begin_expression
+
+			return complete_expression directive, precedence
 		end
 
 		scope_prefix = %w(./ ../ .../).find do |it|

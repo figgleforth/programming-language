@@ -30,14 +30,14 @@ def _parse_file file_path
 	_parse File.read file_path
 end
 
+def _assert condition, message = "Expected condition to be truthy."
+	raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
+end
+
 def refute_raises * exceptions
 	yield
 rescue *exceptions => e
 	flunk "Expected no exception, but got #{e.class}: #{e.message}"
-end
-
-def _assert condition, message = "Expected condition to be truthy."
-	raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
 end
 
 def constant_identifier? ident
