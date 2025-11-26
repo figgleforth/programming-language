@@ -1,9 +1,0 @@
-`=> 40320
-factorial { n;
-	if n == 0 or n == 1
-		1
-	else
-		n * factorial(n - 1)
-	end
-}
-factorial(8)

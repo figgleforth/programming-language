@@ -282,11 +282,11 @@ class Regression_Test < Minitest::Test
 
 		refute_raises Undeclared_Identifier do
 			_interp "
-		funk { it = nil;
-			it == true
-		}
-		funk(true), funk()
-		"
+			funk { it = nil;
+				it == true
+			}
+			funk(true), funk()
+			"
 		end
 	end
 end
