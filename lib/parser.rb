@@ -568,10 +568,6 @@ class Parser
 			eat and return expr
 		end
 
-		if expr.is_a?(Html_Element_Expr)
-
-		end
-
 		if expr.is_a?(Identifier_Expr) && expr.directive
 			directive            = Directive_Expr.new
 			directive.name       = expr

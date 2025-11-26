@@ -1,6 +1,7 @@
 require 'webrick'
 require './lib/air.rb'
 require './lib/shared/helpers.rb'
+require 'cgi'
 
 expressions = _parse File.read('./air/server.air').to_s
 interpreter = Interpreter.new expressions

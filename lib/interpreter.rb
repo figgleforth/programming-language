@@ -23,7 +23,7 @@ class Interpreter
 
 	def output & block
 		result = input.each.inject nil do |result, expr|
-			result = interpret expr
+			interpret expr
 		end
 
 		if block_given?
