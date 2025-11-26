@@ -1032,8 +1032,8 @@ class Interpreter_Test < Minitest::Test
 	end
 
 	def test_loading_external_source_files
-		out = _interp "#load 'air/preload.air'
-		(Bool, Bool())"
+		out = Air.interp_code "#load 'air/preload.air'; (Bool, Bool())"
+
 		assert_instance_of Air::Type, out.values[0]
 		assert_instance_of Air::Instance, out.values[1]
 	end

@@ -27,12 +27,7 @@ module Air
 		def has? identifier
 			@declarations.key?(identifier.to_s)
 		end
-
-		# Unused, I think
-		def dig * identifiers
-			@declarations.dig *identifiers
-		end
-
+		
 		def declarations= new_declarations
 			@declarations = new_declarations
 		end

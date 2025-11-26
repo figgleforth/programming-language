@@ -1,10 +1,7 @@
 require_relative '../air'
 
 def _interp code, with_std = false
-	expressions  = _parse code
-	global_scope = with_std ? Air::Global.with_standard_library : Air::Global.new
-	@interpreter = Interpreter.new expressions, global_scope
-	@interpreter.output
+	Air.interp_code code, with_std: with_std
 end
 
 def _parse code
@@ -23,10 +20,7 @@ def _lex_file file_path
 end
 
 def _interp_file file_path, with_std = false
-	expressions  = _parse File.read(file_path)
-	global_scope = with_std ? Air::Global.with_standard_library : Air::Global.new
-	@interpreter = Interpreter.new expressions, global_scope
-	@interpreter.output
+	Air.interp_file file_path, with_std: with_std
 end
 
 def _parse_file file_path
