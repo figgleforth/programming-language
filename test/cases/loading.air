@@ -1,0 +1,7 @@
+`=> Air::Type
+#load 'test/cases/types.air'
+Island.Hatch.Commodore_64
+
+`=> 123
+#load 'test/cases/types.air'
+./x

@@ -2,11 +2,13 @@ require_relative '../air'
 
 module Air
 	class Scope
+		STANDARD_LIBRARY_PATH = './air/preload.air'
+
 		attr_accessor :enclosing_scope
 		attr_reader :name, :declarations
 
 		def initialize name = nil
-			@name         = name
+			@name         = name || self.class.name
 			@declarations = {}
 		end
 
@@ -39,12 +41,33 @@ module Air
 			return nil unless key
 			@declarations.delete(key.to_s)
 		end
+
+		def self.with_standard_library
+			global = new
+			global.load_standard_library
+			global
+		end
+
+		def load_standard_library
+			load_file STANDARD_LIBRARY_PATH
+		end
+
+		def load_file file_path
+			code             = File.read file_path
+			lexemes          = Lexer.new(code).output
+			expressions      = Parser.new(lexemes).output
+			temp_interpreter = Interpreter.new expressions, self
+			temp_interpreter.output
+
+			self
+		end
 	end
 
 	class Global < Scope
-		def initialize
-			super self.class.name
-		end
+	end
+
+	class Runtime < Scope
+		attr_accessor :functions, :routes, :servers
 	end
 
 	class Html_Element < Scope

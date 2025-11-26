@@ -66,7 +66,7 @@ class Interpreter_Test < Minitest::Test
 		out = _interp '{;}'
 		assert_instance_of Air::Func, out
 		assert_empty out.expressions
-		assert_nil out.name
+		assert_equal 'Air::Func', out.name
 	end
 
 	def test_empty_func_declaration
@@ -1027,7 +1027,7 @@ class Interpreter_Test < Minitest::Test
 		}'
 
 		assert_instance_of Air::Route, out
-		refute out.name
+		assert_equal 'Air::Route', out.name
 		assert_equal 'get', out.http_method.value
 		assert_equal 'some/thing/:id', out.path
 		assert_equal 2, out.handler.expressions.count
@@ -1072,5 +1072,12 @@ class Interpreter_Test < Minitest::Test
 		assert_instance_of Air::Instance, out.values[1]
 		assert_instance_of String, out.values[2]
 		assert_equal 'Text content of this div', out.values[2]
+	end
+
+	def test_loading_external_source_files
+		out = _interp "#load 'air/preload.air'
+		(Bool, Bool())"
+		assert_instance_of Air::Type, out.values[0]
+		assert_instance_of Air::Instance, out.values[1]
 	end
 end
