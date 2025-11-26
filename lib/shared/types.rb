@@ -179,8 +179,4 @@ module Air
 			@declarations['body']    = @body_content
 		end
 	end
-
-	class Runtime < Scope
-		attr_accessor :functions, :routes, :servers
-	end
 end

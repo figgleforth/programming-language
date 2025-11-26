@@ -6,7 +6,7 @@ module Air
 		attr_reader :name, :declarations
 
 		def initialize name = nil
-			@name         = name
+			@name         = name || self.class.name
 			@declarations = {}
 		end
 
@@ -42,9 +42,10 @@ module Air
 	end
 
 	class Global < Scope
-		def initialize
-			super self.class.name
-		end
+	end
+
+	class Runtime < Scope
+		attr_accessor :functions, :routes, :servers
 	end
 
 	class Html_Element < Scope
