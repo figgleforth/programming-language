@@ -216,7 +216,7 @@ class Lexer
 			single    = curr == COMMENT_CHAR
 			multiline = peek(0, COMMENT_MULTILINE_CHAR.length) == COMMENT_MULTILINE_CHAR
 
-			token = Lexeme.new.tap do
+			token = Air::Lexeme.new.tap do
 				it.l0 = line
 				it.c0 = col
 
@@ -250,7 +250,7 @@ class Lexer
 
 				elsif identifier? || %w(_).include?(curr)
 					it.value = lex_identifier
-					it.type  = type_of_identifier it.value
+					it.type  = Air.type_of_identifier it.value
 					if %w(for).include?(it.value)
 						it.type = :operator
 					end

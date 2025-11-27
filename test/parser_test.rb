@@ -1,11 +1,11 @@
 require 'minitest/autorun'
 require_relative '../lib/air'
 
-class Parser_Test < Minitest::Test
+class Parser_Test < Base_Test
 	def test_identifiers
 		zipped = %w(variable_or_function CONSTANT Type).zip %I(identifier IDENTIFIER Identifier)
 		zipped.each do |code, type|
-			out = _parse code
+			out = Air.parse code
 			assert_kind_of Identifier_Expr, out.first
 			assert_equal code, out.first.value
 			assert_nil out.first.type
@@ -13,25 +13,25 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_integers_and_floats
-		out = _parse '4'
+		out = Air.parse '4'
 		assert_kind_of Number_Expr, out.first
 		assert_equal 4, out.first.value
 		assert_equal :integer, out.first.type
 
-		out = _parse '2.3'
+		out = Air.parse '2.3'
 		assert_kind_of Number_Expr, out.first
 		assert_equal 2.3, out.first.value
 		assert_equal :float, out.first.type
 	end
 
 	def test_numbers_with_prefixes
-		out = _parse '-42'
+		out = Air.parse '-42'
 		assert_kind_of Prefix_Expr, out.first
 		assert_equal '-', out.first.operator
 		assert_equal 42, out.first.expression.value
 		assert_kind_of Number_Expr, out.first.expression
 
-		out = _parse '+4.2'
+		out = Air.parse '+4.2'
 		assert_kind_of Prefix_Expr, out.first
 		assert_equal '+', out.first.operator
 		assert_equal 4.2, out.first.expression.value
@@ -39,45 +39,45 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_numbers_with_underscores
-		out = _parse '2_000'
+		out = Air.parse '2_000'
 		assert_equal 1, out.count
 		assert_kind_of Number_Expr, out.first
 		assert_equal 2000, out.first.value
 
-		out = _parse '3_0_'
+		out = Air.parse '3_0_'
 		assert_equal 2, out.count
 		assert_kind_of Number_Expr, out.first
 		assert_equal 30, out.first.value
 		assert_kind_of Identifier_Expr, out.last
 		assert_equal '_', out.last.value
 
-		out = _parse '_2_00'
+		out = Air.parse '_2_00'
 		assert_equal 1, out.count
 		refute_kind_of Number_Expr, out.first
 		refute_equal 200, out.first.value
 
-		out = _parse '-20three'
+		out = Air.parse '-20three'
 		assert_equal 2, out.count
 		assert_kind_of Prefix_Expr, out.first
 		assert_kind_of Identifier_Expr, out.last
 		assert_equal 20, out.first.expression.value
 		assert_equal 'three', out.last.value
 
-		out = _parse '40_two'
+		out = Air.parse '40_two'
 		assert_equal 2, out.count
 		assert_kind_of Number_Expr, out.first
 		assert_kind_of Identifier_Expr, out.last
 		assert_equal 40, out.first.value
 		assert_equal '_two', out.last.value
 
-		out = _parse '4__5__2__2'
+		out = Air.parse '4__5__2__2'
 		assert_equal 2, out.count
 		assert_kind_of Number_Expr, out.first
 		assert_kind_of Identifier_Expr, out.last
 		assert_equal 4, out.first.value
 		assert_equal '__5__2__2', out.last.value
 
-		out = _parse 'a1234'
+		out = Air.parse 'a1234'
 		assert_equal 1, out.count
 		assert_kind_of Identifier_Expr, out.first
 		assert_equal 'a1234', out.first.value
@@ -85,39 +85,39 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_strings
-		out = _parse '"A string"'
+		out = Air.parse '"A string"'
 		assert_kind_of String_Expr, out.first
 		refute out.first.interpolated
 
-		out = _parse "'Another string'"
+		out = Air.parse "'Another string'"
 		assert_kind_of String_Expr, out.first
 		refute out.first.interpolated
 
-		out = _parse '"An |interpolated| string"'
+		out = Air.parse '"An |interpolated| string"'
 		assert_kind_of String_Expr, out.first
 		assert out.first.interpolated
 
-		out = _parse "'Another |interpolated| string'"
+		out = Air.parse "'Another |interpolated| string'"
 		assert_kind_of String_Expr, out.first
 		assert out.first.interpolated
 	end
 
 	def test_compound_assignments
-		out = _parse 'numbers += 1623'
+		out = Air.parse 'numbers += 1623'
 		refute_kind_of Identifier_Expr, out.first
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Number_Expr, out.first.right
 		assert_equal 1, out.count
 
-		out = _parse 'numbers -= 1623'
+		out = Air.parse 'numbers -= 1623'
 		assert_kind_of Infix_Expr, out.first
 
-		out = _parse 'flag |= 2'
+		out = Air.parse 'flag |= 2'
 		assert_kind_of Infix_Expr, out.first
 	end
 
 	def test_operator_precedence
-		out = _parse '1 + 2 * 3 / 4 - 5 % 6'
+		out = Air.parse '1 + 2 * 3 / 4 - 5 % 6'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.left
 		assert_kind_of Number_Expr, out.first.left.left
@@ -142,7 +142,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_operator_precedence_with_parentheses
-		out = _parse '1 + ((2*3) / 4) - (5 % 6)'
+		out = Air.parse '1 + ((2*3) / 4) - (5 % 6)'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.left
 		assert_equal '+', out.first.left.operator
@@ -167,60 +167,60 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_other
-		out = _parse 'numbers = 4815'
+		out = Air.parse 'numbers = 4815'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Number_Expr, out.first.right
 		assert_equal 1, out.count
 
-		out = _parse 'numbers;'
+		out = Air.parse 'numbers;'
 		assert_kind_of Postfix_Expr, out.first
 		assert_kind_of Identifier_Expr, out.first.expression
 		assert_equal ';', out.first.operator
 
-		out = _parse 'Type = {}'
+		out = Air.parse 'Type = {}'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Identifier_Expr, out.first.left
 		assert_kind_of Circumfix_Expr, out.first.right
 		assert_equal 1, out.count
 
-		out = _parse 'time: Float'
+		out = Air.parse 'time: Float'
 		assert_equal 'Float', out.first.type.value
 
-		out = _parse 'num: Int = 1 + 2'
+		out = Air.parse 'num: Int = 1 + 2'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.right
 		assert_equal 'Int', out.first.left.type.value
 	end
 
 	def test_more_fixities
-		out = _parse '1 + 2 * 3 / 4'
+		out = Air.parse '1 + 2 * 3 / 4'
 		assert_kind_of Infix_Expr, out.first
 		assert_equal 1, out.count
 
-		out = _parse '1 < 2'
+		out = Air.parse '1 < 2'
 		assert_kind_of Infix_Expr, out.first
 		assert_equal 1, out.count
 
-		out = _parse '2 >= 1'
+		out = Air.parse '2 >= 1'
 		assert_kind_of Infix_Expr, out.first
 		assert_equal 1, out.count
 
-		out = _parse '1 != 2'
+		out = Air.parse '1 != 2'
 		assert_kind_of Infix_Expr, out.first
 		assert_equal 1, out.count
 
-		out = _parse '1 == 2'
+		out = Air.parse '1 == 2'
 		assert_kind_of Infix_Expr, out.first
 		assert_equal 1, out.count
 
-		out = _parse '1 < 2, 4 > 3'
+		out = Air.parse '1 < 2, 4 > 3'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Infix_Expr, out.last
 		assert_equal 2, out.count
 	end
 
 	def test_ranges
-		out = _parse '1..2'
+		out = Air.parse '1..2'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Number_Expr, out.first.left
 		assert_equal '..', out.first.operator
@@ -228,7 +228,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 1, out.first.left.value
 		assert_equal 2, out.first.right.value
 
-		out = _parse '3.0..4.0'
+		out = Air.parse '3.0..4.0'
 		assert_kind_of Number_Expr, out.first.left
 		assert_kind_of Infix_Expr, out.first
 		assert_equal '..', out.first.operator
@@ -236,7 +236,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 3.0, out.first.left.value
 		assert_equal 4.0, out.first.right.value
 
-		out = _parse '3.<4'
+		out = Air.parse '3.<4'
 		assert_kind_of Number_Expr, out.first.left
 		assert_kind_of Infix_Expr, out.first
 		assert_equal '.<', out.first.operator
@@ -244,7 +244,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 3, out.first.left.value
 		assert_equal 4, out.first.right.value
 
-		out = _parse '5>.6'
+		out = Air.parse '5>.6'
 		assert_kind_of Number_Expr, out.first.left
 		assert_kind_of Infix_Expr, out.first
 		assert_equal '>.', out.first.operator
@@ -252,7 +252,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 5, out.first.left.value
 		assert_equal 6, out.first.right.value
 
-		out = _parse '7><8'
+		out = Air.parse '7><8'
 		assert_kind_of Number_Expr, out.first.left
 		assert_kind_of Infix_Expr, out.first
 		assert_equal '><', out.first.operator
@@ -260,7 +260,7 @@ class Parser_Test < Minitest::Test
 		assert_equal 7, out.first.left.value
 		assert_equal 8, out.first.right.value
 
-		out = _parse '1..2, 3.<4, 5>.6, 7><8'
+		out = Air.parse '1..2, 3.<4, 5>.6, 7><8'
 		assert_equal 4, out.count
 		out.each do
 			assert_kind_of Infix_Expr, it
@@ -270,7 +270,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_comma_separated_expressions
-		out = _parse 'a, B, 5, "cool"'
+		out = Air.parse 'a, B, 5, "cool"'
 		assert_equal 4, out.count
 		assert_kind_of Identifier_Expr, out[0]
 		assert_kind_of Identifier_Expr, out[1]
@@ -279,42 +279,42 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_scope_operators
-		out = _parse './this_instance'
+		out = Air.parse './this_instance'
 		assert_kind_of Identifier_Expr, out.first
 		assert_equal './', out.first.scope_operator
 
-		out = _parse '../global_scope'
+		out = Air.parse '../global_scope'
 		assert_kind_of Identifier_Expr, out.first
 		assert_equal '../', out.first.scope_operator
 
-		out = _parse '.../third_party'
+		out = Air.parse '.../third_party'
 		assert_kind_of Identifier_Expr, out.first
 		assert_equal '.../', out.first.scope_operator
 	end
 
 	def test_functions
-		out = _parse '{;}'
+		out = Air.parse '{;}'
 		assert_kind_of Func_Expr, out.first
 		assert_empty out.first.expressions
 		refute out.first.name
 
-		out = _parse '{;
+		out = Air.parse '{;
 		}'
 		assert_empty out.first.expressions
 		refute out.first.name
 
-		out = _parse 'named_function {;}'
+		out = Air.parse 'named_function {;}'
 		assert_equal 'named_function', out.first.name.value
 	end
 
 	def test_function_params
-		out = _parse '{ with_param; }'
+		out = Air.parse '{ with_param; }'
 		assert_equal 1, out.first.expressions.count
 		out.first.expressions.each do
 			assert_kind_of Param_Expr, it
 		end
 
-		out = _parse 'named { with_param; }'
+		out = Air.parse 'named { with_param; }'
 		assert_equal 'named', out.first.name.value
 		assert_equal 1, out.first.expressions.count
 		out.first.expressions.each do
@@ -324,25 +324,25 @@ class Parser_Test < Minitest::Test
 		refute out.first.expressions.first.default
 		refute out.first.expressions.first.type
 
-		out = _parse '{ labeled param; }'
+		out = Air.parse '{ labeled param; }'
 		assert_kind_of Param_Expr, out.first.expressions.first
 		assert_equal 'labeled', out.first.expressions.first.label
 		assert out.first.expressions.first.label
 		refute out.first.expressions.first.default
 		refute out.first.expressions.first.type
 
-		out = _parse '{ default_values = 4; }'
+		out = Air.parse '{ default_values = 4; }'
 		assert_kind_of Param_Expr, out.first.expressions.first
 		assert out.first.expressions.first.default
 		assert_kind_of Number_Expr, out.first.expressions.first.default
 
-		out = _parse 'named { and_labeled with_default = 8; }'
+		out = Air.parse 'named { and_labeled with_default = 8; }'
 		assert_kind_of Param_Expr, out.first.expressions.first
 		assert_equal 'and_labeled', out.first.expressions.first.label
 		assert_equal 'with_default', out.first.expressions.first.name
 		assert_equal 'named', out.first.name.value
 
-		out = _parse 'named { with, multiple, even labeled = 4, params = 5; }'
+		out = Air.parse 'named { with, multiple, even labeled = 4, params = 5; }'
 		assert_equal 4, out.first.expressions.count
 		assert_equal out.first.expressions.map(&:label), [nil, nil, 'even', nil]
 		assert_equal out.first.expressions.map(&:name), %w(with multiple labeled params)
@@ -350,14 +350,14 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_function_bodies
-		out = _parse '
+		out = Air.parse '
 		square { input;
 			input * input
 		}'
 		refute_empty out.first.expressions
 		assert_kind_of Infix_Expr, out.first.expressions[1]
 
-		out = _parse '
+		out = Air.parse '
 		nothing { input;
 			return input
 		}'
@@ -366,14 +366,14 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_function_signatures
-		out = _parse 'nothing { input;
+		out = Air.parse 'nothing { input;
 			return input
 		}'
 		assert_equal 'nothing{input;}', out.first.signature
 	end
 
 	def test_complex_function
-		out = _parse '
+		out = Air.parse '
 		curr? { sequence;
 			if not remainder or not lexemes?
 				return false
@@ -429,33 +429,33 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_function_calls
-		out = _parse '{;}()'
+		out = Air.parse '{;}()'
 		assert_kind_of Call_Expr, out.first
 		assert_kind_of Func_Expr, out.first.receiver
 		assert_empty out.first.arguments
 
-		out = _parse '{;}(true)'
+		out = Air.parse '{;}(true)'
 		refute_empty out.first.arguments
 		assert_kind_of Identifier_Expr, out.first.arguments.first
 
-		out = _parse '{;}(1, 2, 3)'
+		out = Air.parse '{;}(1, 2, 3)'
 		out.first.arguments.each do
 			assert_kind_of Number_Expr, it
 		end
 	end
 
 	def test_types
-		out = _parse 'String {}'
+		out = Air.parse 'String {}'
 		assert_kind_of Type_Expr, out.first
 		assert_equal 'String', out.first.name.value
 
-		out = _parse 'Transform {
+		out = Air.parse 'Transform {
 			position;
 			rotation;
 		}'
 		assert_equal 2, out.first.expressions.count
 
-		out = _parse 'Entity {
+		out = Air.parse 'Entity {
 			|Transform
 		}'
 		assert_kind_of Composition_Expr, out.first.expressions.first
@@ -464,7 +464,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_mixed_inline_compositions
-		out = _parse 'Xform | Transform ~ Vec2 & This ^ That {}'
+		out = Air.parse 'Xform | Transform ~ Vec2 & This ^ That {}'
 		assert_kind_of Composition_Expr, out.first.expressions.first
 		assert_equal '|', out.first.expressions[0].operator
 		assert_equal 'Transform', out.first.expressions[0].identifier.value
@@ -477,20 +477,20 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_control_flows
-		out = _parse 'if true
+		out = Air.parse 'if true
 			celebrate()
 		end'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Call_Expr, out.first.when_true.first
 
-		out = _parse 'wrap { number, limit;
+		out = Air.parse 'wrap { number, limit;
 			if number > limit
 				number = 0
 			end
 		 }'
 		assert_kind_of Conditional_Expr, out.first.expressions[2]
 
-		out = _parse 'if 1 + 2 * 3 == 7
+		out = Air.parse 'if 1 + 2 * 3 == 7
 			"This one!"
 		elif 1 + 2 * 3 == 9
 			\'No, this one!\'
@@ -503,14 +503,14 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_conditionals_at_end_of_line
-		out = _parse 'eat while lexemes? && curr?()'
+		out = Air.parse 'eat while lexemes? && curr?()'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.condition
 		assert_kind_of Identifier_Expr, out.first.when_true.first
 	end
 
 	def test_unless_conditional
-		out = _parse 'do_this unless the_condition'
+		out = Air.parse 'do_this unless the_condition'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Identifier_Expr, out.first.condition
 		assert_equal 'unless', out.first.type
@@ -520,7 +520,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_until_conditional
-		out = _parse 'repeat_this until the_condition'
+		out = Air.parse 'repeat_this until the_condition'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Identifier_Expr, out.first.condition
 		assert_equal 'until', out.first.type
@@ -530,7 +530,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_silly_elwhile
-		out        = _parse '
+		out        = Air.parse '
 		while a
 			1
 		elwhile b
@@ -564,7 +564,7 @@ class Parser_Test < Minitest::Test
 
 	def test_if_else
 		# Direct copy-past from test_silly_elwhile
-		out = _parse '
+		out = Air.parse '
 		if a
 			1
 		elif b
@@ -599,41 +599,41 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_circumfixes
-		out = _parse '[], (), {}'
+		out = Air.parse '[], (), {}'
 		assert_equal 3, out.count
 		out.each do |it|
 			assert_kind_of Circumfix_Expr, it
 			assert_empty it.expressions
 		end
 
-		out = _parse '[1, 2, 3]'
+		out = Air.parse '[1, 2, 3]'
 		assert_equal 3, out.first.expressions.count
 	end
 
 	def test_type_init
-		out = _parse 'Type()'
+		out = Air.parse 'Type()'
 		assert_kind_of Call_Expr, out.first
 	end
 
 	def test_func_call
-		out = _parse 'funk()'
+		out = Air.parse 'funk()'
 		assert_kind_of Call_Expr, out.first
 	end
 
 	def test_call_expr_improvement
-		out = _parse 'Some.thing(1)'
+		out = Air.parse 'Some.thing(1)'
 		assert_kind_of Call_Expr, out.first
 		assert_kind_of Infix_Expr, out.first.receiver
 		assert_kind_of Number_Expr, out.first.arguments.first
 	end
 
 	def test_return_is_an_identifier
-		out = _parse 'return 1 + 2'
+		out = Air.parse 'return 1 + 2'
 		assert_kind_of Prefix_Expr, out.first
 	end
 
 	def test_return_with_conditional_at_end_of_line
-		out = _parse 'return x unless y'
+		out = Air.parse 'return x unless y'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Prefix_Expr, out.first.when_false.first
 		assert_kind_of Identifier_Expr, out.first.when_false.first.expression
@@ -641,7 +641,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_return_with_conditionals
-		out = _parse 'return 3 if true'
+		out = Air.parse 'return 3 if true'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Prefix_Expr, out.first.when_true.first
 		assert_kind_of Number_Expr, out.first.when_true.first.expression
@@ -649,7 +649,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_identifier_dot_integer_is_an_infix
-		out = _parse 'something.4'
+		out = Air.parse 'something.4'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Identifier_Expr, out.first.left
 		assert_kind_of Number_Expr, out.first.right
@@ -657,7 +657,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_identifier_dot_float_is_an_infix
-		out = _parse 'not_gonna_work.4.2'
+		out = Air.parse 'not_gonna_work.4.2'
 		assert_kind_of Infix_Expr, out.first
 		assert_kind_of Identifier_Expr, out.first.left
 		assert_kind_of Array_Index_Expr, out.first.right
@@ -666,14 +666,14 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_multidot_number_lexeme
-		out = _parse '4.8.15.16.23.42'
+		out = Air.parse '4.8.15.16.23.42'
 		assert_kind_of Array_Index_Expr, out.first
 		assert_equal '4.8.15.16.23.42', out.first.value
 		assert_equal [4, 8, 15, 16, 23, 42], out.first.indices_in_order
 	end
 
 	def test_complex_return_with_conditionals
-		out = _parse 'return 4+2 if true'
+		out = Air.parse 'return 4+2 if true'
 		assert_kind_of Conditional_Expr, out.first
 		assert_kind_of Prefix_Expr, out.first.when_true.first
 		assert_kind_of Infix_Expr, out.first.when_true.first.expression
@@ -681,43 +681,43 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_possibly_ambigous_type_and_func_syntax_mixture
-		out = _parse 'x ; y ; z'
+		out = Air.parse 'x ; y ; z'
 		assert_kind_of Postfix_Expr, out.first
 		assert_kind_of Postfix_Expr, out[1]
 		assert_kind_of Identifier_Expr, out.last
 
-		out = _parse 'x , y , z'
+		out = Air.parse 'x , y , z'
 		assert_kind_of Identifier_Expr, out.first
 		assert_kind_of Identifier_Expr, out[1]
 		assert_kind_of Identifier_Expr, out.last
 	end
 
 	def test_infinite_loop_bug
-		out = _parse 'Identifier {;}'
+		out = Air.parse 'Identifier {;}'
 		assert_kind_of Type_Expr, out.first
 
-		out = _parse 'x; , y; , z;'
+		out = Air.parse 'x; , y; , z;'
 		assert_kind_of Postfix_Expr, out.first
 		assert_kind_of Postfix_Expr, out[1]
 		assert_kind_of Postfix_Expr, out.last
 	end
 
 	def test_double_less_than_is_operator
-		out = _parse '<<'
+		out = Air.parse '<<'
 		assert_kind_of Operator_Expr, out.first
 	end
 
 	def test_reference_decorator_on_identifier_expr
-		out = _parse '@count'
+		out = Air.parse '@count'
 		assert out.first.reference
 
-		out = _parse 'count'
+		out = Air.parse 'count'
 		refute out.first.reference
 	end
 
 	# TODO :incomplete
 	def test_for_loops
-		out = _parse '
+		out = Air.parse '
 		for []
 		end'
 		assert_empty out.first.body
@@ -726,14 +726,14 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_import_syntax
-		out = _parse 'project_root = ~/'
+		out = Air.parse 'project_root = ~/'
 	end
 
 	def test_directive_identifier
-		out = _parse '#whatever'
+		out = Air.parse '#whatever'
 		refute_instance_of Directive_Expr, out.first
 
-		out = _parse '#whatever(a, b)'
+		out = Air.parse '#whatever(a, b)'
 		assert_instance_of Directive_Expr, out.first
 		assert_instance_of Identifier_Expr, out.first.name
 		assert_instance_of Circumfix_Expr, out.first.expression
@@ -741,25 +741,25 @@ class Parser_Test < Minitest::Test
 
 	def test_all_http_methods
 		HTTP_VERBS.each do |verb|
-			assert_instance_of Route_Expr, _parse("#{verb}://path {;}").first
+			assert_instance_of Route_Expr, Air.parse("#{verb}://path {;}").first
 		end
 	end
 
 	def test_route_declaration_with_http_method_directives
 		refute_raises Invalid_Http_Directive_Handler do
-			out = _parse 'get://something {;}'
+			out = Air.parse 'get://something {;}'
 			assert_equal 1, out.count
 			assert_instance_of Route_Expr, out.first
 			assert_equal 'get', out.first.http_method.value
 			assert_equal "something", out.first.path
 
-			# out = _parse 'put://"book/:id" replace_book {id;}'
+			# out = Air.parse_code 'put://"book/:id" replace_book {id;}'
 			# assert_equal 1, out.count
 			# assert_instance_of Route_Expr, out.first
 			# assert_equal 'put', out.first.http_method.value
 			# assert_equal "book/:id", out.first.path.value
 			#
-			# out = _parse 'patch://"thing/:id" update_thing'
+			# out = Air.parse_code 'patch://"thing/:id" update_thing'
 			# assert_equal 1, out.count
 			# assert_instance_of Route_Expr, out.first
 			# assert_equal 'patch', out.first.http_method.value
@@ -767,10 +767,10 @@ class Parser_Test < Minitest::Test
 		end
 
 		# assert_raises Invalid_Http_Directive_Handler do
-		# 	_parse '#post "whatever/:id" 1234'
+		# 	Air.parse_code '#post "whatever/:id" 1234'
 		# end
 
-		out = _parse '#pretend_method "endpoint" {;}'
+		out = Air.parse '#pretend_method "endpoint" {;}'
 		assert_equal 2, out.count
 		refute_instance_of Route_Expr, out.first
 		assert_instance_of Directive_Expr, out[0]
@@ -778,7 +778,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_empty_html_element_expression
-		out = _parse '<element> {}'
+		out = Air.parse '<element> {}'
 		assert_equal 1, out.count
 
 		assert_instance_of Html_Element_Expr, out.first
@@ -787,7 +787,7 @@ class Parser_Test < Minitest::Test
 	end
 
 	def test_simple_html_element_expression
-		out = _parse "<My_Div> {
+		out = Air.parse "<My_Div> {
 			element = 'div'
 
 			id = 'my_div'

@@ -102,7 +102,7 @@ class Parser
 		return remainder unless lexeme
 
 		remainder.slice_before do |t|
-			if lexeme.is_a? Lexeme
+			if lexeme.is_a? Air::Lexeme
 				t.is lexeme
 			else
 				t.value == lexeme
@@ -360,7 +360,7 @@ class Parser
 			expr.type = eat(:Identifier)
 		end
 
-		expr.kind = type_of_identifier expr.value
+		expr.kind = Air.type_of_identifier expr.value
 		expr
 	end
 
