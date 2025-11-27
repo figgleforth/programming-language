@@ -1,15 +1,13 @@
 require_relative 'air'
 
 class Interpreter
-	attr_accessor :i, :input, :stack, :runtime
+	attr_accessor :i, :input, :stack, :context
 
 	def initialize input = [], global_scope = nil
-		@input             = input
-		@stack             = [global_scope || Air::Global.new]
-		@runtime           = Air::Runtime.new
-		@runtime.functions = {}
-		@runtime.routes    = {}
-		@runtime.servers   = []
+		@input   = input
+		@stack   = [global_scope || Air::Global.new]
+		@context = Air::Execution_Context.new
+
 	end
 
 	def output & block
@@ -18,7 +16,7 @@ class Interpreter
 		end
 
 		if block_given?
-			yield result, runtime, stack
+			yield result, context, stack
 		end
 
 		result
@@ -141,10 +139,10 @@ class Interpreter
 	end
 
 	def maybe_instance expr
-		# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Air::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Air::Number.
+		# todo, when String and so on, because everything needs to be some type of scope to live inside the context. Every object in Air::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Air::Number.
 		case expr
 		when Integer, Float
-			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
+			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a context object version of the number 1.
 			scope             = Air::Number.new expr
 			scope.type        = type_of_number_expr expr
 			scope.numerator   = expr
@@ -252,7 +250,7 @@ class Interpreter
 
 				return left
 			elsif expr.right.is Number_Expr
-				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a runtime Air::Number.
+				return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a context Air::Number.
 			elsif expr.right.is Array_Index_Expr
 				array_or_tuple = left # Just for clarity.
 
@@ -667,12 +665,12 @@ class Interpreter
 		end
 
 		if expression.name
-			@runtime.routes[expression.name] = route
+			@context.routes[expression.name] = route
 			declare expression.name, route
 		else
 			# Anonymous route with auto-generated key: "method:path"
 			route_key                  = "#{route.http_method.value}:#{route.path}"
-			@runtime.routes[route_key] = route
+			@context.routes[route_key] = route
 		end
 	end
 
@@ -682,7 +680,7 @@ class Interpreter
 		func.expressions     = expr.expressions
 
 		if func.name
-			@runtime.functions[func.name] = func
+			@context.functions[func.name] = func
 			declare func.name, func
 		else
 			func
@@ -837,7 +835,7 @@ class Interpreter
 			# TODO Ensure Signal.trap(INT) somewhere
 			# Spawn thread, run server in it.
 			server = interpret expr.expression
-			@runtime.servers << server
+			@context.servers << server
 			server
 		when 'load'
 			filepath = interpret expr.expression

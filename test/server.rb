@@ -9,9 +9,9 @@ interpreter = Interpreter.new expressions
 # Run a single instance of Air::Server (for now)
 port   = nil
 routes = nil
-result = interpreter.output do |result, runtime, stack|
-	port   = runtime.servers.first[:port]
-	routes = runtime.routes
+result = interpreter.output do |result, context, stack|
+	port   = context.servers.first[:port]
+	routes = context.routes
 end
 
 # Configure WEBrick
