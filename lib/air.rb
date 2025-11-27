@@ -5,6 +5,7 @@ require_relative 'shared/expressions'
 require_relative 'shared/helpers'
 require_relative 'shared/types'
 require_relative 'shared/lexeme'
+require_relative 'shared/execution_context'
 
 require_relative 'lexer'
 require_relative 'parser'

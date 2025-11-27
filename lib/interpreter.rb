@@ -7,7 +7,6 @@ class Interpreter
 		@input   = input
 		@stack   = [global_scope || Air::Global.new]
 		@context = Air::Execution_Context.new
-
 	end
 
 	def output & block
@@ -680,7 +679,6 @@ class Interpreter
 		func.expressions     = expr.expressions
 
 		if func.name
-			@context.functions[func.name] = func
 			declare func.name, func
 		else
 			func

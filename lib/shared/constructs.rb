@@ -61,16 +61,6 @@ module Air
 	class Global < Scope
 	end
 
-	class Execution_Context
-		attr_accessor :functions, :routes, :servers
-
-		def initialize
-			@functions = {}
-			@routes    = {}
-			@servers   = []
-		end
-	end
-
 	class Html_Element < Scope
 		attr_accessor :expressions, :attributes, :types
 	end
