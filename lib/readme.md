@@ -51,14 +51,14 @@ Another option is to use one of the [`#Air.lex*`, `Air.parse*`,
 ```ruby
 require './lib/air'
 
-source      = 'Hello, Again!'
+source      = '"Hello, Again!"'
 lexemes     = Air.lex source # => array of Lexemes
-expressions = Air.pase source # => array of Expressions
+expressions = Air.parse source # => array of Expressions
 result      = Air.interp source # => Hello, Again!
 
 source_file = './my_program.air'
 lexemes     = Air.lex_file source_file # => array of Lexemes
-expressions = Air.pase_file source_file # => array of Expressions
+expressions = Air.parse_file source_file # => array of Expressions
 result      = Air.interp_file source_file
 ```
 
