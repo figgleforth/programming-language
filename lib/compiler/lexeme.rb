@@ -5,7 +5,7 @@ module Air
 				compare == type
 			elsif compare.is_a? String
 				compare == value
-			elsif compare.is_a? Array
+			elsif compare.is_a? ::Array
 				compare.any? do |it|
 					if it.is_a? Symbol
 						it == type

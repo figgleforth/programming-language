@@ -489,7 +489,7 @@ class Interpreter_Test < Base_Test
 		}, Transform.new'
 		assert_kind_of Air::Instance, out
 		assert_equal 'Transform', out.name
-		assert_kind_of Array, out.expressions
+		assert_kind_of ::Array, out.expressions
 		assert_equal 6, out.expressions.count
 		assert_kind_of Air::Func_Expr, out.expressions.last
 	end

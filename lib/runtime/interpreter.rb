@@ -97,7 +97,7 @@ module Air
 				scope_for_identifier expr
 			end
 
-			value = if scope.is_a? Array
+			value = if scope.is_a? ::Array
 				found = scope.reverse_each.find do |scope|
 					scope.has? expr.value
 				end
@@ -782,7 +782,7 @@ module Air
 
 				if expr.when_false.is_a? Air::Conditional_Expr
 					result = interp_conditional expr.when_false
-				elsif expr.when_false.is_a? Array
+				elsif expr.when_false.is_a? ::Array
 					expr.when_false.each do |expr|
 						result = interpret expr
 					end
