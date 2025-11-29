@@ -335,7 +335,7 @@ class Parser
 			expr.type = eat(:Identifier)
 		end
 
-		expr.kind = Air.type_of_identifier expr.value
+		expr.kind = Helpers.type_of_identifier expr.value
 		expr
 	end
 

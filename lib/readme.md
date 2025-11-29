@@ -20,7 +20,6 @@ This [`lib`](/lib) folder contains the implementation of Air in Ruby. The codeba
 
 **Orchestration**
 
-- [`pipeline.rb`](pipeline.rb) - Coordinates the full compilation and execution flow
 - [`air.rb`](air.rb) - Main entry point, requires all components
 
 **Miscellaneous**

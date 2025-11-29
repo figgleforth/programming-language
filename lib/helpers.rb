@@ -1,34 +1,4 @@
-module Air
-	def self.interp_file filepath, with_std: true
-		interp File.read(filepath), with_std: with_std
-	end
-
-	def self.interp source_code, with_std: true
-		lexemes      = Lexer.new(source_code).output
-		expressions  = Parser.new(lexemes).output
-		global_scope = with_std ? Air::Global.with_standard_library : Air::Global.new
-		interpreter  = Interpreter.new expressions, global_scope
-
-		interpreter.output
-	end
-
-	def self.parse_file filepath
-		parse File.read(filepath)
-	end
-
-	def self.parse source_code
-		lexemes = Lexer.new(source_code).output
-		Parser.new(lexemes).output
-	end
-
-	def self.lex_file filepath
-		lex File.read(filepath)
-	end
-
-	def self.lex source_code
-		Lexer.new(source_code).output
-	end
-
+module Helpers
 	def self.assert condition, message = "Expected condition to be truthy."
 		raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
 	end

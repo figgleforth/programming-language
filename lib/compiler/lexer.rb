@@ -250,7 +250,7 @@ class Lexer
 
 				elsif identifier? || %w(_).include?(curr)
 					it.value = lex_identifier
-					it.type  = Air.type_of_identifier it.value
+					it.type  = Helpers.type_of_identifier it.value
 					if %w(for).include?(it.value)
 						it.type = :operator
 					end

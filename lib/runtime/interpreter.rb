@@ -143,7 +143,7 @@ class Interpreter
 		when Integer, Float
 			# Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a context object version of the number 1.
 			scope             = Air::Number.new expr
-			scope.type        = Air.type_of_number_expr expr
+			scope.type        = Helpers.type_of_number_expr expr
 			scope.numerator   = expr
 			scope.denominator = 1
 			scope
@@ -203,7 +203,7 @@ class Interpreter
 		right_value = interpret expr.right
 		pop_scope if evaluation_scope
 
-		case Air.type_of_identifier expr.left.value
+		case Helpers.type_of_identifier expr.left.value
 		when :IDENTIFIER
 			# It can only be assigned once, so if the declaration exists, fail.
 			if assignment_scope.has? expr.left.value
@@ -527,8 +527,8 @@ class Interpreter
 			break if result.is_a? Air::Return
 		end
 
-		Air.assert pop_scope == call_scope
-		Air.assert pop_scope == func.enclosing_scope
+		Helpers.assert pop_scope == call_scope
+		Helpers.assert pop_scope == func.enclosing_scope
 
 		result
 	end
@@ -596,8 +596,8 @@ class Interpreter
 		popped_call      = pop_scope
 		popped_enclosing = pop_scope
 
-		Air.assert popped_call == call_scope
-		Air.assert popped_enclosing == handler.enclosing_scope
+		Helpers.assert popped_call == call_scope
+		Helpers.assert popped_enclosing == handler.enclosing_scope
 
 		result
 	end
