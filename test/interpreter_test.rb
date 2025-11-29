@@ -1038,4 +1038,83 @@ class Interpreter_Test < Base_Test
 		assert_instance_of Air::Type, out.values[0]
 		assert_instance_of Air::Instance, out.values[1]
 	end
+
+	def test_standalone_load_into_current_scope
+		out = Air.interp "#load 'test/samples/test_module.air'
+		(MODULE_NAME, MODULE_VALUE, module_func(10))"
+
+		assert_instance_of Air::Tuple, out
+		assert_equal "Test_Module", out.values[0]
+		assert_equal 42, out.values[1]
+		assert_equal 20, out.values[2]
+	end
+
+	def test_load_assignment_into_variable_identifier
+		out = Air.interp "mod = #load 'test/samples/test_module.air'
+		(mod, mod.MODULE_NAME, mod.MODULE_VALUE, mod.module_func(10))"
+
+		assert_instance_of Air::Tuple, out
+		assert_instance_of Air::Scope, out.values[0]
+		assert_equal "Test_Module", out.values[1]
+		assert_equal 42, out.values[2]
+		assert_equal 20, out.values[3]
+
+		# Verify declarations are NOT in current scope
+		assert_raises Air::Undeclared_Identifier do
+			Air.interp "mod = #load 'test/samples/test_module.air'
+			MODULE_NAME"
+		end
+	end
+
+	def test_load_assignment_into_class_identifier
+		out = Air.interp "Module = #load 'test/samples/test_module.air'
+		(Module, Module.MODULE_NAME, Module.MODULE_VALUE, Module.module_func(10))"
+
+		assert_instance_of Air::Tuple, out
+		assert_instance_of Air::Scope, out.values[0]
+		assert_equal "Test_Module", out.values[1]
+		assert_equal 42, out.values[2]
+		assert_equal 20, out.values[3]
+
+		# Verify declarations are NOT in current scope
+		assert_raises Air::Undeclared_Identifier do
+			Air.interp "Module = #load 'test/samples/test_module.air'
+			MODULE_NAME"
+		end
+	end
+
+	def test_load_assignment_into_constant_identifier
+		out = Air.interp "MODULE = #load 'test/samples/test_module.air'
+		(MODULE, MODULE.MODULE_NAME, MODULE.MODULE_VALUE, MODULE.module_func(10))"
+
+		assert_instance_of Air::Tuple, out
+		assert_instance_of Air::Scope, out.values[0]
+		assert_equal "Test_Module", out.values[1]
+		assert_equal 42, out.values[2]
+		assert_equal 20, out.values[3]
+
+		# Verify declarations are NOT in current scope
+		assert_raises Air::Undeclared_Identifier do
+			Air.interp "MODULE = #load 'test/samples/test_module.air'
+			MODULE_NAME"
+		end
+	end
+
+	def test_load_same_file_into_multiple_scopes
+		out = Air.interp "
+		lib1 = #load 'test/samples/test_module.air'
+		lib2 = #load 'test/samples/test_module.air'
+
+		(lib1, lib2, lib1.MODULE_VALUE, lib2.MODULE_VALUE, lib1 != lib2)"
+
+		assert_instance_of Air::Tuple, out
+		assert_instance_of Air::Scope, out.values[0]
+		assert_instance_of Air::Scope, out.values[1]
+		assert_equal 42, out.values[2]
+		assert_equal 42, out.values[3]
+		assert out.values[4]
+
+		# Scopes are different objects even though loaded from same file
+		refute_equal out.values[0].object_id, out.values[1].object_id
+	end
 end

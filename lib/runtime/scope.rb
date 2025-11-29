@@ -45,13 +45,11 @@ module Air
 			load_file STANDARD_LIBRARY_PATH
 		end
 
-		def load_file file_path
-			code             = File.read file_path
-			lexemes          = Lexer.new(code).output
-			expressions      = Parser.new(lexemes).output
-			temp_interpreter = Interpreter.new expressions, self
-			temp_interpreter.output
-
+		# Convenience method for loading files into this scope without a context
+		# Creates a temporary Context to handle file loading
+		def load_file filepath
+			temp_context = Air::Context.new
+			temp_context.load_file filepath, self
 			self
 		end
 	end
