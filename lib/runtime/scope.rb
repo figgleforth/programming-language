@@ -2,8 +2,6 @@ require_relative '../air'
 
 module Air
 	class Scope
-		STANDARD_LIBRARY_PATH = './air/preload.air'
-
 		attr_accessor :enclosing_scope
 		attr_reader :name, :declarations
 

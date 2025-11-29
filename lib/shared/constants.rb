@@ -1,4 +1,6 @@
 module Air
+	STANDARD_LIBRARY_PATH = './air/preload.air'
+
 	REFERENCE_PREFIX           = '@' # TODO I'm not sold on this yet
 	DIRECTIVE_PREFIX           = '#'
 	HTML_ATTRS                 = %w(id class href)

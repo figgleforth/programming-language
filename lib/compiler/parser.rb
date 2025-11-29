@@ -387,7 +387,7 @@ module Air
 
 			missing_params = param_names - handler_params
 			unless missing_params.empty?
-				# todo: Add this error to lib/shared/errors.rb
+				# todo: Add this error to lib/runtime/errors.rb
 				raise "Route parameters #{missing_params.inspect} not found in handler parameters"
 			end
 

@@ -560,7 +560,7 @@ module Air
 					# Check if this is a route parameter
 					if route.param_names.include? param.name
 						# todo: I haven't triggered this yet to ensure this works.
-						# todo: Write error in lib/shared/errors.rb and raise that instead.
+						# todo: Write error in lib/runtime/errors.rb and raise that instead.
 						raise "Route parameter '#{param.name}' expected but not found in URL"
 					end
 
