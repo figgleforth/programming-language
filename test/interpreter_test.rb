@@ -27,13 +27,13 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_raises_undeclared_identifier_when_reading
-		assert_raises Undeclared_Identifier do
+		assert_raises Air::Undeclared_Identifier do
 			Air.interp 'hatch'
 		end
 	end
 
 	def test_does_not_raise_undeclared_identifier_when_assigning
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			Air.interp 'found = true'
 		end
 	end
@@ -49,11 +49,11 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_cannot_assign_incompatible_type
-		assert_raises Cannot_Assign_Incompatible_Type do
+		assert_raises Air::Cannot_Assign_Incompatible_Type do
 			Air.interp 'My_Type = :anything'
 		end
 
-		refute_raises Cannot_Assign_Incompatible_Type do
+		refute_raises Air::Cannot_Assign_Incompatible_Type do
 			Air.interp 'My_Type = Other {}'
 		end
 	end
@@ -158,7 +158,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_invalid_type_declaration
-		assert_raises Undeclared_Identifier do
+		assert_raises Air::Undeclared_Identifier do
 			Air.interp 'Number | Numeric {}'
 		end
 	end
@@ -195,7 +195,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_constants_cannot_be_reassigned
-		assert_raises Cannot_Reassign_Constant do
+		assert_raises Air::Cannot_Reassign_Constant do
 			Air.interp 'ENVIRONMENT = :development
 			ENVIRONMENT = :production'
 		end
@@ -401,7 +401,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_invalid_dictionary_infix
-		assert_raises Invalid_Dictionary_Infix_Operator do
+		assert_raises Air::Invalid_Dictionary_Infix_Operator do
 			Air.interp '{ x > x }'
 		end
 	end
@@ -456,13 +456,13 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_undeclared_type_init_with_new_keyword
-		assert_raises Undeclared_Identifier do
+		assert_raises Air::Undeclared_Identifier do
 			Air.interp 'Type.new'
 		end
 	end
 
 	def test_raises_non_type_initialization_error
-		assert_raises Cannot_Initialize_Non_Type_Identifier do
+		assert_raises Air::Cannot_Initialize_Non_Type_Identifier do
 			Air.interp 'x = 1, x.new'
 		end
 	end
@@ -854,7 +854,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_random_composition_example
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			out = Air.interp "
 			Vec2 {
 				x = 0, y = 0
@@ -882,7 +882,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_union_composition
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			out = Air.interp '
 			Aa {
 				a = 1
@@ -920,7 +920,7 @@ class Interpreter_Test < Base_Test
 
 			d = Diff()".freeze
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			out = Air.interp "#{shared_code}
 			a = Aa()
 			b = Bb()
@@ -928,7 +928,7 @@ class Interpreter_Test < Base_Test
 			assert_equal [8, 15, 16, 23], out.values
 		end
 
-		assert_raises Undeclared_Identifier do
+		assert_raises Air::Undeclared_Identifier do
 			Air.interp "#{shared_code}
 			d.b"
 		end
@@ -943,18 +943,18 @@ class Interpreter_Test < Base_Test
 
 			i = Intersected()"
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			out = Air.interp "#{shared_code}
 			i.common"
 			assert_equal 8, out
 		end
 
-		assert_raises Undeclared_Identifier do
+		assert_raises Air::Undeclared_Identifier do
 			Air.interp "#{shared_code}
 			i.a"
 		end
 
-		assert_raises Undeclared_Identifier do
+		assert_raises Air::Undeclared_Identifier do
 			Air.interp "#{shared_code}
 			i.b"
 		end
@@ -971,7 +971,7 @@ class Interpreter_Test < Base_Test
 		out = Air.interp "#{shared_code} (s.a, s.b)"
 		assert_equal [4, 8], out.values
 
-		assert_raises Undeclared_Identifier do
+		assert_raises Air::Undeclared_Identifier do
 			Air.interp "#{shared_code} s.common"
 		end
 	end

@@ -338,7 +338,7 @@ class Parser
 		expr.kind = Air.type_of_identifier expr.value
 		expr
 	end
-	
+
 	def parse_manual_scope
 		scope = eat.value
 
@@ -351,7 +351,7 @@ class Parser
 
 		if curr?(SCOPE_OPERATORS) || !curr?(ANY_IDENTIFIER)
 			# There should not be any more scope operators at this point. We've implicitly handled ./ and .../, and explicitly handled chains of ../ so it's either malformed or something
-			raise Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
+			raise Air::Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
 		end
 
 		scope

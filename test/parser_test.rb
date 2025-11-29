@@ -747,7 +747,7 @@ class Parser_Test < Base_Test
 	end
 
 	def test_route_declaration_with_http_method_directives
-		refute_raises Invalid_Http_Directive_Handler do
+		refute_raises Air::Invalid_Http_Directive_Handler do
 			out = Air.parse 'get://something {;}'
 			assert_equal 1, out.count
 			assert_instance_of Route_Expr, out.first

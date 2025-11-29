@@ -29,7 +29,7 @@ class Regression_Test < Base_Test
 		]
 
 		invalid_samples.each do |sample|
-			assert_raises Invalid_Scoped_Identifier do
+			assert_raises Air::Invalid_Scoped_Identifier do
 				Air.parse sample
 			end
 		end
@@ -191,7 +191,7 @@ class Regression_Test < Base_Test
 		(y, a)"
 		assert_equal [4, 4], out.values
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			out = Air.interp "
 			Thing {
 				id;
@@ -210,7 +210,7 @@ class Regression_Test < Base_Test
 			assert_equal [123, "", 456, "Thingus"], out.values
 		end
 
-		assert_raises Missing_Argument do
+		assert_raises Air::Missing_Argument do
 			out = Air.interp "
 			Thing {
 				id;
@@ -227,7 +227,7 @@ class Regression_Test < Base_Test
 			assert_equal [456, "Thingus"], out.values
 		end
 
-		assert_raises Missing_Argument do
+		assert_raises Air::Missing_Argument do
 			Air.interp "
 	        funk { it;
 				it == true
@@ -236,7 +236,7 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			Air.interp "
 			funk { it;
 				it == true
@@ -245,7 +245,7 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			Air.interp "
 			funk { it = \"true\";
 				it == true
@@ -254,7 +254,7 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			Air.interp "
 			funk { it = \"false\";
 				it == true
@@ -263,7 +263,7 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			Air.interp "
 			funk { it = true;
 				it == true
@@ -272,7 +272,7 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			Air.interp "
 			funk { funkit = false;
 				funkit == true
@@ -281,7 +281,7 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
+		refute_raises Air::Undeclared_Identifier do
 			Air.interp "
 			funk { it = nil;
 				it == true

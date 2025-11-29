@@ -104,15 +104,15 @@ class Interpreter
 			if found && found.has?(expr.value)
 				found[expr.value]
 			else
-				raise Undeclared_Identifier, expr.inspect
+				raise Air::Undeclared_Identifier, expr.inspect
 			end
 		elsif scope
-			raise Undeclared_Identifier, "#{expr.inspect}\n#{scope.inspect}" unless scope.has? expr.value
+			raise Air::Undeclared_Identifier, "#{expr.inspect}\n#{scope.inspect}" unless scope.has? expr.value
 			scope[expr.value]
 		else
 			# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
 			scope = stack.last
-			raise Undeclared_Identifier, expr.inspect unless scope.has? expr.value
+			raise Air::Undeclared_Identifier, expr.inspect unless scope.has? expr.value
 			scope[expr.value]
 		end
 
@@ -161,7 +161,7 @@ class Interpreter
 	def interp_dot_new expr
 		receiver = interpret expr.left
 		unless receiver.is_a? Air::Type
-			raise Cannot_Initialize_Non_Type_Identifier, expr.left.inspect
+			raise Air::Cannot_Initialize_Non_Type_Identifier, expr.left.inspect
 		end
 
 		instance             = Air::Instance.new receiver.name # :generalize_me
@@ -207,12 +207,12 @@ class Interpreter
 		when :IDENTIFIER
 			# It can only be assigned once, so if the declaration exists, fail.
 			if assignment_scope.has? expr.left.value
-				raise Cannot_Reassign_Constant, expr.inspect
+				raise Air::Cannot_Reassign_Constant, expr.inspect
 			end
 		when :Identifier
 			# It can only be assigned `value` of Air::Type.
 			if !right_value.is_a?(Air::Type)
-				raise Cannot_Assign_Incompatible_Type, expr.inspect
+				raise Air::Cannot_Assign_Incompatible_Type, expr.inspect
 			end
 		when :identifier
 			# It can be assigned and reassigned, so do nothing.
@@ -411,10 +411,10 @@ class Interpreter
 							dict[it.left.value.to_sym] = interpret it.right
 						else
 							# The left operand should be allowed to be any hashable object. It's too early in the project to consider hashing but this'll be a good reminder.
-							raise Invalid_Dictionary_Key, it.inspect
+							raise Air::Invalid_Dictionary_Key, it.inspect
 						end
 					else
-						raise Invalid_Dictionary_Infix_Operator, it.inspect
+						raise Air::Invalid_Dictionary_Infix_Operator, it.inspect
 					end
 				end
 				# In case I forget, #reduce requires that the injected value be returned to be passed to the next iteration.
@@ -505,7 +505,7 @@ class Interpreter
 				if param.default
 					interpret param.default
 				else
-					raise Missing_Argument, param.inspect
+					raise Air::Missing_Argument, param.inspect
 				end
 			else
 				raise "This should never happen."
@@ -568,7 +568,7 @@ class Interpreter
 					value = interpret param.default
 				else
 					# todo: Is this reachable? I imagine
-					raise Missing_Argument, param.inspect
+					raise Air::Missing_Argument, param.inspect
 				end
 			end
 
