@@ -1,5 +1,5 @@
 module Air
-	Lexeme = Struct.new('Lexeme', :type, :value, :reserved, :l0, :c0, :l1, :c1) do
+	Lexeme = Struct.new(:type, :value, :reserved, :l0, :c0, :l1, :c1) do
 		def is compare
 			if compare.is_a? Symbol
 				compare == type
@@ -7,7 +7,11 @@ module Air
 				compare == value
 			elsif compare.is_a? Array
 				compare.any? do |it|
-					it == value
+					if it.is_a? Symbol
+						it == type
+					else
+						it == value
+					end
 				end
 			else
 				compare == self

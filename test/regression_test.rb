@@ -16,10 +16,10 @@ class Regression_Test < Base_Test
 	end
 
 	def test_infixes_regression
-		COMPOUND_OPERATORS.each do |operator|
+		Air::COMPOUND_OPERATORS.each do |operator|
 			code = "left #{operator} right"
 			out  = Air.parse(code)
-			assert_kind_of Infix_Expr, out.first
+			assert_kind_of Air::Infix_Expr, out.first
 		end
 	end
 
@@ -37,12 +37,12 @@ class Regression_Test < Base_Test
 		ds   = Air.parse './abc'
 		dds  = Air.parse '../def'
 		ddds = Air.parse '.../ghi'
-		assert_kind_of Identifier_Expr, ds.first
-		assert_kind_of Identifier_Expr, dds.first
-		assert_kind_of Identifier_Expr, ddds.first
+		assert_kind_of Air::Identifier_Expr, ds.first
+		assert_kind_of Air::Identifier_Expr, dds.first
+		assert_kind_of Air::Identifier_Expr, ddds.first
 
 		ds = Air.parse './abc'
-		assert_kind_of Identifier_Expr, ds.last
+		assert_kind_of Air::Identifier_Expr, ds.last
 		assert_equal './', ds.last.scope_operator
 		assert_equal 'abc', ds.last.value
 	end
@@ -66,24 +66,24 @@ class Regression_Test < Base_Test
 
 	def test_dot_slash_within_infix_regression
 		out = Air.parse './x? = 123'
-		assert_kind_of Infix_Expr, out.first
+		assert_kind_of Air::Infix_Expr, out.first
 		assert_equal '=', out.first.operator
 		assert_equal 'x?', out.first.left.value
-		assert_kind_of Identifier_Expr, out.first.left
+		assert_kind_of Air::Identifier_Expr, out.first.left
 		assert_equal './', out.first.left.scope_operator
 	end
 
 	def test_scope_operators_regression
 		out = Air.parse './this_instance'
-		assert_kind_of Identifier_Expr, out.first
+		assert_kind_of Air::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
 		out = Air.parse '../one_up_the_stack'
-		assert_kind_of Identifier_Expr, out.first
+		assert_kind_of Air::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
 		out = Air.parse '.../global_scope'
-		assert_kind_of Identifier_Expr, out.first
+		assert_kind_of Air::Identifier_Expr, out.first
 		assert_equal 1, out.count
 	end
 

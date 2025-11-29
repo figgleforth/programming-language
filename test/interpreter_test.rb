@@ -80,14 +80,14 @@ class Interpreter_Test < Base_Test
 	def test_basic_func_declaration
 		out = Air.interp 'enter { numbers = "4815162342"; }'
 		assert_equal 1, out.expressions.count
-		assert_instance_of Param_Expr, out.expressions.first
-		assert_instance_of String_Expr, out.expressions.first.default
+		assert_instance_of Air::Param_Expr, out.expressions.first
+		assert_instance_of Air::String_Expr, out.expressions.first.default
 	end
 
 	def test_advanced_func_declaration
 		out = Air.interp 'add { a, b; a + b }'
 		assert_equal 3, out.expressions.count
-		assert_instance_of Infix_Expr, out.expressions.last
+		assert_instance_of Air::Infix_Expr, out.expressions.last
 		refute out.expressions.first.default
 	end
 
@@ -115,7 +115,7 @@ class Interpreter_Test < Base_Test
 		assert d.label
 		assert d.default
 
-		assert_instance_of Infix_Expr, out.expressions.last
+		assert_instance_of Air::Infix_Expr, out.expressions.last
 	end
 
 	def test_empty_type_declaration
@@ -169,7 +169,7 @@ class Interpreter_Test < Base_Test
 
 		out = Air.interp 'func { assign_to_nil; }'
 		assert_instance_of Air::Func, out
-		assert_instance_of Param_Expr, out.expressions.first
+		assert_instance_of Air::Param_Expr, out.expressions.first
 		assert_equal 'assign_to_nil', out.expressions.first.name
 	end
 
@@ -312,17 +312,17 @@ class Interpreter_Test < Base_Test
 	def test_empty_array
 		out = Air.interp '[]'
 		assert_equal [], out.values
-		assert_instance_of Air::Array, out
+		assert_instance_of Air::List, out
 	end
 
 	def test_non_empty_arrays
 		out = Air.interp '[1]'
-		assert_instance_of Air::Array, out
+		assert_instance_of Air::List, out
 		assert_equal [1], out.values
 
 		out = Air.interp '[1, "test", 5]'
-		assert_instance_of Air::Array, out
-		assert_equal Air::Array.new([1, 'test', 5]).values, out.values
+		assert_instance_of Air::List, out
+		assert_equal Air::List.new([1, 'test', 5]).values, out.values
 	end
 
 	def test_tuples
@@ -420,8 +420,8 @@ class Interpreter_Test < Base_Test
 			~ Rotation
 		}'
 		assert_kind_of Air::Type, out
-		assert_kind_of Composition_Expr, out.expressions.first
-		assert_kind_of Composition_Expr, out.expressions.last
+		assert_kind_of Air::Composition_Expr, out.expressions.first
+		assert_kind_of Air::Composition_Expr, out.expressions.last
 		assert_equal 'Rotation', out.expressions.last.identifier.value
 		assert_equal '~', out.expressions.last.operator
 	end
@@ -431,8 +431,8 @@ class Interpreter_Test < Base_Test
 		Transform {}, Physics {}
 		Entity | Transform ~ Physics {}'
 		assert_kind_of Air::Type, out
-		assert_kind_of Composition_Expr, out.expressions.first
-		assert_kind_of Composition_Expr, out.expressions.last
+		assert_kind_of Air::Composition_Expr, out.expressions.first
+		assert_kind_of Air::Composition_Expr, out.expressions.last
 		assert_equal 'Physics', out.expressions.last.identifier.value
 		assert_equal '~', out.expressions.last.operator
 	end
@@ -449,10 +449,10 @@ class Interpreter_Test < Base_Test
 				"Transform!"
 			}
 		}'
-		assert_kind_of Postfix_Expr, out.expressions[0]
-		assert_kind_of Infix_Expr, out.expressions[2]
-		assert_kind_of Infix_Expr, out.expressions[3]
-		assert_kind_of Func_Expr, out.expressions[4]
+		assert_kind_of Air::Postfix_Expr, out.expressions[0]
+		assert_kind_of Air::Infix_Expr, out.expressions[2]
+		assert_kind_of Air::Infix_Expr, out.expressions[3]
+		assert_kind_of Air::Func_Expr, out.expressions[4]
 	end
 
 	def test_undeclared_type_init_with_new_keyword
@@ -491,7 +491,7 @@ class Interpreter_Test < Base_Test
 		assert_equal 'Transform', out.name
 		assert_kind_of Array, out.expressions
 		assert_equal 6, out.expressions.count
-		assert_kind_of Func_Expr, out.expressions.last
+		assert_kind_of Air::Func_Expr, out.expressions.last
 	end
 
 	def test_complex_type_with_value_lookup

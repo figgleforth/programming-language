@@ -15,6 +15,8 @@ require_relative 'runtime/execution_context'
 require_relative 'runtime/interpreter'
 
 module Air
+	extend Helpers
+
 	def self.interp_file filepath, with_std: true
 		interp File.read(filepath), with_std: with_std
 	end
@@ -22,7 +24,7 @@ module Air
 	def self.interp source_code, with_std: true
 		lexemes      = Lexer.new(source_code).output
 		expressions  = Parser.new(lexemes).output
-		global_scope = with_std ? Air::Global.with_standard_library : Air::Global.new
+		global_scope = with_std ? Global.with_standard_library : Global.new
 		interpreter  = Interpreter.new expressions, global_scope
 
 		interpreter.output

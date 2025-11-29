@@ -289,7 +289,7 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_compound_operators
-		COMPOUND_OPERATORS.each do |operator|
+		Air::COMPOUND_OPERATORS.each do |operator|
 			out = Air.lex operator
 			assert_equal operator, out.first.value
 		end

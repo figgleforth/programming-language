@@ -16,7 +16,6 @@ This [`lib`](/lib) folder contains the implementation of Air in Ruby. The codeba
 - [`scope.rb`](runtime/scope.rb) - Scoping and variable management
 - [`types.rb`](runtime/types.rb) - Runtime type definitions
 - [`execution_context.rb`](runtime/execution_context.rb) - Execution state management
-- [`helpers.rb`](runtime/helpers.rb) - Utility functions
 
 **Orchestration**
 
@@ -25,6 +24,7 @@ This [`lib`](/lib) folder contains the implementation of Air in Ruby. The codeba
 **Miscellaneous**
 
 - [`constants.rb`](constants.rb) - Language constants and operator definitions
+- [`helpers.rb`](runtime/helpers.rb) - Utility functions added to Air module
 
 ---
 
