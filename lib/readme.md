@@ -23,8 +23,8 @@ This [`lib`](/lib) folder contains the implementation of Air in Ruby. The codeba
 
 **Miscellaneous**
 
-- [`constants.rb`](constants.rb) - Language constants and operator definitions
-- [`helpers.rb`](runtime/helpers.rb) - Utility functions added to Air module
+- [`constants.rb`](shared/constants.rb) - Language constants and operator definitions
+- [`helpers.rb`](shared/helpers.rb) - Utility functions added to Air module
 
 ---
 
