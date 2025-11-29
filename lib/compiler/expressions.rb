@@ -173,7 +173,7 @@ module Air
 	end
 
 	class For_Loop_Expr < Expression
-		attr_accessor :iterable, :custom_identifier, :stride, :body
+		attr_accessor :collection, :stride, :body
 	end
 
 	class Comment_Expr < Expression

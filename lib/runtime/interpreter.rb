@@ -312,7 +312,7 @@ module Air
 				interp_infix_dot expr
 			when '<<'
 				left  = maybe_instance interpret expr.left
-				right = maybe_instance interpret expr.right
+				right = interpret expr.right
 
 				if left.is_a?(Air::List)
 					left.values << right
@@ -394,11 +394,12 @@ module Air
 		def interp_circumfix expr
 			case expr.grouping
 			when '[]'
-				array        = Air::List.new
-				array.values = []
-				expr.expressions.reduce([]) do |values, expr|
-					array.values << interpret(expr)
+				array = Air::List.new
+
+				expr.expressions.each do |e|
+					array.values << interpret(e)
 				end
+
 				array
 			when '()'
 				if expr.expressions.empty?
@@ -769,6 +770,34 @@ module Air
 			end
 		end
 
+		def interp_for_loop expr
+			collection = interpret expr.collection
+			stride     = interpret(expr.stride) if expr.stride
+
+			Air.assert collection.is_a? Air::List
+			Air.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
+
+			push_then_pop Scope.new('for_loop') do |scope|
+				if stride
+					collection.values.each_slice(stride).with_index do |elements, index|
+						declare 'it', elements, scope
+						declare 'at', index, scope
+						expr.body.each do |e|
+							interpret e
+						end
+					end
+				else
+					collection.values.each.with_index do |element, index|
+						declare 'it', element, scope
+						declare 'at', index, scope
+						expr.body.each do |e|
+							interpret e
+						end
+					end
+				end
+			end
+		end
+
 		def interp_conditional expr
 			# I'm being very explicit with the "== true" checks of the condition. It's easy to misread this to mean that as long as it's not nil. While the distinction in this case may not matter (in Ruby), I still haven't decided how this language will handle truthiness.
 			case expr.type
@@ -898,6 +927,9 @@ module Air
 
 			when Air::Call_Expr
 				interp_call expr
+
+			when For_Loop_Expr
+				interp_for_loop expr
 
 			when Air::Conditional_Expr
 				interp_conditional expr

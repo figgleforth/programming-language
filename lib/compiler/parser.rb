@@ -105,34 +105,24 @@ module Air
 		end
 
 		def parse_for_loop_expr
-			# TODO :incomplete
 			eat 'for'
-			it = Air::For_Loop_Expr.new
+			it            = Air::For_Loop_Expr.new
+			it.collection = begin_expression # note: This is intentionally calling only begin_expression, this avoids a full expression like an inline conditional from interfering.
 
-			#
-			# for expr
-			# for expr by integer
-			#
-			# for ident in expr # it.custom_identifier is the ident
-			# for ident in expr by integer
-			#
+			if curr? 'by' and eat 'by'
+				it.stride = begin_expression
+				# ??? should I check that it's a number here?
+			end
 
-			it.iterable = begin_expression # todo, Assert iterable is composed with Iterable, or has the same shape as Iterable.
 			reduce_newlines
 
 			it.body = []
 			until curr? 'end'
 				it.body << parse_expression
 			end
+			it.body = it.body.compact
 
-			# if curr? :identifier, 'in'
-			# 	# for ident in expr
-			# 	# for ident in expr by integer
-			# else
-			# 	# for expr
-			# 	# for expr by integer
-			# end
-
+			eat 'end'
 			it
 		end
 

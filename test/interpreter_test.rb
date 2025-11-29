@@ -1125,4 +1125,42 @@ class Interpreter_Test < Base_Test
 			#load 'test/samples/constants.air'"
 		end
 	end
+
+	def test_for_loop
+		out = Air.interp "
+		NUMBERS = [4, 8, 15, 16, 23, 42]
+		numbers = []
+
+		for NUMBERS
+			numbers << it
+		end
+
+		(numbers == NUMBERS, numbers, NUMBERS)"
+		assert out.values[0]
+	end
+
+	def test_for_loop_by_strides
+		out = Air.interp "
+		NUMBERS = [4, 8, 15, 16, 23, 42]
+		numbers = []
+
+		for NUMBERS by 2
+			numbers << it
+		end
+
+		numbers"
+		assert_equal [[4, 8], [15, 16], [23, 42]], out.values
+	end
+
+	def test_for_loop_at_and_it_intrinsics
+		out = Air.interp "
+		indices = []
+
+		for [4, 8, 15, 16, 23, 42]
+			indices << '|at|: |it|'
+		end
+
+		indices"
+		assert_equal ['0: 4', '1: 8', '2: 15', '3: 16', '4: 23', '5: 42'], out.values
+	end
 end
