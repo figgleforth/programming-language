@@ -28,11 +28,6 @@ module Air
 			@declarations.key?(identifier.to_s)
 		end
 
-		# Unused, I think
-		def dig * identifiers
-			@declarations.dig *identifiers
-		end
-
 		def declarations= new_declarations
 			@declarations = new_declarations
 		end
@@ -64,10 +59,6 @@ module Air
 	end
 
 	class Global < Scope
-	end
-
-	class Runtime < Scope
-		attr_accessor :functions, :routes, :servers
 	end
 
 	class Html_Element < Scope

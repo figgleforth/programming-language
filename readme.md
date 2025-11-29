@@ -3,7 +3,7 @@
 
 ### ![](air.svg)
 
-### Educational Toy Programming Language
+### Educational Programming Language
 
 ```air
 Hello {
@@ -141,9 +141,9 @@ bundle install
 bundle exec rake test
 ```
 
-- [`lib/readme`](lib/readme.md) contains detailed information on running your own programs
+- [`lib/readme`](lib/readme.md) details the architecture and contains instructions for running your own programs
 - [`air`](air) contains code written in Air
 - [`lib`](lib) contains code implementing Air
-	- [Lexer#output](lib/lexer.rb) – Source code to Lexemes
-	- [Parser#output](lib/parser.rb) – Lexemes to Expressions
-	- [Interpreter#output](lib/interpreter.rb) – Expressions to values
+	- [Lexer#output](lib/compiler/lexer.rb) – Source code to Lexemes
+	- [Parser#output](lib/compiler/parser.rb) – Lexemes to Expressions
+	- [Interpreter#output](lib/runtime/interpreter.rb) – Expressions to values

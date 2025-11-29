@@ -2,7 +2,7 @@ require_relative '../air'
 
 module Air
 	# Just as a precaution, I want it to be obvious that references of the Array class in this module, so far, are meant for my implementation of Array, not the intrinsic Ruby array.
-	class Array < Instance
+	class List < Instance
 		attr_accessor :values
 
 		def initialize values = []
@@ -23,7 +23,7 @@ module Air
 		end
 	end
 
-	class Tuple < Array
+	class Tuple < List
 		def initialize values = []
 			@values = values
 		end

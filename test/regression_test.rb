@@ -1,24 +1,25 @@
 require 'minitest/autorun'
 require_relative '../lib/air'
+require_relative 'base_test'
 
-class Regression_Test < Minitest::Test
+class Regression_Test < Base_Test
 	def test_greater_equals_regression
-		out = _interp '2+1 >= 1'
+		out = Air.interp '2+1 >= 1'
 		assert out
 	end
 
 	def test_precedence_operation_regression
-		src = _interp '1 + 2 / 3 - 4 * 5'
-		ref = _interp '(1 + (2 / 3)) - (4 * 5)'
+		src = Air.interp '1 + 2 / 3 - 4 * 5'
+		ref = Air.interp '(1 + (2 / 3)) - (4 * 5)'
 		assert_equal ref, src
 		assert_equal -19, src
 	end
 
 	def test_infixes_regression
-		COMPOUND_OPERATORS.each do |operator|
+		Air::COMPOUND_OPERATORS.each do |operator|
 			code = "left #{operator} right"
-			out  = _parse(code)
-			assert_kind_of Infix_Expr, out.first
+			out  = Air.parse(code)
+			assert_kind_of Air::Infix_Expr, out.first
 		end
 	end
 
@@ -28,77 +29,77 @@ class Regression_Test < Minitest::Test
 		]
 
 		invalid_samples.each do |sample|
-			assert_raises Invalid_Scoped_Identifier do
-				_parse sample
+			assert_raises Air::Invalid_Scoped_Identifier do
+				Air.parse sample
 			end
 		end
 
-		ds   = _parse './abc'
-		dds  = _parse '../def'
-		ddds = _parse '.../ghi'
-		assert_kind_of Identifier_Expr, ds.first
-		assert_kind_of Identifier_Expr, dds.first
-		assert_kind_of Identifier_Expr, ddds.first
+		ds   = Air.parse './abc'
+		dds  = Air.parse '../def'
+		ddds = Air.parse '.../ghi'
+		assert_kind_of Air::Identifier_Expr, ds.first
+		assert_kind_of Air::Identifier_Expr, dds.first
+		assert_kind_of Air::Identifier_Expr, ddds.first
 
-		ds = _parse './abc'
-		assert_kind_of Identifier_Expr, ds.last
+		ds = Air.parse './abc'
+		assert_kind_of Air::Identifier_Expr, ds.last
 		assert_equal './', ds.last.scope_operator
 		assert_equal 'abc', ds.last.value
 	end
 
 	def test_dot_slash_regression
-		out = _interp './x = 123'
+		out = Air.interp './x = 123'
 		assert_equal 123, out
 	end
 
 	def test_look_up_dot_slash_without_dot_slash_regression
-		out = _interp './x = 456
+		out = Air.interp './x = 456
 		x'
 		assert_equal 456, out
 	end
 
 	def test_look_up_dot_slash_with_dot_slash_regression
-		out = _interp './y = 789
+		out = Air.interp './y = 789
 		./y'
 		assert_equal 789, out
 	end
 
 	def test_dot_slash_within_infix_regression
-		out = _parse './x? = 123'
-		assert_kind_of Infix_Expr, out.first
+		out = Air.parse './x? = 123'
+		assert_kind_of Air::Infix_Expr, out.first
 		assert_equal '=', out.first.operator
 		assert_equal 'x?', out.first.left.value
-		assert_kind_of Identifier_Expr, out.first.left
+		assert_kind_of Air::Identifier_Expr, out.first.left
 		assert_equal './', out.first.left.scope_operator
 	end
 
 	def test_scope_operators_regression
-		out = _parse './this_instance'
-		assert_kind_of Identifier_Expr, out.first
+		out = Air.parse './this_instance'
+		assert_kind_of Air::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
-		out = _parse '../one_up_the_stack'
-		assert_kind_of Identifier_Expr, out.first
+		out = Air.parse '../one_up_the_stack'
+		assert_kind_of Air::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
-		out = _parse '.../global_scope'
-		assert_kind_of Identifier_Expr, out.first
+		out = Air.parse '.../global_scope'
+		assert_kind_of Air::Identifier_Expr, out.first
 		assert_equal 1, out.count
 	end
 
 	def test_assigning_false_value_regression
-		out = _interp 'how = false
+		out = Air.interp 'how = false
 		how'
 		assert_equal false, out
 	end
 
 	def test_identifier_lookup_regression
-		out = _interp 'Air {}, Air'
+		out = Air.interp 'Air {}, Air'
 		assert_instance_of Type, out
 	end
 
 	def test_instance_does_not_have_new_function_regression
-		out = _interp '
+		out = Air.interp '
 		Atom {
 			new {;}
 		}
@@ -110,7 +111,7 @@ class Regression_Test < Minitest::Test
 	end
 
 	def test_dot_new_initializer_regression
-		out = _interp 'Number {
+		out = Air.interp 'Number {
 			numerator = 8
 
 			new { num;
@@ -123,7 +124,7 @@ class Regression_Test < Minitest::Test
 	end
 
 	def test_calling_member_functions
-		out = _interp '
+		out = Air.interp '
 		Number {
 			numerator = -100
 
@@ -137,7 +138,7 @@ class Regression_Test < Minitest::Test
 	end
 
 	def test_dot_slash_regression
-		out = _interp '
+		out = Air.interp '
 		Box {
 			kind = "NONE"
 
@@ -162,17 +163,17 @@ class Regression_Test < Minitest::Test
 	end
 
 	def test_identifier_lookup_regression
-		out = _interp "./x = 123, ./x"
+		out = Air.interp "./x = 123, ./x"
 		assert_equal 123, out
 
-		out = _interp "x = 123
+		out = Air.interp "x = 123
 		funk {;
 			./x + 2
 		}
 		funk()"
 		assert_equal 125, out
 
-		out = _interp "y = 0
+		out = Air.interp "y = 0
 		add { amount_to_add = 1;
 			./y + amount_to_add
 		}
@@ -181,7 +182,7 @@ class Regression_Test < Minitest::Test
 		(a, add(a * 2))"
 		assert_equal [4, 8], out.values
 
-		out = _interp "y = 0
+		out = Air.interp "y = 0
 		add { amount_to_add = 1;
 			y += amount_to_add
 		}
@@ -190,8 +191,8 @@ class Regression_Test < Minitest::Test
 		(y, a)"
 		assert_equal [4, 4], out.values
 
-		refute_raises Undeclared_Identifier do
-			out = _interp "
+		refute_raises Air::Undeclared_Identifier do
+			out = Air.interp "
 			Thing {
 				id;
 				name = 'Thingy'
@@ -209,8 +210,8 @@ class Regression_Test < Minitest::Test
 			assert_equal [123, "", 456, "Thingus"], out.values
 		end
 
-		assert_raises Missing_Argument do
-			out = _interp "
+		assert_raises Air::Missing_Argument do
+			out = Air.interp "
 			Thing {
 				id;
 				name = 'Thingy';
@@ -226,8 +227,8 @@ class Regression_Test < Minitest::Test
 			assert_equal [456, "Thingus"], out.values
 		end
 
-		assert_raises Missing_Argument do
-			_interp "
+		assert_raises Air::Missing_Argument do
+			Air.interp "
 	        funk { it;
 				it == true
 			}
@@ -235,8 +236,8 @@ class Regression_Test < Minitest::Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
-			_interp "
+		refute_raises Air::Undeclared_Identifier do
+			Air.interp "
 			funk { it;
 				it == true
 			}
@@ -244,8 +245,8 @@ class Regression_Test < Minitest::Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
-			_interp "
+		refute_raises Air::Undeclared_Identifier do
+			Air.interp "
 			funk { it = \"true\";
 				it == true
 			}
@@ -253,8 +254,8 @@ class Regression_Test < Minitest::Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
-			_interp "
+		refute_raises Air::Undeclared_Identifier do
+			Air.interp "
 			funk { it = \"false\";
 				it == true
 			}
@@ -262,8 +263,8 @@ class Regression_Test < Minitest::Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
-			_interp "
+		refute_raises Air::Undeclared_Identifier do
+			Air.interp "
 			funk { it = true;
 				it == true
 			}
@@ -271,8 +272,8 @@ class Regression_Test < Minitest::Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
-			_interp "
+		refute_raises Air::Undeclared_Identifier do
+			Air.interp "
 			funk { funkit = false;
 				funkit == true
 			}
@@ -280,8 +281,8 @@ class Regression_Test < Minitest::Test
 			"
 		end
 
-		refute_raises Undeclared_Identifier do
-			_interp "
+		refute_raises Air::Undeclared_Identifier do
+			Air.interp "
 			funk { it = nil;
 				it == true
 			}
