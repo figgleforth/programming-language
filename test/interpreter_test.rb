@@ -1117,4 +1117,12 @@ class Interpreter_Test < Base_Test
 		# Scopes are different objects even though loaded from same file
 		refute_equal out.values[0].object_id, out.values[1].object_id
 	end
+
+	def test_double_loading_file
+		assert_raises Air::Cannot_Reassign_Constant do
+			out = Air.interp "
+			#load 'test/samples/constants.air'
+			#load 'test/samples/constants.air'"
+		end
+	end
 end
