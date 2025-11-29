@@ -243,7 +243,7 @@ module Air
 			end
 
 			left = maybe_instance interpret expr.left
-			if !left.kind_of?(Air::Scope) && !left.kind_of?(Range)
+			if !left.kind_of?(Air::Scope) && !left.kind_of?(Air::Range)
 				raise Invalid_Dot_Infix_Left_Operand, "#{expr.inspect}"
 			end
 
@@ -276,7 +276,7 @@ module Air
 					return array_or_tuple
 				end
 
-			elsif left.kind_of? Range
+			elsif left.kind_of? Air::Range
 				if expr.right.is(Air::Func_Expr) && expr.right.name.value == 'each'
 					# todo, Should be handled by #interp_func_call?
 
@@ -358,13 +358,13 @@ module Air
 					finish = interpret expr.right
 					case expr.operator
 					when '..'
-						Range.new start, finish
+						Air::Range.new start, finish
 					when '.<'
-						Range.new start, finish, exclude_end: true
+						Air::Range.new start, finish, exclude_end: true
 					when '>.'
-						Air::Left_Exclusive_Range.new start, finish
+						Air::Range.new start + 1, finish
 					when '><'
-						Air::Left_Exclusive_Range.new start, finish, exclude_end: true
+						Air::Range.new start + 1, finish, exclude_end: true
 					end
 
 				elsif LOGICAL_OPERATORS.include? expr.operator
@@ -774,12 +774,18 @@ module Air
 			collection = interpret expr.collection
 			stride     = interpret(expr.stride) if expr.stride
 
-			Air.assert collection.is_a? Air::List
+			Air.assert collection.is_a?(Air::List) || collection.is_a?(Air::Range)
 			Air.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
 
 			push_then_pop Scope.new('for_loop') do |scope|
+				values = if collection.is_a? Air::Range
+					collection
+				else
+					collection.values
+				end
+
 				if stride
-					collection.values.each_slice(stride).with_index do |elements, index|
+					values.each_slice(stride).with_index do |elements, index|
 						declare 'it', elements, scope
 						declare 'at', index, scope
 						expr.body.each do |e|
@@ -787,7 +793,7 @@ module Air
 						end
 					end
 				else
-					collection.values.each.with_index do |element, index|
+					values.each_with_index do |element, index|
 						declare 'it', element, scope
 						declare 'at', index, scope
 						expr.body.each do |e|

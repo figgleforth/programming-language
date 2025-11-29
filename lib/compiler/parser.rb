@@ -107,7 +107,7 @@ module Air
 		def parse_for_loop_expr
 			eat 'for'
 			it            = Air::For_Loop_Expr.new
-			it.collection = begin_expression # note: This is intentionally calling only begin_expression, this avoids a full expression like an inline conditional from interfering.
+			it.collection = parse_expression
 
 			if curr? 'by' and eat 'by'
 				it.stride = begin_expression

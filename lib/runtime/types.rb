@@ -112,25 +112,7 @@ module Air
 		end
 	end
 
-	class Left_Exclusive_Range < Range
-		def initialize first, last, exclude_end: false
-			super first, last, exclude_end
-		end
-
-		def each
-			skipped = false
-			super do |x|
-				if skipped
-					yield x
-				else
-					skipped = true
-				end
-			end
-		end
-
-		def include? val
-			val > self.first && (exclude_end? ? val < self.last : val <= self.last)
-		end
+	class Range < ::Range
 	end
 
 	class Server < Type

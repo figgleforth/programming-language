@@ -226,6 +226,7 @@ class Interpreter_Test < Base_Test
 
 	def test_inclusive_range
 		out = Air.interp '4..42'
+		assert_instance_of Air::Range, out
 		assert_equal 4..42, out
 		assert out.include? 4
 		assert out.include? 23
@@ -234,6 +235,7 @@ class Interpreter_Test < Base_Test
 
 	def test_right_exclusive_range
 		out = Air.interp '4.<42'
+		assert_instance_of Air::Range, out
 		assert_equal 4...42, out
 		assert out.include? 4
 		assert out.include? 41
@@ -242,7 +244,8 @@ class Interpreter_Test < Base_Test
 
 	def test_left_exclusive_range
 		out = Air.interp '4>.42'
-		assert_equal 4..42, out
+		assert_instance_of Air::Range, out
+		assert_equal 5..42, out
 		refute out.include? 4
 		assert out.include? 5
 		assert out.include? 42
@@ -250,7 +253,8 @@ class Interpreter_Test < Base_Test
 
 	def test_left_and_right_exclusive_range
 		out = Air.interp '4><42'
-		assert_equal 4...42, out
+		assert_instance_of Air::Range, out
+		assert_equal 5...42, out
 		refute out.include? 4
 		assert out.include? 5
 		assert out.include? 41
@@ -259,7 +263,7 @@ class Interpreter_Test < Base_Test
 
 	def test_empty_left_and_right_exclusive_range
 		out = Air.interp '0><0'
-		assert_equal 0...0, out
+		assert_equal 1...0, out
 		refute out.include? -1
 		refute out.include? 0
 		refute out.include? 1
@@ -1162,5 +1166,36 @@ class Interpreter_Test < Base_Test
 
 		indices"
 		assert_equal ['0: 4', '1: 8', '2: 15', '3: 16', '4: 23', '5: 42'], out.values
+	end
+
+	def test_for_loop_with_ranges
+		out = Air.interp "
+		zero = []
+		one = []
+		two = []
+		three = []
+
+		for 1..5
+			zero << it
+		end
+
+		for 1><5
+			one << it
+		end
+
+		for 1>.5
+			two << it
+		end
+
+		for 1.<5
+			three << it
+		end
+
+
+		(zero, one, two, three)"
+		assert_equal [1, 2, 3, 4, 5], out.values[0].values
+		assert_equal [2, 3, 4], out.values[1].values
+		assert_equal [2, 3, 4, 5], out.values[2].values
+		assert_equal [1, 2, 3, 4], out.values[3].values
 	end
 end
