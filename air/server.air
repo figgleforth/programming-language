@@ -20,24 +20,3 @@ Server {
 		./port = port
 	}
 }
-
-Web_App | Server {
-	get:// {;
-		"Hi!"
-	}
-
-	get://users/:id { id;
-		"<h1>User Profile</h1><p>User ID: |id|</p>"
-	}
-
-	get://greet/:name { name;
-		"<div style='background-color: #e3f2fd; padding: 20px; font-family: sans-serif;'><h1>Hello, |name|!</h1><p>Welcome to Air's protocol-style routing.</p></div>"
-	}
-
-	post://submit/:form_id { form_id;
-		"<h2>Form Submitted</h2><p>Form ID: |form_id|</p><p>Method: |request.method|</p>"
-	}
-}
-
-app = Web_App()
-#serve_http app

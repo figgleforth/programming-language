@@ -62,7 +62,7 @@ module Air
 	end
 
 	class Type < Scope
-		attr_accessor :expressions, :types
+		attr_accessor :expressions, :types, :routes
 
 		def initialize name = nil
 			super name

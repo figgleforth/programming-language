@@ -1,0 +1,228 @@
+require 'minitest/autorun'
+require_relative '../lib/air'
+require_relative 'base_test'
+require 'net/http'
+require 'uri'
+
+class Server_Test < Base_Test
+	def test_server_instance_creation
+		code = <<~AIR
+		    Server {
+		    	port;
+		    	new { port = 3000;
+		    		./port = port
+		    	}
+		    }
+
+		    server = Server()
+		AIR
+
+		result = Air.interp code
+		assert_instance_of Air::Instance, result
+		assert_equal 3000, result[:port]
+	end
+
+	def test_web_app_with_server_composition
+		code = <<~AIR
+		    Server {
+		    	port;
+		    	new { port = 3001;
+		    		./port = port
+		    	}
+		    }
+
+		    Web_App | Server {
+		    	get:// {;
+		    		"Hello World"
+		    	}
+		    }
+
+		    app = Web_App()
+		AIR
+
+		result = Air.interp code
+		assert_instance_of Air::Instance, result
+		assert_equal 3001, result[:port]
+	end
+
+	def test_route_defined_in_server_type
+		code = <<~AIR
+		    Server {
+		    	port;
+		    	new { port = 3002;
+		    		./port = port
+		    	}
+		    }
+
+		    Web_App | Server {
+		    	get://hello {;
+		    		"Hi there!"
+		    	}
+
+		    	get://users/:id { id;
+		    		"User: |id|"
+		    	}
+		    }
+
+		    app = Web_App()
+		AIR
+
+		interpreter = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		result      = interpreter.output
+
+		assert_instance_of Air::Instance, result
+
+		# Check that routes were registered
+		assert_equal 2, interpreter.context.routes.count
+	end
+
+	def test_server_runner_initialization
+		code = <<~AIR
+		    Server {
+		    	port;
+		    	new { port = 8888;
+		    		./port = port
+		    	}
+		    }
+		    app = Server()
+		AIR
+
+		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		server_instance = interpreter.output
+
+		server_runner = Air::Server_Runner.new server_instance, interpreter
+
+		assert_equal 8888, server_runner.port
+		assert_equal server_instance, server_runner.server_instance
+		assert_equal interpreter, server_runner.interpreter
+	end
+
+	def test_route_collection
+		code = <<~AIR
+		    Server {
+		    	port;
+		    	new { port = 3003;
+		    		./port = port
+		    	}
+		    }
+
+		    Web_App | Server {
+		    	get:// {;
+		    		"Home"
+		    	}
+
+		    	post://submit {;
+		    		"Submitted"
+		    	}
+		    }
+
+		    app = Web_App()
+		AIR
+
+		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		server_instance = interpreter.output
+
+		server_runner = Air::Server_Runner.new server_instance, interpreter
+		routes        = server_runner.interpreter.context.routes
+
+		assert_equal 2, routes.count
+	end
+
+	def test_route_matching
+		code = <<~AIR
+		    Server {
+		    	port;
+		    	new { port = 3004;
+		    		./port = port
+		    	}
+		    }
+
+		    Web_App | Server {
+		    	get://users/:id { id;
+		    		"User |id|"
+		    	}
+
+		    	get://posts/:post_id/comments/:comment_id { post_id, comment_id;
+		    		"Post |post_id| Comment |comment_id|"
+		    	}
+		    }
+
+		    app = Web_App()
+		AIR
+
+		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		server_instance = interpreter.output
+
+		server_runner = Air::Server_Runner.new server_instance, interpreter
+		routes        = server_runner.interpreter.context.routes
+
+		# Test matching simple parameterized route
+		matched = server_runner.match_route 'get', ['users', '123'], routes
+		assert matched
+		assert_equal 'get', matched.http_method.value
+
+		# Test matching nested parameterized route
+		matched = server_runner.match_route 'get', ['posts', '456', 'comments', '789'], routes
+		assert matched
+		assert_equal 'get', matched.http_method.value
+
+		# Test non-matching route
+		matched = server_runner.match_route 'post', ['users', '123'], routes
+		assert_nil matched
+	end
+
+	def test_url_param_extraction
+		code = <<~AIR
+		    Server {
+		    	port;
+		    	new { port = 3005;
+		    		./port = port
+		    	}
+		    }
+
+		    Web_App | Server {
+		    	get://users/:user_id/posts/:post_id { user_id, post_id;
+		    		"User |user_id| Post |post_id|"
+		    	}
+		    }
+
+		    app = Web_App()
+		AIR
+
+		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		server_instance = interpreter.output
+
+		server_runner = Air::Server_Runner.new server_instance, interpreter
+		routes        = server_runner.interpreter.context.routes
+		route         = routes.values.first
+
+		path_parts = ['users', '42', 'posts', '99']
+		url_params = server_runner.extract_url_params path_parts, route
+
+		assert_equal '42', url_params['user_id']
+		assert_equal '99', url_params['post_id']
+	end
+
+	def test_query_string_parsing
+		server_instance = Air::Instance.new 'Server'
+		interpreter     = Air::Interpreter.new [], Air::Global.new
+		server_runner   = Air::Server_Runner.new server_instance, interpreter
+
+		query_params = server_runner.parse_query_string 'name=John&age=30&city=NYC'
+
+		assert_equal 'John', query_params['name']
+		assert_equal '30', query_params['age']
+		assert_equal 'NYC', query_params['city']
+	end
+
+	def test_query_string_with_url_encoding
+		server_instance = Air::Instance.new 'Server'
+		interpreter     = Air::Interpreter.new [], Air::Global.new
+		server_runner   = Air::Server_Runner.new server_instance, interpreter
+
+		query_params = server_runner.parse_query_string 'message=Hello%20World&special=%21%40%23'
+
+		assert_equal 'Hello World', query_params['message']
+		assert_equal '!@#', query_params['special']
+	end
+end
