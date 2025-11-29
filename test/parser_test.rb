@@ -722,8 +722,8 @@ class Parser_Test < Base_Test
 		for []
 		end'
 		assert_empty out.first.body
-		assert_instance_of Air::Circumfix_Expr, out.first.iterable # note, The iterable becomes an Array in the interpreter.
-		assert_equal '[]', out.first.iterable.grouping
+		assert_instance_of Air::Circumfix_Expr, out.first.collection # note, The iterable becomes an Array in the interpreter.
+		assert_equal '[]', out.first.collection.grouping
 	end
 
 	def test_import_syntax
