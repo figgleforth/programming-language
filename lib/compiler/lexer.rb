@@ -1,4 +1,4 @@
-require_relative 'air'
+require_relative '../air'
 
 class Lexer
 	attr_accessor :i, :col, :line, :input
@@ -178,7 +178,7 @@ class Lexer
 
 		while chars? && (identifier? || numeric?)
 			it << eat
-			break if newline? || whitespace? || curr == '#'
+			break if newline? || whitespace?
 			if can_end_with.include? curr
 				it << eat
 				break

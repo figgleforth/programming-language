@@ -1,4 +1,4 @@
-require_relative 'air'
+require_relative '../air'
 
 class Interpreter
 	attr_accessor :i, :input, :stack, :context

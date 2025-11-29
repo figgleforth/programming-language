@@ -1,5 +1,6 @@
 require 'minitest/autorun'
 require_relative '../lib/air'
+require_relative 'base_test'
 
 class Interpreter_Test < Base_Test
 	def test_preload_dot_air

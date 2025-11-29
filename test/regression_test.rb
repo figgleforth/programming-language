@@ -1,5 +1,6 @@
 require 'minitest/autorun'
 require_relative '../lib/air'
+require_relative 'base_test'
 
 class Regression_Test < Base_Test
 	def test_greater_equals_regression

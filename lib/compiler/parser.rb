@@ -1,4 +1,4 @@
-require_relative 'air'
+require_relative '../air'
 
 class Parser
 	attr_accessor :i, :input
@@ -18,32 +18,7 @@ class Parser
 
 	# Array of precedences and symbols for that precedence. if the lexeme provided matches one of the operator symbols then its precedence is returned. Nice reference: https://rosettacode.org/wiki/Operator_precedence
 	def precedence_for operator
-		# todo, This is ugly. Maybe a case/when?
-		# higher number = tighter binding
-		[
-			[1200, %w(. .?)],
-			[1100, %w([ { \( )],
-			[1000, %w(! not)], # exponentiation
-			[900, %w(**)], # exponentiation
-			[800, %w(* / %)], # multiply, divide, modulo
-			[700, %w(+ -)], # add, subtract
-			[600, %w(<< >>)], # bitwise shifts
-			[550, %w(< <= <=> > >=)], # relational
-			[500, %w(== != === !==)], # equality
-			[400, %w(| & - ^)], # bitwise AND (&), XOR (^), OR (|)
-			[300, %w(&& and)], # logical AND
-			[200, %w(|| or)], # logical OR (including keyword forms)
-			[140, %w(:)], # member access, labels
-			[100, %w(,)], # comma
-			[90, %w(= += -= *= /= %= &= |= ^= <<= >>=)], # assignments
-			[80, %w(.. .< >. ><)], # ranges
-			[70, %w(return)],
-			[60, %w(unless if while until)],
-		].each do |prec, ops|
-			return prec if ops.sort_by(&SORT_BY_LENGTH_DESC).include?(operator)
-		end
-
-		STARTING_PRECEDENCE
+		PRECEDENCES[operator] || STARTING_PRECEDENCE
 	end
 
 	# input[i - 1]
@@ -73,7 +48,7 @@ class Parser
 		eat while lexemes? && curr?(%W(\n \r))
 	end
 
-	def curr?(*sequence)
+	def curr? * sequence
 		return false unless remainder && lexemes?
 		return false if sequence.count > remainder.count
 
@@ -363,26 +338,7 @@ class Parser
 		expr.kind = Air.type_of_identifier expr.value
 		expr
 	end
-
-	#   Manual scoping notes.
-	#   Expected tokens: [<one or chain of SCOPE_OPERATORS>, <one of ANY_IDENTIFIER>]
-	#   ——————————————————————————————————————————
-	#   ./year      ../MODE     .../whatever(4, 8)
-	#   ./Atom      ../name     .../whatever + 15
-	#   ./VERSION   ../String   .../Array(16, 23)
-	#   —————————————————————————————————————————
-	#
-	#   ✅   ./            current instance's scope
-	#   ✅   ../           relative scope, chainable
-	#   ✅   .../          global scope, aka bottom of the stack
-	#
-	#   ✅   ../../        begins the chain at whatever scope is on on top of the stack
-	#   ✅   ./../../      begins the chain at the current instance
-	#
-	#   ❌   .../../../      cannot start with .../
-	#   ❌   ../../.../      cannot end with .../
-	#   ❌   ../.././        cannot end with ./
-	#
+	
 	def parse_manual_scope
 		scope = eat.value
 
