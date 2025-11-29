@@ -11,7 +11,7 @@ require_relative 'compiler/parser'
 require_relative 'runtime/errors'
 require_relative 'runtime/scope'
 require_relative 'runtime/types'
-require_relative 'runtime/execution_context'
+require_relative 'runtime/context'
 require_relative 'runtime/interpreter'
 
 module Air

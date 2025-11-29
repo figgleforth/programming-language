@@ -7,7 +7,7 @@ module Air
 		def initialize input = [], global_scope = nil
 			@input   = input
 			@stack   = [global_scope || Air::Global.new]
-			@context = Air::Execution_Context.new
+			@context = Air::Context.new
 		end
 
 		def output & block
@@ -198,11 +198,23 @@ module Air
 		# @param expr [Air::Infix_Expr]
 		def interp_infix_equals expr
 			assignment_scope = scope_for_identifier expr.left
-			evaluation_scope = scope_for_identifier expr.right
 
-			push_scope(evaluation_scope) if evaluation_scope
-			right_value = interpret expr.right
-			pop_scope if evaluation_scope
+			# Special handling for load directive assignment
+			if expr.right.is_a?(Air::Directive_Expr) && expr.right.name.value == 'load'
+				filepath = interpret expr.right.expression
+
+				# Create new scope to load into
+				new_scope = Air::Scope.new expr.left.value
+				context.load_file filepath, new_scope
+				right_value = new_scope
+			else
+				# Normal assignment path
+				evaluation_scope = scope_for_identifier expr.right
+
+				push_scope(evaluation_scope) if evaluation_scope
+				right_value = interpret expr.right
+				pop_scope if evaluation_scope
+			end
 
 			case Air.type_of_identifier expr.left.value
 			when :IDENTIFIER
@@ -211,8 +223,8 @@ module Air
 					raise Air::Cannot_Reassign_Constant, expr.inspect
 				end
 			when :Identifier
-				# It can only be assigned `value` of Air::Type.
-				if !right_value.is_a?(Air::Type)
+				# It can only be assigned `value` of Air::Scope, which includes Air::Type
+				if !right_value.is_a?(Air::Scope)
 					raise Air::Cannot_Assign_Incompatible_Type, expr.inspect
 				end
 			when :identifier
@@ -665,12 +677,12 @@ module Air
 			end
 
 			if expression.name
-				@context.routes[expression.name] = route
+				context.routes[expression.name] = route
 				declare expression.name, route
 			else
 				# Anonymous route with auto-generated key: "method:path"
-				route_key                  = "#{route.http_method.value}:#{route.path}"
-				@context.routes[route_key] = route
+				route_key                 = "#{route.http_method.value}:#{route.path}"
+				context.routes[route_key] = route
 			end
 		end
 
@@ -834,11 +846,13 @@ module Air
 				# TODO Ensure Signal.trap(INT) somewhere
 				# Spawn thread, run server in it.
 				server = interpret expr.expression
-				@context.servers << server
+				context.servers << server
 				server
 			when 'load'
+				# Standalone load - interpret into current scope
 				filepath = interpret expr.expression
-				stack.first.load_file filepath
+				context.load_file(filepath, stack.last)
+				nil # No return value for standalone load
 			else
 				raise Directive_Not_Implemented, expr.inspect
 			end
