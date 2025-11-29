@@ -179,8 +179,6 @@ module Air
 
 		def interp_prefix expr
 			case expr.operator
-			when '#'
-				interp_intrinsic expr
 			when '-'
 				-interpret(expr.expression)
 			when '+'
@@ -673,18 +671,30 @@ module Air
 				_1.empty?
 			end
 
-			unless expression.is_a?(Air::Func)
+			unless expression.is_a? Air::Func
 				raise Invalid_Http_Directive_Handler, expression.inspect
 			end
 
-			if expression.name
-				context.routes[expression.name] = route
-				declare expression.name, route
+			route_key = if expression.name && expression.name != 'Air::Func'
+				expression.name
 			else
 				# Anonymous route with auto-generated key: "method:path"
-				route_key                 = "#{route.http_method.value}:#{route.path}"
-				context.routes[route_key] = route
+				"#{route.http_method.value}:#{route.path}"
 			end
+
+			# Store route in the enclosing Type's @routes if it has one (e.g., Server)
+			enclosing_type = stack.reverse.find do |scope|
+				scope.is_a?(Air::Type) || scope.is_a?(Air::Server)
+			end
+			if enclosing_type
+				enclosing_type.routes            ||= {}
+				enclosing_type.routes[route_key] = route
+			end
+
+			context.routes[route_key] = route
+			declare route_key, route if expression.name && expression.name != 'Air::Func'
+
+			route
 		end
 
 		def interp_func expr
@@ -874,15 +884,40 @@ module Air
 			end
 		end
 
+		# todo:_Maybe this should go on Air::Server?
+		def collect_routes_from_instance instance
+			routes = {}
+
+			instance.types.each do |type_name|
+				type_def = stack.first[type_name]
+				next unless type_def && type_def.respond_to?(:routes) && type_def.routes
+
+				# Merge routes from this type
+				type_def.routes.each do |key, route|
+					routes[key] ||= route
+				end
+			end
+
+			routes
+		end
+
 		def interp_directive expr
 			case expr.name.value
 			when 'serve_http'
-				# TODO ensure Type contains Server
-				# TODO Ensure Signal.trap(INT) somewhere
-				# Spawn thread, run server in it.
-				server = interpret expr.expression
-				context.servers << server
-				server
+				# todo: Ensure it responds to port and so on
+				server_instance = interpret expr.expression
+				unless server_instance.is_a? Air::Instance
+					raise "Expected Air::Instance for #serve_http, got #{server_instance.inspect}"
+				end
+
+				# Collect routes from the instance's types
+				routes = collect_routes_from_instance server_instance
+
+				server_runner = Air::Server_Runner.new server_instance, self, routes
+				context.servers << server_runner
+
+				server_runner.start
+				server_runner
 			when 'load'
 				# Standalone load - interpret into current scope
 				filepath = interpret expr.expression

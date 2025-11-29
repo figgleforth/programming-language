@@ -121,8 +121,9 @@ module Air
 		def initialize
 			super 'Server'
 
+			@routes                 = {}
 			@declarations['port']   = nil
-			@declarations['routes'] = nil
+			@declarations['routes'] = @routes
 		end
 	end
 
