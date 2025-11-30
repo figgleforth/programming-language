@@ -1,4 +1,4 @@
-![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
+![Status of project Ruby tests](https://github.com/figgleforth/ore-lang/actions/workflows/tests.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
 
 ### ![](ore.svg)
@@ -59,10 +59,10 @@ nothing;            `Syntactic sugar for "nothing = nil"
 something = true
 
 `Strings can be single or double quoted, and interpolated with "|"
-LANG_NAME = "programming-language"
+LANG_NAME = "ore-lang"
 version   = '0.0.0'
 lines     = 4_815
-header    = "|LANG_NAME| v|version|"   `"programming-language v0.0.0"
+header    = "|LANG_NAME| v|version|"   `"ore-lang v0.0.0"
 footer    = 'Lines of code: |lines|'   `"Lines of code: 4815"
 
 `Ranges
@@ -128,7 +128,7 @@ Repo {
 	}
 }
 
-Repo('figgleforth', 'programming-language').to_s() `"figgleforth/programming-language"
+Repo('figgleforth', 'ore-lang').to_s() `"figgleforth/ore-lang"
 ```
 
 #### Web Servers
@@ -201,8 +201,8 @@ Admin_Server | Server {
 > Requires Ruby 3.4.1 or higher, and Bundler
 
 ```shell script
-git clone https://github.com/figgleforth/programming-language.git
-cd programming-language
+git clone https://github.com/figgleforth/ore-lang.git
+cd ore-lang
 bundle install
 bundle exec rake test
 ```
