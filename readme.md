@@ -3,7 +3,7 @@
 
 ### ![](ore.svg)
 
-### Programming Language For Web
+### Programming Language For Web Development
 
 ```ore
 Hello {
@@ -37,7 +37,17 @@ Hello('World').output()  `"Hi, World!"
 	- `../identifier` to be determined
 	- `.../identifier` accesses global scope
 - First-class functions and classes
-- Built-in data types - `Array`, `Tuple`, `Dictionary`, `Range`
+- Built-in data types - `Array`, `Tuple`, `Dictionary`, `Range`, `Server`
+- Web server support with routing
+	- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
+	- URL parameters via `:param` syntax
+	- Query string access via `request.query`
+	- Request/response objects automatically available
+	- Non-blocking `#serve_http` directive allows multiple servers
+	- Graceful shutdown handling when program exits
+
+---
+
 - [Code Examples](#code-examples)
 	- [Variables](#variables)
 	- [Functions](#functions)
@@ -133,10 +143,8 @@ Repo('figgleforth', 'ore-lang').to_s() `"figgleforth/ore-lang"
 
 #### Web Servers
 
-Ore includes built-in web server support with routing, allowing you to create HTTP servers with minimal code.
-
 ```ore
-`Define a base Server class
+`Builtin Server class
 Server {
 	port;
 	new { port;
@@ -144,7 +152,7 @@ Server {
 	}
 }
 
-`Create a web app by composing with Server
+`Create servers by composing with Server
 Web_App | Server {
 	`Define routes using HTTP method and path
 	get:// {;
@@ -160,41 +168,18 @@ Web_App | Server {
 	}
 }
 
-`Start the server on port 8080
-app = Web_App(8080)
-#serve_http app
-```
-
-**Multiple Servers**
-
-You can run multiple servers simultaneously, each with their own routes:
-
-```ore
 API_Server | Server {
 	get://api/users {;
 		"[{\"id\": 1, \"name\": \"Alice\"}]"
 	}
 }
 
-Admin_Server | Server {
-	get://admin {;
-		"<h1>Admin Dashboard</h1>"
-	}
-}
-
 `Both servers run concurrently in background threads
-#serve_http API_Server(3000)
-#serve_http Admin_Server(3001)
+app = Web_App(8080)
+api = API_Server(3000)
+#serve_http app
+#serve_http api
 ```
-
-**Features:**
-
-- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
-- URL parameters via `:param` syntax
-- Query string access via `request.query`
-- Request/response objects automatically available
-- Non-blocking `#serve_http` directive allows multiple servers
-- Graceful shutdown handling when program exits
 
 ### Getting Started
 
