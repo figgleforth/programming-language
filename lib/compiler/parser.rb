@@ -1,4 +1,4 @@
-module Air
+module Ore
 	class Parser
 		attr_accessor :i, :input
 
@@ -76,7 +76,7 @@ module Air
 			return remainder unless lexeme
 
 			remainder.slice_before do |t|
-				if lexeme.is_a? Air::Lexeme
+				if lexeme.is_a? Ore::Lexeme
 					t.is lexeme
 				else
 					t.value == lexeme
@@ -106,7 +106,7 @@ module Air
 
 		def parse_for_loop_expr
 			eat 'for'
-			it            = Air::For_Loop_Expr.new
+			it            = Ore::For_Loop_Expr.new
 			it.collection = parse_expression
 
 			if curr? 'by' and eat 'by'
@@ -127,7 +127,7 @@ module Air
 		end
 
 		def parse_conditional_expr
-			it            = Air::Conditional_Expr.new
+			it            = Ore::Conditional_Expr.new
 			it.type       = eat.value # One of %w(if while unless until)
 			it.condition  = parse_expression
 			it.when_true  = []
@@ -163,7 +163,7 @@ module Air
 		end
 
 		def parse_circumfix_expr opening: '('
-			it = Air::Circumfix_Expr.new
+			it = Ore::Circumfix_Expr.new
 			it.grouping = CIRCUMFIX_GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
 			eat opening
 			reduce_newlines
@@ -183,7 +183,7 @@ module Air
 		end
 
 		def parse_func precedence = STARTING_PRECEDENCE, named: false
-			func = Air::Func_Expr.new
+			func = Ore::Func_Expr.new
 
 			if curr? :identifier
 				func.name = eat(:identifier)
@@ -197,7 +197,7 @@ module Air
 			reduce_newlines
 
 			until curr? ';'
-				param = Air::Param_Expr.new
+				param = Ore::Param_Expr.new
 
 				if curr? :identifier, :identifier
 					param.label = eat(:identifier).value
@@ -214,7 +214,7 @@ module Air
 					param.default = parse_expression
 				end
 
-				if param.default.is_a?(Air::Postfix_Expr) && param.default.operator == ';'
+				if param.default.is_a?(Ore::Postfix_Expr) && param.default.operator == ';'
 					param.default = param.default.expression
 					func.expressions << param
 					break
@@ -252,7 +252,7 @@ module Air
 			#
 
 			valid_idents = %I(Identifier IDENTIFIER)
-			it           = Air::Type_Expr.new
+			it           = Ore::Type_Expr.new
 			it.name      = eat
 
 			until curr? '{'
@@ -278,7 +278,7 @@ module Air
 			# TODO: :html_vs_type_expr
 
 			eat '<'
-			it = Air::Html_Element_Expr.new eat
+			it = Ore::Html_Element_Expr.new eat
 			eat '>'
 
 			eat '{'
@@ -295,7 +295,7 @@ module Air
 		end
 
 		def parse_composition_expr
-			expr = Air::Composition_Expr.new
+			expr = Ore::Composition_Expr.new
 
 			# You might notice that whenever I eat(:identifier), I don't extract just the value because I want to store the Token. But in the case of an operator, the string is probably fine?
 			expr.operator   = eat(:operator).value
@@ -304,7 +304,7 @@ module Air
 		end
 
 		def parse_identifier_expr
-			expr = Air::Identifier_Expr.new
+			expr = Ore::Identifier_Expr.new
 			if curr? REFERENCE_PREFIX
 				expr.reference = true
 				eat REFERENCE_PREFIX
@@ -324,7 +324,7 @@ module Air
 				expr.type = eat(:Identifier)
 			end
 
-			expr.kind = Air.type_of_identifier expr.value
+			expr.kind = Ore.type_of_identifier expr.value
 			expr
 		end
 
@@ -340,7 +340,7 @@ module Air
 
 			if curr?(SCOPE_OPERATORS) || !curr?(ANY_IDENTIFIER)
 				# There should not be any more scope operators at this point. We've implicitly handled ./ and .../, and explicitly handled chains of ../ so it's either malformed or something
-				raise Air::Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
+				raise Ore::Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
 			end
 
 			scope
@@ -348,7 +348,7 @@ module Air
 
 		def parse_symbol_expr
 			eat ':'
-			Air::Symbol_Expr.new eat.value.to_sym
+			Ore::Symbol_Expr.new eat.value.to_sym
 		end
 
 		def parse_route_expr
@@ -372,7 +372,7 @@ module Air
 
 			# Validate: handler params must include all route params
 			handler_params = handler.expressions
-			                 .select { |expr| expr.is_a?(Air::Param_Expr) }
+			                 .select { |expr| expr.is_a?(Ore::Param_Expr) }
 			                 .map(&:name)
 
 			missing_params = param_names - handler_params
@@ -381,8 +381,8 @@ module Air
 				raise "Route parameters #{missing_params.inspect} not found in handler parameters"
 			end
 
-			route             = Air::Route_Expr.new
-			route.http_method = Air::Identifier_Expr.new.tap do |expr|
+			route             = Ore::Route_Expr.new
+			route.http_method = Ore::Identifier_Expr.new.tap do |expr|
 				expr.value = http_method
 				expr.kind  = :identifier
 			end
@@ -395,14 +395,14 @@ module Air
 
 		def parse_operator_expr
 			# A method just for this might seem silly, but I thought the same when I decided #make_expr should be a giant method. This will help in the long run, and consistency is key to keeping this maintainable.
-			Air::Operator_Expr.new eat(:operator).value
+			Ore::Operator_Expr.new eat(:operator).value
 		end
 
 		def parse_number_expr
-			expr       = Air::Number_Expr.new
+			expr       = Ore::Number_Expr.new
 			expr.value = eat(:number).value
 			if expr.value.count('.') > 1
-				expr                  = Air::Array_Index_Expr.new expr.value
+				expr                  = Ore::Array_Index_Expr.new expr.value
 				expr.indices_in_order = expr.value.split '.'
 				expr.indices_in_order = expr.indices_in_order.map &:to_i
 				# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2].
@@ -417,7 +417,7 @@ module Air
 		end
 
 		def parse_nil_init_postfix_expr
-			expr            = Air::Postfix_Expr.new
+			expr            = Ore::Postfix_Expr.new
 			expr.expression = parse_identifier_expr # eat # identifier
 			expr.operator   = eat.value
 			expr
@@ -470,7 +470,7 @@ module Air
 				parse_number_expr
 
 			elsif curr? :string
-				Air::String_Expr.new eat(:string).value
+				Ore::String_Expr.new eat(:string).value
 
 			elsif curr? ';'
 				eat ';' and nil
@@ -481,7 +481,7 @@ module Air
 			elsif curr? :comment
 				# 8/6/25, Returning the comment here means that it will count as an expression in, for example, a case where a comment is the last thing inside a function body. So this breaks expressions with comments at the end. I'll leave this here, commented out, because I do want to do something with these comments in the future.
 				# token        = eat
-				# comment      = Air::Comment_Expr.new token.value
+				# comment      = Ore::Comment_Expr.new token.value
 				# comment.type = token.type
 				# comment
 				eat and nil
@@ -513,8 +513,8 @@ module Air
 				eat and return expr
 			end
 
-			if expr.is_a?(Air::Identifier_Expr) && expr.directive
-				directive            = Air::Directive_Expr.new
+			if expr.is_a?(Ore::Identifier_Expr) && expr.directive
+				directive            = Ore::Directive_Expr.new
 				directive.name       = expr
 				directive.expression = begin_expression
 
@@ -527,8 +527,8 @@ module Air
 
 			if scope_prefix
 				next_expr = begin_expression
-				if next_expr.is_a? Air::Infix_Expr
-					expr            = Air::Prefix_Expr.new
+				if next_expr.is_a? Ore::Infix_Expr
+					expr            = Ore::Prefix_Expr.new
 					expr.operator   = scope_prefix
 					expr.expression = next_expr
 				end
@@ -540,32 +540,32 @@ module Air
 			circumfix = CIRCUMFIX.include? curr_lexeme.value
 
 			if prefix
-				expr = Air::Prefix_Expr.new.tap do |it|
+				expr = Ore::Prefix_Expr.new.tap do |it|
 					it.operator   = expr.value
 					it.expression = parse_expression precedence_for(it.operator)
 				end
 
 				unless expr.expression
-					raise "Air::Prefix_Expr expected an expression after `#{expr.operator}`"
+					raise "Ore::Prefix_Expr expected an expression after `#{expr.operator}`"
 				end
 
 				return complete_expression expr, precedence
 			elsif infix
 				if COMPOUND_OPERATORS.include? curr_lexeme.value
-					it          = Air::Infix_Expr.new
+					it          = Ore::Infix_Expr.new
 					it.left     = expr
 					it.operator = eat.value
 					it.right    = parse_expression precedence_for it.operator
 					return complete_expression it, precedence
 				elsif RANGE_OPERATORS.include? curr_lexeme.value
-					it          = Air::Infix_Expr.new
+					it          = Ore::Infix_Expr.new
 					it.left     = expr
 					it.operator = eat.value
 					it.right    = parse_number_expr
 					return complete_expression it, precedence
 				else
 					while INFIX.include?(curr_lexeme.value) && curr?(:operator)
-						# It's very important that the curr?(:operator) check here remains because otherwise it breaks Air::Call_Expr when the receiver is an Air::Infix_Expr.
+						# It's very important that the curr?(:operator) check here remains because otherwise it breaks Ore::Call_Expr when the receiver is an Ore::Infix_Expr.
 						curr_operator      = curr_lexeme.value
 						curr_operator_prec = precedence_for curr_operator
 
@@ -574,14 +574,14 @@ module Air
 						end
 
 						left          = expr
-						expr          = Air::Infix_Expr.new
+						expr          = Ore::Infix_Expr.new
 						expr.left     = left
 						expr.operator = eat(curr_lexeme.value).value
 						expr.right    = parse_expression curr_operator_prec
 
-						if expr.left.is(Air::Identifier_Expr) && expr.operator == '.' && expr.right.is(Air::Number_Expr) && expr.right.type == :float
+						if expr.left.is(Ore::Identifier_Expr) && expr.operator == '.' && expr.right.is(Ore::Number_Expr) && expr.right.type == :float
 							# Copypaste from above #parse_expression when :number.
-							number                  = Air::Array_Index_Expr.new expr.right.value.to_s
+							number                  = Ore::Array_Index_Expr.new expr.right.value.to_s
 							number.indices_in_order = number.value.split '.'
 							number.indices_in_order = number.indices_in_order.map &:to_i
 							expr.right              = number
@@ -592,7 +592,7 @@ module Air
 				end
 
 			elsif postfix
-				expr = Air::Postfix_Expr.new.tap do |it|
+				expr = Ore::Postfix_Expr.new.tap do |it|
 					it.expression = expr
 					it.operator   = eat(:operator).value
 				end
@@ -603,12 +603,12 @@ module Air
 			if call_expr && (precedence_for(curr_lexeme.value) > precedence)
 				receiver       = expr
 				fix            = parse_circumfix_expr opening: curr_lexeme.value
-				expr           = Air::Call_Expr.new
+				expr           = Ore::Call_Expr.new
 				expr.receiver  = receiver
 				expr.arguments = fix.expressions
 				return complete_expression expr, precedence
 			elsif subscript
-				it            = Air::Subscript_Expr.new
+				it            = Ore::Subscript_Expr.new
 				it.receiver   = expr
 				it.expression = parse_circumfix_expr opening: curr_lexeme.value
 				it
@@ -620,7 +620,7 @@ module Air
 					return expr
 				end
 
-				it           = Air::Conditional_Expr.new
+				it           = Ore::Conditional_Expr.new
 				it.type      = eat.value # One of %w(if while unless until)
 				it_prec      = precedence_for it.type
 				it.condition = parse_expression

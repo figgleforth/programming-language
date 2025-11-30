@@ -1,11 +1,11 @@
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
 
-### ![](air.svg)
+### ![](ore.svg)
 
-### Educational Programming Language
+### Programming Language For Web
 
-```air
+```ore
 Hello {
 	subject;
 	
@@ -133,9 +133,9 @@ Repo('figgleforth', 'programming-language').to_s() `"figgleforth/programming-lan
 
 #### Web Servers
 
-Air includes built-in web server support with routing, allowing you to create HTTP servers with minimal code.
+Ore includes built-in web server support with routing, allowing you to create HTTP servers with minimal code.
 
-```air
+```ore
 `Define a base Server class
 Server {
 	port;
@@ -148,7 +148,7 @@ Server {
 Web_App | Server {
 	`Define routes using HTTP method and path
 	get:// {;
-		"<h1>Welcome to Air!</h1>"
+		"<h1>Welcome to Ore!</h1>"
 	}
 
 	get://hello/:name { name;
@@ -169,7 +169,7 @@ app = Web_App(8080)
 
 You can run multiple servers simultaneously, each with their own routes:
 
-```air
+```ore
 API_Server | Server {
 	get://api/users {;
 		"[{\"id\": 1, \"name\": \"Alice\"}]"
@@ -188,6 +188,7 @@ Admin_Server | Server {
 ```
 
 **Features:**
+
 - Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
 - URL parameters via `:param` syntax
 - Query string access via `request.query`
@@ -207,8 +208,8 @@ bundle exec rake test
 ```
 
 - [`lib/readme`](lib/readme.md) details the architecture and contains instructions for running your own programs
-- [`air`](air) contains code written in Air
-- [`lib`](lib) contains code implementing Air
+- [`ore`](ore) contains code written in Ore
+- [`lib`](lib) contains code implementing Ore
 	- [Lexer#output](lib/compiler/lexer.rb) – Source code to Lexemes
 	- [Parser#output](lib/compiler/parser.rb) – Lexemes to Expressions
 	- [Interpreter#output](lib/runtime/interpreter.rb) – Expressions to values

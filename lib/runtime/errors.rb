@@ -1,4 +1,4 @@
-module Air
+module Ore
 	class Out_Of_Tokens < RuntimeError
 	end
 

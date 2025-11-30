@@ -15,7 +15,7 @@ require_relative 'runtime/context'
 require_relative 'runtime/server_runner'
 require_relative 'runtime/interpreter'
 
-module Air
+module Ore
 	extend Helpers
 
 	def self.interp_file filepath, with_std: true

@@ -1,4 +1,4 @@
-module Air
+module Ore
 	class Expression
 		attr_accessor :value, :type
 

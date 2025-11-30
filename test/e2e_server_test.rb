@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../lib/air'
+require_relative '../lib/ore'
 require 'net/http'
 require 'uri'
 require 'timeout'
@@ -18,33 +18,33 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	def test_server_starts_and_responds
-		code = <<~AIR
-			Server {
-				port;
-				new { port = #{@port};
-					./port = port
-				}
-			}
+		code = <<~ORE
+		    Server {
+		    	port;
+		    	new { port = #{@port};
+		    		./port = port
+		    	}
+		    }
 
-			Web_App | Server {
-				get:// {;
-					"Hello from Air!"
-				}
+		    Web_App | Server {
+		    	get:// {;
+		    		"Hello from Ore!"
+		    	}
 
-				get://hello/:name { name;
-					"<h1>Hello, |name|!</h1>"
-				}
-			}
+		    	get://hello/:name { name;
+		    		"<h1>Hello, |name|!</h1>"
+		    	}
+		    }
 
-			app = Web_App()
-		AIR
+		    app = Web_App()
+		ORE
 
 		# Start server in background
-		interpreter = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		server_instance = interpreter.output
 
-		routes = interpreter.collect_routes_from_instance server_instance
-		@server_runner = Air::Server_Runner.new server_instance, interpreter, routes
+		routes         = interpreter.collect_routes_from_instance server_instance
+		@server_runner = Ore::Server_Runner.new server_instance, interpreter, routes
 		@server_runner.start
 
 		# Give server time to start
@@ -53,7 +53,7 @@ class E2E_Server_Test < Minitest::Test
 		# Test GET /
 		response = Net::HTTP.get_response URI("http://localhost:#{@port}/")
 		assert_equal '200', response.code
-		assert_equal 'Hello from Air!', response.body
+		assert_equal 'Hello from Ore!', response.body
 
 		# Test parameterized route
 		response = Net::HTTP.get_response URI("http://localhost:#{@port}/hello/World")
@@ -67,28 +67,28 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	def test_query_parameters
-		code = <<~AIR
-			Server {
-				port;
-				new { port = #{@port};
-					./port = port
-				}
-			}
+		code = <<~ORE
+		    Server {
+		    	port;
+		    	new { port = #{@port};
+		    		./port = port
+		    	}
+		    }
 
-			Web_App | Server {
-				get://search {;
-					"Query: |request.query|"
-				}
-			}
+		    Web_App | Server {
+		    	get://search {;
+		    		"Query: |request.query|"
+		    	}
+		    }
 
-			app = Web_App()
-		AIR
+		    app = Web_App()
+		ORE
 
-		interpreter = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		server_instance = interpreter.output
 
-		routes = interpreter.collect_routes_from_instance server_instance
-		@server_runner = Air::Server_Runner.new server_instance, interpreter, routes
+		routes         = interpreter.collect_routes_from_instance server_instance
+		@server_runner = Ore::Server_Runner.new server_instance, interpreter, routes
 		@server_runner.start
 
 		sleep 0.5
@@ -100,33 +100,33 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	def test_post_route
-		code = <<~AIR
-			Server {
-				port;
-				new { port = #{@port};
-					./port = port
-				}
-			}
+		code = <<~ORE
+		    Server {
+		    	port;
+		    	new { port = #{@port};
+		    		./port = port
+		    	}
+		    }
 
-			Web_App | Server {
-				post://submit {;
-					"Form submitted"
-				}
-			}
+		    Web_App | Server {
+		    	post://submit {;
+		    		"Form submitted"
+		    	}
+		    }
 
-			app = Web_App()
-		AIR
+		    app = Web_App()
+		ORE
 
-		interpreter = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		server_instance = interpreter.output
 
-		routes = interpreter.collect_routes_from_instance server_instance
-		@server_runner = Air::Server_Runner.new server_instance, interpreter, routes
+		routes         = interpreter.collect_routes_from_instance server_instance
+		@server_runner = Ore::Server_Runner.new server_instance, interpreter, routes
 		@server_runner.start
 
 		sleep 0.5
 
-		uri = URI("http://localhost:#{@port}/submit")
+		uri      = URI("http://localhost:#{@port}/submit")
 		response = Net::HTTP.post_form uri, {}
 		assert_equal '200', response.code
 		assert_equal 'Form submitted', response.body
@@ -136,31 +136,31 @@ class E2E_Server_Test < Minitest::Test
 		port_a = @port
 		port_b = @port + 1
 
-		code = <<~AIR
-			Server {
-				port;
-				new { port;
-					./port = port
-				}
-			}
+		code = <<~ORE
+		    Server {
+		    	port;
+		    	new { port;
+		    		./port = port
+		    	}
+		    }
 
-			Server_A | Server {
-				get://a {;
-					"Response from Server A"
-				}
-			}
+		    Server_A | Server {
+		    	get://a {;
+		    		"Response from Server A"
+		    	}
+		    }
 
-			Server_B | Server {
-				get://b {;
-					"Response from Server B"
-				}
-			}
+		    Server_B | Server {
+		    	get://b {;
+		    		"Response from Server B"
+		    	}
+		    }
 
-			a = Server_A(#{port_a})
-			b = Server_B(#{port_b})
-		AIR
+		    a = Server_A(#{port_a})
+		    b = Server_B(#{port_b})
+		ORE
 
-		interpreter = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		interpreter.output
 
 		# Collect routes for each server
@@ -175,8 +175,8 @@ class E2E_Server_Test < Minitest::Test
 		routes_b = interpreter.collect_routes_from_instance b_instance
 
 		# Start both servers
-		@server_runner_a = Air::Server_Runner.new a_instance, interpreter, routes_a
-		@server_runner_b = Air::Server_Runner.new b_instance, interpreter, routes_b
+		@server_runner_a = Ore::Server_Runner.new a_instance, interpreter, routes_a
+		@server_runner_b = Ore::Server_Runner.new b_instance, interpreter, routes_b
 
 		@server_runner_a.start
 		@server_runner_b.start

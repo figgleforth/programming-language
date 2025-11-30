@@ -1,6 +1,6 @@
-require_relative '../air'
+require_relative '../ore'
 
-module Air
+module Ore
 	class Scope
 		attr_accessor :enclosing_scope
 		attr_reader :name, :declarations
@@ -48,7 +48,7 @@ module Air
 		# Convenience method for loading files into this scope without a context
 		# Creates a temporary Context to handle file loading
 		def load_file filepath
-			temp_context = Air::Context.new
+			temp_context = Ore::Context.new
 			temp_context.load_file filepath, self
 			self
 		end

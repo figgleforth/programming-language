@@ -1,5 +1,5 @@
 `Builtin types I'm experimenting with, very much incomplete.
-`Each of these should have an equivalent Air::Type in lib/runtime/types.rb
+`Each of these should have an equivalent Ore::Type in lib/runtime/types.rb
 
 Nil {}
 

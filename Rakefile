@@ -1,15 +1,15 @@
 require 'minitest/test_task'
-require_relative 'lib/air'
+require_relative 'lib/ore'
 require 'pp'
 
 def _interp source_code
-	Air.interp source_code
+	Ore.interp source_code
 end
 
 def _interp_file filepath
 	code        = File.read filepath
-	global      = Air::Global.with_standard_library
-	interpreter = Air::Interpreter.new Air.parse(code), global
+	global      = Ore::Global.with_standard_library
+	interpreter = Ore::Interpreter.new Ore.parse(code), global
 	result      = interpreter.output
 
 	# If servers were started, wait for them and setup signal handlers
@@ -46,7 +46,7 @@ Minitest::TestTask.create(:test) do |t|
 end
 
 task :cloc do
-	sh "\ncloc --quiet --force-lang-def=air.cloc ."
+	sh "\ncloc --quiet --force-lang-def=ore.cloc ."
 end
 
 task :interp, [:string] do |_, args|
