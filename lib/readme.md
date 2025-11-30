@@ -1,6 +1,6 @@
 ### What's here?
 
-This [`lib`](/lib) folder contains the implementation of Air in Ruby. The codebase is organized into two main phases:
+This [`lib`](/lib) folder contains the implementation of Ore in Ruby. The codebase is organized into two main phases:
 
 **Compile-time** (`lib/compiler/`) - Source code to AST
 
@@ -19,21 +19,21 @@ This [`lib`](/lib) folder contains the implementation of Air in Ruby. The codeba
 
 **Orchestration**
 
-- [`air.rb`](air.rb) - Main entry point, requires all components
+- [`ore.rb`](ore.rb) - Main entry point, requires all components
 
 **Miscellaneous**
 
 - [`constants.rb`](shared/constants.rb) - Language constants and operator definitions
-- [`helpers.rb`](shared/helpers.rb) - Utility functions added to Air module
+- [`helpers.rb`](shared/helpers.rb) - Utility functions added to Ore module
 
 ---
 
 ### Running Your Own Programs With Ruby
 
-To run an Air program, the source code must go through the [Lexer](compiler/lexer.rb), whose output goes through the [Parser](compiler/parser.rb), whose output goes through the [Interpreter](runtime/interpreter.rb), resulting in final program output.
+To run an Ore program, the source code must go through the [Lexer](compiler/lexer.rb), whose output goes through the [Parser](compiler/parser.rb), whose output goes through the [Interpreter](runtime/interpreter.rb), resulting in final program output.
 
 ```ruby
-require './lib/air'
+require './lib/ore'
 
 lexer   = Lexer.new 'Hello, World!'
 lexemes = lexer.output # => array of Lexemes
@@ -45,21 +45,21 @@ interpreter = Interpreter.new expressions
 result      = interpreter.output # => Hello, World!
 ```
 
-Another option is to use one of the [`#Air.lex*`, `Air.parse*`,
-`Air.interp*`](runtime/helpers.rb) helpers, which saves you three lines if you only need the output.
+Another option is to use one of the [`#Ore.lex*`, `Ore.parse*`,
+`Ore.interp*`](runtime/helpers.rb) helpers, which saves you three lines if you only need the output.
 
 ```ruby
-require './lib/air'
+require './lib/ore'
 
 source      = '"Hello, Again!"'
-lexemes     = Air.lex source # => array of Lexemes
-expressions = Air.parse source # => array of Expressions
-result      = Air.interp source # => Hello, Again!
+lexemes     = Ore.lex source # => array of Lexemes
+expressions = Ore.parse source # => array of Expressions
+result      = Ore.interp source # => Hello, Again!
 
-source_file = './my_program.air'
-lexemes     = Air.lex_file source_file # => array of Lexemes
-expressions = Air.parse_file source_file # => array of Expressions
-result      = Air.interp_file source_file
+source_file = './my_program.ore'
+lexemes     = Ore.lex_file source_file # => array of Lexemes
+expressions = Ore.parse_file source_file # => array of Expressions
+result      = Ore.interp_file source_file
 ```
 
 ### Running Your Own Programs By Command Line
@@ -67,6 +67,6 @@ result      = Air.interp_file source_file
 This is the quickest way to run code.
 
 ```bash
-rake interp_file["my_program.air"]
+rake interp_file["my_program.ore"]
 rake interp["4 + 8"] # => 12
 ```

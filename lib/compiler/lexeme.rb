@@ -1,4 +1,4 @@
-module Air
+module Ore
 	Lexeme = Struct.new(:type, :value, :reserved, :l0, :c0, :l1, :c1) do
 		def is compare
 			if compare.is_a? Symbol

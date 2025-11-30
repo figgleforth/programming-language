@@ -1,204 +1,204 @@
 require 'minitest/autorun'
-require_relative '../lib/air'
+require_relative '../lib/ore'
 require_relative 'base_test'
 
 class Lexer_Test < Base_Test
 	def test_single_linecomment
-		out = Air.lex '`single line comment'
+		out = Ore.lex '`single line comment'
 		assert_equal :comment, out.first.type
 		assert_equal 'single line comment', out.first.value
-		assert_kind_of Air::Lexeme, out.first
+		assert_kind_of Ore::Lexeme, out.first
 	end
 
 	def test_multiline_comment
-		out = Air.lex '```many line comment```'
+		out = Ore.lex '```many line comment```'
 		assert_equal :comment, out.first.type
 		assert_equal 'many line comment', out.first.value
-		assert_kind_of Air::Lexeme, out.first
+		assert_kind_of Ore::Lexeme, out.first
 	end
 
 	def test_identifiers
 		tests = %w(lowercase UPPERCASE Capitalized).zip %I(identifier IDENTIFIER Identifier)
 		tests.all? do |code, type|
-			out = Air.lex code
+			out = Ore.lex code
 			assert_equal type, out.first.type
-			assert_kind_of Air::Lexeme, out.first
+			assert_kind_of Ore::Lexeme, out.first
 		end
 	end
 
 	def test_numbers
-		assert_equal :number, Air.lex('4').first.type
-		assert_equal :number, Air.lex('8.0').first.type
+		assert_equal :number, Ore.lex('4').first.type
+		assert_equal :number, Ore.lex('8.0').first.type
 	end
 
 	def test_prefixed_numbers
 
-		out = Air.lex '-15'
+		out = Ore.lex '-15'
 		assert_equal %I(operator number), out.map(&:type)
 		assert_equal '15', out.last.value # These are converted to numerical values once they become Number_Exprs
 		assert_equal 2, out.count
 
-		out = Air.lex '+1.6'
+		out = Ore.lex '+1.6'
 		assert_equal %I(operator number), out.map(&:type)
 		assert_equal '1.6', out.last.value
 		assert_equal 2, out.count
 	end
 
 	def test_unusual_number_situations
-		out = Air.lex '20three'
+		out = Ore.lex '20three'
 		assert_equal %I(number identifier), out.map(&:type)
 		assert_equal 2, out.count
 
-		out = Air.lex '40__two'
+		out = Ore.lex '40__two'
 		assert_equal %I(number identifier), out.map(&:type)
 		assert_equal 2, out.count
 
-		out = Air.lex '4_15_6_3_4'
+		out = Ore.lex '4_15_6_3_4'
 		assert_equal :number, out.first.type
 		assert_equal 1, out.count
 
-		out = Air.lex 'abc123'
+		out = Ore.lex 'abc123'
 		assert_equal :identifier, out.first.type
 		assert_equal 1, out.count
 	end
 
 	def test_strings
-		out = Air.lex '"A string"'
+		out = Ore.lex '"A string"'
 		assert_equal :string, out.first.type
 
-		out = Air.lex "'Another string'"
+		out = Ore.lex "'Another string'"
 		assert_equal :string, out.first.type
 
 	end
 
 	def test_interpolated_strings
-		out = Air.lex '"An |interpolated| string"'
+		out = Ore.lex '"An |interpolated| string"'
 		assert_equal :string, out.first.type
 
-		out = Air.lex "'Another |interpolated| string'"
+		out = Ore.lex "'Another |interpolated| string'"
 		assert_equal :string, out.first.type
 	end
 
 	def test_operators
 		# todo Should this be such a long test?
-		out = Air.lex 'numbers += 4815162342'
+		out = Ore.lex 'numbers += 4815162342'
 		assert_equal %I(identifier operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex 'ENABLED = true'
+		out = Ore.lex 'ENABLED = true'
 		assert_equal %I(IDENTIFIER operator identifier), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex 'Type = {}'
+		out = Ore.lex 'Type = {}'
 		assert_equal %I(Identifier operator delimiter delimiter), out.map(&:type)
 		assert_equal 4, out.count
 
-		out = Air.lex 'numbers =;'
+		out = Ore.lex 'numbers =;'
 		assert_equal %I(identifier operator), out.map(&:type)
 		assert_equal 2, out.count
 
-		out = Air.lex 'number: Number = 1'
+		out = Ore.lex 'number: Number = 1'
 		assert_equal %I(identifier operator Identifier operator number), out.map(&:type)
 		assert_equal 5, out.count
 
-		out = Air.lex '1 + 2 * 3 / 4'
+		out = Ore.lex '1 + 2 * 3 / 4'
 		assert_equal %I(number operator number operator number operator number), out.map(&:type)
 		assert_equal 7, out.count
 
-		out = Air.lex '1 <=> 2'
+		out = Ore.lex '1 <=> 2'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '1 == 2'
+		out = Ore.lex '1 == 2'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '1 != 2'
+		out = Ore.lex '1 != 2'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '1 > 2'
+		out = Ore.lex '1 > 2'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '1 <= 2'
+		out = Ore.lex '1 <= 2'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '1..2'
+		out = Ore.lex '1..2'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '3.0..4.0'
+		out = Ore.lex '3.0..4.0'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '3.<4'
+		out = Ore.lex '3.<4'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '5>.6'
+		out = Ore.lex '5>.6'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex '7><8'
+		out = Ore.lex '7><8'
 		assert_equal %I(number operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex 'a, B, 5, "cool"'
+		out = Ore.lex 'a, B, 5, "cool"'
 		assert_equal %I(identifier delimiter IDENTIFIER delimiter number delimiter string), out.map(&:type)
 		assert_equal 7, out.count
 
-		out = Air.lex '1..2, 3.<4, 5>.6, 7><8'
+		out = Ore.lex '1..2, 3.<4, 5>.6, 7><8'
 		assert_equal %I(number operator number delimiter number operator number delimiter number operator number delimiter number operator number), out.map(&:type)
 		assert_equal 15, out.count
 
-		out = Air.lex './this_instance'
+		out = Ore.lex './this_instance'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
 
-		out = Air.lex '../global_scope'
+		out = Ore.lex '../global_scope'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
 
-		out = Air.lex '.../third_party'
+		out = Ore.lex '.../third_party'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
 	end
 
 	def test_declaration_operators
-		out = Air.lex 'numbers := 4815162342' # This parses but I'm not using this any longer. Maybe I'll repurpose it.
+		out = Ore.lex 'numbers := 4815162342' # This parses but I'm not using this any longer. Maybe I'll repurpose it.
 		assert_equal %I(identifier operator number), out.map(&:type)
 		assert_equal 3, out.count
 
-		out = Air.lex 'numbers = 123'
+		out = Ore.lex 'numbers = 123'
 		assert_equal %I(identifier operator number), out.map(&:type)
 		assert_equal 3, out.count
 	end
 
 	def test_functions
-		out = Air.lex '{;}'
+		out = Ore.lex '{;}'
 		assert_equal [:delimiter, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex 'named_function {;}'
+		out = Ore.lex 'named_function {;}'
 		assert_equal [:identifier, :delimiter, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex '{ input; }'
+		out = Ore.lex '{ input; }'
 		assert_equal [:delimiter, :identifier, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex '{ labeled input; }'
+		out = Ore.lex '{ labeled input; }'
 		assert_equal [:delimiter, :identifier, :identifier, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex '{ value = 123; }'
+		out = Ore.lex '{ value = 123; }'
 		assert_equal [:delimiter, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex '{ labeled value = 123; }'
+		out = Ore.lex '{ labeled value = 123; }'
 		assert_equal [:delimiter, :identifier, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex '{ mixed, labeled value = 456; }'
+		out = Ore.lex '{ mixed, labeled value = 456; }'
 		assert_equal [:delimiter, :identifier, :delimiter, :identifier, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex 'square { input;
+		out = Ore.lex 'square { input;
 		 		input * input
 		 	 }'
 		assert_equal [
@@ -206,7 +206,7 @@ class Lexer_Test < Base_Test
 			             :identifier, :operator, :identifier, :delimiter, :delimiter
 		             ], out.map(&:type)
 
-		out = Air.lex 'wrap { number, limit;
+		out = Ore.lex 'wrap { number, limit;
 		 		if number > limit
 		 			number = 0
 		 		end
@@ -220,10 +220,10 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_types
-		out = Air.lex 'String {}'
+		out = Ore.lex 'String {}'
 		assert_equal [:Identifier, :delimiter, :delimiter], out.map(&:type)
 
-		out = Air.lex 'Transform {
+		out = Ore.lex 'Transform {
 		 	position =;
 		 	rotation =;
 		 }'
@@ -234,7 +234,7 @@ class Lexer_Test < Base_Test
 			             :delimiter
 		             ], out.map(&:type)
 
-		out = Air.lex 'Entity {
+		out = Ore.lex 'Entity {
 		 	|Transform
 		}'
 		assert_equal [
@@ -243,12 +243,12 @@ class Lexer_Test < Base_Test
 			             :delimiter
 		             ], out.map(&:type)
 
-		out = Air.lex 'Player > Entity {}'
+		out = Ore.lex 'Player > Entity {}'
 		assert_equal [:Identifier, :operator, :Identifier, :delimiter, :delimiter], out.map(&:type)
 	end
 
 	def test_control_flow
-		out = Air.lex 'if true
+		out = Ore.lex 'if true
 			celebrate()
 		end'
 		assert_equal [
@@ -257,7 +257,7 @@ class Lexer_Test < Base_Test
 			             :identifier
 		             ], out.map(&:type)
 
-		out = Air.lex 'if 1 + 2 * 3 == 7
+		out = Ore.lex 'if 1 + 2 * 3 == 7
 			"This one!"
 		elif 1 + 2 * 3 == 9
 			\'No, this one!\'
@@ -274,7 +274,7 @@ class Lexer_Test < Base_Test
 			             :identifier
 		             ], out.map(&:type)
 
-		out = Air.lex 'for [1, 2, 3, 4, 5]
+		out = Ore.lex 'for [1, 2, 3, 4, 5]
 			remove it if randf() > 0.5
 			skip
 			stop
@@ -289,25 +289,25 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_compound_operators
-		Air::COMPOUND_OPERATORS.each do |operator|
-			out = Air.lex operator
+		Ore::COMPOUND_OPERATORS.each do |operator|
+			out = Ore.lex operator
 			assert_equal operator, out.first.value
 		end
 	end
 
 	def test_conditional_keywords
-		out = Air.lex 'and or'
+		out = Ore.lex 'and or'
 		assert_equal :operator, out.first.type
 		assert_equal :operator, out.last.type
 	end
 
 	def test_return_is_an_operator
-		out = Air.lex 'return 1 + 2'
+		out = Ore.lex 'return 1 + 2'
 		assert_equal :operator, out.first.type
 	end
 
 	def test_identifier_dot_integer
-		out = Air.lex 'array.0'
+		out = Ore.lex 'array.0'
 		assert_equal :identifier, out.first.type
 		assert_equal 'array', out.first.value
 		assert_equal :operator, out[1].type
@@ -318,7 +318,7 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_identifier_dot_float
-		out = Air.lex 'array.2.0'
+		out = Ore.lex 'array.2.0'
 		assert_equal :identifier, out.first.type
 		assert_equal 'array', out.first.value
 		assert_equal :operator, out[1].type
@@ -329,33 +329,33 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_number_with_multiple_decimal_points
-		out = Air.lex '1.2.3'
+		out = Ore.lex '1.2.3'
 		assert_equal 1, out.count
 		assert_equal :number, out.first.type
 	end
 
 	def test_double_less_than_is_operator
-		out = Air.lex '<<'
+		out = Ore.lex '<<'
 		assert_equal :operator, out.first.type
 	end
 
 	def test_at_prefix
-		out = Air.lex '@count'
+		out = Ore.lex '@count'
 		assert_equal :operator, out.first.type
 	end
 
 	def test_allowed_identifier_special_chars
-		out = Air.lex 'what?;'
+		out = Ore.lex 'what?;'
 		assert_equal :identifier, out.first.type
 		assert_equal 'what?', out.first.value
 
-		out = Air.lex 'okay!;'
+		out = Ore.lex 'okay!;'
 		assert_equal :identifier, out.first.type
 		assert_equal 'okay!', out.first.value
 	end
 
 	def test_reference_prefix
-		out = Air.lex '^reference'
+		out = Ore.lex '^reference'
 		assert_equal :operator, out.first.type
 		assert_equal '^', out.first.value
 		assert_equal :identifier, out.last.type
@@ -363,18 +363,18 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_for_keyword
-		out = Air.lex 'for'
+		out = Ore.lex 'for'
 		assert_equal :operator, out.last.type
 	end
 
 	def test_single_line_code_location
-		out = Air.lex 'abracadabra'
+		out = Ore.lex 'abracadabra'
 		assert_equal 1, out.last.l0
 		assert_equal 1, out.last.c0
 		assert_equal 1, out.last.l1
 		assert_equal 12, out.last.c1
 
-		out = Air.lex 'abracadabra = whatever'
+		out = Ore.lex 'abracadabra = whatever'
 		assert_equal 1, out.last.l0
 		assert_equal 1, out.last.l1
 		assert_equal 15, out.last.c0
@@ -382,7 +382,7 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_multiline_code_location
-		out = Air.lex \
+		out = Ore.lex \
 			"Thing {
 	id;
 	name;

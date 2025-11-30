@@ -1,5 +1,5 @@
-module Air
-	STANDARD_LIBRARY_PATH      = './air/preload.air'
+module Ore
+	STANDARD_LIBRARY_PATH      = './ore/preload.ore'
 	REFERENCE_PREFIX           = '@' # TODO I'm not sold on this yet
 	DIRECTIVE_PREFIX           = '#'
 	HTML_ATTRS                 = %w(id class href)

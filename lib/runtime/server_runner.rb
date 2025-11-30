@@ -1,8 +1,8 @@
 require 'webrick'
 require 'cgi'
-require_relative '../air'
+require_relative '../ore'
 
-module Air
+module Ore
 	class Server_Runner
 		attr_accessor :server_instance, :interpreter, :port, :routes, :webrick_server, :server_thread
 
@@ -67,8 +67,8 @@ module Air
 				query_params = parse_query_string query_string
 
 				# Create Request and Response objects
-				air_res = Air::Response.new
-				air_req = Air::Request.new
+				air_res = Ore::Response.new
+				air_req = Ore::Request.new
 
 				air_req.path    = path_string
 				air_req.method  = http_method

@@ -1,25 +1,25 @@
 require 'minitest/autorun'
-require_relative '../lib/air'
+require_relative '../lib/ore'
 require_relative 'base_test'
 
 class Regression_Test < Base_Test
 	def test_greater_equals_regression
-		out = Air.interp '2+1 >= 1'
+		out = Ore.interp '2+1 >= 1'
 		assert out
 	end
 
 	def test_precedence_operation_regression
-		src = Air.interp '1 + 2 / 3 - 4 * 5'
-		ref = Air.interp '(1 + (2 / 3)) - (4 * 5)'
+		src = Ore.interp '1 + 2 / 3 - 4 * 5'
+		ref = Ore.interp '(1 + (2 / 3)) - (4 * 5)'
 		assert_equal ref, src
 		assert_equal -19, src
 	end
 
 	def test_infixes_regression
-		Air::COMPOUND_OPERATORS.each do |operator|
+		Ore::COMPOUND_OPERATORS.each do |operator|
 			code = "left #{operator} right"
-			out  = Air.parse(code)
-			assert_kind_of Air::Infix_Expr, out.first
+			out  = Ore.parse(code)
+			assert_kind_of Ore::Infix_Expr, out.first
 		end
 	end
 
@@ -29,77 +29,77 @@ class Regression_Test < Base_Test
 		]
 
 		invalid_samples.each do |sample|
-			assert_raises Air::Invalid_Scoped_Identifier do
-				Air.parse sample
+			assert_raises Ore::Invalid_Scoped_Identifier do
+				Ore.parse sample
 			end
 		end
 
-		ds   = Air.parse './abc'
-		dds  = Air.parse '../def'
-		ddds = Air.parse '.../ghi'
-		assert_kind_of Air::Identifier_Expr, ds.first
-		assert_kind_of Air::Identifier_Expr, dds.first
-		assert_kind_of Air::Identifier_Expr, ddds.first
+		ds   = Ore.parse './abc'
+		dds  = Ore.parse '../def'
+		ddds = Ore.parse '.../ghi'
+		assert_kind_of Ore::Identifier_Expr, ds.first
+		assert_kind_of Ore::Identifier_Expr, dds.first
+		assert_kind_of Ore::Identifier_Expr, ddds.first
 
-		ds = Air.parse './abc'
-		assert_kind_of Air::Identifier_Expr, ds.last
+		ds = Ore.parse './abc'
+		assert_kind_of Ore::Identifier_Expr, ds.last
 		assert_equal './', ds.last.scope_operator
 		assert_equal 'abc', ds.last.value
 	end
 
 	def test_dot_slash_regression
-		out = Air.interp './x = 123'
+		out = Ore.interp './x = 123'
 		assert_equal 123, out
 	end
 
 	def test_look_up_dot_slash_without_dot_slash_regression
-		out = Air.interp './x = 456
+		out = Ore.interp './x = 456
 		x'
 		assert_equal 456, out
 	end
 
 	def test_look_up_dot_slash_with_dot_slash_regression
-		out = Air.interp './y = 789
+		out = Ore.interp './y = 789
 		./y'
 		assert_equal 789, out
 	end
 
 	def test_dot_slash_within_infix_regression
-		out = Air.parse './x? = 123'
-		assert_kind_of Air::Infix_Expr, out.first
+		out = Ore.parse './x? = 123'
+		assert_kind_of Ore::Infix_Expr, out.first
 		assert_equal '=', out.first.operator
 		assert_equal 'x?', out.first.left.value
-		assert_kind_of Air::Identifier_Expr, out.first.left
+		assert_kind_of Ore::Identifier_Expr, out.first.left
 		assert_equal './', out.first.left.scope_operator
 	end
 
 	def test_scope_operators_regression
-		out = Air.parse './this_instance'
-		assert_kind_of Air::Identifier_Expr, out.first
+		out = Ore.parse './this_instance'
+		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
-		out = Air.parse '../one_up_the_stack'
-		assert_kind_of Air::Identifier_Expr, out.first
+		out = Ore.parse '../one_up_the_stack'
+		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
-		out = Air.parse '.../global_scope'
-		assert_kind_of Air::Identifier_Expr, out.first
+		out = Ore.parse '.../global_scope'
+		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal 1, out.count
 	end
 
 	def test_assigning_false_value_regression
-		out = Air.interp 'how = false
+		out = Ore.interp 'how = false
 		how'
 		assert_equal false, out
 	end
 
 	def test_identifier_lookup_regression
-		out = Air.interp 'Air {}, Air'
+		out = Ore.interp 'Ore {}, Ore'
 		assert_instance_of Type, out
 	end
 
 	def test_instance_does_not_have_new_function_regression
-		out = Air.interp '
+		out = Ore.interp '
 		Atom {
 			new {;}
 		}
@@ -111,7 +111,7 @@ class Regression_Test < Base_Test
 	end
 
 	def test_dot_new_initializer_regression
-		out = Air.interp 'Number {
+		out = Ore.interp 'Number {
 			numerator = 8
 
 			new { num;
@@ -124,7 +124,7 @@ class Regression_Test < Base_Test
 	end
 
 	def test_calling_member_functions
-		out = Air.interp '
+		out = Ore.interp '
 		Number {
 			numerator = -100
 
@@ -138,7 +138,7 @@ class Regression_Test < Base_Test
 	end
 
 	def test_dot_slash_regression
-		out = Air.interp '
+		out = Ore.interp '
 		Box {
 			kind = "NONE"
 
@@ -157,23 +157,23 @@ class Regression_Test < Base_Test
 		s2 = b2.to_s()
 		(b1, s1, b2, s2)
 		'
-		assert_instance_of Air::Instance, out.values[0]
+		assert_instance_of Ore::Instance, out.values[0]
 		assert_equal "Big-box", out.values[1]
 		assert_equal "Small-box", out.values[3]
 	end
 
 	def test_identifier_lookup_regression
-		out = Air.interp "./x = 123, ./x"
+		out = Ore.interp "./x = 123, ./x"
 		assert_equal 123, out
 
-		out = Air.interp "x = 123
+		out = Ore.interp "x = 123
 		funk {;
 			./x + 2
 		}
 		funk()"
 		assert_equal 125, out
 
-		out = Air.interp "y = 0
+		out = Ore.interp "y = 0
 		add { amount_to_add = 1;
 			./y + amount_to_add
 		}
@@ -182,7 +182,7 @@ class Regression_Test < Base_Test
 		(a, add(a * 2))"
 		assert_equal [4, 8], out.values
 
-		out = Air.interp "y = 0
+		out = Ore.interp "y = 0
 		add { amount_to_add = 1;
 			y += amount_to_add
 		}
@@ -191,8 +191,8 @@ class Regression_Test < Base_Test
 		(y, a)"
 		assert_equal [4, 4], out.values
 
-		refute_raises Air::Undeclared_Identifier do
-			out = Air.interp "
+		refute_raises Ore::Undeclared_Identifier do
+			out = Ore.interp "
 			Thing {
 				id;
 				name = 'Thingy'
@@ -210,8 +210,8 @@ class Regression_Test < Base_Test
 			assert_equal [123, "", 456, "Thingus"], out.values
 		end
 
-		assert_raises Air::Missing_Argument do
-			out = Air.interp "
+		assert_raises Ore::Missing_Argument do
+			out = Ore.interp "
 			Thing {
 				id;
 				name = 'Thingy';
@@ -227,8 +227,8 @@ class Regression_Test < Base_Test
 			assert_equal [456, "Thingus"], out.values
 		end
 
-		assert_raises Air::Missing_Argument do
-			Air.interp "
+		assert_raises Ore::Missing_Argument do
+			Ore.interp "
 	        funk { it;
 				it == true
 			}
@@ -236,8 +236,8 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Air::Undeclared_Identifier do
-			Air.interp "
+		refute_raises Ore::Undeclared_Identifier do
+			Ore.interp "
 			funk { it;
 				it == true
 			}
@@ -245,8 +245,8 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Air::Undeclared_Identifier do
-			Air.interp "
+		refute_raises Ore::Undeclared_Identifier do
+			Ore.interp "
 			funk { it = \"true\";
 				it == true
 			}
@@ -254,8 +254,8 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Air::Undeclared_Identifier do
-			Air.interp "
+		refute_raises Ore::Undeclared_Identifier do
+			Ore.interp "
 			funk { it = \"false\";
 				it == true
 			}
@@ -263,8 +263,8 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Air::Undeclared_Identifier do
-			Air.interp "
+		refute_raises Ore::Undeclared_Identifier do
+			Ore.interp "
 			funk { it = true;
 				it == true
 			}
@@ -272,8 +272,8 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Air::Undeclared_Identifier do
-			Air.interp "
+		refute_raises Ore::Undeclared_Identifier do
+			Ore.interp "
 			funk { funkit = false;
 				funkit == true
 			}
@@ -281,8 +281,8 @@ class Regression_Test < Base_Test
 			"
 		end
 
-		refute_raises Air::Undeclared_Identifier do
-			Air.interp "
+		refute_raises Ore::Undeclared_Identifier do
+			Ore.interp "
 			funk { it = nil;
 				it == true
 			}

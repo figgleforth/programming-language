@@ -1,12 +1,12 @@
 require 'minitest/autorun'
-require_relative '../lib/air'
+require_relative '../lib/ore'
 require_relative 'base_test'
 require 'net/http'
 require 'uri'
 
 class Server_Test < Base_Test
 	def test_server_instance_creation
-		code = <<~AIR
+		code = <<~ORE
 		    Server {
 		    	port;
 		    	new { port = 3000;
@@ -15,15 +15,15 @@ class Server_Test < Base_Test
 		    }
 
 		    server = Server()
-		AIR
+		ORE
 
-		result = Air.interp code
-		assert_instance_of Air::Instance, result
+		result = Ore.interp code
+		assert_instance_of Ore::Instance, result
 		assert_equal 3000, result[:port]
 	end
 
 	def test_web_app_with_server_composition
-		code = <<~AIR
+		code = <<~ORE
 		    Server {
 		    	port;
 		    	new { port = 3001;
@@ -38,15 +38,15 @@ class Server_Test < Base_Test
 		    }
 
 		    app = Web_App()
-		AIR
+		ORE
 
-		result = Air.interp code
-		assert_instance_of Air::Instance, result
+		result = Ore.interp code
+		assert_instance_of Ore::Instance, result
 		assert_equal 3001, result[:port]
 	end
 
 	def test_route_defined_in_server_type
-		code = <<~AIR
+		code = <<~ORE
 		    Server {
 		    	port;
 		    	new { port = 3002;
@@ -65,19 +65,19 @@ class Server_Test < Base_Test
 		    }
 
 		    app = Web_App()
-		AIR
+		ORE
 
-		interpreter = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		result      = interpreter.output
 
-		assert_instance_of Air::Instance, result
+		assert_instance_of Ore::Instance, result
 
 		# Check that routes were registered
 		assert_equal 2, interpreter.context.routes.count
 	end
 
 	def test_server_runner_initialization
-		code = <<~AIR
+		code = <<~ORE
 		    Server {
 		    	port;
 		    	new { port = 8888;
@@ -85,12 +85,12 @@ class Server_Test < Base_Test
 		    	}
 		    }
 		    app = Server()
-		AIR
+		ORE
 
-		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		server_instance = interpreter.output
 
-		server_runner = Air::Server_Runner.new server_instance, interpreter
+		server_runner = Ore::Server_Runner.new server_instance, interpreter
 
 		assert_equal 8888, server_runner.port
 		assert_equal server_instance, server_runner.server_instance
@@ -98,7 +98,7 @@ class Server_Test < Base_Test
 	end
 
 	def test_route_collection
-		code = <<~AIR
+		code = <<~ORE
 		    Server {
 		    	port;
 		    	new { port = 3003;
@@ -117,19 +117,19 @@ class Server_Test < Base_Test
 		    }
 
 		    app = Web_App()
-		AIR
+		ORE
 
-		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		server_instance = interpreter.output
 
-		server_runner = Air::Server_Runner.new server_instance, interpreter
+		server_runner = Ore::Server_Runner.new server_instance, interpreter
 		routes        = server_runner.interpreter.context.routes
 
 		assert_equal 2, routes.count
 	end
 
 	def test_route_matching
-		code = <<~AIR
+		code = <<~ORE
 		    Server {
 		    	port;
 		    	new { port = 3004;
@@ -148,12 +148,12 @@ class Server_Test < Base_Test
 		    }
 
 		    app = Web_App()
-		AIR
+		ORE
 
-		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		server_instance = interpreter.output
 
-		server_runner = Air::Server_Runner.new server_instance, interpreter
+		server_runner = Ore::Server_Runner.new server_instance, interpreter
 		routes        = server_runner.interpreter.context.routes
 
 		# Test matching simple parameterized route
@@ -172,7 +172,7 @@ class Server_Test < Base_Test
 	end
 
 	def test_url_param_extraction
-		code = <<~AIR
+		code = <<~ORE
 		    Server {
 		    	port;
 		    	new { port = 3005;
@@ -187,12 +187,12 @@ class Server_Test < Base_Test
 		    }
 
 		    app = Web_App()
-		AIR
+		ORE
 
-		interpreter     = Air::Interpreter.new Air.parse(code), Air::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
 		server_instance = interpreter.output
 
-		server_runner = Air::Server_Runner.new server_instance, interpreter
+		server_runner = Ore::Server_Runner.new server_instance, interpreter
 		routes        = server_runner.interpreter.context.routes
 		route         = routes.values.first
 
@@ -204,9 +204,9 @@ class Server_Test < Base_Test
 	end
 
 	def test_query_string_parsing
-		server_instance = Air::Instance.new 'Server'
-		interpreter     = Air::Interpreter.new [], Air::Global.new
-		server_runner   = Air::Server_Runner.new server_instance, interpreter
+		server_instance = Ore::Instance.new 'Server'
+		interpreter     = Ore::Interpreter.new [], Ore::Global.new
+		server_runner   = Ore::Server_Runner.new server_instance, interpreter
 
 		query_params = server_runner.parse_query_string 'name=John&age=30&city=NYC'
 
@@ -216,9 +216,9 @@ class Server_Test < Base_Test
 	end
 
 	def test_query_string_with_url_encoding
-		server_instance = Air::Instance.new 'Server'
-		interpreter     = Air::Interpreter.new [], Air::Global.new
-		server_runner   = Air::Server_Runner.new server_instance, interpreter
+		server_instance = Ore::Instance.new 'Server'
+		interpreter     = Ore::Interpreter.new [], Ore::Global.new
+		server_runner   = Ore::Server_Runner.new server_instance, interpreter
 
 		query_params = server_runner.parse_query_string 'message=Hello%20World&special=%21%40%23'
 
