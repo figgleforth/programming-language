@@ -42,6 +42,7 @@ Hello('World').output()  `"Hi, World!"
 	- [Variables](#variables)
 	- [Functions](#functions)
 	- [Classes](#classes)
+	- [Web Servers](#web-servers)
 	- [Class Composition](#class-composition)
 - [Getting Started](#getting-started)
 
@@ -129,6 +130,70 @@ Repo {
 
 Repo('figgleforth', 'programming-language').to_s() `"figgleforth/programming-language"
 ```
+
+#### Web Servers
+
+Air includes built-in web server support with routing, allowing you to create HTTP servers with minimal code.
+
+```air
+`Define a base Server class
+Server {
+	port;
+	new { port;
+		./port = port
+	}
+}
+
+`Create a web app by composing with Server
+Web_App | Server {
+	`Define routes using HTTP method and path
+	get:// {;
+		"<h1>Welcome to Air!</h1>"
+	}
+
+	get://hello/:name { name;
+		"<h1>Hello, |name|!</h1>"
+	}
+
+	post://submit {;
+		"Form submitted"
+	}
+}
+
+`Start the server on port 8080
+app = Web_App(8080)
+#serve_http app
+```
+
+**Multiple Servers**
+
+You can run multiple servers simultaneously, each with their own routes:
+
+```air
+API_Server | Server {
+	get://api/users {;
+		"[{\"id\": 1, \"name\": \"Alice\"}]"
+	}
+}
+
+Admin_Server | Server {
+	get://admin {;
+		"<h1>Admin Dashboard</h1>"
+	}
+}
+
+`Both servers run concurrently in background threads
+#serve_http API_Server(3000)
+#serve_http Admin_Server(3001)
+```
+
+**Features:**
+- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
+- URL parameters via `:param` syntax
+- Query string access via `request.query`
+- Request/response objects automatically available
+- Non-blocking `#serve_http` directive allows multiple servers
+- Graceful shutdown handling when program exits
 
 ### Getting Started
 
