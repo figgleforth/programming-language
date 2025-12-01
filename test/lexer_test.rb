@@ -282,8 +282,8 @@ class Lexer_Test < Base_Test
 		assert_equal [
 			             :operator, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :number, :delimiter, :delimiter,
 			             :identifier, :identifier, :identifier, :identifier, :delimiter, :delimiter, :operator, :number, :delimiter,
-			             :identifier, :delimiter,
-			             :identifier, :delimiter,
+			             :operator, :delimiter,
+			             :operator, :delimiter,
 			             :identifier
 		             ], out.map(&:type)
 	end
@@ -303,6 +303,14 @@ class Lexer_Test < Base_Test
 
 	def test_return_is_an_operator
 		out = Ore.lex 'return 1 + 2'
+		assert_equal :operator, out.first.type
+	end
+
+	def test_skip_and_stop_are_operators
+		out = Ore.lex 'skip'
+		assert_equal :operator, out.first.type
+
+		out = Ore.lex 'stop'
 		assert_equal :operator, out.first.type
 	end
 

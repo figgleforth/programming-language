@@ -795,19 +795,27 @@ module Ore
 				end
 
 				if stride
-					values.each_slice(stride).with_index do |elements, index|
-						declare 'it', elements, scope
-						declare 'at', index, scope
-						expr.body.each do |e|
-							interpret e
+					catch :stop do
+						values.each_slice(stride).with_index do |elements, index|
+							declare 'it', elements, scope
+							declare 'at', index, scope
+							catch :skip do
+								expr.body.each do |e|
+									interpret e
+								end
+							end
 						end
 					end
 				else
-					values.each_with_index do |element, index|
-						declare 'it', element, scope
-						declare 'at', index, scope
-						expr.body.each do |e|
-							interpret e
+					catch :stop do
+						values.each_with_index do |element, index|
+							declare 'it', element, scope
+							declare 'at', index, scope
+							catch :skip do
+								expr.body.each do |e|
+									interpret e
+								end
+							end
 						end
 					end
 				end
@@ -822,18 +830,26 @@ module Ore
 				condition = interpret(expr.condition)
 
 				if expr.type == 'until'
-					until condition == true
-						expr.when_true.each do |stmt|
-							result = interpret(stmt)
+					catch :stop do
+						until condition == true
+							catch :skip do
+								expr.when_true.each do |stmt|
+									result = interpret(stmt)
+								end
+							end
+							condition = interpret(expr.condition)
 						end
-						condition = interpret(expr.condition)
 					end
 				else
-					while condition == true
-						expr.when_true.each do |stmt|
-							result = interpret(stmt)
+					catch :stop do
+						while condition == true
+							catch :skip do
+								expr.when_true.each do |stmt|
+									result = interpret(stmt)
+								end
+							end
+							condition = interpret(expr.condition)
 						end
-						condition = interpret(expr.condition)
 					end
 				end
 
@@ -983,6 +999,16 @@ module Ore
 
 			when Ore::Comment_Expr
 				# todo, Something?
+
+			when Ore::Operator_Expr
+				case expr.value
+				when 'skip'
+					throw :skip
+				when 'stop'
+					throw :stop
+				else
+					raise Interpret_Expr_Not_Implemented, expr.inspect
+				end
 			else
 				raise Interpret_Expr_Not_Implemented, expr.inspect
 			end

@@ -805,4 +805,12 @@ class Parser_Test < Base_Test
 
 		assert_equal 5, out.first.expressions.count
 	end
+
+	def test_skip_and_stop_are_operators
+		out = Ore.parse 'skip'
+		assert_instance_of Ore::Operator_Expr, out.first
+
+		out = Ore.parse 'stop'
+		assert_instance_of Ore::Operator_Expr, out.first
+	end
 end

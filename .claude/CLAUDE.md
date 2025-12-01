@@ -11,7 +11,8 @@ Ore is an educational programming language for web development, implemented in R
 - Dot notation for accessing nested structures and scopes (./, ../, .../)
 - First-class functions and classes
 - Built-in web server support with routing
-- Backtick (\`) character for comments (no space after backtick: "\`comment" not "\` comment")
+- When writing .ore source, use backtick (\`) character for comments (no space after backtick: "\`comment" not "\` comment")
+- When writing .rb source, use # for comments
 
 ## Common Commands
 
@@ -74,7 +75,8 @@ The AST is executed to produce output:
 Used by both compiler and runtime:
 
 - `constants.rb` - Language constants, operators, precedence table, reserved words
-- `helpers.rb` - Utility functions for identifier classification (constant_identifier?, type_identifier?, member_identifier?)
+-
+`helpers.rb` - Utility functions for identifier classification (constant_identifier?, type_identifier?, member_identifier?)
 
 ### Entry Point
 
