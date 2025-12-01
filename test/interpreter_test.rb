@@ -1198,4 +1198,142 @@ class Interpreter_Test < Base_Test
 		assert_equal [2, 3, 4, 5], out.values[2].values
 		assert_equal [1, 2, 3, 4], out.values[3].values
 	end
+
+	def test_for_loop_skip
+		out = Ore.interp "
+		result = []
+		for [1, 2, 3, 4, 5]
+			if it == 3
+				skip
+			end
+			result << it
+		end
+		result"
+		assert_equal [1, 2, 4, 5], out.values
+	end
+
+	def test_for_loop_stop
+		out = Ore.interp "
+		result = []
+		for [1, 2, 3, 4, 5]
+			if it == 3
+				stop
+			end
+			result << it
+		end
+		result"
+		assert_equal [1, 2], out.values
+	end
+
+	def test_for_loop_skip_with_index
+		out = Ore.interp "
+		result = []
+		for ['a', 'b', 'c', 'd']
+			if at == 1 or at == 2
+				skip
+			end
+			result << it
+		end
+		result"
+		assert_equal ['a', 'd'], out.values
+	end
+
+	def test_for_loop_stop_with_index
+		out = Ore.interp "
+		result = []
+		for ['a', 'b', 'c', 'd']
+			if at == 2
+				stop
+			end
+			result << it
+		end
+		result"
+		assert_equal ['a', 'b'], out.values
+	end
+
+	def test_nested_for_loop_stop
+		out = Ore.interp "
+		result = []
+
+		for 0..10
+			skip if it == 4
+
+			if it % 2 == 0
+				result << 'START |it|'
+				for 0..10
+					result << it
+					stop if it == 2
+				end
+				result << 'STOP |it|'
+			end
+
+			if it == 6
+				stop
+			end
+		end
+
+		result
+		"
+		assert_equal ["START 0", 0, 1, 2, "STOP 0", "START 2", 0, 1, 2, "STOP 2", "START 6", 0, 1, 2, "STOP 6"], out.values
+	end
+
+	def test_while_loop_skip
+		out = Ore.interp "
+		result = []
+		x = 0
+		while x < 5
+			x += 1
+			if x == 3
+				skip
+			end
+			result << x
+		end
+		result"
+		assert_equal [1, 2, 4, 5], out.values
+	end
+
+	def test_while_loop_stop
+		out = Ore.interp "
+		result = []
+		x = 0
+		while x < 10
+			x += 1
+			if x == 4
+				stop
+			end
+			result << x
+		end
+		result"
+		assert_equal [1, 2, 3], out.values
+	end
+
+	def test_until_loop_skip
+		out = Ore.interp "
+		result = []
+		x = 0
+		until x >= 5
+			x += 1
+			if x == 2 or x == 4
+				skip
+			end
+			result << x
+		end
+		result"
+		assert_equal [1, 3, 5], out.values
+	end
+
+	def test_until_loop_stop
+		out = Ore.interp "
+		result = []
+		x = 0
+		until x >= 10
+			x += 1
+			if x == 3
+				stop
+			end
+			result << x
+		end
+		result"
+		assert_equal [1, 2], out.values
+	end
 end

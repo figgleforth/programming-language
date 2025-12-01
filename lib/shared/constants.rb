@@ -57,6 +57,7 @@ module Ore
 		unless until
 		true false nil
 		and or return
+		skip stop
 	)
 
 	PRECEDENCES = {

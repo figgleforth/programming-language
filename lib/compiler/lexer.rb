@@ -252,7 +252,7 @@ module Ore
 					elsif identifier? || %w(_).include?(curr)
 						it.value = lex_identifier
 						it.type  = Ore.type_of_identifier it.value
-						if %w(for).include?(it.value)
+						if %w(for skip stop).include?(it.value)
 							it.type = :operator
 						end
 
