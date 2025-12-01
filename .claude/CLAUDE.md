@@ -11,6 +11,7 @@ Ore is an educational programming language for web development, implemented in R
 - Dot notation for accessing nested structures and scopes (./, ../, .../)
 - First-class functions and classes
 - Built-in web server support with routing
+- Backtick (\`) character for comments (no space after backtick: "\`comment" not "\` comment")
 
 ## Common Commands
 
