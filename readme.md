@@ -37,7 +37,7 @@ Hello('World').output()  `"Hi, World!"
 	- `../identifier` to be determined
 	- `.../identifier` accesses global scope
 - First-class functions and classes
-- Built-in data types - `Array`, `Tuple`, `Dictionary`, `Range`, `Server`
+- Built-in data types - `Array`, `Tuple`, `Dictionary`, `Range`
 - Web server support with routing
 	- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
 	- URL parameters via `:param` syntax
@@ -53,7 +53,6 @@ Hello('World').output()  `"Hi, World!"
 	- [Functions](#functions)
 	- [Classes](#classes)
 	- [Web Servers](#web-servers)
-	- [Class Composition](#class-composition)
 - [Getting Started](#getting-started)
 
 ---
