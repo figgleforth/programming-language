@@ -2,16 +2,16 @@
 
 This [`lib`](/lib) folder contains the implementation of Ore in Ruby. The codebase is organized into two main phases:
 
-**Compile-time** (`lib/compiler/`) - Source code to AST
+**Compile-time** (`lib/compiler/`) Source code to AST
 
 - [`lexeme.rb`](compiler/lexeme.rb) - Token representation
 - [`expressions.rb`](compiler/expressions.rb) - AST node definitions
 - [`lexer.rb`](compiler/lexer.rb) - Tokenizes source code into lexemes
 - [`parser.rb`](compiler/parser.rb) - Parses lexemes into an AST
 
-**Runtime** (`lib/runtime/`) - AST to Execution
+**Runtime** (`lib/runtime/`) AST to Execution
 
-- [`interpreter.rb`](runtime/interpreter.rb) - Executes the AST (currently in lib/, should move to runtime/)
+- [`interpreter.rb`](runtime/interpreter.rb) - Executes the AST
 - [`errors.rb`](runtime/errors.rb) - Runtime error definitions
 - [`scope.rb`](runtime/scope.rb) - Scoping and variable management
 - [`types.rb`](runtime/types.rb) - Runtime type definitions
@@ -20,9 +20,6 @@ This [`lib`](/lib) folder contains the implementation of Ore in Ruby. The codeba
 **Orchestration**
 
 - [`ore.rb`](ore.rb) - Main entry point, requires all components
-
-**Miscellaneous**
-
 - [`constants.rb`](shared/constants.rb) - Language constants and operator definitions
 - [`helpers.rb`](shared/helpers.rb) - Utility functions added to Ore module
 
@@ -35,13 +32,13 @@ To run an Ore program, the source code must go through the [Lexer](compiler/lexe
 ```ruby
 require './lib/ore'
 
-lexer   = Lexer.new 'Hello, World!'
+lexer   = Ore::Lexer.new "'Hello, World!'"
 lexemes = lexer.output # => array of Lexemes
 
-parser      = Parser.new lexemes
+parser      = Ore::Parser.new lexemes
 expressions = parser.output # => array of Expressions
 
-interpreter = Interpreter.new expressions
+interpreter = Ore::Interpreter.new expressions
 result      = interpreter.output # => Hello, World!
 ```
 
