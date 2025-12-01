@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## About Ore
 
-Ore is an educational programming language implemented in Ruby. It features:
+Ore is an educational programming language for web development, implemented in Ruby. It features:
 
 - Naming conventions that replace keywords (Capitalized classes, lowercase functions/variables, UPPERCASE constants)
 - Class composition operators instead of inheritance (|, &, ~, ^)
 - Dot notation for accessing nested structures and scopes (./, ../, .../)
 - First-class functions and classes
+- Built-in web server support with routing
 
 ## Common Commands
 
@@ -63,8 +64,9 @@ The AST is executed to produce output:
 - `interpreter.rb` - Traverses and executes the AST
 - `scope.rb` - Manages variable scoping and declarations (Global, Type, Instance, Func, Route, Return scopes)
 - `context.rb` - Tracks execution state (routes, servers, loaded files)
-- `types.rb` - Runtime type definitions
+- `types.rb` - Runtime type definitions (includes Request, Response, Server classes)
 - `errors.rb` - Runtime error definitions
+- `server_runner.rb` - HTTP server implementation using WEBrick (handles routing, URL params, query strings)
 
 ### Shared (lib/shared/)
 
@@ -129,8 +131,23 @@ Tests use Minitest and inherit from `Base_Test` (in test/base_test.rb):
 - `test/parser_test.rb` - Parser tests
 - `test/interpreter_test.rb` - Interpreter tests
 - `test/regression_test.rb` - Regression tests
+- `test/server_test.rb` - Server and routing tests
+- `test/e2e_server_test.rb` - End-to-end server tests
 
 The base test class provides `refute_raises` helper for asserting no exceptions.
+
+## Web Server Features
+
+Ore has built-in web server support:
+
+- **Server class composition** - Create servers by composing with the built-in `Server` class using `|` operator
+- **Route syntax** - Routes defined as `method://path` (e.g., `get://`, `post://users/:id`)
+- **URL parameters** - Use `:param` syntax in routes, accessed via route function parameters
+- **Query strings** - Available via `request.query` dictionary
+- **Request/Response objects** - Automatically available in route handlers (from `types.rb`)
+- **`#serve_http` directive** - Non-blocking server startup, allows multiple concurrent servers
+- **Graceful shutdown** - Servers stop when program exits (handled in Rakefile's `_interp_file`)
+- **WEBrick backend** - HTTP server implementation in `server_runner.rb`
 
 ## File Loading
 
