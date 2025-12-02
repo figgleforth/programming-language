@@ -54,11 +54,11 @@ module Ore
 			query_params
 		end
 
-		def handle_request req, res, routes
-			path_string  = req.path
-			query_string = req.query_string
-			http_method  = req.request_method.downcase
-			path_parts   = req.path.split('/').reject { _1.empty? }
+		def handle_request request, response, routes
+			path_string  = request.path
+			query_string = request.query_string
+			http_method  = request.request_method.downcase
+			path_parts   = request.path.split('/').reject { _1.empty? }
 
 			target_route = match_route http_method, path_parts, routes
 
@@ -66,46 +66,45 @@ module Ore
 				url_params   = extract_url_params path_parts, target_route
 				query_params = parse_query_string query_string
 
-				# Create Request and Response objects
-				air_res = Ore::Response.new
-				air_req = Ore::Request.new
+				req = Ore::Request.new
+				res = Ore::Response.new
 
-				air_req.path    = path_string
-				air_req.method  = http_method
-				air_req.query   = query_params
-				air_req.params  = url_params
-				air_req.headers = req.header.to_h
-				air_req.body    = req.body
+				req.path    = path_string
+				req.method  = http_method
+				req.query   = query_params
+				req.params  = url_params
+				req.headers = request.header.to_h
+				req.body    = request.body
 
 				# Update declarations
-				air_req.declarations['path']    = air_req.path
-				air_req.declarations['method']  = air_req.method
-				air_req.declarations['query']   = air_req.query
-				air_req.declarations['params']  = air_req.params
-				air_req.declarations['headers'] = air_req.headers
-				air_req.declarations['body']    = air_req.body
+				req.declarations['path']    = req.path
+				req.declarations['method']  = req.method
+				req.declarations['query']   = req.query
+				req.declarations['params']  = req.params
+				req.declarations['headers'] = req.headers
+				req.declarations['body']    = req.body
 
 				begin
-					result = interpreter.interp_route_handler target_route, air_req, air_res, url_params
+					result = interpreter.interp_route_handler target_route, req, res, url_params
 
 					# Apply response object's configuration to WEBrick response
-					res.status = air_res.status
-					air_res.headers.each { |k, v| res.header[k] = v }
-					res.body = air_res.body_content.to_s
+					response.status = res.status
+					res.headers.each { |k, v| response.header[k] = v }
+					response.body = res.body_content.to_s
 
 				rescue => e
-					res.status = 500
-					res.body   = <<~HTML
+					response.status = 500
+					response.body   = <<~HTML
 					    <h1>500 Internal Server Error</h1>
 					    <h2>#{e.class}: #{e.message}</h2>
 					    <pre>#{e.backtrace.join("\n")}</pre>
 					HTML
-					res.header['Content-Type'] = 'text/html; charset=utf-8'
+					response.header['Content-Type'] = 'text/html; charset=utf-8'
 				end
 			else
 				# 404 Not Found
-				res.status = 404
-				res.body   = <<~HTML
+				response.status = 404
+				response.body   = <<~HTML
 				    <h1>404 Not Found</h1>
 				    <p>No route matches #{http_method.upcase} #{path_string}</p>
 				    <hr>
@@ -114,7 +113,7 @@ module Ore
 				    	#{routes.values.map { |r| "<li>#{r.http_method.value.upcase} /#{r.path}</li>" }.join("\n")}
 				    </ul>
 				HTML
-				res.header['Content-Type'] = 'text/html; charset=utf-8'
+				response.header['Content-Type'] = 'text/html; charset=utf-8'
 			end
 		end
 
@@ -129,13 +128,7 @@ module Ore
 				webrick_server.start
 			end
 
-			puts "------------------------------"
-			puts "Server started on port #{port}"
-			puts "Available routes:"
-			@routes.values.each do |route|
-				puts "  #{route.http_method.value.upcase} /#{route.path}"
-			end
-			puts "------------------------------"
+			puts "---> Ore Server Started at http://localhost:#{port}"
 
 			server_thread
 		end

@@ -111,7 +111,7 @@ module Ore
 
 			if curr? 'by' and eat 'by'
 				it.stride = begin_expression
-				# ??? should I check that it's a number here?
+				# todo: Should I check that it's a number here?
 			end
 
 			reduce_newlines
@@ -157,6 +157,7 @@ module Ore
 				eat
 
 			else
+				# todo: errors.rb
 				raise "\n\nYou messed your if/elif/else up\n"
 			end
 			it
@@ -435,16 +436,13 @@ module Ore
 			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 				parse_func precedence, named: curr?(:identifier)
 
-			elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || \
-			      (curr?(:IDENTIFIER, '{') && curr_lexeme.value.length == 1)
-				# To be able to treat one-letter identifiers as types, I special-case IDENTIFIERS of length 1 in the conditional for this elsif clause.
+			elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || curr?(:IDENTIFIER, TYPE_COMPOSITION_OPERATORS) || curr?(:IDENTIFIER, '{')
 				parse_type_decl
 
 			elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
 				parse_composition_expr
 
 			elsif curr? 'for'
-				# TODO :incomplete
 				parse_for_loop_expr
 
 			elsif curr? %w(if while unless until)
@@ -516,7 +514,7 @@ module Ore
 			if expr.is_a?(Ore::Identifier_Expr) && expr.directive
 				directive            = Ore::Directive_Expr.new
 				directive.name       = expr
-				directive.expression = begin_expression
+				directive.expression = parse_expression
 
 				return complete_expression directive, precedence
 			end
