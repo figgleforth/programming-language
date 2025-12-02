@@ -6,6 +6,59 @@ def _interp source_code
 	Ore.interp source_code
 end
 
+def _interp_file_with_hot_reload filepath
+	require 'listen'
+
+	reload          = true
+	listener        = nil
+	current_servers = []
+
+	Signal.trap 'INT' do
+		puts "\nShutting down..."
+		listener&.stop
+		current_servers.each(&:stop)
+		exit 0
+	end
+
+	Signal.trap 'TERM' do
+		puts "\nShutting down..."
+		listener&.stop
+		current_servers.each(&:stop)
+		exit 0
+	end
+
+	while reload
+		reload = false
+
+		code        = File.read filepath
+		global      = Ore::Global.with_standard_library
+		interpreter = Ore::Interpreter.new Ore.parse(code), global
+		result      = interpreter.output
+
+		if interpreter.context.servers.any?
+			current_servers = interpreter.context.servers
+
+			unless listener
+				listener = Listen.to('.', only: /\.(ore|rb)$/) do |modified, added, removed|
+					puts "\nReloading..."
+					reload = true
+					current_servers.each(&:stop)
+				end
+				listener.start
+
+				puts "Server(s) running. Press Ctrl+C to stop."
+				puts "Watching for .ore and .rb file changes..."
+			end
+
+			current_servers.each do |server|
+				server.server_thread&.join
+			end
+		end
+	end
+
+	nil
+end
+
 def _interp_file filepath
 	code        = File.read filepath
 	global      = Ore::Global.with_standard_library
@@ -58,7 +111,7 @@ task :interp, [:string] do |_, args|
 rescue SystemExit
 	# Interrupt exit
 rescue Exception => e
-	raise "This seems to be broken... Do tests pass? Try `rake`.\n#{e}"
+	raise e
 end
 
 task :interp_file, [:file] do |_, args|
@@ -70,5 +123,17 @@ task :interp_file, [:file] do |_, args|
 rescue SystemExit
 	# Interrupt exit
 rescue Exception => e
-	raise "This seems to be broken... Do tests pass? Try `rake`.\n#{e}"
+	raise e
+end
+
+task :dev, [:file] do |_, args|
+	if args[:file].nil? || args[:file].empty?
+		raise ArgumentError, "rake dev expected file arguments `bundle exec rake dev[file]`"
+	end
+
+	_interp_file_with_hot_reload args[:file]
+rescue SystemExit
+	# Interrupt exit
+rescue Exception => e
+	raise e
 end

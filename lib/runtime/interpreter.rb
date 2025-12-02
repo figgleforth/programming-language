@@ -476,9 +476,12 @@ module Ore
 				interpret expr
 			end
 
-			instance.declarations.values.each do |decl|
+			instance.declarations.each do |key, decl|
 				next unless decl.is_a? Ore::Func
-				decl.enclosing_scope = instance
+
+				cloned                     = decl.dup
+				cloned.enclosing_scope     = instance
+				instance.declarations[key] = cloned
 			end
 
 			func_new = instance[:new]
@@ -564,11 +567,9 @@ module Ore
 
 			# Bind URL parameters as function arguments. For example, get://:abc/:def { abc, def; }
 			params.each do |param|
-				# param: Ore::Param_Expr
 				value = url_params[param.name] || url_params[param.name.to_sym]
 
 				if value.nil?
-					# Check if this is a route parameter
 					if route.param_names.include? param.name
 						# todo: I haven't triggered this yet to ensure this works.
 						# todo: Write error in lib/runtime/errors.rb and raise that instead.
@@ -579,7 +580,7 @@ module Ore
 					if param.default
 						value = interpret param.default
 					else
-						# todo: Is this reachable? I imagine
+						# todo: Is this reachable?
 						raise Ore::Missing_Argument, param.inspect
 					end
 				end
@@ -587,7 +588,6 @@ module Ore
 				declare param.name, value, call_scope
 			end
 
-			# Execute handler body expressions without the param expressions.
 			body   = handler.expressions - params
 			result = nil
 
@@ -598,10 +598,19 @@ module Ore
 				break if result.is_a? Ore::Return
 			end
 
-			# If result is a string and response.body not set, use result as body
-			if result.is_a?(String) && res.body_content.empty?
+			if result.is_a? String
 				res.body_content         = result
 				res.declarations['body'] = result
+			elsif result.is_a? Ore::Instance
+				# todo: Maybe find a better class name than Dom, and add a constant for it.
+				if result.types.include? 'Dom'
+					html                     = render_dom_to_html result
+					res.body_content         = html
+					res.declarations['body'] = html
+				else
+					res.body_content         = result.inspect
+					res.declarations['body'] = result.inspect
+				end
 			end
 
 			# Clean up scopes
@@ -612,6 +621,68 @@ module Ore
 			Ore.assert popped_enclosing == handler.enclosing_scope
 
 			result
+		end
+
+		def render_dom_to_html dom_instance
+			# todo: Clean up this method
+			html_attrs = dom_instance.declarations.select { |k, v| k.to_s.start_with? 'html_' }
+			css_attrs  = dom_instance.declarations.select { |k, v| k.to_s.start_with? 'css_' }
+			render     = dom_instance.declarations['render']
+			element    = html_attrs['html_element']
+
+			html_attrs = html_attrs.reject { |k, v| k == 'html_element' }
+
+			html_attrs = html_attrs.map do |key, value|
+				key = key.to_s.gsub 'html_', ''
+				key = key.gsub '_', '-'
+				[key, value]
+			end.to_h
+
+			css_attrs = css_attrs.map do |key, value|
+				key = key.to_s.gsub 'css_', ''
+				key = key.gsub '_', '-'
+				[key, value]
+			end.to_h
+
+			html = "<#{element}"
+
+			unless html_attrs.empty?
+				html += " "
+				html += html_attrs.map { |key, value| "#{key}=\"#{value}\"" }.join(' ')
+			end
+
+			unless css_attrs.empty?
+				html += " style=\""
+				html += css_attrs.map { |key, value| "#{key}:#{value}" }.join(';')
+				html += "\""
+			end
+
+			html += ">"
+
+			if render
+				call_expr           = Ore::Call_Expr.new
+				call_expr.receiver  = render
+				call_expr.arguments = []
+
+				render_result = interp_func_call render, call_expr
+
+				if render_result.is_a?(String)
+					html += render_result
+				elsif render_result.is_a?(Ore::List)
+					render_result.values.each do |child|
+						if child.is_a?(String)
+							html += child
+						elsif child.is_a?(Ore::Instance) && child.types.include?('Dom')
+							html += render_dom_to_html(child)
+						end
+					end
+				elsif render_result.is_a?(Ore::Instance) && render_result.types.include?('Dom')
+					html += render_dom_to_html(render_result)
+				end
+			end
+
+			html += "</#{element}>"
+			html
 		end
 
 		def interp_type expr
@@ -625,6 +696,8 @@ module Ore
 				type.types = [type.name]
 			end
 
+			# todo: Make @types a set
+			type.types = type.types.uniq
 			declare type.name, type
 
 			push_then_pop type do |scope|
@@ -919,14 +992,13 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
-			when 'serve_http'
-				# todo: Ensure it responds to port and so on
+			when 'serve_http', 'register_http_server'
+				# todo: Settle on a directive for this. I don't think I like either of these
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
 					raise "Expected Ore::Instance for #serve_http, got #{server_instance.inspect}"
 				end
 
-				# Collect routes from the instance's types
 				routes = collect_routes_from_instance server_instance
 
 				server_runner = Ore::Server_Runner.new server_instance, self, routes
