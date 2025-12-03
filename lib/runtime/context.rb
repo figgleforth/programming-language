@@ -10,14 +10,8 @@ module Ore
 		end
 
 		def register_source filepath, source_code
-			resolved = filepath ? File.expand_path(filepath) : '<input>'
-			# todo: This shouldn't default to "<input>", that's weird
-			@source_files[resolved] = source_code
-		end
-
-		def get_source_lines filepath
-			source = @source_files[filepath]
-			source ? source.lines.map(&:chomp) : []
+			resolved                = filepath ? File.expand_path(filepath) : source_code
+			@source_files[resolved] = source_code.lines.map(&:chomp) # Store lines, not string
 		end
 
 		def load_file filepath, into_scope

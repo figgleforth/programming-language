@@ -28,13 +28,12 @@ module Ore
 	end
 
 	class Error_Formatter
-		attr_reader :error, :expression, :lexeme, :context
+		attr_reader :error, :expression, :context
 
-		def initialize error
+		def initialize error, context
 			@error      = error
 			@expression = error.expression
-			@lexeme     = error.lexeme
-			@context    = error.context
+			@context    = context
 		end
 
 		def format
@@ -50,15 +49,11 @@ module Ore
 				parts << ""
 			end
 
-			parts << error.custom_message if error.custom_message
-
 			parts.join "\n"
 		end
 
 		def location_available?
-			(expression && expression.l0) ||
-			(lexeme && lexeme.l0) ||
-			error.manual_location
+			expression&.respond_to? :l0
 		end
 
 		def source_available?
@@ -67,13 +62,8 @@ module Ore
 
 		def location_line
 			if expression && expression.l0
-				file = expression.source_file || '<input>'
+				file = expression.source_file
 				Colors.cyan "#{file}:#{expression.l0}:#{expression.c0}"
-			elsif lexeme && lexeme.l0
-				file = error.source_file || '<input>'
-				Colors.cyan "#{file}:#{lexeme.l0}:#{lexeme.c0}"
-			elsif error.manual_location
-				Colors.cyan error.manual_location
 			else
 				Colors.yellow "<unknown>"
 			end
@@ -86,7 +76,7 @@ module Ore
 			return nil unless l0
 
 			source_file = get_source_file
-			lines       = context.get_source_lines source_file
+			lines       = context.source_files[source_file] || []
 			return nil if lines.empty?
 
 			start_line = [l0 - 1, 1].max
@@ -131,15 +121,13 @@ module Ore
 		def get_location_coords
 			if expression && expression.l0
 				[expression.l0, expression.c0, expression.l1 || expression.l0, expression.c1 || expression.c0]
-			elsif lexeme && lexeme.l0
-				[lexeme.l0, lexeme.c0, lexeme.l1 || lexeme.l0, lexeme.c1 || lexeme.c0]
 			else
 				[nil, nil, nil, nil]
 			end
 		end
 
 		def get_source_file
-			expression&.source_file || error.source_file || '<input>'
+			expression&.source_file || error.source_file # || '<string_source>'
 		end
 	end
 end

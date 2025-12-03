@@ -5,7 +5,7 @@ module Ore
 		def initialize input = [], source_file: nil
 			@input       = input
 			@i           = 0 # index of current lexeme
-			@source_file = source_file ? File.expand_path(source_file) : '<input>'
+			@source_file = source_file ? File.expand_path(source_file) : input
 		end
 
 		def copy_location expr, from_lexeme
@@ -15,18 +15,6 @@ module Ore
 			expr.c0          = from_lexeme.c0
 			expr.l1          = from_lexeme.l1
 			expr.c1          = from_lexeme.c1
-			expr.source_file = source_file
-
-			expr
-		end
-
-		def copy_location_range expr, start_lexeme, end_lexeme
-			return expr unless start_lexeme && end_lexeme
-
-			expr.l0          = start_lexeme.l0
-			expr.c0          = start_lexeme.c0
-			expr.l1          = end_lexeme.l1
-			expr.c1          = end_lexeme.c1
 			expr.source_file = source_file
 
 			expr

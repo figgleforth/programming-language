@@ -2,24 +2,11 @@ require_relative 'error_formatter'
 
 module Ore
 	class Error < StandardError
-		attr_accessor :expression, :lexeme, :custom_message, :context
-		attr_accessor :manual_location, :source_file
+		attr_accessor :expression, :context
 
-		def initialize expression_or_message = nil, context = nil, expression: nil, lexeme: nil, location: nil, source_file: nil
-			if expression_or_message.is_a? String
-				@custom_message = expression_or_message
-				@expression     = expression
-				@context        = context
-			else
-				@expression     = expression_or_message
-				@context        = context
-				@custom_message = error_message
-			end
-
-			@lexeme          = lexeme
-			@manual_location = location
-			@source_file     = source_file
-
+		def initialize expression, context = nil
+			@expression = expression
+			@context    = context
 			super format_error
 		end
 
@@ -28,7 +15,7 @@ module Ore
 		end
 
 		def format_error
-			Error_Formatter.new(self).format
+			Error_Formatter.new(self, context).format
 		end
 	end
 
@@ -119,6 +106,12 @@ module Ore
 	class Interpret_Expr_Not_Implemented < Error
 		def error_message
 			"Expression type #{expression.class.name} is not implemented in interpreter"
+		end
+	end
+
+	class Lex_Char_Not_Implemented < Error
+		def error_message
+			"Lexing #{expression} is not implemented in Lexer"
 		end
 	end
 

@@ -82,7 +82,7 @@ module Ore
 
 	def self.interp source_code, with_std: true, filepath: nil
 		context = Ore::Context.new
-		context.register_source filepath || '<input>', source_code
+		context.register_source filepath || source_code, source_code
 
 		lexemes      = Lexer.new(source_code, filepath: filepath).output
 		expressions  = Parser.new(lexemes, source_file: filepath).output

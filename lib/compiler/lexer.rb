@@ -9,7 +9,7 @@ module Ore
 			@col         = 1 # short for column
 			@line        = 1 # short for line
 			@input       = input
-			@source_file = filepath ? File.expand_path(filepath) : '<input>'
+			@source_file = filepath ? File.expand_path(filepath) : input
 		end
 
 		def whitespace? char = curr
@@ -168,8 +168,7 @@ module Ore
 							it += '\\' + escaped
 						end
 					else
-						# todo: Test this
-						raise Ore::Unterminated_String_Literal
+						raise Ore::Unterminated_String_Literal.new(Ore::Expression.new(it))
 					end
 				else
 					it += eat
@@ -218,10 +217,6 @@ module Ore
 			end
 
 			protocol_sep = lex_many 3, HTTP_VERB_SEPARATOR
-			unless protocol_sep == HTTP_VERB_SEPARATOR
-				# todo: #lex_many will raise if it doesn't match so this is redundant
-				raise "Expected '://' in route declaration, got #{protocol_sep.inspect}"
-			end
 
 			path = String.new
 			while chars? && !whitespace? && !newline? && curr != '{'
@@ -318,7 +313,7 @@ module Ore
 						end
 
 					else
-						raise "#output unlexed char #{curr.inspect}"
+						raise Ore::Lex_Char_Not_Implemented.new(curr)
 					end
 				end
 

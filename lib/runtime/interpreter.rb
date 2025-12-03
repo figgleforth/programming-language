@@ -108,7 +108,9 @@ module Ore
 					raise Ore::Undeclared_Identifier.new(expr, context)
 				end
 			elsif scope
-				raise Ore::Undeclared_Identifier.new(expr, context) unless scope.has? expr.value
+				unless scope.has? expr.value
+					raise Ore::Undeclared_Identifier.new(expr, context)
+				end
 				scope[expr.value]
 			else
 				# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
