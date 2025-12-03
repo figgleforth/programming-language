@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/ore'
+
+if ARGV.empty?
+	puts "Usage: bin/ore run <file.ore>"
+	exit 1
+end
+
+case ARGV[0]
+when 'run'
+	if ARGV[1]
+		Ore.interp_file_with_hot_reload ARGV[1]
+	else
+		puts "Error: No file specified"
+		exit 1
+	end
+else
+	puts "Unknown command: #{ARGV[0]}"
+	exit 1
+end

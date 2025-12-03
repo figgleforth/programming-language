@@ -22,6 +22,64 @@ module Ore
 		interp File.read(filepath), with_std: with_std
 	end
 
+	def self.interp_file_with_hot_reload filepath
+		require 'listen'
+
+		reload          = true
+		listener        = nil
+		current_servers = []
+		shutdown        = false
+
+		Signal.trap 'INT' do
+			puts "\nShutting down..."
+			shutdown = true
+			Thread.main.raise Interrupt
+		end
+
+		Signal.trap 'TERM' do
+			puts "\nShutting down..."
+			shutdown = true
+			Thread.main.raise Interrupt
+		end
+
+		begin
+			while reload && !shutdown
+				reload = false
+
+				code        = File.read filepath
+				global      = Ore::Global.with_standard_library
+				interpreter = Ore::Interpreter.new Ore.parse(code), global
+				result      = interpreter.output
+
+				if interpreter.context.servers.any?
+					current_servers = interpreter.context.servers
+
+					unless listener
+						listener = Listen.to('.', only: /\.(ore|rb)$/) do |modified, added, removed|
+							puts "\nReloading..."
+							reload = true
+							current_servers.each(&:stop)
+						end
+						listener.start
+
+						puts "Server(s) running. Press Ctrl+C to stop."
+						puts "Watching for .ore and .rb file changes..."
+					end
+
+					current_servers.each do |server|
+						server.server_thread&.join
+					end
+				end
+			end
+		rescue Interrupt
+		ensure
+			listener&.stop if listener
+			current_servers.each &:stop
+		end
+
+		nil
+	end
+
 	def self.interp source_code, with_std: true
 		lexemes      = Lexer.new(source_code).output
 		expressions  = Parser.new(lexemes).output
