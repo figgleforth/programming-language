@@ -471,9 +471,11 @@ module Ore
 			instance       = Ore::Instance.new type.name
 			instance.types = type.types
 
-			push_scope instance
-			type.expressions.each do |expr|
-				interpret expr
+			# note: There was a bug here where I wasn't popping the instance after interpreting the type's expressions. That caused the #new function below (func_new) to not properly interpret arguments passed to it.
+			push_then_pop instance do |scope|
+				type.expressions.each do |expr|
+					interpret expr
+				end
 			end
 
 			instance.declarations.each do |key, decl|
@@ -494,12 +496,11 @@ module Ore
 			end
 
 			instance.delete :new
-			pop_scope # Just for clarity, the pop returns the instance from above..
 			instance
 		end
 
 		def interp_func_call func, expr
-			call_scope = Ore::Scope.new func.name #"#{func.name}() Ore::Func Call"
+			call_scope = Ore::Scope.new func.name
 
 			params = func.expressions.select do |expr|
 				expr.is_a? Ore::Param_Expr
@@ -509,21 +510,18 @@ module Ore
 				raise "Arguments given, no params declared #{expr.inspect}"
 			end
 
+			# Evaluate arguments in caller's scope (before pushing function scopes)
+			arg_values = expr.arguments.map { |arg| interpret arg }
+
 			push_scope func.enclosing_scope
 			push_scope call_scope
-			params.zip(expr.arguments).each do |param, arg|
-				value = if arg && param
-					interpret arg
-				elsif arg && !param
-					raise "Arg #{arg.inspect} given where none was expected."
-				elsif !arg && param
-					if param.default
-						interpret param.default
-					else
-						raise Ore::Missing_Argument, param.inspect
-					end
+			params.each_with_index do |param, i|
+				value = if i < arg_values.length
+					arg_values[i]
+				elsif param.default
+					interpret param.default
 				else
-					raise "This should never happen."
+					raise Ore::Missing_Argument, param.inspect
 				end
 
 				declare param.name, value
@@ -601,6 +599,17 @@ module Ore
 			if result.is_a? String
 				res.body_content         = result
 				res.declarations['body'] = result
+			elsif result.is_a? Ore::List
+				html = ''
+				result.values.each do |it|
+					if it.is_a? String
+						html += it
+					elsif it.is_a?(Ore::Instance) && it.types.include?('Dom')
+						html += render_dom_to_html it
+					end
+				end
+				res.body_content         = html
+				res.declarations['body'] = html
 			elsif result.is_a? Ore::Instance
 				# todo: Maybe find a better class name than Dom, and add a constant for it.
 				if result.types.include? 'Dom'
@@ -992,7 +1001,7 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
-			when 'serve_http', 'register_http_server'
+			when 'serve_http', 'register_http_server', 'start'
 				# todo: Settle on a directive for this. I don't think I like either of these
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance

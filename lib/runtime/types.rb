@@ -1,11 +1,11 @@
 require_relative '../ore'
 
 module Ore
-	# Just as a precaution, I want it to be obvious that references of the Array class in this module, so far, are meant for my implementation of Array, not the intrinsic Ruby array.
 	class List < Instance
 		attr_accessor :values
 
 		def initialize values = []
+			super 'List'
 			@values = values
 		end
 
@@ -25,7 +25,7 @@ module Ore
 
 	class Tuple < List
 		def initialize values = []
-			@values = values
+			super values
 		end
 	end
 
