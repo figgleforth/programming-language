@@ -65,7 +65,7 @@ This is the quickest way to run code.
 
 ```bash
 bundle exec bin/ore run file.ore # Run once
-bundle exec bin/ore dev file.ore # Run and hot reload
+bundle exec bin/ore dev file.ore # Run and keep alive
 ```
 
 You can also use rake tasks for direct evaluation:

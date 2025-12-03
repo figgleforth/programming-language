@@ -199,7 +199,8 @@ bundle exec bin/ore run file.ore
 ```
 
 - [`lib/readme`](lib/readme.md) details the architecture and contains instructions for running your own programs
-- [`ore`](ore) contains code written in Ore
+- [`examples`](examples) contains code examples written in Ore
+- [`ore`](ore) contains code for the Ore standard library
 - [`lib`](lib) contains code implementing Ore
 	- [Lexer#output](lib/compiler/lexer.rb) – Source code to Lexemes
 	- [Parser#output](lib/compiler/parser.rb) – Lexemes to Expressions
