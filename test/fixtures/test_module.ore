@@ -1,4 +1,3 @@
-` Test module for load directive tests
 MODULE_NAME = "Test_Module"
 MODULE_VALUE = 42
 

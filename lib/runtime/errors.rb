@@ -32,6 +32,9 @@ module Ore
 	class Invalid_Http_Directive_Handler < RuntimeError
 	end
 
+	class Invalid_Start_Diretive_Argument < RuntimeError
+	end
+
 	class Interpret_Expr_Not_Implemented < RuntimeError
 	end
 
@@ -61,4 +64,5 @@ module Ore
 
 	class Directive_Not_Implemented < RuntimeError
 	end
+
 end

@@ -1044,7 +1044,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_standalone_load_into_current_scope
-		out = Ore.interp "#load 'test/samples/test_module.ore'
+		out = Ore.interp "#load 'test/fixtures/test_module.ore'
 		(MODULE_NAME, MODULE_VALUE, module_func(10))"
 
 		assert_instance_of Ore::Tuple, out
@@ -1054,7 +1054,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_load_assignment_into_variable_identifier
-		out = Ore.interp "mod = #load 'test/samples/test_module.ore'
+		out = Ore.interp "mod = #load 'test/fixtures/test_module.ore'
 		(mod, mod.MODULE_NAME, mod.MODULE_VALUE, mod.module_func(10))"
 
 		assert_instance_of Ore::Tuple, out
@@ -1065,13 +1065,13 @@ class Interpreter_Test < Base_Test
 
 		# Verify declarations are NOT in current scope
 		assert_raises Ore::Undeclared_Identifier do
-			Ore.interp "mod = #load 'test/samples/test_module.ore'
+			Ore.interp "mod = #load 'test/fixtures/test_module.ore'
 			MODULE_NAME"
 		end
 	end
 
 	def test_load_assignment_into_class_identifier
-		out = Ore.interp "Module = #load 'test/samples/test_module.ore'
+		out = Ore.interp "Module = #load 'test/fixtures/test_module.ore'
 		(Module, Module.MODULE_NAME, Module.MODULE_VALUE, Module.module_func(10))"
 
 		assert_instance_of Ore::Tuple, out
@@ -1082,13 +1082,13 @@ class Interpreter_Test < Base_Test
 
 		# Verify declarations are NOT in current scope
 		assert_raises Ore::Undeclared_Identifier do
-			Ore.interp "Module = #load 'test/samples/test_module.ore'
+			Ore.interp "Module = #load 'test/fixtures/test_module.ore'
 			MODULE_NAME"
 		end
 	end
 
 	def test_load_assignment_into_constant_identifier
-		out = Ore.interp "MODULE = #load 'test/samples/test_module.ore'
+		out = Ore.interp "MODULE = #load 'test/fixtures/test_module.ore'
 		(MODULE, MODULE.MODULE_NAME, MODULE.MODULE_VALUE, MODULE.module_func(10))"
 
 		assert_instance_of Ore::Tuple, out
@@ -1099,15 +1099,15 @@ class Interpreter_Test < Base_Test
 
 		# Verify declarations are NOT in current scope
 		assert_raises Ore::Undeclared_Identifier do
-			Ore.interp "MODULE = #load 'test/samples/test_module.ore'
+			Ore.interp "MODULE = #load 'test/fixtures/test_module.ore'
 			MODULE_NAME"
 		end
 	end
 
 	def test_load_same_file_into_multiple_scopes
 		out = Ore.interp "
-		lib1 = #load 'test/samples/test_module.ore'
-		lib2 = #load 'test/samples/test_module.ore'
+		lib1 = #load 'test/fixtures/test_module.ore'
+		lib2 = #load 'test/fixtures/test_module.ore'
 
 		(lib1, lib2, lib1.MODULE_VALUE, lib2.MODULE_VALUE, lib1 != lib2)"
 
@@ -1125,8 +1125,8 @@ class Interpreter_Test < Base_Test
 	def test_double_loading_file
 		assert_raises Ore::Cannot_Reassign_Constant do
 			out = Ore.interp "
-			#load 'test/samples/constants.ore'
-			#load 'test/samples/constants.ore'"
+			#load 'test/fixtures/constants.ore'
+			#load 'test/fixtures/constants.ore'"
 		end
 	end
 

@@ -1,6 +1,3 @@
-#load 'ore/server.ore'
-#load 'ore/html.ore'
-
 Heading | H2 {
 	css_background_color = 'blue'
 	css_color = 'yellow'
@@ -41,4 +38,4 @@ App | Server {
 	}
 }
 
-#register_http_server App()
+#start App()

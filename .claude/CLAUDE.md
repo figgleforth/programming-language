@@ -148,7 +148,7 @@ Ore has built-in web server support:
 - **URL parameters** - Use `:param` syntax in routes, accessed via route function parameters
 - **Query strings** - Available via `request.query` dictionary
 - **Request/Response objects** - Automatically available in route handlers (from `types.rb`)
-- **`#serve_http` directive** - Non-blocking server startup, allows multiple concurrent servers
+- **`#start` directive** - Non-blocking server startup, allows multiple concurrent servers
 - **Graceful shutdown** - Servers stop when program exits (handled in Rakefile's `_interp_file`)
 - **WEBrick backend** - HTTP server implementation in `server_runner.rb`
 

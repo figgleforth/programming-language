@@ -1,6 +1,3 @@
-#load 'ore/server.ore'
-#load 'ore/html.ore'
-
 Layout | Html {
 	css_filter = 'invert()'
 

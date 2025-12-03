@@ -1001,11 +1001,10 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
-			when 'serve_http', 'register_http_server', 'start'
-				# todo: Settle on a directive for this. I don't think I like either of these
+			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
-					raise "Expected Ore::Instance for #serve_http, got #{server_instance.inspect}"
+					raise Invalid_Start_Diretive_Argument, server_instance.inspect
 				end
 
 				routes = collect_routes_from_instance server_instance
@@ -1016,10 +1015,10 @@ module Ore
 				server_runner.start
 				server_runner
 			when 'load'
-				# Standalone load - interpret into current scope
+				# Standalone load - interpret into current scope (done by passing the scope into context#load_file)
 				filepath = interpret expr.expression
 				context.load_file(filepath, stack.last)
-				nil # No return value for standalone load
+				nil # todo: No return value for standalone load?
 			else
 				raise Directive_Not_Implemented, expr.inspect
 			end

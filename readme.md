@@ -43,7 +43,7 @@ Hello('World').output()  `"Hi, World!"
 	- URL parameters via `:param` syntax
 	- Query string access via `request.query`
 	- Request/response objects automatically available
-	- Non-blocking `#serve_http` directive allows multiple servers
+	- Non-blocking `#start` directive allows multiple servers
 	- Graceful shutdown handling when program exits
 
 ---
@@ -176,8 +176,8 @@ API_Server | Server {
 `Both servers run concurrently in background threads
 app = Web_App(8080)
 api = API_Server(3000)
-#serve_http app
-#serve_http api
+#start app
+#start api
 ```
 
 ### Getting Started
