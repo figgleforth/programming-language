@@ -184,11 +184,17 @@ api = API_Server(3000)
 
 > Requires Ruby 3.4.1 or higher, and Bundler
 
-```shell script
+```bash
 git clone https://github.com/figgleforth/ore-lang.git
 cd ore-lang
 bundle install
 bundle exec rake test
+```
+
+Run an Ore program:
+
+```bash
+bundle exec bin/ore run file.ore
 ```
 
 - [`lib/readme`](lib/readme.md) details the architecture and contains instructions for running your own programs

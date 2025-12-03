@@ -64,6 +64,12 @@ result      = Ore.interp_file source_file
 This is the quickest way to run code.
 
 ```bash
-rake interp_file["my_program.ore"]
-rake interp["4 + 8"] # => 12
+bundle exec bin/ore run file.ore # Run once
+bundle exec bin/ore dev file.ore # Run and hot reload
+```
+
+You can also use rake tasks for direct evaluation:
+
+```bash
+bundle exec rake interp["4 + 8"] # => 12
 ```

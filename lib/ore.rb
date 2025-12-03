@@ -77,7 +77,7 @@ module Ore
 			current_servers.each &:stop
 		end
 
-		nil
+		result
 	end
 
 	def self.interp source_code, with_std: true
