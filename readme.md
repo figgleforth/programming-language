@@ -2,8 +2,6 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-9ff)](https://justforfunnoreally.dev)
 
-### ![](ore.svg)
-
 ### Programming Language For Web Development
 
 ```ore
@@ -150,15 +148,7 @@ Repo('figgleforth', 'ore-lang').to_s() `"figgleforth/ore-lang"
 #### Web Servers
 
 ```ore
-`Builtin Server class
-Server {
-	port;
-	new { port;
-		./port = port
-	}
-}
-
-`Create servers by composing with Server
+`Create servers by composing with builtin Server type
 Web_App | Server {
 	`Define routes using HTTP method and path
 	get:// {;
@@ -187,6 +177,54 @@ api = API_Server(3000)
 #start api
 ```
 
+#### HTML Rendering
+
+Using builtin `Dom` composition
+
+```ore
+Layout | Dom {
+	title;
+	body_content;
+
+	new { title = 'My page', body_content = 'Hello!';
+		./title = title
+		./body_content = body_content
+	}
+
+	render {;
+		`Use builtin Html, Head, Title, and Body types
+		Html([
+			Head(Title(title)),
+			Body(body_content)
+		])
+	}
+}
+```
+
+Or using strings with HTML
+
+```ore
+Layout | Dom {
+	render {;
+		"<html><head><title>My page</title></head><body>Hello!</body></html>"
+	}
+}
+
+```
+
+Both examples will produce an HTML response as long as the class composes with `Dom`.
+
+```
+<html>
+	<head>
+		<title>My page</title>
+	</head>
+	<body>
+		Hello!
+	</body>
+</html>
+```
+
 ### Getting Started
 
 > Requires Ruby 3.4.1 or higher, and Bundler
@@ -211,3 +249,5 @@ bundle exec bin/ore run file.ore
 	- [Lexer#output](lib/compiler/lexer.rb) – Source code to Lexemes
 	- [Parser#output](lib/compiler/parser.rb) – Lexemes to Expressions
 	- [Interpreter#output](lib/runtime/interpreter.rb) – Expressions to values
+
+### ![](ore.svg)
