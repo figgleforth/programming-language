@@ -58,6 +58,7 @@ Hello('World').output()  `"Hi, World!"
 	- [Functions](#functions)
 	- [Classes](#classes)
 	- [Web Servers](#web-servers)
+	- [HTML Rendering](#html-rendering)
 - [Getting Started](#getting-started)
 
 ---
