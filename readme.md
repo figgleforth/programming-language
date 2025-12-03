@@ -43,9 +43,15 @@ Hello('World').output()  `"Hi, World!"
 	- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
 	- URL parameters via `:param` syntax
 	- Query string access via `request.query`
-	- Request/response objects automatically available
-	- Non-blocking `#start` directive allows multiple servers
+	- Non-blocking `#start` directive allows running multiple servers
 	- Graceful shutdown handling when program exits
+- HTML rendering with `Dom` composition
+	- Compose with built-in HTML elements (`Dom`, `Html`, `Body`, `Div`, `H1`, etc.)
+	- Declare `html_` prefixed attributes for HTML attributes (`html_href`, `html_class`)
+		- Declare `html_element` to specify the HTML tag
+	- Declare `css_` prefixed properties for CSS (`css_color`, `css_background`)
+	- Routes returning `Dom` instances automatically render to HTML
+	- Standard library provides common HTML elements
 
 ---
 
