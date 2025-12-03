@@ -127,14 +127,30 @@ module Ore
 			if interpolation_char_count == 1
 				return expr.value # For now... I think this is still not the correct approach.
 			elsif interpolation_char_count > 1
+				# todo: Proprely learn regex. For now, here's a description of what the regex below does:
+				#
+				# String: "Hi, |name|!"
+				# Matches: ["name"]
+				# Result: Interpolates the `name` variable
+
+				# String: "Hi, \|name\|!"
+				# Matches: []
+				# Result: No interpolation, backslashes protect the pipes
+
+				# String: "Hi, |first| and \|second\|"
+				# Matches: ["first"]
+				# Result: Only interpolates `first`, not `second`
+				#
+
 				result    = expr.value
-				sub_exprs = result.scan(/\|(.*?)\|/).flatten
+				sub_exprs = result.scan(/(?<!\\)\|(.*?)(?<!\\)\|/).flatten
+
 				sub_exprs.each do |sub|
 					expression = Ore.parse sub
 					value      = interpret expression.first
 					result     = result.gsub "|#{sub}|", "#{value}"
 				end
-				result
+				result.gsub('\\', '') # Remove any escapes from the resulting string? Is this okay? I don't know...
 			end
 		end
 

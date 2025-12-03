@@ -79,6 +79,16 @@ class Lexer_Test < Base_Test
 		assert_equal :string, out.first.type
 	end
 
+	def test_unterminated_string_literal
+		assert_raises Ore::Unterminated_String_Literal do
+			Ore.lex '"test\\'
+		end
+
+		assert_raises Ore::Unterminated_String_Literal do
+			Ore.lex "'test\\"
+		end
+	end
+
 	def test_operators
 		# todo Should this be such a long test?
 		out = Ore.lex 'numbers += 4815162342'

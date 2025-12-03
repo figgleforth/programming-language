@@ -151,8 +151,28 @@ module Ore
 			it    = ''
 			quote = eat
 
+			# todo: Refactor this, maybe? I was trying to use interpolation pipes in multiline text (see ./examples/basic_page.ore) and realized that I wasn't escaping those, which led to the interpreter trying to actually interpolate the string.
 			while chars? && curr != quote
-				it += eat
+				if curr == '\\'
+					eat
+					if chars?
+						escaped = eat
+						case escaped
+						when 'n' then it += "\n"
+						when 't' then it += "\t"
+						when 'r' then it += "\r"
+						when '\\' then it += "\\"
+						when quote then it += quote
+						else
+							it += '\\' + escaped
+						end
+					else
+						# todo: Test this
+						raise Ore::Unterminated_String_Literal
+					end
+				else
+					it += eat
+				end
 			end
 
 			eat quote

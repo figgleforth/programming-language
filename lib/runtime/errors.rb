@@ -65,4 +65,6 @@ module Ore
 	class Directive_Not_Implemented < RuntimeError
 	end
 
+	class Unterminated_String_Literal < RuntimeError
+	end
 end
