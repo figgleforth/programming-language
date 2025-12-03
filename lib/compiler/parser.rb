@@ -1,10 +1,35 @@
 module Ore
 	class Parser
-		attr_accessor :i, :input
+		attr_accessor :i, :input, :source_file
 
-		def initialize input = []
-			@input = input
-			@i     = 0 # index of current lexeme
+		def initialize input = [], source_file: nil
+			@input       = input
+			@i           = 0 # index of current lexeme
+			@source_file = source_file ? File.expand_path(source_file) : '<input>'
+		end
+
+		def copy_location expr, from_lexeme
+			return expr unless from_lexeme
+
+			expr.l0          = from_lexeme.l0
+			expr.c0          = from_lexeme.c0
+			expr.l1          = from_lexeme.l1
+			expr.c1          = from_lexeme.c1
+			expr.source_file = source_file
+
+			expr
+		end
+
+		def copy_location_range expr, start_lexeme, end_lexeme
+			return expr unless start_lexeme && end_lexeme
+
+			expr.l0          = start_lexeme.l0
+			expr.c0          = start_lexeme.c0
+			expr.l1          = end_lexeme.l1
+			expr.c1          = end_lexeme.c1
+			expr.source_file = source_file
+
+			expr
 		end
 
 		def output
@@ -164,7 +189,8 @@ module Ore
 		end
 
 		def parse_circumfix_expr opening: '('
-			it = Ore::Circumfix_Expr.new
+			start = curr_lexeme
+			it    = Ore::Circumfix_Expr.new
 			it.grouping = CIRCUMFIX_GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
 			eat opening
 			reduce_newlines
@@ -181,10 +207,12 @@ module Ore
 			eat closing
 			it.expressions = it.expressions.compact
 			it
+			copy_location it, start
 		end
 
 		def parse_func precedence = STARTING_PRECEDENCE, named: false
-			func = Ore::Func_Expr.new
+			start = curr_lexeme
+			func  = Ore::Func_Expr.new
 
 			if curr? :identifier
 				func.name = eat(:identifier)
@@ -238,6 +266,7 @@ module Ore
 			eat '}'
 
 			func
+			copy_location func, start
 		end
 
 		def parse_type_decl
@@ -252,6 +281,7 @@ module Ore
 			#   :absolute_value_circumfix
 			#
 
+			start        = curr_lexeme
 			valid_idents = %I(Identifier IDENTIFIER)
 			it           = Ore::Type_Expr.new
 			it.name      = eat
@@ -272,12 +302,14 @@ module Ore
 
 			eat '}'
 			it
+			copy_location it, start
 		end
 
 		def parse_html_expr
 			# TODO: Should attributes and data attributes be filtered out of @expressions and into their own attr like :attributes, :data_attributes, etc?
 			# TODO: :html_vs_type_expr
 
+			start = curr_lexeme
 			eat '<'
 			it = Ore::Html_Element_Expr.new eat
 			eat '>'
@@ -293,18 +325,23 @@ module Ore
 
 			eat '}'
 			it
+			copy_location it, start
 		end
 
 		def parse_composition_expr
-			expr = Ore::Composition_Expr.new
+			start = curr_lexeme
+			expr  = Ore::Composition_Expr.new
 
 			# You might notice that whenever I eat(:identifier), I don't extract just the value because I want to store the Token. But in the case of an operator, the string is probably fine?
 			expr.operator   = eat(:operator).value
 			expr.identifier = parse_identifier_expr
 			expr
+			copy_location expr, start
 		end
 
 		def parse_identifier_expr
+			start = curr_lexeme
+
 			expr = Ore::Identifier_Expr.new
 			if curr? REFERENCE_PREFIX
 				expr.reference = true
@@ -327,6 +364,8 @@ module Ore
 
 			expr.kind = Ore.type_of_identifier expr.value
 			expr
+
+			copy_location expr, start
 		end
 
 		def parse_manual_scope
@@ -348,11 +387,14 @@ module Ore
 		end
 
 		def parse_symbol_expr
+			start = curr_lexeme
 			eat ':'
-			Ore::Symbol_Expr.new eat.value.to_sym
+			it = Ore::Symbol_Expr.new eat.value.to_sym
+			copy_location it, start
 		end
 
 		def parse_route_expr
+			start       = curr_lexeme
 			route_token = eat :route
 
 			# Split "get://users/:id" => ["get", "users/:id"]
@@ -392,14 +434,18 @@ module Ore
 			route.param_names = param_names
 
 			route
+			copy_location route, start
 		end
 
 		def parse_operator_expr
+			start = curr_lexeme
 			# A method just for this might seem silly, but I thought the same when I decided #make_expr should be a giant method. This will help in the long run, and consistency is key to keeping this maintainable.
-			Ore::Operator_Expr.new eat(:operator).value
+			it = Ore::Operator_Expr.new eat(:operator).value
+			copy_location it, start
 		end
 
 		def parse_number_expr
+			start      = curr_lexeme
 			expr       = Ore::Number_Expr.new
 			expr.value = eat(:number).value
 			if expr.value.count('.') > 1
@@ -415,13 +461,16 @@ module Ore
 				expr.value = expr.value.to_i
 			end
 			expr
+			copy_location expr, start
 		end
 
 		def parse_nil_init_postfix_expr
+			start           = curr_lexeme
 			expr            = Ore::Postfix_Expr.new
 			expr.expression = parse_identifier_expr # eat # identifier
 			expr.operator   = eat.value
 			expr
+			copy_location expr, start
 		end
 
 		def begin_expression precedence = STARTING_PRECEDENCE

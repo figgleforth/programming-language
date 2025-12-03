@@ -1,11 +1,23 @@
 module Ore
 	class Context
-		attr_accessor :routes, :servers, :loaded_files
+		attr_accessor :routes, :servers, :loaded_files, :source_files
 
 		def initialize
 			@routes       = {}
 			@servers      = []
 			@loaded_files = {} # {filename: expressions}
+			@source_files = {} # {filepath: source_code} for error reporting
+		end
+
+		def register_source filepath, source_code
+			resolved = filepath ? File.expand_path(filepath) : '<input>'
+			# todo: This shouldn't default to "<input>", that's weird
+			@source_files[resolved] = source_code
+		end
+
+		def get_source_lines filepath
+			source = @source_files[filepath]
+			source ? source.lines.map(&:chomp) : []
 		end
 
 		def load_file filepath, into_scope

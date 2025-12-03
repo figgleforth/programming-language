@@ -2,13 +2,14 @@ require_relative '../ore'
 
 module Ore
 	class Lexer
-		attr_accessor :i, :col, :line, :input
+		attr_accessor :i, :col, :line, :input, :source_file
 
-		def initialize input = 'greeting = "hello world"'
-			@i     = 0 # index of current char in input string
-			@col   = 1 # short for column
-			@line  = 1 # short for line
-			@input = input
+		def initialize input = 'greeting = "hello world"', filepath: nil
+			@i           = 0 # index of current char in input string
+			@col         = 1 # short for column
+			@line        = 1 # short for line
+			@input       = input
+			@source_file = filepath ? File.expand_path(filepath) : '<input>'
 		end
 
 		def whitespace? char = curr

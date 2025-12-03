@@ -19,7 +19,7 @@ module Ore
 	extend Helpers
 
 	def self.interp_file filepath, with_std: true
-		interp File.read(filepath), with_std: with_std
+		interp File.read(filepath), with_std: with_std, filepath: File.expand_path(filepath)
 	end
 
 	def self.interp_file_with_hot_reload filepath
@@ -80,11 +80,14 @@ module Ore
 		result
 	end
 
-	def self.interp source_code, with_std: true
-		lexemes      = Lexer.new(source_code).output
-		expressions  = Parser.new(lexemes).output
+	def self.interp source_code, with_std: true, filepath: nil
+		context = Ore::Context.new
+		context.register_source filepath || '<input>', source_code
+
+		lexemes      = Lexer.new(source_code, filepath: filepath).output
+		expressions  = Parser.new(lexemes, source_file: filepath).output
 		global_scope = with_std ? Global.with_standard_library : Global.new
-		interpreter  = Interpreter.new expressions, global_scope
+		interpreter  = Interpreter.new expressions, global_scope, context
 
 		interpreter.output
 	end

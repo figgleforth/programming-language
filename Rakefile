@@ -22,6 +22,9 @@ task :interp, [:string] do |_, args|
 	pp Ore.interp(args[:string].to_s)
 rescue SystemExit
 	# Interrupt exit
+rescue Ore::Error => e
+	$stderr.puts e.message # Prevents Ruby stack trace from polluting Ore error message
+	exit 1
 rescue Exception => e
 	raise e
 end
@@ -34,6 +37,9 @@ task :interp_file, [:file] do |_, args|
 	pp Ore.interp_file(args[:file])
 rescue SystemExit
 	# Interrupt exit
+rescue Ore::Error => e
+	$stderr.puts e.message
+	exit 1
 rescue Exception => e
 	raise e
 end
@@ -46,6 +52,9 @@ task :dev, [:file] do |_, args|
 	Ore.interp_file_with_hot_reload args[:file]
 rescue SystemExit
 	# Interrupt exit
+rescue Ore::Error => e
+	$stderr.puts e.message
+	exit 1
 rescue Exception => e
 	raise e
 end
