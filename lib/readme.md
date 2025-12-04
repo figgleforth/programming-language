@@ -61,7 +61,7 @@ result      = Ore.interp_file source_file
 
 ### Running Your Own Programs By Command Line
 
-This is the quickest way to run code.
+This is the quickest way to run code:
 
 ```bash
 bundle exec bin/ore run file.ore # Run once

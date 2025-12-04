@@ -179,7 +179,7 @@ api = API_Server(3000)
 
 #### HTML Rendering
 
-Using built-in `Dom` composition
+Using built-in `Dom` composition:
 
 ```ore
 Layout | Dom {
@@ -201,7 +201,7 @@ Layout | Dom {
 }
 ```
 
-Or using strings with HTML
+Using strings with HTML:
 
 ```ore
 Layout | Dom {
@@ -211,7 +211,7 @@ Layout | Dom {
 }
 ```
 
-Both examples will produce an HTML response as long as the class composes with `Dom`.
+Both examples will produce an HTML response as long as the class composes with `Dom`:
 
 ```
 <html>
@@ -224,7 +224,7 @@ Both examples will produce an HTML response as long as the class composes with `
 </html>
 ```
 
-Adding HTML and CSS attributes
+Adding HTML and CSS attributes:
 
 ```ore
 My_Div | Dom {
