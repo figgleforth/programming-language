@@ -4,10 +4,10 @@ module Ore
 	class Interpreter
 		attr_accessor :i, :input, :stack, :context
 
-		def initialize input = [], global_scope = nil
+		def initialize input = [], global_scope = nil, context = nil
 			@input   = input
 			@stack   = [global_scope || Ore::Global.new]
-			@context = Ore::Context.new
+			@context = context || Ore::Context.new
 		end
 
 		def output & block
@@ -105,15 +105,17 @@ module Ore
 				if found && found.has?(expr.value)
 					found[expr.value]
 				else
-					raise Ore::Undeclared_Identifier, expr.inspect
+					raise Ore::Undeclared_Identifier.new(expr, context)
 				end
 			elsif scope
-				raise Ore::Undeclared_Identifier, "#{expr.inspect}\n#{scope.inspect}" unless scope.has? expr.value
+				unless scope.has? expr.value
+					raise Ore::Undeclared_Identifier.new(expr, context)
+				end
 				scope[expr.value]
 			else
 				# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
 				scope = stack.last
-				raise Ore::Undeclared_Identifier, expr.inspect unless scope.has? expr.value
+				raise Ore::Undeclared_Identifier.new(expr, context) unless scope.has? expr.value
 				scope[expr.value]
 			end
 
@@ -178,7 +180,7 @@ module Ore
 		def interp_dot_new expr
 			receiver = interpret expr.left
 			unless receiver.is_a? Ore::Type
-				raise Ore::Cannot_Initialize_Non_Type_Identifier, expr.left.inspect
+				raise Ore::Cannot_Initialize_Non_Type_Identifier.new(expr.left, context)
 			end
 
 			instance             = Ore::Instance.new receiver.name # :generalize_me
@@ -205,7 +207,7 @@ module Ore
 				returned = interpret expr.expression
 				Ore::Return.new returned
 			else
-				raise Unhandled_Prefix, expr.inspect
+				raise Ore::Unhandled_Prefix.new(expr, context)
 			end
 		end
 
@@ -234,12 +236,12 @@ module Ore
 			when :IDENTIFIER
 				# It can only be assigned once, so if the declaration exists, fail.
 				if assignment_scope.has? expr.left.value
-					raise Ore::Cannot_Reassign_Constant, expr.inspect
+					raise Ore::Cannot_Reassign_Constant.new(expr.left, context)
 				end
 			when :Identifier
 				# It can only be assigned `value` of Ore::Scope, which includes Ore::Type
 				if !right_value.is_a?(Ore::Scope)
-					raise Ore::Cannot_Assign_Incompatible_Type, expr.inspect
+					raise Ore::Cannot_Assign_Incompatible_Type.new(expr, context)
 				end
 			when :identifier
 				# It can be assigned and reassigned, so do nothing.
@@ -258,7 +260,7 @@ module Ore
 
 			left = maybe_instance interpret expr.left
 			if !left.kind_of?(Ore::Scope) && !left.kind_of?(Ore::Range)
-				raise Invalid_Dot_Infix_Left_Operand, "#{expr.inspect}"
+				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
 			end
 
 			if left.is_a?(Ore::List) || left.kind_of?(Ore::Tuple)
@@ -401,7 +403,7 @@ module Ore
 			when ';'
 				declare expr.expression.value, nil
 			else
-				raise Unhandled_Postfix, expr.inspect
+				raise Ore::Unhandled_Postfix.new(expr, context)
 			end
 		end
 
@@ -439,10 +441,10 @@ module Ore
 								dict[it.left.value.to_sym] = interpret it.right
 							else
 								# The left operand should be allowed to be any hashable object. It's too early in the project to consider hashing but this'll be a good reminder.
-								raise Ore::Invalid_Dictionary_Key, it.inspect
+								raise Ore::Invalid_Dictionary_Key.new(it, context)
 							end
 						else
-							raise Ore::Invalid_Dictionary_Infix_Operator, it.inspect
+							raise Ore::Invalid_Dictionary_Infix_Operator.new(it, context)
 						end
 					end
 					# In case I forget, #reduce requires that the injected value be returned to be passed to the next iteration.
@@ -537,7 +539,7 @@ module Ore
 				elsif param.default
 					interpret param.default
 				else
-					raise Ore::Missing_Argument, param.inspect
+					raise Ore::Missing_Argument.new(expr, context)
 				end
 
 				declare param.name, value
@@ -545,7 +547,7 @@ module Ore
 
 			body = func.expressions - params
 			if func.name == 'assert'
-				raise Assert_Triggered, expr.inspect unless interpret(body.first) == true # Just to be explicit.
+				raise Ore::Assert_Triggered.new(expr, context) unless interpret(body.first) == true # Just to be explicit.
 			end
 
 			result = nil
@@ -595,7 +597,7 @@ module Ore
 						value = interpret param.default
 					else
 						# todo: Is this reachable?
-						raise Ore::Missing_Argument, param.inspect
+						raise Ore::Missing_Argument.new(expr, context)
 					end
 				end
 
@@ -770,7 +772,7 @@ module Ore
 			end
 
 			unless expression.is_a? Ore::Func
-				raise Invalid_Http_Directive_Handler, expression.inspect
+				raise Ore::Invalid_Http_Directive_Handler.new(expr, context)
 			end
 
 			route_key = if expression.name && expression.name != 'Ore::Func'
@@ -1020,7 +1022,7 @@ module Ore
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
-					raise Invalid_Start_Diretive_Argument, server_instance.inspect
+					raise Ore::Invalid_Start_Diretive_Argument.new(expr, context)
 				end
 
 				routes = collect_routes_from_instance server_instance
@@ -1036,7 +1038,7 @@ module Ore
 				context.load_file(filepath, stack.last)
 				nil # todo: No return value for standalone load?
 			else
-				raise Directive_Not_Implemented, expr.inspect
+				raise Ore::Directive_Not_Implemented.new(expr, context)
 			end
 		end
 
@@ -1103,10 +1105,10 @@ module Ore
 				when 'stop'
 					throw :stop
 				else
-					raise Interpret_Expr_Not_Implemented, expr.inspect
+					raise Ore::Interpret_Expr_Not_Implemented.new(expr, context)
 				end
 			else
-				raise Interpret_Expr_Not_Implemented, expr.inspect
+				raise Ore::Interpret_Expr_Not_Implemented.new(expr, context)
 			end
 		end
 	end

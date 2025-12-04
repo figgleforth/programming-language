@@ -1,6 +1,6 @@
 module Ore
 	class Expression
-		attr_accessor :value, :type
+		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file
 
 		def initialize value = nil
 			@value = value if value
@@ -20,6 +20,16 @@ module Ore
 
 		def isnt compare
 			is(compare) == false
+		end
+
+		def location
+			return nil unless l0 && c0
+			"#{source_file}:#{l0}:#{c0}" if source_file
+			"#{l0}:#{c0}"
+		end
+
+		def line_col
+			"#{l0}:#{c0}..#{l1}:#{c1}" if l0
 		end
 	end
 

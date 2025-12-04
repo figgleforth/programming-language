@@ -9,22 +9,27 @@ if ARGV.empty?
 	exit 1
 end
 
-case ARGV[0]
-when 'dev'
-	if ARGV[1]
-		puts Ore.interp_file_with_hot_reload ARGV[1]
+begin
+	case ARGV[0]
+	when 'dev'
+		if ARGV[1]
+			puts Ore.interp_file_with_hot_reload ARGV[1]
+		else
+			puts "Error: No file specified.\n#{INSTRUCTIONS}"
+			exit 1
+		end
+	when 'run'
+		if ARGV[1]
+			puts Ore.interp_file ARGV[1]
+		else
+			puts "Error: No file specified.\n#{INSTRUCTIONS}"
+			exit 1
+		end
 	else
-		puts "Error: No file specified.\n#{INSTRUCTIONS}"
+		puts "Unknown command: #{ARGV[0]}\n#{INSTRUCTIONS}"
 		exit 1
 	end
-when 'run'
-	if ARGV[1]
-		puts Ore.interp_file ARGV[1]
-	else
-		puts "Error: No file specified.\n#{INSTRUCTIONS}"
-		exit 1
-	end
-else
-	puts "Unknown command: #{ARGV[0]}\n#{INSTRUCTIONS}"
+rescue Ore::Error => e
+	$stderr.puts e.message
 	exit 1
 end
