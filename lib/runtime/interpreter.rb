@@ -37,6 +37,7 @@ module Ore
 		end
 
 		def push_then_pop scope
+			# todo: Proper error
 			raise "Attempting to push `nil` value as scope" if scope == nil
 
 			push_scope scope
@@ -82,6 +83,7 @@ module Ore
 		end
 
 		def interp_identifier expr
+			# todo: Proper error
 			raise "Expected Ore::Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Ore::Identifier_Expr
 
 			scope = case expr.value
@@ -265,7 +267,7 @@ module Ore
 
 			if left.is_a?(Ore::List) || left.kind_of?(Ore::Tuple)
 				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
-					left.values.each do |it|
+					left.each do |it|
 						each_scope                 = Ore::Scope.new 'each{;}'
 						each_scope.enclosing_scope = stack.last
 						push_scope each_scope
@@ -278,15 +280,17 @@ module Ore
 
 					return left
 				elsif expr.right.is Ore::Number_Expr
-					return left.values[interpret expr.right] # I'm intentionally interpreting here, even though I could just use expr.right.value, because I want to test how Ore::Number_Expr is interpreted. I mean, I know how but it can take multiple paths to get to its value. In this case, I expect it to be the literal number, but sometimes I need it wrapped in a context Ore::Number.
+					return left.values[expr.right.value]
+
 				elsif expr.right.is Ore::Array_Index_Expr
 					array_or_tuple = left # Just for clarity.
 
 					expr.right.indices_in_order.each do |index|
+						unless array_or_tuple.is_a? Ore::List
+							# note: If left were a ::Number, subscript notation would succeed because that is integer bit indexing.
+							raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
+						end
 						array_or_tuple = array_or_tuple[index]
-					rescue NoMethodError => _
-						# We dug our way to a nonexistent array, because #[] doesn't exist on it.
-						raise "array[#{index}] is not an array, it's #{array_or_tuple.inspect}"
 					end
 
 					return array_or_tuple
@@ -294,7 +298,7 @@ module Ore
 
 			elsif left.kind_of? Ore::Range
 				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
-					# todo, Should be handled by #interp_func_call?
+					# todo: Should be handled by #interp_func_call?
 
 					left.each do |it|
 						each_scope = Ore::Scope.new 'each{;}'
@@ -308,8 +312,21 @@ module Ore
 				end
 				return left
 
+			elsif left.kind_of? Ore::Dictionary
+				case expr.right.value
+				when 'keys', 'values', 'count'
+					# note: keys, values, and count are declared on Ore::Dictionary so just call through to it
+					left.dict.send expr.right.value
+				else
+					# Fall through to normal scope lookup
+					push_scope left
+					result = interpret expr.right
+					pop_scope
+					return result
+				end
+
 			else
-				raise "Expected left to be non-nil for a dot infix." if left == nil
+				raise Invalid_Dot_Infix_Left_Operand.new(expr, context) if left == nil
 
 				push_scope left
 				result = interpret expr.right
@@ -334,8 +351,10 @@ module Ore
 					left.values << right
 				else
 					begin
+						# todo: I don't like generic approach because the type of `left` is unknown at this moment.
 						left.send expr.operator, right
 					rescue
+						# todo: Proper error
 						raise "Unsupported << operator for #{expr.inspect}"
 					end
 				end
@@ -431,7 +450,7 @@ module Ore
 					tuple
 				end
 			when '{}'
-				expr.expressions.reduce({}) do |dict, it|
+				expr.expressions.reduce(Ore::Dictionary.new) do |dict, it|
 					if it.is_a? Ore::Identifier_Expr
 						dict[it.value.to_sym] = nil
 					elsif it.is_a? Ore::Infix_Expr
@@ -451,6 +470,7 @@ module Ore
 					dict
 				end
 			else
+				# todo: Proper error
 				raise "Interpreter#interp_circumfix unhandled circumfix #{expr.inspect}"
 			end
 		end
@@ -458,13 +478,13 @@ module Ore
 		def interp_call expr
 			receiver = interpret expr.receiver
 			case receiver
-			when Ore::Type, Ore::Html_Element # Ore::Type()
+			when Ore::Type, Ore::Html_Element
 				interp_type_call receiver, expr
 
 			when Ore::Func # func()
 				interp_func_call receiver, expr
-
 			else
+				# todo: Proper error
 				raise "Interpreter#interp_call unhandled #{receiver.inspect}"
 			end
 		end
@@ -486,7 +506,12 @@ module Ore
 			#
 
 			# :generalize_me
-			instance       = Ore::Instance.new type.name
+			instance = if type.name == 'Dictionary'
+				Ore::Dictionary.new
+			else
+				Ore::Instance.new type.name
+			end
+			# instance       = Ore::Instance.new type.name
 			instance.types = type.types
 
 			# note: There was a bug here where I wasn't popping the instance after interpreting the type's expressions. That caused the #new function below (func_new) to not properly interpret arguments passed to it.
@@ -509,6 +534,7 @@ module Ore
 				interp_func_call func_new, expr
 			else
 				if expr.arguments.count > 0
+					# todo: Proper error
 					raise "Given #{expr.arguments.count} arguments, but new{;} was not declared for #{type.inspect}"
 				end
 			end
@@ -525,6 +551,7 @@ module Ore
 			end
 
 			if expr.arguments.count > params.count
+				# todo: Proper error
 				raise "Arguments given, no params declared #{expr.inspect}"
 			end
 
@@ -588,7 +615,7 @@ module Ore
 				if value.nil?
 					if route.param_names.include? param.name
 						# todo: I haven't triggered this yet to ensure this works.
-						# todo: Write error in lib/runtime/errors.rb and raise that instead.
+						# todo: Proper error
 						raise "Route parameter '#{param.name}' expected but not found in URL"
 					end
 
@@ -814,6 +841,7 @@ module Ore
 
 			operand_scope = interp_identifier expr.identifier
 			unless operand_scope.is_a? Ore::Scope
+				# todo: Proper error
 				raise "Expected a scope to compose with, got #{operand_scope.inspect}"
 			end
 			curr_scope    = stack.last
@@ -876,6 +904,7 @@ module Ore
 					curr_scope[key] ||= operand_scope[key]
 				end
 			else
+				# todo: Proper error
 				raise "Unknown composition operator #{expr.operator}"
 			end
 		end
@@ -1096,7 +1125,7 @@ module Ore
 				interp_directive expr
 
 			when Ore::Comment_Expr
-				# todo, Something?
+				# todo: Something?
 
 			when Ore::Operator_Expr
 				case expr.value

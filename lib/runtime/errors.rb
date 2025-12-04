@@ -4,7 +4,7 @@ module Ore
 	class Error < StandardError
 		attr_accessor :expression, :context
 
-		def initialize expression, context = nil
+		def initialize expression = nil, context = nil
 			@expression = expression
 			@context    = context
 			super format_error
