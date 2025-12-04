@@ -2,7 +2,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-9ff)](https://justforfunnoreally.dev)
 
-### Programming Language For Web Development
+### Programming Language for Web Development
 
 ```ore
 Hello {
@@ -44,9 +44,8 @@ Hello('World').output()  `"Hi, World!"
 	- Non-blocking `#start` directive allows running multiple servers
 	- Graceful shutdown handling when program exits
 - HTML rendering with `Dom` composition
-	- Compose with built-in HTML elements (`Dom`, `Html`, `Body`, `Div`, `H1`, etc.)
+	- Compose with built-in HTML elements (`Dom`, `Html`, `Body`, `Div`, `H1`, etc)
 	- Declare `html_` prefixed attributes for HTML attributes (`html_href`, `html_class`)
-		- Declare `html_element` to specify the HTML tag
 	- Declare `css_` prefixed properties for CSS (`css_color`, `css_background`)
 	- Routes returning `Dom` instances automatically render to HTML
 	- Standard library provides common HTML elements
@@ -149,7 +148,7 @@ Repo('figgleforth', 'ore-lang').to_s() `"figgleforth/ore-lang"
 #### Web Servers
 
 ```ore
-`Create servers by composing with builtin Server type
+`Create servers by composing with built-in Server type
 Web_App | Server {
 	`Define routes using HTTP method and path
 	get:// {;
@@ -180,7 +179,7 @@ api = API_Server(3000)
 
 #### HTML Rendering
 
-Using builtin `Dom` composition
+Using built-in `Dom` composition
 
 ```ore
 Layout | Dom {
@@ -193,7 +192,7 @@ Layout | Dom {
 	}
 
 	render {;
-		`Use builtin Html, Head, Title, and Body types
+		`Use built-in Html, Head, Title, and Body types
 		Html([
 			Head(Title(title)),
 			Body(body_content)
@@ -210,7 +209,6 @@ Layout | Dom {
 		"<html><head><title>My page</title></head><body>Hello!</body></html>"
 	}
 }
-
 ```
 
 Both examples will produce an HTML response as long as the class composes with `Dom`.
@@ -225,6 +223,22 @@ Both examples will produce an HTML response as long as the class composes with `
 	</body>
 </html>
 ```
+
+Adding HTML and CSS attributes
+
+```ore
+My_Div | Dom {
+	html_element = 'p'
+	html_class = 'my_class'
+	html_id = 'my_id'
+	css_background_color = 'black'
+	css_color = 'white'
+}
+
+`=> <p class='my_class' id='my_id' style='background-color:black;color:white;'></p>
+```
+
+See [html.ore](ore/html.ore) for predefined `Dom` elements.
 
 ### Getting Started
 
