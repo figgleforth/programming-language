@@ -210,10 +210,6 @@ module Ore
 				+interpret(expr.expression)
 			when '!', 'not'
 				!interpret(expr.expression)
-			when '@'
-				# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
-				expr = interpret expr.expression
-				stack.last.sibling_scopes << expr
 			when 'return'
 				returned = interpret expr.expression
 				Ore::Return.new returned
@@ -380,7 +376,20 @@ module Ore
 					end
 				end
 			else
-				if INFIX_ARITHMETIC_OPERATORS.include? expr.operator
+				if expr.left.value == UNPACK_PREFIX
+					case expr.operator
+					when '+='
+						expr = interpret expr.right
+						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) unless expr.is_a? Ore::Scope
+						stack.last.sibling_scopes << expr
+					when '-='
+						expr = interpret expr.right
+						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) if expr && !(expr.is_a? Ore::Scope)
+						stack.last.sibling_scopes.delete expr # todo: Warn or error when trying to -= a scope that isn't a sibling?
+					else
+						raise Invalid_Unpack_Infix_Operator.new(expr, context)
+					end
+				elsif INFIX_ARITHMETIC_OPERATORS.include? expr.operator
 					left  = maybe_instance interpret expr.left
 					right = maybe_instance interpret expr.right
 

@@ -8,7 +8,7 @@ module Ore
 	INTERPOLATE_CHAR           = '|'
 	COMMENT_CHAR               = '`'
 	COMMENT_MULTILINE_CHAR     = '```'
-	PREFIX                     = %w(! - + ~ $ @ # ? & ^ not return)
+	PREFIX                     = %w(! - + ~ $ # ? & ^ not return)
 	INFIX                      = %w(
 		+ - ^ * ** / % ~ == === ? . .?
 		= : ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=

@@ -1449,7 +1449,7 @@ class Interpreter_Test < Base_Test
 
 		calc {;
 			p = Point(10, 20)
-			@p
+			@ += p
 			a + b
 		}
 
@@ -1457,8 +1457,76 @@ class Interpreter_Test < Base_Test
 		assert_equal 30, out
 	end
 
-	# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
-	# def test_unpack_in_local_scope
+	def test_sibling_stack_manipulation_with_unpack_operator
+		out = Ore.interp "
+		Point {
+			a = 0
+			b = 0
+
+			new { a, b;
+				./a = a
+				./b = b
+			}
+		}
+
+		p = Point(4, 8)
+		@ += p
+		one = a + b
+		@ -= p
+
+		@ += Point(15, 16)
+		(one, a + b)"
+		assert_equal [12, 31], out.values
+	end
+
+	def test_unpack_and_nested_functions
+		out = Ore.interp "
+		Point {
+			a = 0
+			b = 0
+
+			new { a, b;
+				./a = a
+				./b = b
+			}
+		}
+
+		outer {;
+			p = Point(23, 42)
+			@ += p
+
+			inner {;
+				a + b
+			}
+
+			inner()
+		}
+		outer()"
+		assert_equal 65, out
+	end
+
+	def test_unpack_right_operand
+		assert_raises Ore::Invalid_Unpack_Infix_Right_Operand do
+			Ore.interp "@ += 4"
+		end
+
+		assert_raises Ore::Invalid_Unpack_Infix_Right_Operand do
+			Ore.interp "@ -= 'eight'"
+		end
+	end
+
+	def test_unpack_invalid_operator
+		assert_raises Ore::Invalid_Unpack_Infix_Operator do
+			Ore.interp "@ *= 4"
+		end
+
+		assert_raises Ore::Invalid_Unpack_Infix_Operator do
+			Ore.interp "@ + 'eight'"
+		end
+	end
+
+	# todo: Currently there is no clear rule on unpack collisions. :double_unpack
+	# def test_unpack_collisions
 	# 	out = Ore.interp "
 	# 	Point {
 	# 		a = 0
@@ -1469,11 +1537,11 @@ class Interpreter_Test < Base_Test
 	# 			./b = b
 	# 		}
 	# 	}
+	#
 	# 	p = Point(4, 8)
-	# 	@p
-	# 	one = a + b
-	# 	@Point(15, 16)
-	# 	(one, a + b)"
-	# 	assert_equal [12, 31], out.values
+	# 	@ += p
+	# 	@ += Point(15, 16)
+	# 	(a, b)"
+	# 	assert_equal [15, 16], out.values
 	# end
 end

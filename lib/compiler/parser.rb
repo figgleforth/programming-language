@@ -336,10 +336,7 @@ module Ore
 			start = curr_lexeme
 
 			expr = Ore::Identifier_Expr.new
-			if curr? UNPACK_PREFIX
-				expr.unpack = true
-				eat UNPACK_PREFIX
-			elsif curr? DIRECTIVE_PREFIX
+			if curr? DIRECTIVE_PREFIX
 				expr.directive = true
 				eat DIRECTIVE_PREFIX
 			elsif curr? SCOPE_OPERATORS

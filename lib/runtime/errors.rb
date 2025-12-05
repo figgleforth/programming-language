@@ -61,6 +61,18 @@ module Ore
 		end
 	end
 
+	class Invalid_Unpack_Infix_Operator < Error
+		def error_message
+			"Invalid operator '#{expression.operator}' in unpack operation - expected += or -="
+		end
+	end
+
+	class Invalid_Unpack_Infix_Right_Operand < Error
+		def error_message
+			"Invalid right operand '#{expression.right}' in unpack operation - expected a Scope"
+		end
+	end
+
 	class Unhandled_Prefix < Error
 		def error_message
 			"Unhandled prefix operator '#{expression.operator}'"
