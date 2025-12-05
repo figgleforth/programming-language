@@ -121,6 +121,7 @@ module Ore
 				scope[expr.value]
 			end
 
+			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
 			if expr.unpack && value.is_a?(Ore::Instance)
 				stack.last.sibling_scopes << value
 			end
