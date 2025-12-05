@@ -5,20 +5,19 @@
 ### Programming Language for Web Development
 
 ```ore
-Hello {
+Greet {
 	subject;
 	
 	new { subject;
 		./subject = subject
 	}
 	
-	output {;
-		"Hi, |subject|!"
+	greeting {;
+		"Hello, |subject|!"
 	}
 }
 
-Hello().output()         `"Hi, !"
-Hello('World').output()  `"Hi, World!"
+Greet('Ore').greeting()  `"Hello, Ore!"
 ```
 
 - Naming conventions replace keywords
@@ -33,10 +32,19 @@ Hello('World').output()  `"Hi, World!"
 - Dot notation for convenience
 	- `array.1.0.8` accesses nested structures
 	- `./identifier` accesses instance scope
-	- `../identifier` to be determined
 	- `.../identifier` accesses global scope
 - First-class functions and classes
-- Built-in data types - `Array`, `Tuple`, `Dictionary`, `Range`
+- Data containers `List`, `Tuple`, `Dictionary`
+- Loops like `for`, `while`, and `until`
+	- Intrinsic `it` for iteration value
+	- Intrinsic `at` for iteration index
+	- `skip` and `stop` keywords for loop control
+	- Stride support with `for x by 2` syntax
+- Unpacking an instance's declarations with `@` operator
+	- Makes declarations accessible without `instance.` prefix
+	- Auto-unpack in function parameters (`funk { @with; })
+	- Manually control localization with `@ += instance` and `@ -= instance`
+- File loading with `#load` directive
 - Web server support with routing
 	- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
 	- URL parameters via `:param` syntax
@@ -56,6 +64,9 @@ Hello('World').output()  `"Hi, World!"
 	- [Variables](#variables)
 	- [Functions](#functions)
 	- [Classes](#classes)
+	- [Loops](#loops)
+	- [Instance Unpacking](#instance-unpacking)
+	- [File Loading](#file-loading)
 	- [Web Servers](#web-servers)
 	- [HTML Rendering](#html-rendering)
 - [Getting Started](#getting-started)
@@ -143,6 +154,100 @@ Repo {
 }
 
 Repo('figgleforth', 'ore-lang').to_s() `"figgleforth/ore-lang"
+```
+
+#### Loops
+
+```ore
+`For loops iterate over arrays, ranges, and other iterables
+result = []
+for [1, 2, 3, 4, 5]
+	result << it  `it is the current iteration value
+end
+`result = [1, 2, 3, 4, 5]
+
+`Ranges work too
+sum = 0
+for 1..10
+	sum += it
+end
+`sum = 55
+
+`Stride support with "by" keyword
+chunks = []
+for [1, 2, 3, 4, 5, 6] by 2
+	chunks << it  `it contains array of 2 items
+end
+`chunks = [[1, 2], [3, 4], [5, 6]]
+
+`Access iteration index with "at"
+indexed = []
+for ['a', 'b', 'c']
+	indexed << "|at|: |it|"
+end
+`indexed = ["0: a", "1: b", "2: c"]
+
+`Loop control with skip and stop
+evens = []
+for 1..10
+	if it % 2 != 0
+		skip  `Continue to next iteration
+	end
+	evens << it
+	if it == 6
+		stop  `Break out of loop
+	end
+end
+`evens = [2, 4, 6]
+```
+
+#### Instance Unpacking
+
+```ore
+Vector {
+	x;
+	y;
+
+	new { x, y;
+		./x = x
+		./y = y
+	}
+}
+
+`Auto-unpack in function parameters with @
+add { @vec;
+	x + y  `Access vec.x and vec.y directly without vec. prefix
+}
+
+v = Vector(3, 4)
+add(v)  `7
+
+`Manual sibling scope control
+multiply { factor;
+	v1 = Vector(5, 10)
+	@ += v1  `Add v1's members to sibling scope
+
+	result_x = x * factor  `Access x directly
+	result_y = y * factor  `Access y directly
+
+	@ -= v1  `Remove v1 from sibling scope
+
+	Vector(result_x, result_y)
+}
+
+multiply(2)  `Vector(10, 20)
+```
+
+#### File Loading
+
+```ore
+`Load external Ore files with #load directive
+#load './utilities.ore'
+#load './models/user.ore'
+
+`Use loaded classes and functions
+user = User('Alice', 'alice@example.com')
+formatted = format_name(user.name)
 ```
 
 #### Web Servers
