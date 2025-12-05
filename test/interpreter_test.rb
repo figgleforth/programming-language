@@ -1413,4 +1413,67 @@ class Interpreter_Test < Base_Test
 		result"
 		assert_equal [1, 2], out.values
 	end
+
+	def test_unpack_parameter
+		out = Ore.interp "
+		Vector {
+			x = 0
+			y = 0
+
+			new { x, y;
+				./x = x
+				./y = y
+			}
+		}
+
+		add { @vec;
+			x + y
+		}
+
+		v = Vector(3, 4)
+		add(v)"
+		assert_equal 7, out
+	end
+
+	def test_unpack_identifier
+		out = Ore.interp "
+		Point {
+			a = 0
+			b = 0
+
+			new { a, b;
+				./a = a
+				./b = b
+			}
+		}
+
+		calc {;
+			p = Point(10, 20)
+			@p
+			a + b
+		}
+
+		calc()"
+		assert_equal 30, out
+	end
+
+	# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
+	# def test_unpack_in_local_scope
+	# 	out = Ore.interp "
+	# 	Point {
+	# 		a = 0
+	# 		b = 0
+	#
+	# 		new { a, b;
+	# 			./a = a
+	# 			./b = b
+	# 		}
+	# 	}
+	# 	p = Point(4, 8)
+	# 	@p
+	# 	one = a + b
+	# 	@Point(15, 16)
+	# 	(one, a + b)"
+	# 	assert_equal [12, 31], out.values
+	# end
 end

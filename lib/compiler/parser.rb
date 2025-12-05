@@ -216,6 +216,11 @@ module Ore
 			until curr? ';'
 				param = Ore::Param_Expr.new
 
+				if curr? UNPACK_PREFIX
+					param.unpack = true
+					eat UNPACK_PREFIX
+				end
+
 				if curr? :identifier, :identifier
 					param.label = eat(:identifier).value
 					param.name  = eat(:identifier).value
@@ -331,9 +336,9 @@ module Ore
 			start = curr_lexeme
 
 			expr = Ore::Identifier_Expr.new
-			if curr? REFERENCE_PREFIX
-				expr.reference = true
-				eat REFERENCE_PREFIX
+			if curr? UNPACK_PREFIX
+				expr.unpack = true
+				eat UNPACK_PREFIX
 			elsif curr? DIRECTIVE_PREFIX
 				expr.directive = true
 				eat DIRECTIVE_PREFIX
@@ -485,7 +490,7 @@ module Ore
 			elsif curr? %w(if while unless until)
 				parse_conditional_expr
 
-			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(REFERENCE_PREFIX, :identifier) || curr?(SCOPE_OPERATORS) || curr?(DIRECTIVE_PREFIX, :identifier)
+			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(UNPACK_PREFIX, :identifier) || curr?(SCOPE_OPERATORS) || curr?(DIRECTIVE_PREFIX, :identifier)
 				parse_identifier_expr
 
 			elsif curr?('<', ANY_IDENTIFIER, '>')

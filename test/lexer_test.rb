@@ -372,12 +372,12 @@ class Lexer_Test < Base_Test
 		assert_equal 'okay!', out.first.value
 	end
 
-	def test_reference_prefix
-		out = Ore.lex '^reference'
+	def test_unpack_prefix
+		out = Ore.lex '@instance_to_unpack'
 		assert_equal :operator, out.first.type
-		assert_equal '^', out.first.value
+		assert_equal Ore::UNPACK_PREFIX, out.first.value
 		assert_equal :identifier, out.last.type
-		assert_equal 'reference', out.last.value
+		assert_equal 'instance_to_unpack', out.last.value
 	end
 
 	def test_for_keyword

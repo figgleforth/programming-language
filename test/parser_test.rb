@@ -708,15 +708,20 @@ class Parser_Test < Base_Test
 		assert_kind_of Ore::Operator_Expr, out.first
 	end
 
-	def test_reference_decorator_on_identifier_expr
+	def test_unpack_prefix
 		out = Ore.parse '@count'
-		assert out.first.reference
+		assert out.first.unpack
+		assert_kind_of Ore::Identifier_Expr, out.first
 
 		out = Ore.parse 'count'
-		refute out.first.reference
+		refute out.first.unpack
+		assert_kind_of Ore::Identifier_Expr, out.first
+
+		out = Ore.parse 'funk { @with; }'
+		assert_kind_of Ore::Param_Expr, out.first.expressions.first
+		assert out.first.expressions.first.unpack
 	end
 
-	# TODO :incomplete
 	def test_for_loops
 		out = Ore.parse '
 		for []

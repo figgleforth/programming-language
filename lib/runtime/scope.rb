@@ -2,16 +2,24 @@ require_relative '../ore'
 
 module Ore
 	class Scope
-		attr_accessor :enclosing_scope
+		attr_accessor :enclosing_scope, :sibling_scopes
 		attr_reader :name, :declarations
 
 		def initialize name = nil
-			@name         = name || self.class.name
-			@declarations = {}
+			@name           = name || self.class.name
+			@declarations   = {}
+			@sibling_scopes = []
 		end
 
 		def [] key
-			@declarations[key&.to_s]
+			key_str = key&.to_s
+
+			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
+			@sibling_scopes.each do |sibling|
+				return sibling[key_str] if sibling.has? key_str
+			end
+
+			@declarations[key_str]
 		end
 
 		def []= key, value
@@ -23,7 +31,14 @@ module Ore
 		end
 
 		def has? identifier
-			@declarations.key?(identifier.to_s)
+			id_str = identifier.to_s
+
+			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
+			return true if @sibling_scopes.any? do |sibling|
+				sibling.has? id_str
+			end
+
+			@declarations.key? id_str
 		end
 
 		def declarations= new_declarations
