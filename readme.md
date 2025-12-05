@@ -42,9 +42,8 @@ Greet('Ore').greeting()  `"Hello, Ore!"
 	- Stride support with `for x by 2` syntax
 - Unpacking an instance's declarations with `@` operator
 	- Makes declarations accessible without `instance.` prefix
-	- Auto-unpack in function parameters (`funk { @with; })
-	- Manually control localization with `@ += instance` and `@ -= instance`
-- File loading with `#load` directive
+	- Auto-unpack function parameters in function body `funk { @with; }`
+	- Manually unpack `@ += instance` and undo `@ -= instance`
 - Web server support with routing
 	- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
 	- URL parameters via `:param` syntax
