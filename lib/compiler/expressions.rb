@@ -34,15 +34,15 @@ module Ore
 	end
 
 	class Param_Expr < Expression
-		attr_accessor :name, :label, :type, :default, :expects_reference
+		attr_accessor :name, :label, :type, :default, :unpack
 
 		def initialize
 			super
-			@expects_reference = false
-			@default           = nil
-			@name              = nil
-			@label             = nil
-			@type              = nil
+			@unpack  = false
+			@default = nil
+			@name    = nil
+			@label   = nil
+			@type    = nil
 		end
 
 		alias_method :expression, :default # todo, Replace @default with this
@@ -144,7 +144,7 @@ module Ore
 	end
 
 	class Identifier_Expr < Expression
-		attr_accessor :kind, :reference, :scope_operator, :directive
+		attr_accessor :kind, :unpack, :scope_operator, :directive
 	end
 
 	class Composition_Expr < Expression

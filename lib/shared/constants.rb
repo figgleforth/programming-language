@@ -1,6 +1,6 @@
 module Ore
 	STANDARD_LIBRARY_PATH      = './ore/preload.ore'
-	REFERENCE_PREFIX           = '@' # TODO I'm not sold on this yet
+	UNPACK_PREFIX              = '@'
 	DIRECTIVE_PREFIX           = '#'
 	HTML_ATTRS                 = %w(id class href)
 	HTTP_VERBS                 = %w(get put patch post delete head options connect trace)

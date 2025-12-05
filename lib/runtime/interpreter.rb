@@ -121,6 +121,10 @@ module Ore
 				scope[expr.value]
 			end
 
+			if expr.unpack && value.is_a?(Ore::Instance)
+				stack.last.sibling_scopes << value
+			end
+
 			value
 		end
 
@@ -205,6 +209,10 @@ module Ore
 				+interpret(expr.expression)
 			when '!', 'not'
 				!interpret(expr.expression)
+			when '@'
+				# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
+				expr = interpret expr.expression
+				stack.last.sibling_scopes << expr
 			when 'return'
 				returned = interpret expr.expression
 				Ore::Return.new returned
@@ -582,6 +590,10 @@ module Ore
 				end
 
 				declare param.name, value
+
+				if param.unpack && value.is_a?(Ore::Instance)
+					call_scope.sibling_scopes << value
+				end
 			end
 
 			body = func.expressions - params
