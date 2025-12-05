@@ -102,6 +102,8 @@ Ore uses a sophisticated scope hierarchy:
 - **Html_Element** - HTML element scopes (tracks `@expressions`, `@attributes`, `@types`)
 - **Return** - Return value wrapper (tracks `@value`)
 
+Each scope can have **sibling scopes** - additional scopes checked first during identifier lookup, used by the unpack feature.
+
 Scope operators in the language:
 
 - `./identifier` - Instance scope
@@ -115,6 +117,101 @@ The language enforces naming conventions through the helper functions:
 - **UPPERCASE** (constant_identifier?) - Constants
 - **Capitalized** (type_identifier?) - Classes/types
 - **lowercase** (member_identifier?) - Variables and functions
+
+## Unpack Feature
+
+The `@` operator allows unpacking instance members into sibling scopes for cleaner access:
+
+### Auto-unpack in Function Parameters
+
+`@` behaes as a prefix operator here.
+
+```ore
+add { @vec;
+    x + y  `Access vec.x and vec.y directly
+}
+
+v = Vector(3, 4)
+add(v)  `Returns 7
+```
+
+### Manual Sibling Scope Control
+
+`@` behaves as a standalone left hand operand operator
+
+```ore
+island = Island()
+@ += island  `Add island's members to sibling scope
+x = island_member  `Access members directly
+
+@ -= island  `Remove island from sibling scope
+```
+
+**Implementation details:**
+- `@param` in function signature automatically unpacks parameter into sibling scope
+- `@ += instance` and `@ -= instance` provide manual control in any scope
+- Sibling scopes are checked first during identifier lookup (before current scope declarations)
+- Only works with Instance types; errors with `Invalid_Unpack_Infix_Right_Operand` for non-instances
+- Only `+=` and `-=` operators supported; other operators error with `Invalid_Unpack_Infix_Operator`
+
+## Built-in Types
+
+### Dictionary
+
+Ore includes a built-in Dictionary type for key-value storage:
+
+```ore
+dict = {x: 4, y: 8}
+dict[:x]  `Access by key
+dict[:z] = 15  `Assignment
+dict.keys  `Get all keys
+dict.values  `Get all values
+```
+
+**Features:**
+- Symbol, string, or identifier keys
+- Subscript access via `dict[key]`
+- Methods: `keys`, `values`
+- Implemented in `types.rb` as `Ore::Dictionary`
+
+## Loop Control Flow
+
+### For Loops
+
+```ore
+for [1, 2, 3, 4, 5]
+    result << it
+end
+
+for 1..10  `Range support
+    sum += it
+end
+
+for items by 2  `Stride support
+    process it  `it contains chunks of 2 items
+end
+```
+
+**Intrinsic variables:**
+- `it` - Current iteration value
+- `at` - Current iteration index
+
+### Loop Control Keywords
+
+```ore
+for items
+    if condition
+        skip  `Continue to next iteration
+    end
+    if other_condition
+        stop  `Break out of loop
+    end
+end
+```
+
+- **skip** - Skip remaining loop body and continue to next iteration (like `continue`)
+- **stop** - Exit the loop immediately (like `break`)
+- Works with `for`, `while`, and `until` loops
 
 ## Code Style Preferences
 
