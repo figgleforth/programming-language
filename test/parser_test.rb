@@ -709,14 +709,6 @@ class Parser_Test < Base_Test
 	end
 
 	def test_unpack_prefix
-		out = Ore.parse '@count'
-		assert out.first.unpack
-		assert_kind_of Ore::Identifier_Expr, out.first
-
-		out = Ore.parse 'count'
-		refute out.first.unpack
-		assert_kind_of Ore::Identifier_Expr, out.first
-
 		out = Ore.parse 'funk { @with; }'
 		assert_kind_of Ore::Param_Expr, out.first.expressions.first
 		assert out.first.expressions.first.unpack

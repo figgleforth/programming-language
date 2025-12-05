@@ -15,7 +15,7 @@ module Ore
 			key_str = key&.to_s
 
 			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
-			@sibling_scopes.each do |sibling|
+			@sibling_scopes.reverse_each do |sibling|
 				return sibling[key_str] if sibling.has? key_str
 			end
 
