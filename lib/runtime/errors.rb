@@ -4,7 +4,7 @@ module Ore
 	class Error < StandardError
 		attr_accessor :expression, :context
 
-		def initialize expression, context = nil
+		def initialize expression = nil, context = nil
 			@expression = expression
 			@context    = context
 			super format_error
@@ -130,6 +130,12 @@ module Ore
 	class Invalid_Scoped_Identifier < Error
 		def error_message
 			"Invalid scope operator usage"
+		end
+	end
+
+	class Too_Many_Subscript_Expressions < Error
+		def error_message
+			"Subscript [] expected only one expression"
 		end
 	end
 end

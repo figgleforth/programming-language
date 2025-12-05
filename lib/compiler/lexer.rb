@@ -185,7 +185,7 @@ module Ore
 
 		def lex_operator
 			it = String.new
-			while chars? && symbol?
+			while chars? && symbol? && !%w(' ").include?(curr)
 				it << eat
 			end
 

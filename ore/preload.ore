@@ -11,6 +11,11 @@ Array {
 	}
 }
 
+Dictionary {
+	keys;
+	values;
+}
+
 Tuple {
 	values;
 }

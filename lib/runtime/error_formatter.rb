@@ -61,11 +61,12 @@ module Ore
 		end
 
 		def location_line
+			# todo bug: Does not display source code properly
 			if expression && expression.l0
-				file = expression.source_file
-				Colors.cyan "#{file}:#{expression.l0}:#{expression.c0}"
+				Colors.cyan "#{expression.source_file}:#{expression.l0}:#{expression.c0}"
 			else
-				Colors.yellow "<unknown>"
+				# todo: How do I get the source string here?
+				Colors.yellow source_snippet
 			end
 		end
 

@@ -19,7 +19,9 @@ task :interp, [:string] do |_, args|
 		raise ArgumentError, "rake interp expected file arguments `bundle exec rake interp[\"Hello!\"]`"
 	end
 
-	pp Ore.interp(args[:string].to_s)
+	# Rake splits on commas, so rejoin all arguments. I wouldn't do this anywhere else except for this specific task. It helps me to not have to remember to escape commas when I'm interpreting code using this task.
+	full_string = ([args[:string]] + args.extras).join(',')
+	pp Ore.interp(full_string)
 rescue SystemExit
 	# Interrupt exit
 rescue Ore::Error => e

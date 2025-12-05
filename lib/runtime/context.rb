@@ -10,7 +10,7 @@ module Ore
 		end
 
 		def register_source filepath, source_code
-			resolved                = filepath ? File.expand_path(filepath) : source_code
+			resolved                = filepath ? File.expand_path(filepath) : "TODO_SOURCE_STRING_SNIPPET"
 			@source_files[resolved] = source_code.lines.map(&:chomp) # Store lines, not string
 		end
 
@@ -28,8 +28,6 @@ module Ore
 			expressions      = loaded_files[resolved_path]
 			temp_interpreter = Ore::Interpreter.new expressions, into_scope
 			temp_interpreter.output
-
-			nil
 		end
 	end
 end

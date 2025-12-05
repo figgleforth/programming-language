@@ -462,7 +462,7 @@ module Ore
 		end
 
 		def begin_expression precedence = STARTING_PRECEDENCE
-			raise Out_Of_Tokens unless lexemes?
+			raise Ore::Out_Of_Tokens.new unless lexemes?
 
 			if curr? :route
 				parse_route_expr

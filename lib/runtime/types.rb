@@ -1,5 +1,7 @@
 require_relative '../ore'
 
+# todo: Some way to denote which methods or attributes are to be exposed in the standard library equivalent. Then I don't have to manually add them to the type in types.rb (like I did for Dictionary)
+
 module Ore
 	class List < Instance
 		attr_accessor :values
@@ -9,17 +11,62 @@ module Ore
 			@values = values
 		end
 
-		def [] index
-			values[index]
+		def [] key
+			values[key]
 		end
 
-		def []= index, value
-			values[index] = value
+		def []= key, value
+			values[key] = value
 		end
 
 		def == other
 			# I think there's more to this than a simple evaluation. Tbd...
 			values == other.values
+		end
+
+		def to_s
+			values.inspect
+		end
+
+		def each & block
+			values.each &block
+		end
+	end
+
+	class Dictionary < Instance
+		attr_accessor :dict
+
+		def initialize dict = {}
+			super 'Dictionary'
+			@dict = dict
+		end
+
+		def [] key
+			dict[key]
+		end
+
+		def []= key, value
+			dict[key] = value
+		end
+
+		def == other
+			dict == other&.dict
+		end
+
+		def to_s
+			dict.inspect
+		end
+
+		def keys
+			dict.keys
+		end
+
+		def values
+			dict.values
+		end
+
+		def count
+			dict.count
 		end
 	end
 

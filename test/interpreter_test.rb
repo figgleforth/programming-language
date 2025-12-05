@@ -346,8 +346,8 @@ class Interpreter_Test < Base_Test
 
 	def test_empty_dictionary
 		out = Ore.interp '{}'
-		assert_kind_of Hash, out
-		assert_equal out, {}
+		assert_kind_of Ore::Dictionary, out
+		assert_equal out.dict, {}
 	end
 
 	def test_create_dictionary_with_identifiers_as_keys_without_commas
@@ -381,27 +381,97 @@ class Interpreter_Test < Base_Test
 
 	def test_create_dictionary_with_local_value
 		out = Ore.interp 'x=4, y=2, { x=x, y=y }'
-		assert_equal out, { x: 4, y: 2 }
+		assert_equal out.dict, { x: 4, y: 2 }
 	end
 
 	def test_symbol_as_dictionary_keys
 		out = Ore.interp '{ :x = 1 }'
-		assert_equal out, { x: 1 }
+		assert_equal out.dict, { x: 1 }
 	end
 
 	def test_string_as_dictionary_keys
 		out = Ore.interp '{ "x" = 1 }'
-		assert_equal out, { x: 1 }
+		assert_equal out.dict, { x: 1 }
 	end
 
 	def test_colon_as_dictionary_infix_operator
 		out = Ore.interp 'x = 123, { x: x }'
-		assert_equal out, { x: 123 }
+		assert_equal out.dict, { x: 123 }
 	end
 
 	def test_equals_as_dictionary_infix_operator
 		out = Ore.interp 'x = 123, { x = x }'
-		assert_equal out, { x: 123 }
+		assert_equal out.dict, { x: 123 }
+	end
+
+	def test_dictionary_keys
+		out = Ore.interp '{ a b c }.keys'
+		assert_equal [:a, :b, :c], out
+	end
+
+	def test_dictionary_values
+		out = Ore.interp '{ a b c }.values'
+		assert_equal [nil, nil, nil], out
+
+		out = Ore.interp '{ a=1, b= "two", c: :three }.values'
+		assert_equal [1, "two", :three], out
+
+		out = Ore.interp '{ a=1, b="two", c: :three }.values'
+		assert_equal [1, "two", :three], out
+
+		out = Ore.interp '{ a=1, b:"two", c: :three }.values'
+		assert_equal [1, "two", :three], out
+	end
+
+	def test_dictionary_subscript
+		out = Ore.interp "dict = {x}
+		original = dict[:x]
+		dict[:x] = 4815
+		(original, dict[:x])"
+		assert_equal [nil, 4815], out.values
+	end
+
+	def test_dictionary_subscript_string_and_symbol_are_different
+		out = Ore.interp "dict = {x=4815}
+		(dict['x'], dict[:x])"
+		assert_equal [nil, 4815], out.values
+	end
+
+	def test_too_many_dictionary_subscript_arguments
+		assert_raises Ore::Too_Many_Subscript_Expressions do
+			Ore.interp "dict = {x=4815}
+			dict[:x, 123]"
+		end
+
+		assert_raises Ore::Too_Many_Subscript_Expressions do
+			Ore.interp "dict = {x=4815}
+			dict[:x, 123] = 162342"
+		end
+	end
+
+	def test_nested_dictionary_subscript
+		out = Ore.interp '{ a: { b: 42 } }[:a][:b]'
+		assert_equal 42, out
+	end
+
+	def test_dictionary_subscript_nonexistent_key
+		out = Ore.interp '{ a: 1 }[:nonexistent]'
+		assert_nil out
+	end
+
+	def test_dictionary_subscript_with_variable
+		out = Ore.interp 'key = :a, dict = { a: 99 }, dict[key]'
+		assert_equal 99, out
+	end
+
+	def test_dictionary_subscript_in_expression
+		out = Ore.interp '{ x: 10 }[:x] + 5'
+		assert_equal 15, out
+	end
+
+	def test_empty_dictionary_subscript
+		out = Ore.interp '{}[:key]'
+		assert_nil out
 	end
 
 	def test_invalid_dictionary_infix
@@ -641,6 +711,13 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp 'things = [4, 8, 15]
 		things.0'
 		assert_equal 4, out
+	end
+
+	def test_array_nested_non_array_dot_index
+		assert_raises Ore::Invalid_Dot_Infix_Left_Operand do
+			Ore.interp 'things = [4, 8, 15]
+		things.0.1'
+		end
 	end
 
 	def test_nested_array_access_by_dot_index
