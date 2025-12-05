@@ -132,4 +132,10 @@ module Ore
 			"Invalid scope operator usage"
 		end
 	end
+
+	class Too_Many_Subscript_Expressions < Error
+		def error_message
+			"Subscript [] expected only one expression"
+		end
+	end
 end

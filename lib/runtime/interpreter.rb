@@ -217,7 +217,19 @@ module Ore
 		def interp_infix_equals expr
 			assignment_scope = scope_for_identifier expr.left
 
-			# Special handling for load directive assignment
+			# Special handling for load directive assignment, subscript, and maybe more later.
+
+			if expr.left.is_a? Ore::Subscript_Expr
+				if expr.left.expression.expressions.count > 1
+					raise Ore::Too_Many_Subscript_Expressions.new(expr.left, context)
+				end
+				# note: I'm interpreting only the first expression of left.expression.expressions as the key because the brackets are a Circumfix_Expr which uses an array to store the values.
+				receiver      = interpret expr.left.receiver
+				key           = interpret expr.left.expression.expressions.first
+				receiver[key] = interpret expr.right
+				return receiver[key] # note: Intentionally returning the value here because the code starting with the directive check runs to the end of the method. todo: Imrpove?
+			end
+
 			if expr.right.is_a?(Ore::Directive_Expr) && expr.right.name.value == 'load'
 				filepath = interpret expr.right.expression
 
@@ -1062,12 +1074,28 @@ module Ore
 				server_runner.start
 				server_runner
 			when 'load'
-				# Standalone load - interpret into current scope (done by passing the scope into context#load_file)
+				# Standalone load is interpreted into current scope by passing the scope into context#load_file
 				filepath = interpret expr.expression
-				context.load_file(filepath, stack.last)
-				nil # todo: No return value for standalone load?
+				context.load_file filepath, stack.last
+				# note: #load_file returns the output but it's ignored. Assigning the value of a #load directive executres code in #interp_infix_expr
 			else
 				raise Ore::Directive_Not_Implemented.new(expr, context)
+			end
+		end
+
+		def interp_subscript expr
+			if expr.expression.expressions.count > 1
+				raise Ore::Too_Many_Subscript_Expressions.new(expr.expression, context)
+			end
+
+			receiver = interpret expr.receiver
+			key      = interpret expr.expression.expressions.first
+
+			case receiver
+			when Ore::Dictionary, Ore::List
+				receiver[key]
+			else
+				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
 			end
 		end
 
@@ -1120,6 +1148,9 @@ module Ore
 
 			when Ore::Array_Index_Expr
 				expr.indices_in_order
+
+			when Ore::Subscript_Expr
+				interp_subscript expr
 
 			when Ore::Directive_Expr
 				interp_directive expr

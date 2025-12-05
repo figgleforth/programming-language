@@ -11,12 +11,12 @@ module Ore
 			@values = values
 		end
 
-		def [] index
-			values[index]
+		def [] key
+			values[key]
 		end
 
-		def []= index, value
-			values[index] = value
+		def []= key, value
+			values[key] = value
 		end
 
 		def == other
@@ -41,12 +41,12 @@ module Ore
 			@dict = dict
 		end
 
-		def [] index
-			dict[index]
+		def [] key
+			dict[key]
 		end
 
-		def []= index, value
-			dict[index] = value
+		def []= key, value
+			dict[key] = value
 		end
 
 		def == other
