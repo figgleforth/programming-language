@@ -69,7 +69,7 @@ module Ore
 
 	class Invalid_Unpack_Infix_Right_Operand < Error
 		def error_message
-			"Invalid right operand '#{expression.right}' in unpack operation - expected a Scope"
+			"Invalid right operand '#{expression}' in unpack operation - expected a Scope"
 		end
 	end
 

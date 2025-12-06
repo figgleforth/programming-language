@@ -470,6 +470,7 @@ module Ore
 				parse_route_expr
 
 			elsif curr? ANY_IDENTIFIER, ';'
+				# note: ; is not actually a true postfix operator. It's just being treated as one here.
 				parse_nil_init_postfix_expr
 
 			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
@@ -593,12 +594,16 @@ module Ore
 					it.left     = expr
 					it.operator = eat.value
 					it.right    = parse_expression precedence_for it.operator
+					
+					copy_location it, expr
 					return complete_expression it, precedence
 				elsif RANGE_OPERATORS.include? curr_lexeme.value
 					it          = Ore::Infix_Expr.new
 					it.left     = expr
 					it.operator = eat.value
 					it.right    = parse_number_expr
+
+					copy_location it, expr
 					return complete_expression it, precedence
 				else
 					while INFIX.include?(curr_lexeme.value) && curr?(:operator)
@@ -615,6 +620,7 @@ module Ore
 						expr.left     = left
 						expr.operator = eat(curr_lexeme.value).value
 						expr.right    = parse_expression curr_operator_prec
+						copy_location expr, left
 
 						if expr.left.is(Ore::Identifier_Expr) && expr.operator == '.' && expr.right.is(Ore::Number_Expr) && expr.right.type == :float
 							# Copypaste from above #parse_expression when :number.
@@ -643,12 +649,16 @@ module Ore
 				expr           = Ore::Call_Expr.new
 				expr.receiver  = receiver
 				expr.arguments = fix.expressions
+
+				copy_location expr, receiver
 				return complete_expression expr, precedence
 			elsif subscript
 				it            = Ore::Subscript_Expr.new
 				it.receiver   = expr
 				it.expression = parse_circumfix_expr opening: curr_lexeme.value
 				it
+
+				copy_location expr, left
 				return complete_expression it, precedence
 			end
 

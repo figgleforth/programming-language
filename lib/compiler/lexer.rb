@@ -175,6 +175,10 @@ module Ore
 				end
 			end
 
+			if !chars? || curr != quote
+				raise Ore::Unterminated_String_Literal.new(Ore::Expression.new(it))
+			end
+
 			eat quote
 			it
 		end
