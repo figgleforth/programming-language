@@ -253,91 +253,64 @@ module Ore
 
 		# @param expr [Ore::Infix_Expr]
 		def interp_infix_dot expr
-			if expr.right.is 'new'
-				return interp_dot_new expr
-			end
+			return interp_dot_new expr if expr.right.is 'new'
 
-			# todo: When left is not a scope, but instead a Ruby builtin like ::Range, then pass the call through but catch undefined methods
 			left = maybe_instance interpret expr.left
+			raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context) unless left.kind_of?(Ore::Scope)
 
-			if !left.kind_of?(Ore::Scope) #&& !left.kind_of?(Ore::Range)
-				raise Ore::Invalid_Dot_Infix_Left_Operand.new expr, context
-			end
+			case left
+				# note: These cases represent special Types and will return if possible, otherwise execution falls through to the default scope lookup at the end of this method.
+			when Ore::List, Ore::Tuple
+				case
+				when expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
+					left.each do |it|
+						each_scope                 = Ore::Scope.new 'each{;}'
+						each_scope.enclosing_scope = stack.last
+						push_scope each_scope
+						declare 'it', it, each_scope
+						expr.right.expressions.each { |e| interpret e }
+						pop_scope
+					end
+					return left
 
-			# todo: Rewrite this big if-else
-			# if expr.right.name.value == 'each' # List, Tuple, Dictionary
-			#
-			# end
+				when expr.right.is(Ore::Number_Expr)
+					return left.values[expr.right.value]
 
-			if left.is_a?(Ore::List) || left.kind_of?(Ore::Tuple)
+				when expr.right.is(Ore::Array_Index_Expr)
+					array_or_tuple = left
+					expr.right.indices_in_order.each do |index|
+						raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context) unless array_or_tuple.is_a? Ore::List
+						array_or_tuple = array_or_tuple[index]
+					end
+					return array_or_tuple
+				end
+
+			when Ore::Range
 				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
 					left.each do |it|
 						each_scope                 = Ore::Scope.new 'each{;}'
 						each_scope.enclosing_scope = stack.last
 						push_scope each_scope
 						declare 'it', it, each_scope
-						expr.right.expressions.each do |expr|
-							interpret expr
-						end
-						pop_scope
-					end
-
-					return left
-				elsif expr.right.is Ore::Number_Expr
-					return left.values[expr.right.value]
-
-				elsif expr.right.is Ore::Array_Index_Expr
-					array_or_tuple = left # Just for clarity.
-
-					expr.right.indices_in_order.each do |index|
-						unless array_or_tuple.is_a? Ore::List
-							# note: If left were a ::Number, subscript notation would succeed because that is integer bit indexing.
-							raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
-						end
-						array_or_tuple = array_or_tuple[index]
-					end
-
-					return array_or_tuple
-				end
-
-			elsif left.kind_of? Ore::Range
-				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
-					# todo: Should be handled by #interp_func_call?
-
-					left.each do |it|
-						each_scope = Ore::Scope.new 'each{;}'
-						push_scope each_scope
-						declare 'it', it, each_scope
-						expr.right.expressions.each do |expr|
-							interpret expr
-						end
+						expr.right.expressions.each { |e| interpret e }
 						pop_scope
 					end
 				end
 				return left
 
-			elsif left.kind_of? Ore::Dictionary
+			when Ore::Dictionary
 				case expr.right.value
 				when 'keys', 'values', 'count'
-					# note: keys, values, and count are declared on Ore::Dictionary so just call through to it
-					left.dict.send expr.right.value
-				else
-					# Fall through to normal scope lookup
-					push_scope left
-					result = interpret expr.right
-					pop_scope
-					return result
+					return left.dict.send expr.right.value
 				end
 
-			else
-				raise Invalid_Dot_Infix_Left_Operand.new(expr, context) if left == nil
-
-				push_scope left
-				result = interpret expr.right
-				pop_scope
-
-				return result
 			end
+
+			# note: This is the fallthrough for all special cases above.
+			push_scope left
+			result = interpret expr.right
+			pop_scope
+			result
 		end
 
 		# @param expr [Ore::Infix_Expr]
