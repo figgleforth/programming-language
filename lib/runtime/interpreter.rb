@@ -619,8 +619,8 @@ module Ore
 				break if result.is_a? Ore::Return
 			end
 
-			Ore.assert pop_scope == call_scope
-			Ore.assert pop_scope == func.enclosing_scope
+			Ore.assert! pop_scope == call_scope
+			Ore.assert! pop_scope == func.enclosing_scope
 
 			result
 		end
@@ -705,8 +705,8 @@ module Ore
 			popped_call      = pop_scope
 			popped_enclosing = pop_scope
 
-			Ore.assert popped_call == call_scope
-			Ore.assert popped_enclosing == handler.enclosing_scope
+			Ore.assert! popped_call == call_scope
+			Ore.assert! popped_enclosing == handler.enclosing_scope
 
 			result
 		end
@@ -947,8 +947,8 @@ module Ore
 			collection = interpret expr.collection
 			stride     = interpret(expr.stride) if expr.stride
 
-			Ore.assert collection.is_a?(Ore::List) || collection.is_a?(Ore::Range)
-			Ore.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
+			Ore.assert! collection.is_a?(Ore::List) || collection.is_a?(Ore::Range)
+			Ore.assert! stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
 
 			push_then_pop Scope.new('for_loop') do |scope|
 				values = if collection.is_a? Ore::Range

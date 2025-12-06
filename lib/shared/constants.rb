@@ -2,6 +2,8 @@ module Ore
 	STANDARD_LIBRARY_PATH      = './ore/preload.ore'
 	UNPACK_PREFIX              = '@'
 	DIRECTIVE_PREFIX           = '#'
+	ACCESS_LEVELS              = %i(public private)
+	BINDING_LEVELS             = %i(instance static)
 	HTML_ATTRS                 = %w(id class href)
 	HTTP_VERBS                 = %w(get put patch post delete head options connect trace)
 	HTTP_VERB_SEPARATOR        = '://'

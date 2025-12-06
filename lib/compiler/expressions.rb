@@ -144,7 +144,8 @@ module Ore
 	end
 
 	class Identifier_Expr < Expression
-		attr_accessor :kind, :unpack, :scope_operator, :directive
+		attr_accessor :kind, :unpack, :scope_operator, :directive, :access_level, :binding_level
+		# note: See constants.rb for ACCESS_LEVELS and BINDING_LEVELS
 	end
 
 	class Composition_Expr < Expression

@@ -1,7 +1,7 @@
 module Helpers
 	extend self
 
-	def assert condition, message = "Expected condition to be truthy."
+	def assert! condition, message = "Expected condition to be truthy."
 		raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
 	end
 
@@ -19,6 +19,24 @@ module Helpers
 	def member_identifier? ident
 		# lowercased_FIRST_LETTER, lIKE_THIS or thIS or this
 		ident[0] && ident[0].downcase == ident[0]
+	end
+
+	def access_level ident
+		case ident
+		when /^_/
+			:private
+		else
+			:public
+		end
+	end
+
+	def binding_level ident
+		case ident
+		when /_$/
+			:static
+		else
+			:instance
+		end
 	end
 
 	def type_of_identifier ident
