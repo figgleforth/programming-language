@@ -9,7 +9,7 @@ module Ore
 			@col         = 1 # short for column
 			@line        = 1 # short for line
 			@input       = input
-			@source_file = filepath ? File.expand_path(filepath) : input
+			@source_file = filepath ? File.expand_path(filepath) : '<inline>'
 		end
 
 		def whitespace? char = curr

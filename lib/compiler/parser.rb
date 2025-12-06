@@ -5,7 +5,7 @@ module Ore
 		def initialize input = [], source_file: nil
 			@input       = input
 			@i           = 0 # index of current lexeme
-			@source_file = source_file ? File.expand_path(source_file) : input
+			@source_file = source_file ? File.expand_path(source_file) : '<inline>'
 		end
 
 		def copy_location expr, from_lexeme
