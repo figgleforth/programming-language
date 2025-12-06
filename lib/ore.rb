@@ -47,8 +47,11 @@ module Ore
 				reload = false
 
 				code        = File.read filepath
+				context     = Ore::Context.new
+				context.register_source filepath, code
 				global      = Ore::Global.with_standard_library
-				interpreter = Ore::Interpreter.new Ore.parse(code), global
+				expressions = Ore.parse(code, filepath: filepath)
+				interpreter = Ore::Interpreter.new expressions, global, context
 				result      = interpreter.output
 
 				if interpreter.context.servers.any?
@@ -82,7 +85,7 @@ module Ore
 
 	def self.interp source_code, with_std: true, filepath: nil
 		context = Ore::Context.new
-		context.register_source filepath || source_code, source_code
+		context.register_source filepath, source_code
 
 		lexemes      = Lexer.new(source_code, filepath: filepath).output
 		expressions  = Parser.new(lexemes, source_file: filepath).output
@@ -93,12 +96,12 @@ module Ore
 	end
 
 	def self.parse_file filepath
-		parse File.read(filepath)
+		parse File.read(filepath), filepath: filepath
 	end
 
-	def self.parse source_code
-		lexemes = Lexer.new(source_code).output
-		Parser.new(lexemes).output
+	def self.parse source_code, filepath: nil
+		lexemes = Lexer.new(source_code, filepath: filepath).output
+		Parser.new(lexemes, source_file: filepath).output
 	end
 
 	def self.lex_file filepath

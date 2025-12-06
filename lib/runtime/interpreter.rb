@@ -203,11 +203,14 @@ module Ore
 		end
 
 		def interp_prefix expr
+			# note: See constants.rb PREFIX for exhaustive list of language-defined prefixes
 			case expr.operator
 			when '-'
 				-interpret(expr.expression)
 			when '+'
 				+interpret(expr.expression)
+			when '~'
+				~interpret(expr.expression)
 			when '!', 'not'
 				!interpret(expr.expression)
 			when 'return'
@@ -379,13 +382,13 @@ module Ore
 				if expr.left.value == UNPACK_PREFIX
 					case expr.operator
 					when '+='
-						expr = interpret expr.right
-						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) unless expr.is_a? Ore::Scope
-						stack.last.sibling_scopes << expr
+						right = interpret expr.right
+						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) unless right.is_a? Ore::Scope
+						stack.last.sibling_scopes << right
 					when '-='
-						expr = interpret expr.right
-						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) if expr && !(expr.is_a? Ore::Scope)
-						stack.last.sibling_scopes.delete expr # todo: Warn or error when trying to -= a scope that isn't a sibling?
+						right = interpret expr.right
+						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) if right && !(right.is_a? Ore::Scope)
+						stack.last.sibling_scopes.delete right # todo: Warn or error when trying to -= a scope that isn't a sibling?
 					else
 						raise Invalid_Unpack_Infix_Operator.new(expr, context)
 					end
@@ -448,6 +451,7 @@ module Ore
 		end
 
 		def interp_postfix expr
+			# note: See constants.rb POSTFIX for exhaustive list of language-defined postfixes
 			case expr.operator
 			when ';'
 				declare expr.expression.value, nil
@@ -507,15 +511,16 @@ module Ore
 
 		def interp_call expr
 			receiver = interpret expr.receiver
+
 			case receiver
-			when Ore::Type, Ore::Html_Element
+			when Ore::Instance, Ore::Type, Ore::Html_Element
 				interp_type_call receiver, expr
 
 			when Ore::Func # func()
 				interp_func_call receiver, expr
+
 			else
-				# todo: Proper error
-				raise "Interpreter#interp_call unhandled #{receiver.inspect}"
+				raise Ore::Cannot_Initialize_Non_Type_Identifier.new expr.receiver, context
 			end
 		end
 
@@ -1186,8 +1191,6 @@ module Ore
 					throw :skip
 				when 'stop'
 					throw :stop
-				else
-					raise Ore::Interpret_Expr_Not_Implemented.new(expr, context)
 				end
 			else
 				raise Ore::Interpret_Expr_Not_Implemented.new(expr, context)

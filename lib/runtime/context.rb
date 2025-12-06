@@ -10,7 +10,7 @@ module Ore
 		end
 
 		def register_source filepath, source_code
-			resolved                = filepath ? File.expand_path(filepath) : "TODO_SOURCE_STRING_SNIPPET"
+			resolved                = filepath ? File.expand_path(filepath) : '<inline>'
 			@source_files[resolved] = source_code.lines.map(&:chomp) # Store lines, not string
 		end
 
@@ -18,15 +18,17 @@ module Ore
 			resolved_path = File.expand_path filepath
 
 			unless loaded_files[resolved_path]
-				code                        = File.read resolved_path
-				lexemes                     = Ore::Lexer.new(code).output
-				expressions                 = Ore::Parser.new(lexemes).output
+				code = File.read resolved_path
+				register_source resolved_path, code
+				
+				lexemes                     = Ore::Lexer.new(code, filepath: resolved_path).output
+				expressions                 = Ore::Parser.new(lexemes, source_file: resolved_path).output
 				loaded_files[resolved_path] = expressions
 			end
 
 			# Always interpret into the target scope (allows reuse in different scopes)
 			expressions      = loaded_files[resolved_path]
-			temp_interpreter = Ore::Interpreter.new expressions, into_scope
+			temp_interpreter = Ore::Interpreter.new expressions, into_scope, self
 			temp_interpreter.output
 		end
 	end

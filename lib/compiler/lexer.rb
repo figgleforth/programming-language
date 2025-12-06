@@ -9,7 +9,7 @@ module Ore
 			@col         = 1 # short for column
 			@line        = 1 # short for line
 			@input       = input
-			@source_file = filepath ? File.expand_path(filepath) : input
+			@source_file = filepath ? File.expand_path(filepath) : '<inline>'
 		end
 
 		def whitespace? char = curr
@@ -173,6 +173,10 @@ module Ore
 				else
 					it += eat
 				end
+			end
+
+			if !chars? || curr != quote
+				raise Ore::Unterminated_String_Literal.new(Ore::Expression.new(it))
 			end
 
 			eat quote
