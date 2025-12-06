@@ -285,7 +285,7 @@ module Ore
 				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
 			end
 
-			if left.is_a?(Ore::List) || left.kind_of?(Ore::Tuple)
+			if left.is_a?(Ore::Array) || left.kind_of?(Ore::Tuple)
 				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
 					left.each do |it|
 						each_scope                 = Ore::Scope.new 'each{;}'
@@ -306,7 +306,7 @@ module Ore
 					array_or_tuple = left # Just for clarity.
 
 					expr.right.indices_in_order.each do |index|
-						unless array_or_tuple.is_a? Ore::List
+						unless array_or_tuple.is_a? Ore::Array
 							# note: If left were a ::Number, subscript notation would succeed because that is integer bit indexing.
 							raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
 						end
@@ -367,7 +367,7 @@ module Ore
 				left  = maybe_instance interpret expr.left
 				right = interpret expr.right
 
-				if left.is_a?(Ore::List)
+				if left.is_a?(Ore::Array)
 					left.values << right
 				else
 					begin
@@ -396,7 +396,7 @@ module Ore
 					left  = maybe_instance interpret expr.left
 					right = maybe_instance interpret expr.right
 
-					if left.is_a?(Ore::List) && expr.operator == '<<'
+					if left.is_a?(Ore::Array) && expr.operator == '<<'
 						left.values << right
 					else
 						left.send expr.operator, right
@@ -463,7 +463,7 @@ module Ore
 		def interp_circumfix expr
 			case expr.grouping
 			when '[]'
-				array = Ore::List.new
+				array = Ore::Array.new
 
 				expr.expressions.each do |e|
 					array.values << interpret(e)
@@ -683,7 +683,7 @@ module Ore
 			if result.is_a? String
 				res.body_content         = result
 				res.declarations['body'] = result
-			elsif result.is_a? Ore::List
+			elsif result.is_a? Ore::Array
 				html = ''
 				result.values.each do |it|
 					if it.is_a? String
@@ -761,7 +761,7 @@ module Ore
 
 				if render_result.is_a?(String)
 					html += render_result
-				elsif render_result.is_a?(Ore::List)
+				elsif render_result.is_a?(Ore::Array)
 					render_result.values.each do |child|
 						if child.is_a?(String)
 							html += child
@@ -952,7 +952,7 @@ module Ore
 			collection = interpret expr.collection
 			stride     = interpret(expr.stride) if expr.stride
 
-			Ore.assert collection.is_a?(Ore::List) || collection.is_a?(Ore::Range)
+			Ore.assert collection.is_a?(Ore::Array) || collection.is_a?(Ore::Range)
 			Ore.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
 
 			push_then_pop Scope.new('for_loop') do |scope|
@@ -1119,7 +1119,7 @@ module Ore
 			key      = interpret expr.expression.expressions.first
 
 			case receiver
-			when Ore::Dictionary, Ore::List
+			when Ore::Dictionary, Ore::Array
 				receiver[key]
 			else
 				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)

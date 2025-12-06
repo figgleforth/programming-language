@@ -68,7 +68,7 @@ module Ore
 			slice.each_with_index.all? do |lexeme, index|
 				expected = sequence[index]
 
-				if expected.is_a?(List)
+				if expected.is_a?(Ore::Array)
 					expected.any? do |alt|
 						lexeme.is(alt)
 					end
@@ -594,7 +594,7 @@ module Ore
 					it.left     = expr
 					it.operator = eat.value
 					it.right    = parse_expression precedence_for it.operator
-					
+
 					copy_location it, expr
 					return complete_expression it, precedence
 				elsif RANGE_OPERATORS.include? curr_lexeme.value

@@ -3,7 +3,8 @@ require_relative '../ore'
 # todo: Some way to denote which methods or attributes are to be exposed in the standard library equivalent. Then I don't have to manually add them to the type in types.rb (like I did for Dictionary)
 
 module Ore
-	class List < Instance
+	# note: Be sure to prefix with Ore:: whenever referencing this Array type to prevent ambiguity with Ruby's ::Array!
+	class Array < Instance
 		attr_accessor :values
 
 		def initialize values = []
@@ -70,7 +71,7 @@ module Ore
 		end
 	end
 
-	class Tuple < List
+	class Tuple < Ore::Array
 		def initialize values = []
 			super values
 		end

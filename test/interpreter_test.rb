@@ -316,17 +316,17 @@ class Interpreter_Test < Base_Test
 	def test_empty_array
 		out = Ore.interp '[]'
 		assert_equal [], out.values
-		assert_instance_of Ore::List, out
+		assert_instance_of Ore::Array, out
 	end
 
 	def test_non_empty_arrays
 		out = Ore.interp '[1]'
-		assert_instance_of Ore::List, out
+		assert_instance_of Ore::Array, out
 		assert_equal [1], out.values
 
 		out = Ore.interp '[1, "test", 5]'
-		assert_instance_of Ore::List, out
-		assert_equal Ore::List.new([1, 'test', 5]).values, out.values
+		assert_instance_of Ore::Array, out
+		assert_equal Ore::Array.new([1, 'test', 5]).values, out.values
 	end
 
 	def test_tuples
