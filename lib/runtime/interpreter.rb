@@ -83,9 +83,6 @@ module Ore
 		end
 
 		def interp_identifier expr
-			# todo: Proper error
-			raise "Expected Ore::Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Ore::Identifier_Expr
-
 			scope = case expr.value
 			when 'nil'
 				return nil
@@ -99,27 +96,11 @@ module Ore
 				scope_for_identifier expr
 			end
 
-			value = if scope.is_a? ::Array
-				found = scope.reverse_each.find do |scope|
-					scope.has? expr.value
-				end
-
-				if found && found.has?(expr.value)
-					found[expr.value]
-				else
-					raise Ore::Undeclared_Identifier.new(expr, context)
-				end
-			elsif scope
-				unless scope.has? expr.value
-					raise Ore::Undeclared_Identifier.new(expr, context)
-				end
-				scope[expr.value]
-			else
-				# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
-				scope = stack.last
-				raise Ore::Undeclared_Identifier.new(expr, context) unless scope.has? expr.value
-				scope[expr.value]
+			unless scope.has? expr.value
+				raise Ore::Undeclared_Identifier.new(expr, context)
 			end
+
+			value = scope[expr.value]
 
 			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
 			if expr.unpack && value.is_a?(Ore::Instance)
@@ -272,15 +253,21 @@ module Ore
 
 		# @param expr [Ore::Infix_Expr]
 		def interp_infix_dot expr
-			# todo, This is getting messy. I need to factor out some of these cases. :factor_dot_calls
-			if expr.right == 'new' || expr.right.is('new')
+			if expr.right.is 'new'
 				return interp_dot_new expr
 			end
 
+			# todo: When left is not a scope, but instead a Ruby builtin like ::Range, then pass the call through but catch undefined methods
 			left = maybe_instance interpret expr.left
-			if !left.kind_of?(Ore::Scope) && !left.kind_of?(Ore::Range)
-				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
+
+			if !left.kind_of?(Ore::Scope) #&& !left.kind_of?(Ore::Range)
+				raise Ore::Invalid_Dot_Infix_Left_Operand.new expr, context
 			end
+
+			# todo: Rewrite this big if-else
+			# if expr.right.name.value == 'each' # List, Tuple, Dictionary
+			#
+			# end
 
 			if left.is_a?(Ore::List) || left.kind_of?(Ore::Tuple)
 				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'

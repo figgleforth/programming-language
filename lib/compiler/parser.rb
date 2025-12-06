@@ -352,7 +352,10 @@ module Ore
 				expr.type = eat(:Identifier)
 			end
 
-			expr.kind = Ore.type_of_identifier expr.value
+			expr.access_level  = Ore.access_level expr.value
+			expr.binding_level = Ore.binding_level expr.value
+			expr.kind          = Ore.type_of_identifier expr.value
+
 			expr
 
 			copy_location expr, start
@@ -416,8 +419,10 @@ module Ore
 
 			route             = Ore::Route_Expr.new
 			route.http_method = Ore::Identifier_Expr.new.tap do |expr|
-				expr.value = http_method
-				expr.kind  = :identifier
+				expr.value         = http_method
+				expr.kind          = :identifier
+				expr.access_level  = :public
+				expr.binding_level = :instance
 			end
 			route.path        = path_string
 			route.expression  = handler

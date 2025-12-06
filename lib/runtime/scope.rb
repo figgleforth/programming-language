@@ -12,14 +12,14 @@ module Ore
 		end
 
 		def [] key
-			key_str = key&.to_s
+			key = key&.to_s
 
 			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
 			@sibling_scopes.reverse_each do |sibling|
-				return sibling[key_str] if sibling.has? key_str
+				return sibling[key] if sibling.has? key
 			end
 
-			@declarations[key_str]
+			@declarations[key]
 		end
 
 		def []= key, value
@@ -31,14 +31,14 @@ module Ore
 		end
 
 		def has? identifier
-			id_str = identifier.to_s
+			identifier = identifier.to_s
 
 			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
 			return true if @sibling_scopes.any? do |sibling|
-				sibling.has? id_str
+				sibling.has? identifier
 			end
 
-			@declarations.key? id_str
+			@declarations.key? identifier
 		end
 
 		def declarations= new_declarations
@@ -46,8 +46,7 @@ module Ore
 		end
 
 		def delete key
-			return nil unless key
-			@declarations.delete(key.to_s)
+			@declarations.delete key&.to_s
 		end
 
 		def self.with_standard_library
