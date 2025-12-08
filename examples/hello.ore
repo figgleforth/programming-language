@@ -1,0 +1,13 @@
+Greet {
+	subject;
+
+	new { subject;
+		./subject = subject
+	}
+
+	greeting {;
+		"Hello, |subject|!"
+	}
+}
+
+Greet('Ore').greeting()

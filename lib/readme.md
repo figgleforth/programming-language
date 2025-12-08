@@ -64,7 +64,7 @@ result      = Ore.interp_file source_file
 This is the quickest way to run code:
 
 ```bash
-bundle exec bin/ore run file.ore # Run once
+bundle exec bin/ore file.ore # Run once
 bundle exec bin/ore dev file.ore # Run and keep alive
 ```
 

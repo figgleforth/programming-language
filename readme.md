@@ -2,7 +2,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-9ff)](https://justforfunnoreally.dev)
 
-### Programming Language for Web Development
+### Quick Start
+
+Clone this repo and run this example with `bundle exec bin/ore examples/hello.ore`:
 
 ```ore
 Greet {
@@ -17,8 +19,31 @@ Greet {
 	}
 }
 
-Greet('Ore').greeting()  `"Hello, Ore!"
+Greet('Ore').greeting()
 ```
+
+```bash
+git clone https://github.com/figgleforth/ore-lang.git
+cd ore-lang
+bundle install
+bundle exec bin/ore examples/hello.ore
+```
+
+### Table of Contents
+
+- [Features](#features)
+- [Code Examples](#code-examples)
+	- [Variables](#variables)
+	- [Functions](#functions)
+	- [Classes](#classes)
+	- [Loops](#loops)
+	- [Instance Unpacking](#instance-unpacking)
+	- [File Loading](#file-loading)
+	- [Web Servers](#web-servers)
+	- [HTML Rendering](#html-rendering)
+- [Getting Started](#getting-started)
+
+### Features
 
 - Naming conventions replace keywords
 	- `Capitalize` classes
@@ -44,33 +69,18 @@ Greet('Ore').greeting()  `"Hello, Ore!"
 	- Makes declarations accessible without `instance.` prefix
 	- Auto-unpack function parameters in function body `funk { @with; }`
 	- Manually unpack `@ += instance` and undo `@ -= instance`
-- Web server support with routing
+- Basic Web server support with routing
 	- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
 	- URL parameters via `:param` syntax
 	- Query string access via `request.query`
 	- Non-blocking `#start` directive allows running multiple servers
 	- Graceful shutdown handling when program exits
-- HTML rendering with `Dom` composition
+- Basic HTML rendering with `Dom` composition
 	- Compose with built-in HTML elements (`Dom`, `Html`, `Body`, `Div`, `H1`, etc)
 	- Declare `html_` prefixed attributes for HTML attributes (`html_href`, `html_class`)
 	- Declare `css_` prefixed properties for CSS (`css_color`, `css_background`)
 	- Routes returning `Dom` instances automatically render to HTML
 	- Standard library provides common HTML elements
-
----
-
-- [Code Examples](#code-examples)
-	- [Variables](#variables)
-	- [Functions](#functions)
-	- [Classes](#classes)
-	- [Loops](#loops)
-	- [Instance Unpacking](#instance-unpacking)
-	- [File Loading](#file-loading)
-	- [Web Servers](#web-servers)
-	- [HTML Rendering](#html-rendering)
-- [Getting Started](#getting-started)
-
----
 
 ### Code Examples
 
@@ -241,8 +251,8 @@ multiply(2)  `Vector(10, 20)
 
 ```ore
 `Load external Ore files with #load directive
-#load './utilities.ore'
-#load './models/user.ore'
+#load './some_formatter.ore'
+#load './some_dir/users.ore'
 
 `Use loaded classes and functions
 user = User('Alice', 'alice@example.com')
@@ -252,6 +262,8 @@ formatted = format_name(user.name)
 #### Web Servers
 
 ```ore
+#load 'ore/server.ore'
+
 `Create servers by composing with built-in Server type
 Web_App | Server {
 	`Define routes using HTTP method and path
@@ -286,6 +298,8 @@ api = API_Server(3000)
 Using built-in `Dom` composition:
 
 ```ore
+#load 'ore/html.ore'
+
 Layout | Dom {
 	title;
 	body_content;
@@ -308,6 +322,8 @@ Layout | Dom {
 Using strings with HTML:
 
 ```ore
+#load 'ore/html.ore'
+
 Layout | Dom {
 	render {;
 		"<html><head><title>My page</title></head><body>Hello!</body></html>"
@@ -331,6 +347,8 @@ Both examples will produce an HTML response as long as the class composes with `
 Adding HTML and CSS attributes:
 
 ```ore
+#load 'ore/html.ore'
+
 My_Div | Dom {
 	html_element = 'p'
 	html_class = 'my_class'
@@ -342,7 +360,9 @@ My_Div | Dom {
 `=> <p class='my_class' id='my_id' style='background-color:black;color:white;'></p>
 ```
 
-See [html.ore](ore/html.ore) for predefined `Dom` elements.
+Note: Rendering HTML only works when
+`render{;}` is called by a Server instance. See [html.ore](ore/html.ore) for predefined
+`Dom` elements. See [web1.ore](examples/web1.ore) for Server and HTML usage.
 
 ### Getting Started
 
@@ -358,7 +378,7 @@ bundle exec rake test
 Run an Ore program:
 
 ```bash
-bundle exec bin/ore run file.ore
+bundle exec bin/ore file.ore
 ```
 
 - [`lib/readme`](lib/readme.md) details the architecture and contains instructions for running your own programs
