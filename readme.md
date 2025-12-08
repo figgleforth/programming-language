@@ -4,6 +4,8 @@
 
 ### Quick Start
 
+> Requires Ruby 3.4.1 or higher, and Bundler
+
 Clone this repo and run this example with `bundle exec bin/ore examples/hello.ore`:
 
 ```ore
