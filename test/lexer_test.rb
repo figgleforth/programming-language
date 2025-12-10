@@ -390,30 +390,56 @@ class Lexer_Test < Base_Test
 		assert_equal 1, out.last.l0
 		assert_equal 1, out.last.c0
 		assert_equal 1, out.last.l1
-		assert_equal 12, out.last.c1
+		assert_equal 11, out.last.c1
 
 		out = Ore.lex 'abracadabra = whatever'
 		assert_equal 1, out.last.l0
 		assert_equal 1, out.last.l1
 		assert_equal 15, out.last.c0
-		assert_equal 23, out.last.c1
+		assert_equal 22, out.last.c1
 	end
 
 	def test_multiline_code_location
-		out = Ore.lex \
-			"Thing {
-	id;
-	name;
-}"
-		assert_equal "1:1..1:6", out[0].line_col # Thing
-		assert_equal "1:7..1:8", out[1].line_col # {
+		out = Ore.lex <<~LEX
+		    Thing {
+		    	id;
+		    	name;
+		    }
+
+		    for 1..2
+		    	while true
+		    		false until true
+		    	end
+		    end
+		LEX
+		assert_equal "1:1..1:5", out[0].line_col # Thing
+		assert_equal "1:7..1:7", out[1].line_col # {
 		assert_equal "1:8..2:1", out[2].line_col # \n
-		assert_equal "2:2..2:4", out[3].line_col # id, Starts at column 2 because of indentation.
-		assert_equal "2:4..2:5", out[4].line_col # ;
+		assert_equal "2:2..2:3", out[3].line_col # id, Starts at column 2 because of indentation.
+		assert_equal "2:4..2:4", out[4].line_col # ;
 		assert_equal "2:5..3:1", out[5].line_col # \n
-		assert_equal "3:2..3:6", out[6].line_col # name
-		assert_equal "3:6..3:7", out[7].line_col # ;
+		assert_equal "3:2..3:5", out[6].line_col # name
+		assert_equal "3:6..3:6", out[7].line_col # ;
 		assert_equal "3:7..4:1", out[8].line_col # \n
-		assert_equal "4:1..4:2", out[9].line_col # }
+		assert_equal "4:1..4:1", out[9].line_col # }
+
+		assert_equal "4:2..5:1", out[10].line_col # \n
+		assert_equal "5:1..6:1", out[11].line_col # \n
+
+		assert_equal "6:1..6:3", out[12].line_col # \tfor
+		assert_equal "6:5..6:5", out[13].line_col # 1
+		assert_equal "6:6..6:7", out[14].line_col # ..
+		assert_equal "6:8..6:8", out[15].line_col # 2
+		assert_equal "6:9..7:1", out[16].line_col # \n
+		assert_equal "7:2..7:6", out[17].line_col # \twhile
+		assert_equal "7:8..7:11", out[18].line_col # true
+		assert_equal "7:12..8:1", out[19].line_col # \n
+		assert_equal "8:3..8:7", out[20].line_col # \t\tfalse
+		assert_equal "8:9..8:13", out[21].line_col # until
+		assert_equal "8:15..8:18", out[22].line_col # true
+		assert_equal "8:19..9:1", out[23].line_col # \n
+		assert_equal "9:2..9:4", out[24].line_col # end
+		assert_equal "9:5..10:1", out[25].line_col # \n
+		assert_equal "10:1..10:3", out[26].line_col # end
 	end
 end

@@ -21,7 +21,7 @@ module Ore
 
 	class Undeclared_Identifier < Error
 		def error_message
-			"Identifier '#{expression.value}' is not declared in current scope"
+			"`#{expression.value}`"
 		end
 	end
 
@@ -111,7 +111,7 @@ module Ore
 
 	class Directive_Not_Implemented < Error
 		def error_message
-			"Directive '##{expression.name.value}' is not implemented"
+			"##{expression.name.value}"
 		end
 	end
 
@@ -121,21 +121,9 @@ module Ore
 		end
 	end
 
-	class Lex_Char_Not_Implemented < Error
-		def error_message
-			"Lexing #{expression} is not implemented in Lexer"
-		end
-	end
-
 	class Out_Of_Tokens < Error
 		def error_message
 			"Unexpected end of input"
-		end
-	end
-
-	class Unterminated_String_Literal < Error
-		def error_message
-			"String literal was not terminated"
 		end
 	end
 
@@ -148,6 +136,34 @@ module Ore
 	class Too_Many_Subscript_Expressions < Error
 		def error_message
 			"Subscript [] expected only one expression"
+		end
+	end
+
+	class Lexer_Error < Error
+		def initialize ** data
+			super
+
+			data.each do |key, value|
+				instance_variable_set "@#{key}", value
+			end
+		end
+	end
+
+	class Unterminated_String_Literal < Lexer_Error
+		def error_message
+			"String literal was not terminated"
+		end
+	end
+
+	class Lexed_Unexpected_Char < Lexer_Error
+		def error_message
+			"Lexer#eat expected #{@expected} but got #{@got}"
+		end
+	end
+
+	class Lex_Char_Not_Implemented < Lexer_Error
+		def error_message
+			"Lexing #{@char} is not implemented in Lexer"
 		end
 	end
 end

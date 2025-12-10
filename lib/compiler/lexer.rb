@@ -73,7 +73,7 @@ module Ore
 
 		def eat expected = nil
 			if expected && expected != curr
-				raise "#eat expected #{expected.inspect} not #{curr.inspect}"
+				raise Ore::Lexed_Unexpected_Char.new(expected: expected, got: curr)
 			end
 
 			eaten = curr
@@ -97,7 +97,7 @@ module Ore
 			end
 
 			if expected_chars && expected_chars != it
-				raise "#lex_many expected '#{expected_chars}' not #{it.inspect}"
+				raise Ore::Lexed_Unexpected_Char.new(expected: expected_chars, got: it)
 			end
 
 			it
@@ -168,7 +168,7 @@ module Ore
 							it += '\\' + escaped
 						end
 					else
-						raise Ore::Unterminated_String_Literal.new(Ore::Expression.new(it))
+						raise Ore::Unterminated_String_Literal.new
 					end
 				else
 					it += eat
@@ -176,7 +176,7 @@ module Ore
 			end
 
 			if !chars? || curr != quote
-				raise Ore::Unterminated_String_Literal.new(Ore::Expression.new(it))
+				raise Ore::Unterminated_String_Literal.new
 			end
 
 			eat quote
@@ -317,14 +317,14 @@ module Ore
 						end
 
 					else
-						raise Ore::Lex_Char_Not_Implemented.new(curr)
+						raise Ore::Lex_Char_Not_Implemented.new(char: curr)
 					end
+
+					it.l1 = line
+					it.c1 = (line > it.l0) ? col : col - 1
 				end
 
 				next if whitespace?(token.value)
-
-				token.l1 = line
-				token.c1 = col
 
 				token.reserved = RESERVED.include? token.value
 				tokens << token
