@@ -11,6 +11,10 @@ module Ore
 			@sibling_scopes = []
 		end
 
+		def declare identifier, value
+			self[identifier] = value
+		end
+
 		def [] key
 			key_str = key&.to_s
 

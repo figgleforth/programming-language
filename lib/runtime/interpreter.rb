@@ -21,11 +21,6 @@ module Ore
 			return result
 		end
 
-		def declare identifier, value, scope = runtime.stack.last
-			scope             ||= runtime.stack.last
-			scope[identifier] = value
-		end
-
 		def scope_for_identifier expr
 			if !expr.is_a?(Ore::Identifier_Expr)
 				return runtime.stack.last
@@ -243,7 +238,7 @@ module Ore
 				# It can be assigned and reassigned, so do nothing.
 			end
 
-			declare expr.left.value, right_value, assignment_scope
+			assignment_scope.declare expr.left.value, right_value
 			return right_value
 		end
 
@@ -265,7 +260,7 @@ module Ore
 						each_scope                 = Ore::Scope.new 'each{;}'
 						each_scope.enclosing_scope = runtime.stack.last
 						runtime.push_scope each_scope
-						declare 'it', it, each_scope
+						each_scope.declare 'it', it
 						expr.right.expressions.each do |expr|
 							interpret expr
 						end
@@ -297,7 +292,7 @@ module Ore
 					left.each do |it|
 						each_scope = Ore::Scope.new 'each{;}'
 						runtime.push_scope each_scope
-						declare 'it', it, each_scope
+						each_scope.declare 'it', it
 						expr.right.expressions.each do |expr|
 							interpret expr
 						end
@@ -425,13 +420,8 @@ module Ore
 		end
 
 		def interp_postfix expr
-			# note: See constants.rb POSTFIX for exhaustive list of language-defined postfixes
-			case expr.operator
-			when ';'
-				declare expr.expression.value, nil
-			else
-				raise Ore::Unhandled_Postfix.new(expr, runtime)
-			end
+			# note: See constants.rb POSTFIX for exhaustive list of language-defined postfixes. Currently there are no built-in postfix operators.
+			raise Ore::Unhandled_Postfix.new(expr, runtime)
 		end
 
 		def interp_circumfix expr
@@ -578,7 +568,7 @@ module Ore
 					raise Ore::Missing_Argument.new(expr, runtime)
 				end
 
-				declare param.name, value
+				runtime.stack.last.declare param.name, value
 
 				if param.unpack && value.is_a?(Ore::Instance)
 					call_scope.sibling_scopes << value
@@ -618,8 +608,8 @@ module Ore
 			runtime.push_scope call_scope
 
 			# Make request and response available without explicit declaration
-			declare 'request', req, call_scope
-			declare 'response', res, call_scope
+			call_scope.declare 'request', req
+			call_scope.declare 'response', res
 
 			# Bind URL parameters as function arguments. For example, get://:abc/:def { abc, def; }
 			params.each do |param|
@@ -641,7 +631,7 @@ module Ore
 					end
 				end
 
-				declare param.name, value, call_scope
+				call_scope.declare param.name, value
 			end
 
 			body   = handler.expressions - params
@@ -765,7 +755,7 @@ module Ore
 
 			# todo: Make @types a set
 			type.types = type.types.uniq
-			declare type.name, type
+			runtime.stack.last.declare type.name, type
 
 			runtime.push_then_pop type do |scope|
 				expr.expressions.each do |expr|
@@ -781,7 +771,7 @@ module Ore
 			element.expressions = expr.expressions
 			# element.attributes = filtered element.expressions
 
-			declare element.name, element
+			runtime.stack.last.declare element.name, element
 
 			runtime.push_then_pop element do |scope|
 				expr.expressions.each do |expr|
@@ -832,7 +822,7 @@ module Ore
 			end
 
 			runtime.routes[route_key] = route
-			declare route_key, route if expression.name && expression.name != 'Ore::Func'
+			runtime.stack.last.declare route_key, route if expression.name && expression.name != 'Ore::Func'
 
 			route
 		end
@@ -843,10 +833,10 @@ module Ore
 			func.expressions     = expr.expressions
 
 			if func.name
-				declare func.name, func
-			else
-				func
+				runtime.stack.last.declare func.name, func
 			end
+
+			func
 		end
 
 		def interp_composition expr
@@ -939,8 +929,8 @@ module Ore
 				if stride
 					catch :stop do
 						values.each_slice(stride).with_index do |elements, index|
-							declare 'it', elements, scope
-							declare 'at', index, scope
+							scope.declare 'it', elements
+							scope.declare 'at', index
 							catch :skip do
 								expr.body.each do |e|
 									interpret e
@@ -951,8 +941,8 @@ module Ore
 				else
 					catch :stop do
 						values.each_with_index do |element, index|
-							declare 'it', element, scope
-							declare 'at', index, scope
+							scope.declare 'it', element
+							scope.declare 'at', index
 							catch :skip do
 								expr.body.each do |e|
 									interpret e

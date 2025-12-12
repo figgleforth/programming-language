@@ -523,7 +523,8 @@ class Interpreter_Test < Base_Test
 				"Transform!"
 			}
 		}'
-		assert_kind_of Ore::Postfix_Expr, out.expressions[0]
+		assert_kind_of Ore::Infix_Expr, out.expressions[0]
+		assert_kind_of Ore::Infix_Expr, out.expressions[1]
 		assert_kind_of Ore::Infix_Expr, out.expressions[2]
 		assert_kind_of Ore::Infix_Expr, out.expressions[3]
 		assert_kind_of Ore::Func_Expr, out.expressions[4]
