@@ -15,7 +15,7 @@ This [`lib`](/lib) folder contains the implementation of Ore in Ruby. The codeba
 - [`errors.rb`](runtime/errors.rb) - Runtime error definitions
 - [`scope.rb`](runtime/scope.rb) - Scoping and variable management
 - [`types.rb`](runtime/types.rb) - Runtime type definitions
-- [`execution_context.rb`](runtime/context.rb) - Execution state management
+- [`runtime.rb`](runtime/runtime.rb) - Execution state management
 
 **Orchestration**
 

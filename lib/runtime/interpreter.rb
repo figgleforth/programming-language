@@ -2,12 +2,11 @@ require_relative '../ore'
 
 module Ore
 	class Interpreter
-		attr_accessor :i, :input, :stack, :context
+		attr_accessor :i, :input, :runtime
 
-		def initialize input = [], global_scope = nil, context = nil
+		def initialize input = [], runtime = nil
 			@input   = input
-			@stack   = [global_scope || Ore::Global.new]
-			@context = context || Ore::Context.new
+			@runtime = runtime || Ore::Runtime.new
 		end
 
 		def output & block
@@ -16,45 +15,20 @@ module Ore
 			end
 
 			if block_given?
-				yield result, context, stack
+				yield result, runtime
 			end
 
-			result
+			return result
 		end
 
-		def push_scope scope
-			scope ||= stack.last
-
-			stack << scope
-		end
-
-		def pop_scope
-			if stack.length == 1
-				stack.last
-			else
-				stack.pop
-			end
-		end
-
-		def push_then_pop scope
-			# todo: Proper error
-			raise "Attempting to push `nil` value as scope" if scope == nil
-
-			push_scope scope
-			if block_given?
-				yield scope
-			end
-			pop_scope
-		end
-
-		def declare identifier, value, scope = stack.last
-			scope             ||= stack.last
+		def declare identifier, value, scope = runtime.stack.last
+			scope             ||= runtime.stack.last
 			scope[identifier] = value
 		end
 
 		def scope_for_identifier expr
 			if !expr.is_a?(Ore::Identifier_Expr)
-				return stack.last
+				return runtime.stack.last
 			end
 
 			# ident
@@ -64,21 +38,21 @@ module Ore
 
 			case expr.scope_operator
 			when '.../'
-				stack.first
+				runtime.stack.first
 			when '../'
 				raise "../ not implemented in #scope_for_identifier"
 			when './'
 				# Should default to the global scope if no Ore::Instance is present.
-				scope = stack.reverse_each.find do |scope|
+				scope = runtime.stack.reverse_each.find do |scope|
 					(scope.is_a?(Ore::Instance) || scope.is_a?(Ore::Global)) && scope.has?(expr.value)
 				end
-				scope || stack.first
+				scope || runtime.stack.first
 			else
-				scope = stack.reverse_each.find do |scope|
+				scope = runtime.stack.reverse_each.find do |scope|
 					scope.has? expr.value
 				end
 
-				scope || stack.last
+				scope || runtime.stack.last
 			end
 		end
 
@@ -107,23 +81,23 @@ module Ore
 				if found && found.has?(expr.value)
 					found[expr.value]
 				else
-					raise Ore::Undeclared_Identifier.new(expr, context)
+					raise Ore::Undeclared_Identifier.new(expr, runtime)
 				end
 			elsif scope
 				unless scope.has? expr.value
-					raise Ore::Undeclared_Identifier.new(expr, context)
+					raise Ore::Undeclared_Identifier.new(expr, runtime)
 				end
 				scope[expr.value]
 			else
 				# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
-				scope = stack.last
-				raise Ore::Undeclared_Identifier.new(expr, context) unless scope.has? expr.value
+				scope = runtime.stack.last
+				raise Ore::Undeclared_Identifier.new(expr, runtime) unless scope.has? expr.value
 				scope[expr.value]
 			end
 
 			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
 			if expr.unpack && value.is_a?(Ore::Instance)
-				stack.last.sibling_scopes << value
+				runtime.stack.last.sibling_scopes << value
 			end
 
 			value
@@ -164,10 +138,10 @@ module Ore
 		end
 
 		def maybe_instance expr
-			# todo, when String and so on, because everything needs to be some type of scope to live inside the context. Every object in Ore::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Ore::Number.
+			# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Ore::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Ore::Number.
 			case expr
 			when Integer, Float
-				# Ore::Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a context object version of the number 1.
+				# Ore::Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
 				scope             = Ore::Number.new expr
 				scope.type        = Ore.type_of_number_expr expr
 				scope.numerator   = expr
@@ -187,17 +161,17 @@ module Ore
 		def interp_dot_new expr
 			receiver = interpret expr.left
 			unless receiver.is_a? Ore::Type
-				raise Ore::Cannot_Initialize_Non_Type_Identifier.new(expr.left, context)
+				raise Ore::Cannot_Initialize_Non_Type_Identifier.new(expr.left, runtime)
 			end
 
 			instance             = Ore::Instance.new receiver.name # :generalize_me
 			instance.expressions = receiver.expressions
 
-			push_scope instance
+			runtime.push_scope instance
 			instance.expressions.each do |it|
 				interpret it
 			end
-			pop_scope
+			runtime.pop_scope
 
 			instance
 		end
@@ -217,7 +191,7 @@ module Ore
 				returned = interpret expr.expression
 				Ore::Return.new returned
 			else
-				raise Ore::Unhandled_Prefix.new(expr, context)
+				raise Ore::Unhandled_Prefix.new(expr, runtime)
 			end
 		end
 
@@ -229,7 +203,7 @@ module Ore
 
 			if expr.left.is_a? Ore::Subscript_Expr
 				if expr.left.expression.expressions.count > 1
-					raise Ore::Too_Many_Subscript_Expressions.new(expr.left, context)
+					raise Ore::Too_Many_Subscript_Expressions.new(expr.left, runtime)
 				end
 				# note: I'm interpreting only the first expression of left.expression.expressions as the key because the brackets are a Circumfix_Expr which uses an array to store the values.
 				receiver      = interpret expr.left.receiver
@@ -243,27 +217,27 @@ module Ore
 
 				# Create new scope to load into
 				new_scope = Ore::Scope.new expr.left.value
-				context.load_file filepath, new_scope
+				runtime.load_file filepath, new_scope
 				right_value = new_scope
 			else
 				# Normal assignment path
 				evaluation_scope = scope_for_identifier expr.right
 
-				push_scope(evaluation_scope) if evaluation_scope
+				runtime.push_scope(evaluation_scope) if evaluation_scope
 				right_value = interpret expr.right
-				pop_scope if evaluation_scope
+				runtime.pop_scope if evaluation_scope
 			end
 
 			case Ore.type_of_identifier expr.left.value
 			when :IDENTIFIER
 				# It can only be assigned once, so if the declaration exists, fail.
 				if assignment_scope.has? expr.left.value
-					raise Ore::Cannot_Reassign_Constant.new(expr.left, context)
+					raise Ore::Cannot_Reassign_Constant.new(expr.left, runtime)
 				end
 			when :Identifier
 				# It can only be assigned `value` of Ore::Scope, which includes Ore::Type
 				if !right_value.is_a?(Ore::Scope)
-					raise Ore::Cannot_Assign_Incompatible_Type.new(expr, context)
+					raise Ore::Cannot_Assign_Incompatible_Type.new(expr, runtime)
 				end
 			when :identifier
 				# It can be assigned and reassigned, so do nothing.
@@ -282,20 +256,20 @@ module Ore
 
 			left = maybe_instance interpret expr.left
 			if !left.kind_of?(Ore::Scope) && !left.kind_of?(Ore::Range)
-				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
+				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
 			end
 
 			if left.is_a?(Ore::Array) || left.kind_of?(Ore::Tuple)
 				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
 					left.each do |it|
 						each_scope                 = Ore::Scope.new 'each{;}'
-						each_scope.enclosing_scope = stack.last
-						push_scope each_scope
+						each_scope.enclosing_scope = runtime.stack.last
+						runtime.push_scope each_scope
 						declare 'it', it, each_scope
 						expr.right.expressions.each do |expr|
 							interpret expr
 						end
-						pop_scope
+						runtime.pop_scope
 					end
 
 					return left
@@ -308,7 +282,7 @@ module Ore
 					expr.right.indices_in_order.each do |index|
 						unless array_or_tuple.is_a? Ore::Array
 							# note: If left were a ::Number, subscript notation would succeed because that is integer bit indexing.
-							raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
+							raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
 						end
 						array_or_tuple = array_or_tuple[index]
 					end
@@ -322,12 +296,12 @@ module Ore
 
 					left.each do |it|
 						each_scope = Ore::Scope.new 'each{;}'
-						push_scope each_scope
+						runtime.push_scope each_scope
 						declare 'it', it, each_scope
 						expr.right.expressions.each do |expr|
 							interpret expr
 						end
-						pop_scope
+						runtime.pop_scope
 					end
 				end
 				return left
@@ -339,18 +313,18 @@ module Ore
 					left.dict.send expr.right.value
 				else
 					# Fall through to normal scope lookup
-					push_scope left
+					runtime.push_scope left
 					result = interpret expr.right
-					pop_scope
+					runtime.pop_scope
 					return result
 				end
 
 			else
-				raise Invalid_Dot_Infix_Left_Operand.new(expr, context) if left == nil
+				raise Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if left == nil
 
-				push_scope left
+				runtime.push_scope left
 				result = interpret expr.right
-				pop_scope
+				runtime.pop_scope
 
 				return result
 			end
@@ -383,14 +357,14 @@ module Ore
 					case expr.operator
 					when '+='
 						right = interpret expr.right
-						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) unless right.is_a? Ore::Scope
-						stack.last.sibling_scopes << right
+						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, runtime) unless right.is_a? Ore::Scope
+						runtime.stack.last.sibling_scopes << right
 					when '-='
 						right = interpret expr.right
-						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, context) if right && !(right.is_a? Ore::Scope)
-						stack.last.sibling_scopes.delete right # todo: Warn or error when trying to -= a scope that isn't a sibling?
+						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, runtime) if right && !(right.is_a? Ore::Scope)
+						runtime.stack.last.sibling_scopes.delete right # todo: Warn or error when trying to -= a scope that isn't a sibling?
 					else
-						raise Invalid_Unpack_Infix_Operator.new(expr, context)
+						raise Invalid_Unpack_Infix_Operator.new(expr, runtime)
 					end
 				elsif INFIX_ARITHMETIC_OPERATORS.include? expr.operator
 					left  = maybe_instance interpret expr.left
@@ -456,7 +430,7 @@ module Ore
 			when ';'
 				declare expr.expression.value, nil
 			else
-				raise Ore::Unhandled_Postfix.new(expr, context)
+				raise Ore::Unhandled_Postfix.new(expr, runtime)
 			end
 		end
 
@@ -494,10 +468,10 @@ module Ore
 								dict[it.left.value.to_sym] = interpret it.right
 							else
 								# The left operand should be allowed to be any hashable object. It's too early in the project to consider hashing but this'll be a good reminder.
-								raise Ore::Invalid_Dictionary_Key.new(it, context)
+								raise Ore::Invalid_Dictionary_Key.new(it, runtime)
 							end
 						else
-							raise Ore::Invalid_Dictionary_Infix_Operator.new(it, context)
+							raise Ore::Invalid_Dictionary_Infix_Operator.new(it, runtime)
 						end
 					end
 					# In case I forget, #reduce requires that the injected value be returned to be passed to the next iteration.
@@ -520,7 +494,7 @@ module Ore
 				interp_func_call receiver, expr
 
 			else
-				raise Ore::Cannot_Initialize_Non_Type_Identifier.new expr.receiver, context
+				raise Ore::Cannot_Initialize_Non_Type_Identifier.new expr.receiver, runtime
 			end
 		end
 
@@ -532,9 +506,9 @@ module Ore
 			#     (See constructs.rb for Ore::Type and Ore::Instance declarations)
 			#     (See expressions.rb for Ore::Type_Expr declaration)
 			#
-			# - Push instance onto stack
+			# - Push instance onto runtime.stack
 			# - Interpret type.expressions so the declarations are made on the instance
-			# - Keep instance on the stack
+			# - Keep instance on the runtime.stack
 			# - For each Ore::Func declared on instance, set `func.enclosing_scope = instance`
 			# - Interpret instance[:new], the initializer
 			# - Delete :new from instance, no longer needed
@@ -550,7 +524,7 @@ module Ore
 			instance.types = type.types
 
 			# note: There was a bug here where I wasn't popping the instance after interpreting the type's expressions. That caused the #new function below (func_new) to not properly interpret arguments passed to it.
-			push_then_pop instance do |scope|
+			runtime.push_then_pop instance do |scope|
 				type.expressions.each do |expr|
 					interpret expr
 				end
@@ -593,15 +567,15 @@ module Ore
 			# Evaluate arguments in caller's scope (before pushing function scopes)
 			arg_values = expr.arguments.map { |arg| interpret arg }
 
-			push_scope func.enclosing_scope
-			push_scope call_scope
+			runtime.push_scope func.enclosing_scope
+			runtime.push_scope call_scope
 			params.each_with_index do |param, i|
 				value = if i < arg_values.length
 					arg_values[i]
 				elsif param.default
 					interpret param.default
 				else
-					raise Ore::Missing_Argument.new(expr, context)
+					raise Ore::Missing_Argument.new(expr, runtime)
 				end
 
 				declare param.name, value
@@ -613,7 +587,7 @@ module Ore
 
 			body = func.expressions - params
 			if func.name == 'assert'
-				raise Ore::Assert_Triggered.new(expr, context) unless interpret(body.first) == true # Just to be explicit.
+				raise Ore::Assert_Triggered.new(expr, runtime) unless interpret(body.first) == true # Just to be explicit.
 			end
 
 			result = nil
@@ -624,8 +598,8 @@ module Ore
 				break if result.is_a? Ore::Return
 			end
 
-			Ore.assert pop_scope == call_scope
-			Ore.assert pop_scope == func.enclosing_scope
+			Ore.assert runtime.pop_scope == call_scope
+			Ore.assert runtime.pop_scope == func.enclosing_scope
 
 			result
 		end
@@ -640,8 +614,8 @@ module Ore
 			params  = handler.expressions.select { |e| e.is_a? Ore::Param_Expr }
 
 			call_scope = Ore::Scope.new "#{handler.name || 'anonymous'}_route"
-			push_scope handler.enclosing_scope
-			push_scope call_scope
+			runtime.push_scope handler.enclosing_scope
+			runtime.push_scope call_scope
 
 			# Make request and response available without explicit declaration
 			declare 'request', req, call_scope
@@ -663,7 +637,7 @@ module Ore
 						value = interpret param.default
 					else
 						# todo: Is this reachable?
-						raise Ore::Missing_Argument.new(expr, context)
+						raise Ore::Missing_Argument.new(expr, runtime)
 					end
 				end
 
@@ -707,8 +681,8 @@ module Ore
 			end
 
 			# Clean up scopes
-			popped_call      = pop_scope
-			popped_enclosing = pop_scope
+			popped_call      = runtime.pop_scope
+			popped_enclosing = runtime.pop_scope
 
 			Ore.assert popped_call == call_scope
 			Ore.assert popped_enclosing == handler.enclosing_scope
@@ -793,7 +767,7 @@ module Ore
 			type.types = type.types.uniq
 			declare type.name, type
 
-			push_then_pop type do |scope|
+			runtime.push_then_pop type do |scope|
 				expr.expressions.each do |expr|
 					interpret expr
 				end
@@ -809,7 +783,7 @@ module Ore
 
 			declare element.name, element
 
-			push_then_pop element do |scope|
+			runtime.push_then_pop element do |scope|
 				expr.expressions.each do |expr|
 					# TODO: When evaluating render{;}, it should expect one of the following:
 					# - string
@@ -826,7 +800,7 @@ module Ore
 			expression = interpret expr.expression
 
 			route                 = Ore::Route.new
-			route.enclosing_scope = stack.last
+			route.enclosing_scope = runtime.stack.last
 			route.handler         = expression
 			route.http_method     = expr.http_method
 			route.path            = expr.path
@@ -838,7 +812,7 @@ module Ore
 			end
 
 			unless expression.is_a? Ore::Func
-				raise Ore::Invalid_Http_Directive_Handler.new(expr, context)
+				raise Ore::Invalid_Http_Directive_Handler.new(expr, runtime)
 			end
 
 			route_key = if expression.name && expression.name != 'Ore::Func'
@@ -849,7 +823,7 @@ module Ore
 			end
 
 			# Store route in the enclosing Type's @routes if it has one (e.g., Server)
-			enclosing_type = stack.reverse.find do |scope|
+			enclosing_type = runtime.stack.reverse.find do |scope|
 				scope.is_a?(Ore::Type) || scope.is_a?(Ore::Server)
 			end
 			if enclosing_type
@@ -857,7 +831,7 @@ module Ore
 				enclosing_type.routes[route_key] = route
 			end
 
-			context.routes[route_key] = route
+			runtime.routes[route_key] = route
 			declare route_key, route if expression.name && expression.name != 'Ore::Func'
 
 			route
@@ -865,7 +839,7 @@ module Ore
 
 		def interp_func expr
 			func                 = Ore::Func.new expr.name&.value
-			func.enclosing_scope = stack.last
+			func.enclosing_scope = runtime.stack.last
 			func.expressions     = expr.expressions
 
 			if func.name
@@ -883,7 +857,7 @@ module Ore
 				# todo: Proper error
 				raise "Expected a scope to compose with, got #{operand_scope.inspect}"
 			end
-			curr_scope    = stack.last
+			curr_scope    = runtime.stack.last
 
 			case expr.operator
 			when '|'
@@ -955,7 +929,7 @@ module Ore
 			Ore.assert collection.is_a?(Ore::Array) || collection.is_a?(Ore::Range)
 			Ore.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
 
-			push_then_pop Scope.new('for_loop') do |scope|
+			runtime.push_then_pop Scope.new('for_loop') do |scope|
 				values = if collection.is_a? Ore::Range
 					collection
 				else
@@ -1073,7 +1047,7 @@ module Ore
 			routes = {}
 
 			instance.types.each do |type_name|
-				type_def = stack.first[type_name]
+				type_def = runtime.stack.first[type_name]
 				next unless type_def && type_def.respond_to?(:routes) && type_def.routes
 
 				# Merge routes from this type
@@ -1090,29 +1064,29 @@ module Ore
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
-					raise Ore::Invalid_Start_Diretive_Argument.new(expr, context)
+					raise Ore::Invalid_Start_Diretive_Argument.new(expr, runtime)
 				end
 
 				routes = collect_routes_from_instance server_instance
 
 				server_runner = Ore::Server_Runner.new server_instance, self, routes
-				context.servers << server_runner
+				runtime.servers << server_runner
 
 				server_runner.start
 				server_runner
 			when 'load'
-				# Standalone load is interpreted into current scope by passing the scope into context#load_file
+				# Standalone load is interpreted into current scope by passing the scope into runtime#load_file
 				filepath = interpret expr.expression
-				context.load_file filepath, stack.last
+				runtime.load_file filepath, runtime.stack.last
 				# note: #load_file returns the output but it's ignored. Assigning the value of a #load directive executres code in #interp_infix_expr
 			else
-				raise Ore::Directive_Not_Implemented.new(expr, context)
+				raise Ore::Directive_Not_Implemented.new(expr, runtime)
 			end
 		end
 
 		def interp_subscript expr
 			if expr.expression.expressions.count > 1
-				raise Ore::Too_Many_Subscript_Expressions.new(expr.expression, context)
+				raise Ore::Too_Many_Subscript_Expressions.new(expr.expression, runtime)
 			end
 
 			receiver = interpret expr.receiver
@@ -1122,7 +1096,7 @@ module Ore
 			when Ore::Dictionary, Ore::Array
 				receiver[key]
 			else
-				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, context)
+				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
 			end
 		end
 
@@ -1193,7 +1167,7 @@ module Ore
 					throw :stop
 				end
 			else
-				raise Ore::Interpret_Expr_Not_Implemented.new(expr, context)
+				raise Ore::Interpret_Expr_Not_Implemented.new(expr, runtime)
 			end
 		end
 	end

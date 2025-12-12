@@ -11,7 +11,7 @@ require_relative 'compiler/parser'
 require_relative 'runtime/errors'
 require_relative 'runtime/scope'
 require_relative 'runtime/types'
-require_relative 'runtime/context'
+require_relative 'runtime/runtime'
 require_relative 'runtime/server_runner'
 require_relative 'runtime/interpreter'
 
@@ -46,16 +46,16 @@ module Ore
 			while reload && !shutdown
 				reload = false
 
-				code        = File.read filepath
-				context     = Ore::Context.new
-				context.register_source filepath, code
+				code    = File.read filepath
+				runtime = Ore::Runtime.new
+				runtime.register_source filepath, code
 				global      = Ore::Global.with_standard_library
 				expressions = Ore.parse(code, filepath: filepath)
-				interpreter = Ore::Interpreter.new expressions, global, context
+				interpreter = Ore::Interpreter.new expressions, runtime
 				result      = interpreter.output
 
-				if interpreter.context.servers.any?
-					current_servers = interpreter.context.servers
+				if interpreter.runtime.servers.any?
+					current_servers = interpreter.runtime.servers
 
 					unless listener
 						listener = Listen.to('.', only: /\.(ore|rb)$/) do |modified, added, removed|
@@ -84,13 +84,13 @@ module Ore
 	end
 
 	def self.interp source_code, with_std: true, filepath: nil
-		context = Ore::Context.new
-		context.register_source filepath, source_code
+		runtime = Ore::Runtime.new
+		runtime.register_source filepath, source_code
 
 		lexemes      = Lexer.new(source_code, filepath: filepath).output
 		expressions  = Parser.new(lexemes, source_file: filepath).output
 		global_scope = with_std ? Global.with_standard_library : Global.new
-		interpreter  = Interpreter.new expressions, global_scope, context
+		interpreter  = Interpreter.new expressions, runtime
 
 		interpreter.output
 	end

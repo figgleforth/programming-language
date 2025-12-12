@@ -60,11 +60,11 @@ module Ore
 			load_file STANDARD_LIBRARY_PATH
 		end
 
-		# Convenience method for loading files into this scope without a context
+		# Convenience method for loading files into this scope without a runtime
 		# Creates a temporary Context to handle file loading
 		def load_file filepath
-			temp_context = Ore::Context.new
-			temp_context.load_file filepath, self
+			temp_runtime = Ore::Runtime.new
+			temp_runtime.load_file filepath, self
 			self
 		end
 	end

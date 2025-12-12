@@ -2,11 +2,11 @@ require_relative 'error_formatter'
 
 module Ore
 	class Error < StandardError
-		attr_accessor :expression, :context
+		attr_accessor :expression, :runtime
 
-		def initialize expression = nil, context = nil
+		def initialize expression = nil, runtime = nil
 			@expression = expression
-			@context    = context
+			@runtime    = runtime
 			super format_error
 		end
 
@@ -15,7 +15,7 @@ module Ore
 		end
 
 		def format_error
-			Error_Formatter.new(self, context).format
+			Error_Formatter.new(self, runtime).format
 		end
 	end
 

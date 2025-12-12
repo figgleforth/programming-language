@@ -1,26 +1,53 @@
 module Ore
-	class Context
-		attr_accessor :routes, :servers, :loaded_files, :source_files
+	class Runtime
+		attr_accessor :stack, :routes, :servers, :loaded_files, :source_files
 
-		def initialize
-			@routes       = {}
+		def initialize global_scope = nil
+			@stack        = [global_scope || Ore::Global.new]
 			@servers      = []
+			@routes       = {} # {route: Ore::Route}
 			@loaded_files = {} # {filename: expressions}
 			@source_files = {} # {filepath: source_code} for error reporting
 		end
 
+		def push_scope scope
+			scope ||= stack.last
+
+			stack << scope
+		end
+
+		def pop_scope
+			if stack.length == 1
+				stack.last
+			else
+				stack.pop
+			end
+		end
+
+		def push_then_pop scope
+			# todo: Proper error
+			raise "Attempting to push `nil` value as scope" if scope == nil
+
+			push_scope scope
+			if block_given?
+				yield scope
+			end
+			pop_scope
+		end
+
 		def register_source filepath, source_code
 			resolved                = filepath ? File.expand_path(filepath) : '<inline>'
-			@source_files[resolved] = source_code.lines.map(&:chomp) # Store lines, not string
+			@source_files[resolved] = source_code.lines.map(&:chomp)
 		end
 
 		def load_file filepath, into_scope
 			resolved_path = File.expand_path filepath
+			push_scope into_scope
 
 			unless loaded_files[resolved_path]
 				code = File.read resolved_path
 				register_source resolved_path, code
-				
+
 				lexemes                     = Ore::Lexer.new(code, filepath: resolved_path).output
 				expressions                 = Ore::Parser.new(lexemes, source_file: resolved_path).output
 				loaded_files[resolved_path] = expressions
@@ -28,8 +55,11 @@ module Ore
 
 			# Always interpret into the target scope (allows reuse in different scopes)
 			expressions      = loaded_files[resolved_path]
-			temp_interpreter = Ore::Interpreter.new expressions, into_scope, self
-			temp_interpreter.output
+			temp_interpreter = Ore::Interpreter.new expressions, self
+			output           = temp_interpreter.output
+
+			pop_scope
+			output
 		end
 	end
 end
