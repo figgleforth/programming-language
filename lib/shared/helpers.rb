@@ -46,4 +46,40 @@ module Helpers
 			:integer
 		end
 	end
+
+	def privacy_of_ident ident
+		leading_underscores = ident.match(/^_*/)[0].length
+
+		case leading_underscores
+		when 0, 2
+			:public
+		when 1, 3
+			:private
+		else
+			:public # 4+ underscores
+		end
+	end
+
+	# Rules:
+	# _ident   = instance
+	# __ident  = static
+	# ___ident = static
+	# IDENT    = static
+	# else       instance
+	def binding_of_ident ident
+		return :static if type_of_identifier(ident) == :IDENTIFIER
+
+		leading_underscores = ident.match(/^_*/)[0].length
+
+		case leading_underscores
+		when 2, 3
+			:static
+		else
+			:instance
+		end
+	end
+
+	def binding_and_privacy ident
+		return binding_of_ident(ident), privacy_of_ident(ident)
+	end
 end

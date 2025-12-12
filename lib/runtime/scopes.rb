@@ -2,8 +2,8 @@ require_relative '../ore'
 
 module Ore
 	class Scope
-		attr_accessor :enclosing_scope, :sibling_scopes
-		attr_reader :name, :declarations
+		attr_accessor :enclosing_scope, :sibling_scopes, :declarations
+		attr_reader :name
 
 		def initialize name = nil
 			@name           = name || self.class.name
@@ -45,10 +45,6 @@ module Ore
 			@declarations.key? id_str
 		end
 
-		def declarations= new_declarations
-			@declarations = new_declarations
-		end
-
 		def delete key
 			return nil unless key
 			@declarations.delete(key.to_s)
@@ -73,13 +69,6 @@ module Ore
 		end
 	end
 
-	class Global < Scope
-	end
-
-	class Html_Element < Scope
-		attr_accessor :expressions, :attributes, :types
-	end
-
 	class Type < Scope
 		attr_accessor :expressions, :types, :routes
 
@@ -93,6 +82,13 @@ module Ore
 		def initialize name = 'Instance'
 			super name
 		end
+	end
+
+	class Global < Scope
+	end
+
+	class Html_Element < Scope
+		attr_accessor :expressions, :attributes, :types
 	end
 
 	class Func < Scope

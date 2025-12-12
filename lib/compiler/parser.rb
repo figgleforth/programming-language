@@ -336,14 +336,16 @@ module Ore
 			start = curr_lexeme
 
 			expr = Ore::Identifier_Expr.new
-			if curr? DIRECTIVE_PREFIX
+
+			if curr? DIRECTIVE_PREFIX and eat DIRECTIVE_PREFIX
 				expr.directive = true
-				eat DIRECTIVE_PREFIX
 			elsif curr? SCOPE_OPERATORS
 				expr.scope_operator = parse_manual_scope
 			end
 
-			expr.value = eat.value
+			expr.value   = eat.value
+			expr.privacy = Ore.privacy_of_ident expr.value
+			expr.binding = Ore.binding_of_ident expr.value
 
 			# 7/20/25, I'm storing the type as well, even though I haven't written any code to support types yet.
 
@@ -547,7 +549,7 @@ module Ore
 		# todo: Factor out the various branches of code in here?
 		def complete_expression expr, precedence = STARTING_PRECEDENCE
 			return expr unless expr && lexemes?
-			
+
 			if expr.is_a?(Ore::Identifier_Expr) && expr.directive
 				directive            = Ore::Directive_Expr.new
 				directive.name       = expr

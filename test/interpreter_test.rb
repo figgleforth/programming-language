@@ -642,13 +642,13 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp "#{shared_code}
 		A.B"
 		assert_instance_of Ore::Type, out
-
+		
 		out = Ore.interp "#{shared_code}
-		A.B.C.new"
+		A.B.C.new()"
 		assert_instance_of Ore::Instance, out
 
 		out = Ore.interp "#{shared_code}
-		A.B.C.new.d"
+		A.B.C.new().d"
 		assert_equal 4, out
 	end
 
