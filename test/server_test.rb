@@ -67,13 +67,13 @@ class Server_Test < Base_Test
 		    app = Web_App()
 		ORE
 
-		interpreter = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter = Ore::Interpreter.new Ore.parse(code)
 		result      = interpreter.output
 
 		assert_instance_of Ore::Instance, result
 
 		# Check that routes were registered
-		assert_equal 2, interpreter.context.routes.count
+		assert_equal 2, interpreter.runtime.routes.count
 	end
 
 	def test_server_runner_initialization
@@ -87,7 +87,7 @@ class Server_Test < Base_Test
 		    app = Server()
 		ORE
 
-		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code)
 		server_instance = interpreter.output
 
 		server_runner = Ore::Server_Runner.new server_instance, interpreter
@@ -119,11 +119,11 @@ class Server_Test < Base_Test
 		    app = Web_App()
 		ORE
 
-		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code)
 		server_instance = interpreter.output
 
 		server_runner = Ore::Server_Runner.new server_instance, interpreter
-		routes        = server_runner.interpreter.context.routes
+		routes        = server_runner.interpreter.runtime.routes
 
 		assert_equal 2, routes.count
 	end
@@ -150,11 +150,11 @@ class Server_Test < Base_Test
 		    app = Web_App()
 		ORE
 
-		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code)
 		server_instance = interpreter.output
 
 		server_runner = Ore::Server_Runner.new server_instance, interpreter
-		routes        = server_runner.interpreter.context.routes
+		routes        = server_runner.interpreter.runtime.routes
 
 		# Test matching simple parameterized route
 		matched = server_runner.match_route 'get', ['users', '123'], routes
@@ -189,11 +189,11 @@ class Server_Test < Base_Test
 		    app = Web_App()
 		ORE
 
-		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code)
 		server_instance = interpreter.output
 
 		server_runner = Ore::Server_Runner.new server_instance, interpreter
-		routes        = server_runner.interpreter.context.routes
+		routes        = server_runner.interpreter.runtime.routes
 		route         = routes.values.first
 
 		path_parts = ['users', '42', 'posts', '99']
@@ -205,7 +205,7 @@ class Server_Test < Base_Test
 
 	def test_query_string_parsing
 		server_instance = Ore::Instance.new 'Server'
-		interpreter     = Ore::Interpreter.new [], Ore::Global.new
+		interpreter     = Ore::Interpreter.new []
 		server_runner   = Ore::Server_Runner.new server_instance, interpreter
 
 		query_params = server_runner.parse_query_string 'name=John&age=30&city=NYC'
@@ -217,7 +217,7 @@ class Server_Test < Base_Test
 
 	def test_query_string_with_url_encoding
 		server_instance = Ore::Instance.new 'Server'
-		interpreter     = Ore::Interpreter.new [], Ore::Global.new
+		interpreter     = Ore::Interpreter.new []
 		server_runner   = Ore::Server_Runner.new server_instance, interpreter
 
 		query_params = server_runner.parse_query_string 'message=Hello%20World&special=%21%40%23'

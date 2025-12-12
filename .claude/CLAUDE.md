@@ -63,9 +63,9 @@ Source code is tokenized and parsed into an Abstract Syntax Tree (AST):
 
 The AST is executed to produce output:
 
-- `interpreter.rb` - Traverses and executes the AST
+- `interpreter.rb` - Traverses and executes the AST, is stateless
 - `scope.rb` - Manages variable scoping and declarations (Global, Type, Instance, Func, Route, Return scopes)
-- `context.rb` - Tracks execution state (routes, servers, loaded files)
+- `runtime.rb` - Tracks execution state (declarations, routes, servers, loaded files)
 - `types.rb` - Runtime type definitions (includes Request, Response, Server classes)
 - `errors.rb` - Runtime error definitions
 - `server_runner.rb` - HTTP server implementation using WEBrick (handles routing, URL params, query strings)
@@ -76,6 +76,7 @@ Used by both compiler and runtime:
 
 - `constants.rb` - Language constants, operators, precedence table, reserved words
 -
+
 `helpers.rb` - Utility functions for identifier classification (constant_identifier?, type_identifier?, member_identifier?)
 
 ### Entry Point
@@ -102,7 +103,8 @@ Ore uses a sophisticated scope hierarchy:
 - **Html_Element** - HTML element scopes (tracks `@expressions`, `@attributes`, `@types`)
 - **Return** - Return value wrapper (tracks `@value`)
 
-Each scope can have **sibling scopes** - additional scopes checked first during identifier lookup, used by the unpack feature.
+Each scope can have **sibling scopes
+** - additional scopes checked first during identifier lookup, used by the unpack feature.
 
 Scope operators in the language:
 
@@ -148,6 +150,7 @@ x = island_member  `Access members directly
 ```
 
 **Implementation details:**
+
 - `@param` in function signature automatically unpacks parameter into sibling scope
 - `@ += instance` and `@ -= instance` provide manual control in any scope
 - Sibling scopes are checked first during identifier lookup (before current scope declarations)
@@ -169,6 +172,7 @@ dict.values  `Get all values
 ```
 
 **Features:**
+
 - Symbol, string, or identifier keys
 - Subscript access via `dict[key]`
 - Methods: `keys`, `values`
@@ -193,6 +197,7 @@ end
 ```
 
 **Intrinsic variables:**
+
 - `it` - Current iteration value
 - `at` - Current iteration index
 

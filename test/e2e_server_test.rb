@@ -40,7 +40,7 @@ class E2E_Server_Test < Minitest::Test
 		ORE
 
 		# Start server in background
-		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code)
 		server_instance = interpreter.output
 
 		routes         = interpreter.collect_routes_from_instance server_instance
@@ -84,7 +84,7 @@ class E2E_Server_Test < Minitest::Test
 		    app = Web_App()
 		ORE
 
-		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code)
 		server_instance = interpreter.output
 
 		routes         = interpreter.collect_routes_from_instance server_instance
@@ -117,7 +117,7 @@ class E2E_Server_Test < Minitest::Test
 		    app = Web_App()
 		ORE
 
-		interpreter     = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter     = Ore::Interpreter.new Ore.parse(code)
 		server_instance = interpreter.output
 
 		routes         = interpreter.collect_routes_from_instance server_instance
@@ -160,16 +160,16 @@ class E2E_Server_Test < Minitest::Test
 		    b = Server_B(#{port_b})
 		ORE
 
-		interpreter = Ore::Interpreter.new Ore.parse(code), Ore::Global.with_standard_library
+		interpreter = Ore::Interpreter.new Ore.parse(code)
 		interpreter.output
 
 		# Collect routes for each server
-		server_a_type = interpreter.stack.first['Server_A']
-		server_b_type = interpreter.stack.first['Server_B']
+		server_a_type = interpreter.runtime.stack.first['Server_A']
+		server_b_type = interpreter.runtime.stack.first['Server_B']
 
-		# Get server instances from interpreter context
-		a_instance = interpreter.stack.first['a']
-		b_instance = interpreter.stack.first['b']
+		# Get server instances from interpreter runtime
+		a_instance = interpreter.runtime.stack.first['a']
+		b_instance = interpreter.runtime.stack.first['b']
 
 		routes_a = interpreter.collect_routes_from_instance a_instance
 		routes_b = interpreter.collect_routes_from_instance b_instance

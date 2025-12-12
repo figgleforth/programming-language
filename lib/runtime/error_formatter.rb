@@ -28,12 +28,12 @@ module Ore
 	end
 
 	class Error_Formatter
-		attr_reader :error, :expression, :context
+		attr_reader :error, :expression, :runtime
 
-		def initialize error, context
+		def initialize error, runtime
 			@error      = error
 			@expression = error.expression
-			@context    = context
+			@runtime    = runtime
 		end
 
 		def format
@@ -57,7 +57,7 @@ module Ore
 		end
 
 		def source_available?
-			context && location_available?
+			runtime && location_available?
 		end
 
 		def location_line
@@ -71,13 +71,13 @@ module Ore
 		end
 
 		def source_snippet
-			return nil unless context
+			return nil unless runtime
 
 			l0, c0, l1, c1 = get_location_coords
 			return nil unless l0
 
 			source_file = get_source_file
-			lines       = context.source_files[source_file] || []
+			lines       = runtime.source_files[source_file] || []
 			return nil if lines.empty?
 
 			start_line = [l0 - 1, 1].max
