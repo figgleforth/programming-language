@@ -1,10 +1,18 @@
 module Ore
 	module Colors
-		RESET  = "\e[0m"
-		RED    = "\e[31m"
-		YELLOW = "\e[33m"
-		CYAN   = "\e[36m"
-		BOLD   = "\e[1m"
+		RESET     = "\e[0m"
+		RED       = "\e[31m"
+		DEFAULT   = "\e[217m"
+		YELLOW    = "\e[33m"
+		CYAN      = "\e[36m"
+		BOLD      = "\e[1m"
+		WHITE     = "\e[37m"
+		UNDERLINE = "\e[4m"
+		ITALIC    = "\e[3m"
+
+		def self.make str, foreground = "30", background = "41"
+			enabled? ? "\x1b[#{foreground};#{background}m#{str}#{RESET}" : str
+		end
 
 		def self.enabled?
 			$stdout.tty? && ENV['TERM'] != 'dumb' && !ENV['NO_COLOR']
@@ -36,19 +44,27 @@ module Ore
 			@runtime    = runtime
 		end
 
-		def format
-			parts = []
+		def error_name
+			error.class.name.split('::').last
+		end
 
-			parts << Colors.bold(Colors.red(error.class.name.split('::').last))
-			parts << ""
+		def error_name_styled
+			Colors.bold(Colors.red(error.class.name.split('::').last))
+		end
+
+		def format
+			parts  = []
+			indent = "    "
+
+			parts << error_name_styled
 
 			if location_available?
-				parts << location_line
 				parts << ""
 				parts << source_snippet if source_available?
 				parts << ""
 			end
 
+			parts << Colors.cyan(location_line)
 			parts.join "\n"
 		end
 
@@ -61,62 +77,69 @@ module Ore
 		end
 
 		def location_line
+
 			# todo bug: Does not display source code properly
-			if expression && expression.l0
-				Colors.cyan "#{expression.source_file}:#{expression.l0}:#{expression.c0}"
+			if expression.instance_of?(Ore::Expression) && expression.l0
+				"#{expression.source_file}:#{expression.l0}:#{expression.c0}"
 			else
 				# todo: How do I get the source string here?
-				Colors.yellow source_snippet
+				source_snippet
 			end
 		end
 
+		# Simplified version of source_snippet
 		def source_snippet
-			return nil unless runtime
-
+			# Initial checks and coordinate fetching remain the same
 			l0, c0, l1, c1 = get_location_coords
 			return nil unless l0
+			return nil unless runtime
 
 			source_file = get_source_file
 			lines       = runtime.source_files[source_file] || []
 			return nil if lines.empty?
 
-			start_line = [l0 - 1, 1].max
-			end_line   = [l1 + 1, lines.length].min
+			# Determine snippet boundaries
+			surrounding_lines = 3
+			start_line        = [l0 - surrounding_lines, 1].max
+			end_line          = [l1 + surrounding_lines, lines.length].min
 
 			snippet_lines = []
+
 			(start_line..end_line).each do |line_num|
-				line_content = lines[line_num - 1] || ""
-				prefix       = Colors.cyan("#{line_num.to_s.rjust(4)} | ")
+				line_index   = line_num - 1
+				line_content = lines[line_index] || ""
 
-				if line_num >= l0 && line_num <= l1
-					if line_num == l0 && line_num == l1
-						before     = line_content[0...c0 - 1]
-						error_span = line_content[c0 - 1...c1]
-						after      = line_content[c1..-1] || ""
+				# Expand tabs once per line for consistent display
+				visual_content = line_content.gsub("\t", "    ")
+				prefix         = Colors.cyan("#{line_num.to_s.rjust(5)} | ")
 
-						# Expand tabs to spaces for consistent display
-						visual_before     = before.gsub("\t", "    ")
-						visual_error_span = error_span.gsub("\t", "    ")
-						visual_after      = after.gsub("\t", "    ")
+				is_error_line = (line_num >= l0 && line_num <= l1)
 
-						snippet_lines << prefix + visual_before + Colors.red(Colors.bold(visual_error_span)) + visual_after
+				if is_error_line
+					# Calculate the start and end character positions for the error span on this specific line
+					start_char = (line_num == l0) ? (c0 - 1) : 0
+					end_char   = (line_num == l1) ? c1 : visual_content.length
 
-						arrow_prefix = "     | "
-						arrow_line   = " " * visual_before.length + Colors.red("^" * visual_error_span.length)
-						snippet_lines << arrow_prefix + arrow_line
-					elsif line_num == l0
-						before     = line_content[0...c0 - 1]
-						error_span = line_content[c0 - 1..-1]
-						snippet_lines << prefix + before + Colors.red(Colors.bold(error_span))
-					elsif line_num == l1
-						error_span = line_content[0...c1]
-						after      = line_content[c1..-1] || ""
-						snippet_lines << prefix + Colors.red(Colors.bold(error_span)) + after
-					else
-						snippet_lines << prefix + Colors.red(Colors.bold(line_content))
+					# Convert character indices to visual (space-expanded) indices
+					visual_start_char = line_content[0...start_char].gsub("\t", "    ").length
+					visual_end_char   = line_content[0...end_char].gsub("\t", "    ").length
+
+					before     = visual_content[0...visual_start_char]
+					error_span = visual_content[visual_start_char...visual_end_char]
+					after      = visual_content[visual_end_char..-1] || ""
+
+					# Apply color/style to the error span
+					styled_span = Colors.bold(Colors.red(error_span))
+
+					# Use Colors.make only for the single-line case where we want a different style
+					if l0 == l1 && line_num == l0
+						styled_span = Colors.bold(Colors.make(error_span))
 					end
+
+					snippet_lines << prefix + before + styled_span + after
 				else
-					snippet_lines << prefix + line_content
+					# Regular surrounding line
+					snippet_lines << prefix + visual_content
 				end
 			end
 
@@ -126,7 +149,7 @@ module Ore
 		private
 
 		def get_location_coords
-			if expression && expression.l0
+			if expression.instance_of?(Ore::Expression) && expression.l0
 				[expression.l0, expression.c0, expression.l1 || expression.l0, expression.c1 || expression.c0]
 			else
 				[nil, nil, nil, nil]
@@ -134,7 +157,7 @@ module Ore
 		end
 
 		def get_source_file
-			expression&.source_file || error.source_file # || '<string_source>'
+			expression&.source_file || error.source_file
 		end
 	end
 end

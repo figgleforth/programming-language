@@ -22,6 +22,7 @@ module Helpers
 	end
 
 	def type_of_identifier ident
+		ident = ident&.to_s
 		return :operator if %w(and or not unless return).include? ident
 
 		without_leading__ = ident.gsub(/^_+/, '')
@@ -48,6 +49,7 @@ module Helpers
 	end
 
 	def privacy_of_ident ident
+		ident               = ident&.to_s
 		leading_underscores = ident.match(/^_*/)[0].length
 
 		case leading_underscores

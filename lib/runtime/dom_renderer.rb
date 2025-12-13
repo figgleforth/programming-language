@@ -16,10 +16,10 @@ module Ore
 		end
 
 		def html_attrs
-			@html_attrs ||= dom.declarations.reject do |k, _|
-				k == 'html_element' # This identifier is just used to determine the element to render, so it shouldn't be included as an attribute of the final HTML string.
-			end.select do |k, v|
-				k.to_s.start_with? HTML_PREFIX
+			@html_attrs ||= dom.declarations.reject do |key, _|
+				key == 'html_element' # This identifier is just used to determine the element to render, so it shouldn't be included as an attribute of the final HTML string.
+			end.select do |key, v|
+				key.to_s.start_with? HTML_PREFIX
 			end.map do |key, value|
 				key = key.to_s.gsub HTML_PREFIX, ''
 				key = key.gsub '_', '-'
@@ -28,8 +28,8 @@ module Ore
 		end
 
 		def css_attrs
-			@css_attrs ||= dom.declarations.select do |k, v|
-				k.to_s.start_with? CSS_PREFIX
+			@css_attrs ||= dom.declarations.select do |key, v|
+				key.to_s.start_with? CSS_PREFIX
 			end.map do |key, value|
 				key = key.to_s.gsub CSS_PREFIX, ''
 				key = key.gsub '_', '-'
@@ -51,7 +51,6 @@ module Ore
 
 		def to_html_string
 			"<#{element}".tap do |html|
-
 				unless html_attrs.empty?
 					html << " "
 					html << html_attrs_string

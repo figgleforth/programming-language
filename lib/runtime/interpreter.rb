@@ -408,6 +408,7 @@ module Ore
 		def interp_dot_scope expr
 			scope = interpret expr.left
 			raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if scope.nil?
+			raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime) unless expr.right.instance_of? Ore::Identifier_Expr
 
 			check_dot_access_permissions scope, expr.right.value, expr
 
@@ -1103,13 +1104,13 @@ module Ore
 			end
 
 			receiver = interpret expr.receiver
-			key      = interpret expr.expression.expressions.first
 
 			case receiver
 			when Ore::Dictionary, Ore::Array
+				key = interpret expr.expression.expressions.first
 				receiver[key]
 			else
-				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
+				raise Ore::Invalid_Subscript_Left_Operand.new(expr.receiver, runtime)
 			end
 		end
 
