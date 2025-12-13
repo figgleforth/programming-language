@@ -67,7 +67,8 @@ module Helpers
 	# IDENT    = static
 	# else       instance
 	def binding_of_ident ident
-		return :static if type_of_identifier(ident) == :IDENTIFIER
+		# note: Constants and Type declarations are considered static
+		return :static if %i(IDENTIFIER Identifier).include? type_of_identifier(ident)
 
 		leading_underscores = ident.match(/^_*/)[0].length
 

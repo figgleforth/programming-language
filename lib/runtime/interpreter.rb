@@ -243,7 +243,7 @@ module Ore
 		end
 
 		# @param expr [Ore::Infix_Expr]
-		def interp_infix_dot expr
+		def interp_dot_infix expr
 			return interp_dot_new expr if expr.right.is 'new'
 
 			left = maybe_instance interpret expr.left
@@ -316,8 +316,29 @@ module Ore
 			scope = interpret expr.left # maybe_instance interpret expr.left
 			raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if scope.nil?
 
-			# todo: The call below causes undefined [] in Helpers#type_of_identifier
-			# binding, privacy = Ore.binding_and_privacy expr.left.value
+			binding, privacy = Ore.binding_and_privacy expr.right.value
+
+			case scope
+			when Ore::Instance
+				case privacy
+				when :private
+					unless runtime.stack.last == scope
+						raise Ore::Cannot_Call_Private_Instance_Member.new(expr, runtime)
+					end
+				when :public
+				end
+			when Ore::Type
+				case binding
+				when :instance
+					raise Ore::Cannot_Call_Instance_Member_On_Type.new(expr, runtime)
+				when :static
+					case privacy
+					when :private
+						raise Ore::Cannot_Call_Private_Static_Type_Member.new(expr, runtime)
+					when :public
+					end
+				end
+			end
 
 			runtime.push_scope scope
 			result = interpret expr.right
@@ -429,7 +450,7 @@ module Ore
 			when '='
 				interp_infix_equals expr
 			when '.'
-				interp_infix_dot expr
+				interp_dot_infix expr
 			when '<<'
 				left  = maybe_instance interpret expr.left
 				right = interpret expr.right

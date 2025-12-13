@@ -139,6 +139,15 @@ module Ore
 		end
 	end
 
+	class Cannot_Call_Private_Instance_Member < Error
+	end
+
+	class Cannot_Call_Instance_Member_On_Type < Error
+	end
+
+	class Cannot_Call_Private_Static_Type_Member < Error
+	end
+
 	class Lexer_Error < Error
 		def initialize ** data
 			super

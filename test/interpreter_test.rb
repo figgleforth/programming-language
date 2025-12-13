@@ -642,7 +642,7 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp "#{shared_code}
 		A.B"
 		assert_instance_of Ore::Type, out
-		
+
 		out = Ore.interp "#{shared_code}
 		A.B.C.new()"
 		assert_instance_of Ore::Instance, out
@@ -1526,7 +1526,104 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	# todo: Currently there is no clear rule on unpack collisions. :double_unpack
+	def test_privacy_and_binding
+		shared_code = <<~CODE
+		    Type {
+		    	number = 4
+		    	_private = 8
+		    	__static = 15
+		    	___static_private = 16
+
+				private_from_within {; _private }
+		    	
+		    	static_from_within {; __static }
+		    	static_private_from_within {; ___static_private }
+
+		    	__static_from_static {; __static }
+		    	__static_private_from_static {; ___static_private }
+		    }
+		CODE
+
+		out = Ore.interp "#{shared_code}
+		Type().number"
+		assert_equal 4, out
+
+		out = Ore.interp "#{shared_code}
+		Type().private_from_within()"
+		assert_equal 8, out
+
+		out = Ore.interp "#{shared_code}
+		Type().__static"
+		assert_equal 15, out
+
+		out = Ore.interp "#{shared_code}
+		Type().static_from_within()"
+		assert_equal 15, out
+
+		out = Ore.interp "#{shared_code}
+		Type().static_private_from_within()"
+		assert_equal 16, out
+
+		out = Ore.interp "#{shared_code}
+		Type.__static"
+		assert_equal 15, out
+
+		out = Ore.interp "#{shared_code}
+		Type.__static_from_static()"
+		assert_equal 15, out
+
+		out = Ore.interp "#{shared_code}
+		Type.__static_private_from_static()"
+		assert_equal 16, out
+
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "#{shared_code}
+			Type()._private"
+		end
+
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "#{shared_code}
+			Type().___static_private"
+		end
+
+		assert_raises Ore::Cannot_Call_Instance_Member_On_Type do
+			Ore.interp "#{shared_code}
+			Type.number"
+		end
+
+		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+			Ore.interp "#{shared_code}
+			Type.___static_private"
+		end
+
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "
+			Inner { _secret = 42 }
+		    Outer { inner = Inner() }
+            Outer().inner._secret"
+		end
+
+		# todo bug: Minitest::UnexpectedError: NoMethodError: undefined method 'gsub' for nil
+		# /Users/bp/Code/ruby/ore-lang/lib/shared/helpers.rb:27:in 'Helpers#type_of_identifier'
+
+		# Ore.interp "#{shared_code}
+		# Type.__static = 4815"
+		# assert_equal 4815, out
+
+		# assert_raises Ore::Cannot_Call_Private_Instance_Member do
+		# 	Ore.interp "#{shared_code}
+		# 	Type()._private = 100"
+		# end
+
+		# assert_raises Ore::Cannot_Call_Private_Static_Member_On_Type do
+		# 	Ore.interp "#{shared_code}
+		#     Type.___static_private = 100"
+		# end
+	end
+
+	# todo test_binding_and_privacy_with_composition
+
+	# todo: Currently there is no clear rule on unpack collisions. This test fails with [4, 8] :double_unpack.
 	# def test_unpack_collisions
 	# 	out = Ore.interp "
 	# 	Point {
@@ -1543,6 +1640,6 @@ class Interpreter_Test < Base_Test
 	# 	@ += p
 	# 	@ += Point(15, 16)
 	# 	(a, b)"
-	# 	assert_equal [15, 16], out.values
+	# 	assert_equal [15, 16], out.values # Fails with [4, 8]
 	# end
 end
