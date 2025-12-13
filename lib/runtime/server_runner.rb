@@ -93,11 +93,21 @@ module Ore
 					response.body = res.body_content.to_s
 
 				rescue => e
+					warn "\n\e[31m[Ore Server Error]\e[0m #{e.class}: #{e.message}"
+					warn e.backtrace.first(10).map { |line| "  #{line}" }.join("\n")
+					warn ""
+
+					# Strip ANSI color codes for browser display
+					plain_message   = e.message.gsub(/\e\[\d+(?:;\d+)*m/, '')
+					plain_backtrace = e.backtrace.map { |line| line.gsub(/\e\[\d+(?:;\d+)*m/, '') }
+
 					response.status = 500
 					response.body   = <<~HTML
 					    <h1>500 Internal Server Error</h1>
-					    <h2>#{e.class}: #{e.message}</h2>
-					    <pre>#{e.backtrace.join("\n")}</pre>
+					    <h2>#{e.class}</h2>
+					    <pre>#{plain_message}</pre>
+					    <h3>Backtrace</h3>
+					    <pre>#{plain_backtrace.join("\n")}</pre>
 					HTML
 					response.header['Content-Type'] = 'text/html; charset=utf-8'
 				end

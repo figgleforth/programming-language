@@ -93,10 +93,16 @@ module Ore
 						before     = line_content[0...c0 - 1]
 						error_span = line_content[c0 - 1...c1]
 						after      = line_content[c1..-1] || ""
-						snippet_lines << prefix + before + Colors.red(Colors.bold(error_span)) + after
+
+						# Expand tabs to spaces for consistent display
+						visual_before     = before.gsub("\t", "    ")
+						visual_error_span = error_span.gsub("\t", "    ")
+						visual_after      = after.gsub("\t", "    ")
+
+						snippet_lines << prefix + visual_before + Colors.red(Colors.bold(visual_error_span)) + visual_after
 
 						arrow_prefix = "     | "
-						arrow_line   = " " * (c0 - 1) + Colors.red("^" * (c1 - c0 + 1))
+						arrow_line   = " " * visual_before.length + Colors.red("^" * visual_error_span.length)
 						snippet_lines << arrow_prefix + arrow_line
 					elsif line_num == l0
 						before     = line_content[0...c0 - 1]
