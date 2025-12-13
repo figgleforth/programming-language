@@ -1603,22 +1603,20 @@ class Interpreter_Test < Base_Test
             Outer().inner._secret"
 		end
 
-		# todo bug: Minitest::UnexpectedError: NoMethodError: undefined method 'gsub' for nil
-		# /Users/bp/Code/ruby/ore-lang/lib/shared/helpers.rb:27:in 'Helpers#type_of_identifier'
+		out = Ore.interp "#{shared_code}
+		Type.__static = 4815
+		Type.__static"
+		assert_equal 4815, out
 
-		# Ore.interp "#{shared_code}
-		# Type.__static = 4815"
-		# assert_equal 4815, out
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "#{shared_code}
+			Type()._private = 100"
+		end
 
-		# assert_raises Ore::Cannot_Call_Private_Instance_Member do
-		# 	Ore.interp "#{shared_code}
-		# 	Type()._private = 100"
-		# end
-
-		# assert_raises Ore::Cannot_Call_Private_Static_Member_On_Type do
-		# 	Ore.interp "#{shared_code}
-		#     Type.___static_private = 100"
-		# end
+		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+			Ore.interp "#{shared_code}
+		    Type.___static_private = 100"
+		end
 	end
 
 	# todo test_binding_and_privacy_with_composition

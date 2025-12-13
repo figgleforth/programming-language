@@ -51,6 +51,23 @@ module Ore
 			end
 		end
 
+		def check_dot_access_permissions scope, ident, expr
+			binding, privacy = Ore.binding_and_privacy ident
+
+			case scope
+			when Ore::Instance
+				if privacy == :private && runtime.stack.last != scope
+					raise Ore::Cannot_Call_Private_Instance_Member.new(expr, runtime)
+				end
+			when Ore::Type
+				if binding == :instance
+					raise Ore::Cannot_Call_Instance_Member_On_Type.new(expr, runtime)
+				elsif privacy == :private
+					raise Ore::Cannot_Call_Private_Static_Type_Member.new(expr, runtime)
+				end
+			end
+		end
+
 		def interp_identifier expr
 			# todo: Proper error
 			raise "Expected Ore::Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Ore::Identifier_Expr
@@ -207,6 +224,18 @@ module Ore
 				return receiver[key] # note: Intentionally returning the value here because the code starting with the directive check runs to the end of the method. todo: Imrpove?
 			end
 
+			# Handle dot assignment
+			if expr.left.is_a?(Ore::Infix_Expr) && expr.left.operator == '.'
+				receiver = interpret expr.left.left
+				property = expr.left.right
+
+				check_dot_access_permissions receiver, property.value, expr
+
+				right_value              = interpret expr.right
+				receiver[property.value] = right_value
+				return right_value
+			end
+
 			if expr.right.is_a?(Ore::Directive_Expr) && expr.right.name.value == 'load'
 				filepath = interpret expr.right.expression
 
@@ -313,37 +342,14 @@ module Ore
 		end
 
 		def interp_dot_scope expr
-			scope = interpret expr.left # maybe_instance interpret expr.left
+			scope = interpret expr.left
 			raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if scope.nil?
 
-			binding, privacy = Ore.binding_and_privacy expr.right.value
-
-			case scope
-			when Ore::Instance
-				case privacy
-				when :private
-					unless runtime.stack.last == scope
-						raise Ore::Cannot_Call_Private_Instance_Member.new(expr, runtime)
-					end
-				when :public
-				end
-			when Ore::Type
-				case binding
-				when :instance
-					raise Ore::Cannot_Call_Instance_Member_On_Type.new(expr, runtime)
-				when :static
-					case privacy
-					when :private
-						raise Ore::Cannot_Call_Private_Static_Type_Member.new(expr, runtime)
-					when :public
-					end
-				end
-			end
+			check_dot_access_permissions scope, expr.right.value, expr
 
 			runtime.push_scope scope
 			result = interpret expr.right
 			runtime.pop_scope
-
 			result
 		end
 
