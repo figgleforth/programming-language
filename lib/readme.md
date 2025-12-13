@@ -13,7 +13,7 @@ This [`lib`](/lib) folder contains the implementation of Ore in Ruby. The codeba
 
 - [`interpreter.rb`](runtime/interpreter.rb) - Executes the AST
 - [`errors.rb`](runtime/errors.rb) - Runtime error definitions
-- [`scope.rb`](runtime/scope.rb) - Scoping and variable management
+- [`scope.rb`](runtime/scopes.rb) - Scoping and variable management
 - [`types.rb`](runtime/types.rb) - Runtime type definitions
 - [`runtime.rb`](runtime/runtime.rb) - Execution state management
 

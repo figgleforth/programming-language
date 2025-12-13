@@ -6,8 +6,8 @@ module Ore
 			@stack        = [global_scope || Ore::Global.new]
 			@servers      = []
 			@routes       = {} # {route: Ore::Route}
-			@loaded_files = {} # {filename: expressions}
-			@source_files = {} # {filepath: source_code} for error reporting
+			@loaded_files = {} # {filename: Ore::Expression}
+			@source_files = {} # {filepath: String} for error reporting
 		end
 
 		def push_scope scope

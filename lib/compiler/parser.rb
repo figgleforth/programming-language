@@ -336,14 +336,16 @@ module Ore
 			start = curr_lexeme
 
 			expr = Ore::Identifier_Expr.new
-			if curr? DIRECTIVE_PREFIX
+
+			if curr? DIRECTIVE_PREFIX and eat DIRECTIVE_PREFIX
 				expr.directive = true
-				eat DIRECTIVE_PREFIX
 			elsif curr? SCOPE_OPERATORS
 				expr.scope_operator = parse_manual_scope
 			end
 
-			expr.value = eat.value
+			expr.value   = eat.value
+			expr.privacy = Ore.privacy_of_ident expr.value
+			expr.binding = Ore.binding_of_ident expr.value
 
 			# 7/20/25, I'm storing the type as well, even though I haven't written any code to support types yet.
 
@@ -454,12 +456,14 @@ module Ore
 			copy_location expr, start
 		end
 
-		def parse_nil_init_postfix_expr
-			start           = curr_lexeme
-			expr            = Ore::Postfix_Expr.new
-			expr.expression = parse_identifier_expr # eat # identifier
-			expr.operator   = eat.value
-			expr
+		def parse_nil_init_expr
+			start = curr_lexeme
+
+			expr          = Ore::Infix_Expr.new
+			expr.left     = parse_identifier_expr
+			expr.operator = '='
+			expr.right    = Ore::Identifier_Expr.new('nil')
+
 			copy_location expr, start
 		end
 
@@ -470,8 +474,7 @@ module Ore
 				parse_route_expr
 
 			elsif curr? ANY_IDENTIFIER, ';'
-				# note: ; is not actually a true postfix operator. It's just being treated as one here.
-				parse_nil_init_postfix_expr
+				parse_nil_init_expr
 
 			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
 				parse_func precedence, named: curr?(:identifier)
@@ -510,8 +513,8 @@ module Ore
 			elsif curr? :string
 				Ore::String_Expr.new eat(:string).value
 
-			elsif curr? ';'
-				eat ';' and nil
+			elsif curr? [';', ',']
+				eat and nil
 
 			elsif curr? :delimiter
 				reduce_newlines
@@ -546,10 +549,6 @@ module Ore
 		# todo: Factor out the various branches of code in here?
 		def complete_expression expr, precedence = STARTING_PRECEDENCE
 			return expr unless expr && lexemes?
-
-			if curr_lexeme.is(',')
-				eat and return expr
-			end
 
 			if expr.is_a?(Ore::Identifier_Expr) && expr.directive
 				directive            = Ore::Directive_Expr.new

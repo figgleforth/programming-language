@@ -21,11 +21,6 @@ module Ore
 			return result
 		end
 
-		def declare identifier, value, scope = runtime.stack.last
-			scope             ||= runtime.stack.last
-			scope[identifier] = value
-		end
-
 		def scope_for_identifier expr
 			if !expr.is_a?(Ore::Identifier_Expr)
 				return runtime.stack.last
@@ -53,6 +48,23 @@ module Ore
 				end
 
 				scope || runtime.stack.last
+			end
+		end
+
+		def check_dot_access_permissions scope, ident, expr
+			binding, privacy = Ore.binding_and_privacy ident
+
+			case scope
+			when Ore::Instance
+				if privacy == :private && runtime.stack.last != scope
+					raise Ore::Cannot_Call_Private_Instance_Member.new(expr, runtime)
+				end
+			when Ore::Type
+				if binding == :instance
+					raise Ore::Cannot_Call_Instance_Member_On_Type.new(expr, runtime)
+				elsif privacy == :private
+					raise Ore::Cannot_Call_Private_Static_Type_Member.new(expr, runtime)
+				end
 			end
 		end
 
@@ -212,6 +224,18 @@ module Ore
 				return receiver[key] # note: Intentionally returning the value here because the code starting with the directive check runs to the end of the method. todo: Imrpove?
 			end
 
+			# Handle dot assignment
+			if expr.left.is_a?(Ore::Infix_Expr) && expr.left.operator == '.'
+				receiver = interpret expr.left.left
+				property = expr.left.right
+
+				check_dot_access_permissions receiver, property.value, expr
+
+				right_value              = interpret expr.right
+				receiver[property.value] = right_value
+				return right_value
+			end
+
 			if expr.right.is_a?(Ore::Directive_Expr) && expr.right.name.value == 'load'
 				filepath = interpret expr.right.expression
 
@@ -243,92 +267,188 @@ module Ore
 				# It can be assigned and reassigned, so do nothing.
 			end
 
-			declare expr.left.value, right_value, assignment_scope
+			assignment_scope.declare expr.left.value, right_value
 			return right_value
 		end
 
 		# @param expr [Ore::Infix_Expr]
-		def interp_infix_dot expr
-			# todo, This is getting messy. I need to factor out some of these cases. :factor_dot_calls
-			if expr.right == 'new' || expr.right.is('new')
-				return interp_dot_new expr
-			end
+		def interp_dot_infix expr
+			return interp_dot_new expr if expr.right.is 'new'
 
 			left = maybe_instance interpret expr.left
-			if !left.kind_of?(Ore::Scope) && !left.kind_of?(Ore::Range)
+
+			unless left.kind_of?(Ore::Scope) || left.kind_of?(Ore::Range)
 				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
 			end
 
-			if left.is_a?(Ore::Array) || left.kind_of?(Ore::Tuple)
-				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
-					left.each do |it|
-						each_scope                 = Ore::Scope.new 'each{;}'
-						each_scope.enclosing_scope = runtime.stack.last
-						runtime.push_scope each_scope
-						declare 'it', it, each_scope
-						expr.right.expressions.each do |expr|
-							interpret expr
-						end
-						runtime.pop_scope
-					end
+			case left
+			when Ore::Array, Ore::Tuple
+				interp_dot_array_or_tuple expr
+			when Ore::Range
+				interp_dot_range expr
+			when Ore::Dictionary
+				interp_dot_dictionary expr
+			else
+				interp_dot_scope expr
+			end
+		end
 
-					return left
-				elsif expr.right.is Ore::Number_Expr
-					return left.values[expr.right.value]
+		def interp_dot_array_or_tuple expr
+			scope = interpret expr.left # maybe_instance interpret expr.left
 
-				elsif expr.right.is Ore::Array_Index_Expr
-					array_or_tuple = left # Just for clarity.
+			case
+			when expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
+				interp_each_loop scope, expr.right
+				scope
 
-					expr.right.indices_in_order.each do |index|
-						unless array_or_tuple.is_a? Ore::Array
-							# note: If left were a ::Number, subscript notation would succeed because that is integer bit indexing.
-							raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
-						end
-						array_or_tuple = array_or_tuple[index]
-					end
+			when expr.right.is(Ore::Number_Expr)
+				scope.values[expr.right.value]
 
-					return array_or_tuple
-				end
-
-			elsif left.kind_of? Ore::Range
-				if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
-					# todo: Should be handled by #interp_func_call?
-
-					left.each do |it|
-						each_scope = Ore::Scope.new 'each{;}'
-						runtime.push_scope each_scope
-						declare 'it', it, each_scope
-						expr.right.expressions.each do |expr|
-							interpret expr
-						end
-						runtime.pop_scope
-					end
-				end
-				return left
-
-			elsif left.kind_of? Ore::Dictionary
-				case expr.right.value
-				when 'keys', 'values', 'count'
-					# note: keys, values, and count are declared on Ore::Dictionary so just call through to it
-					left.dict.send expr.right.value
-				else
-					# Fall through to normal scope lookup
-					runtime.push_scope left
-					result = interpret expr.right
-					runtime.pop_scope
-					return result
+			when expr.right.is(Ore::Array_Index_Expr)
+				expr.right.indices_in_order.reduce(scope) do |current, index|
+					raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) unless current.is_a?(Ore::Array)
+					current[index]
 				end
 
 			else
-				raise Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if left == nil
+				interp_dot_scope expr
+			end
+		end
 
-				runtime.push_scope left
+		def interp_dot_range expr
+			range = interpret expr.left # maybe_instance interpret expr.left
+			if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
+				interp_each_loop range, expr.right
+			end
+			range
+		end
+
+		def interp_dot_dictionary expr
+			dict = interpret expr.left
+
+			case expr.right.value
+			when 'keys', 'values', 'count'
+				# note: keys, values, and count are declared on Ore::Dictionary so just call through to it
+				dict.dict.send expr.right.value
+
+			else
+				# Fall through to normal scope lookup
+				runtime.push_scope dict
 				result = interpret expr.right
 				runtime.pop_scope
 
-				return result
+				result
 			end
 		end
+
+		def interp_dot_scope expr
+			scope = interpret expr.left
+			raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if scope.nil?
+
+			check_dot_access_permissions scope, expr.right.value, expr
+
+			runtime.push_scope scope
+			result = interpret expr.right
+			runtime.pop_scope
+			result
+		end
+
+		def interp_each_loop collection, func_expr
+			collection.each do |it|
+				each_scope                 = Ore::Scope.new 'each{;}'
+				each_scope.enclosing_scope = runtime.stack.last
+				runtime.push_scope each_scope
+				each_scope.declare 'it', it
+				func_expr.expressions.each { |e| interpret e }
+				runtime.pop_scope
+			end
+		end
+
+		# def interp_infix_dot expr
+		# 	# todo, This is getting messy. I need to factor out some of these cases. :factor_dot_calls
+		# 	if expr.right == 'new' || expr.right.is('new')
+		# 		return interp_dot_new expr
+		# 	end
+		#
+		# 	# binding = Ore.binding_of_ident expr.left.value
+		# 	# privacy = Ore.visibility_of_ident expr.left.value
+		#
+		# 	left = maybe_instance interpret expr.left
+		#
+		# 	if !left.kind_of?(Ore::Scope) && !left.kind_of?(Ore::Range)
+		# 		raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
+		# 	end
+		#
+		# 	if left.is_a?(Ore::Array) || left.kind_of?(Ore::Tuple)
+		# 		if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
+		# 			left.each do |it|
+		# 				each_scope                 = Ore::Scope.new 'each{;}'
+		# 				each_scope.enclosing_scope = runtime.stack.last
+		# 				runtime.push_scope each_scope
+		# 				each_scope.declare 'it', it
+		# 				expr.right.expressions.each do |expr|
+		# 					interpret expr
+		# 				end
+		# 				runtime.pop_scope
+		# 			end
+		#
+		# 			return left
+		# 		elsif expr.right.is Ore::Number_Expr
+		# 			return left.values[expr.right.value]
+		#
+		# 		elsif expr.right.is Ore::Array_Index_Expr
+		# 			array_or_tuple = left # Just for clarity.
+		#
+		# 			expr.right.indices_in_order.each do |index|
+		# 				unless array_or_tuple.is_a? Ore::Array
+		# 					# note: If left were a ::Number, subscript notation would succeed because that is integer bit indexing.
+		# 					raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
+		# 				end
+		# 				array_or_tuple = array_or_tuple[index]
+		# 			end
+		#
+		# 			return array_or_tuple
+		# 		end
+		#
+		# 	elsif left.kind_of? Ore::Range
+		# 		if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
+		# 			# todo: Should be handled by #interp_func_call?
+		#
+		# 			left.each do |it|
+		# 				each_scope = Ore::Scope.new 'each{;}'
+		# 				runtime.push_scope each_scope
+		# 				each_scope.declare 'it', it
+		# 				expr.right.expressions.each do |expr|
+		# 					interpret expr
+		# 				end
+		# 				runtime.pop_scope
+		# 			end
+		# 		end
+		# 		return left
+		#
+		# 	elsif left.kind_of? Ore::Dictionary
+		# 		case expr.right.value
+		# 		when 'keys', 'values', 'count'
+		# 			# note: keys, values, and count are declared on Ore::Dictionary so just call through to it
+		# 			left.dict.send expr.right.value
+		# 		else
+		# 			# Fall through to normal scope lookup
+		# 			runtime.push_scope left
+		# 			result = interpret expr.right
+		# 			runtime.pop_scope
+		# 			return result
+		# 		end
+		#
+		# 	else
+		# 		raise Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if left == nil
+		#
+		# 		runtime.push_scope left
+		# 		result = interpret expr.right
+		# 		runtime.pop_scope
+		#
+		# 		return result
+		# 	end
+		# end
 
 		# @param expr [Ore::Infix_Expr]
 		def interp_infix expr
@@ -336,7 +456,7 @@ module Ore
 			when '='
 				interp_infix_equals expr
 			when '.'
-				interp_infix_dot expr
+				interp_dot_infix expr
 			when '<<'
 				left  = maybe_instance interpret expr.left
 				right = interpret expr.right
@@ -425,13 +545,8 @@ module Ore
 		end
 
 		def interp_postfix expr
-			# note: See constants.rb POSTFIX for exhaustive list of language-defined postfixes
-			case expr.operator
-			when ';'
-				declare expr.expression.value, nil
-			else
-				raise Ore::Unhandled_Postfix.new(expr, runtime)
-			end
+			# note: See constants.rb POSTFIX for exhaustive list of language-defined postfixes. Currently there are no built-in postfix operators.
+			raise Ore::Unhandled_Postfix.new(expr, runtime)
 		end
 
 		def interp_circumfix expr
@@ -578,7 +693,7 @@ module Ore
 					raise Ore::Missing_Argument.new(expr, runtime)
 				end
 
-				declare param.name, value
+				runtime.stack.last.declare param.name, value
 
 				if param.unpack && value.is_a?(Ore::Instance)
 					call_scope.sibling_scopes << value
@@ -618,8 +733,8 @@ module Ore
 			runtime.push_scope call_scope
 
 			# Make request and response available without explicit declaration
-			declare 'request', req, call_scope
-			declare 'response', res, call_scope
+			call_scope.declare 'request', req
+			call_scope.declare 'response', res
 
 			# Bind URL parameters as function arguments. For example, get://:abc/:def { abc, def; }
 			params.each do |param|
@@ -641,7 +756,7 @@ module Ore
 					end
 				end
 
-				declare param.name, value, call_scope
+				call_scope.declare param.name, value
 			end
 
 			body   = handler.expressions - params
@@ -765,7 +880,7 @@ module Ore
 
 			# todo: Make @types a set
 			type.types = type.types.uniq
-			declare type.name, type
+			runtime.stack.last.declare type.name, type
 
 			runtime.push_then_pop type do |scope|
 				expr.expressions.each do |expr|
@@ -781,7 +896,7 @@ module Ore
 			element.expressions = expr.expressions
 			# element.attributes = filtered element.expressions
 
-			declare element.name, element
+			runtime.stack.last.declare element.name, element
 
 			runtime.push_then_pop element do |scope|
 				expr.expressions.each do |expr|
@@ -832,7 +947,7 @@ module Ore
 			end
 
 			runtime.routes[route_key] = route
-			declare route_key, route if expression.name && expression.name != 'Ore::Func'
+			runtime.stack.last.declare route_key, route if expression.name && expression.name != 'Ore::Func'
 
 			route
 		end
@@ -843,10 +958,10 @@ module Ore
 			func.expressions     = expr.expressions
 
 			if func.name
-				declare func.name, func
-			else
-				func
+				runtime.stack.last.declare func.name, func
 			end
+
+			func
 		end
 
 		def interp_composition expr
@@ -939,8 +1054,8 @@ module Ore
 				if stride
 					catch :stop do
 						values.each_slice(stride).with_index do |elements, index|
-							declare 'it', elements, scope
-							declare 'at', index, scope
+							scope.declare 'it', elements
+							scope.declare 'at', index
 							catch :skip do
 								expr.body.each do |e|
 									interpret e
@@ -951,8 +1066,8 @@ module Ore
 				else
 					catch :stop do
 						values.each_with_index do |element, index|
-							declare 'it', element, scope
-							declare 'at', index, scope
+							scope.declare 'it', element
+							scope.declare 'at', index
 							catch :skip do
 								expr.body.each do |e|
 									interpret e

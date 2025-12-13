@@ -144,7 +144,7 @@ module Ore
 	end
 
 	class Identifier_Expr < Expression
-		attr_accessor :kind, :unpack, :scope_operator, :directive
+		attr_accessor :kind, :unpack, :scope_operator, :directive, :privacy, :binding
 	end
 
 	class Composition_Expr < Expression
