@@ -4,31 +4,31 @@
 
 ### Quick Start
 
-> Requires Ruby 3.4.1 or higher, and Bundler
+> Requires Ruby `3.4.1` or higher, and Bundler
 
-Clone this repo and run this example with `bundle exec bin/ore examples/hello.ore`:
+```bash
+git clone https://github.com/figgleforth/ore-lang.git
+cd ore-lang
+bundle install
+bundle exec bin/ore examples/hello.ore # => Hello, Ore!
+```
+
+Example code from [examples/hello.ore](./examples/hello.ore):
 
 ```ore
 Greet {
 	subject;
-	
+
 	new { subject;
 		./subject = subject
 	}
-	
+
 	greeting {;
 		"Hello, |subject|!"
 	}
 }
 
 Greet('Ore').greeting()
-```
-
-```bash
-git clone https://github.com/figgleforth/ore-lang.git
-cd ore-lang
-bundle install
-bundle exec bin/ore examples/hello.ore
 ```
 
 ### Table of Contents
@@ -43,7 +43,7 @@ bundle exec bin/ore examples/hello.ore
 	- [File Loading](#file-loading)
 	- [Web Servers](#web-servers)
 	- [HTML Rendering](#html-rendering)
-- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
 
 ### Features
 
@@ -366,22 +366,7 @@ Note: Rendering HTML only works when
 `render{;}` is called by a Server instance. See [html.ore](ore/html.ore) for predefined
 `Dom` elements. See [web1.ore](examples/web1.ore) for Server and HTML usage.
 
-### Getting Started
-
-> Requires Ruby 3.4.1 or higher, and Bundler
-
-```bash
-git clone https://github.com/figgleforth/ore-lang.git
-cd ore-lang
-bundle install
-bundle exec rake test
-```
-
-Run an Ore program:
-
-```bash
-bundle exec bin/ore file.ore
-```
+### Project Structure
 
 - [`lib/readme`](lib/readme.md) details the architecture and contains instructions for running your own programs
 - [`examples`](examples) contains code examples written in Ore
