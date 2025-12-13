@@ -51,6 +51,27 @@ module Ore
 			end
 		end
 
+		def maybe_instance expr
+			# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Ore::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Ore::Number.
+			case expr
+			when Integer, Float
+				# Ore::Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
+				scope             = Ore::Number.new expr
+				scope.type        = Ore.type_of_number_expr expr
+				scope.numerator   = expr
+				scope.denominator = 1
+				scope
+			when nil
+				Ore::Nil.shared
+			when true
+				Ore::Bool.truthy
+			when false
+				Ore::Bool.falsy
+			else
+				expr
+			end
+		end
+
 		def check_dot_access_permissions scope, ident, expr
 			binding, privacy = Ore.binding_and_privacy ident
 
@@ -66,6 +87,56 @@ module Ore
 					raise Ore::Cannot_Call_Private_Static_Type_Member.new(expr, runtime)
 				end
 			end
+		end
+
+		# todo: Maybe this should go on Ore::Server?
+		def collect_routes_from_instance instance
+			routes = {}
+
+			instance.types.each do |type_name|
+				type_def = runtime.stack.first[type_name]
+				next unless type_def && type_def.respond_to?(:routes) && type_def.routes
+
+				# Merge routes from this type
+				type_def.routes.each do |key, route|
+					routes[key] ||= route
+				end
+			end
+
+			routes
+		end
+
+		def render_dom_to_html dom_instance
+			render = dom_instance.declarations['render']
+
+			inner_html = if render
+				call_expr           = Ore::Call_Expr.new
+				call_expr.receiver  = render
+				call_expr.arguments = []
+
+				render_result = interp_func_call render, call_expr
+
+				"".tap do |html|
+					if render_result.is_a? String
+						html << render_result
+
+					elsif render_result.is_a? Ore::Array
+						render_result.values.each do |child|
+							if child.is_a? String
+								html << child
+							elsif child.is_a?(Ore::Instance) && child.types.include?('Dom')
+								html << render_dom_to_html(child)
+							end
+						end
+
+					elsif render_result.is_a?(Ore::Instance) && render_result.types.include?('Dom')
+						html << render_dom_to_html(render_result)
+
+					end
+				end
+			end
+
+			Ore::Dom_Renderer.new(dom_instance, inner_html).to_html_string
 		end
 
 		def interp_identifier expr
@@ -147,45 +218,6 @@ module Ore
 				end
 				result.gsub('\\', '') # Remove any escapes from the resulting string? Is this okay? I don't know...
 			end
-		end
-
-		def maybe_instance expr
-			# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Ore::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Ore::Number.
-			case expr
-			when Integer, Float
-				# Ore::Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1.
-				scope             = Ore::Number.new expr
-				scope.type        = Ore.type_of_number_expr expr
-				scope.numerator   = expr
-				scope.denominator = 1
-				scope
-			when nil
-				Ore::Nil.shared
-			when true
-				Ore::Bool.truthy
-			when false
-				Ore::Bool.falsy
-			else
-				expr
-			end
-		end
-
-		def interp_dot_new expr
-			receiver = interpret expr.left
-			unless receiver.is_a? Ore::Type
-				raise Ore::Cannot_Initialize_Non_Type_Identifier.new(expr.left, runtime)
-			end
-
-			instance             = Ore::Instance.new receiver.name # :generalize_me
-			instance.expressions = receiver.expressions
-
-			runtime.push_scope instance
-			instance.expressions.each do |it|
-				interpret it
-			end
-			runtime.pop_scope
-
-			instance
 		end
 
 		def interp_prefix expr
@@ -307,6 +339,24 @@ module Ore
 			end
 		end
 
+		def interp_dot_new expr
+			receiver = interpret expr.left
+			unless receiver.is_a? Ore::Type
+				raise Ore::Cannot_Initialize_Non_Type_Identifier.new(expr.left, runtime)
+			end
+
+			instance             = Ore::Instance.new receiver.name # :generalize_me
+			instance.expressions = receiver.expressions
+
+			runtime.push_scope instance
+			instance.expressions.each do |it|
+				interpret it
+			end
+			runtime.pop_scope
+
+			instance
+		end
+
 		def interp_dot_array_or_tuple expr
 			scope = interpret expr.left # maybe_instance interpret expr.left
 
@@ -377,92 +427,6 @@ module Ore
 				runtime.pop_scope
 			end
 		end
-
-		# def interp_infix_dot expr
-		# 	# todo, This is getting messy. I need to factor out some of these cases. :factor_dot_calls
-		# 	if expr.right == 'new' || expr.right.is('new')
-		# 		return interp_dot_new expr
-		# 	end
-		#
-		# 	# binding = Ore.binding_of_ident expr.left.value
-		# 	# privacy = Ore.visibility_of_ident expr.left.value
-		#
-		# 	left = maybe_instance interpret expr.left
-		#
-		# 	if !left.kind_of?(Ore::Scope) && !left.kind_of?(Ore::Range)
-		# 		raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
-		# 	end
-		#
-		# 	if left.is_a?(Ore::Array) || left.kind_of?(Ore::Tuple)
-		# 		if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
-		# 			left.each do |it|
-		# 				each_scope                 = Ore::Scope.new 'each{;}'
-		# 				each_scope.enclosing_scope = runtime.stack.last
-		# 				runtime.push_scope each_scope
-		# 				each_scope.declare 'it', it
-		# 				expr.right.expressions.each do |expr|
-		# 					interpret expr
-		# 				end
-		# 				runtime.pop_scope
-		# 			end
-		#
-		# 			return left
-		# 		elsif expr.right.is Ore::Number_Expr
-		# 			return left.values[expr.right.value]
-		#
-		# 		elsif expr.right.is Ore::Array_Index_Expr
-		# 			array_or_tuple = left # Just for clarity.
-		#
-		# 			expr.right.indices_in_order.each do |index|
-		# 				unless array_or_tuple.is_a? Ore::Array
-		# 					# note: If left were a ::Number, subscript notation would succeed because that is integer bit indexing.
-		# 					raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
-		# 				end
-		# 				array_or_tuple = array_or_tuple[index]
-		# 			end
-		#
-		# 			return array_or_tuple
-		# 		end
-		#
-		# 	elsif left.kind_of? Ore::Range
-		# 		if expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
-		# 			# todo: Should be handled by #interp_func_call?
-		#
-		# 			left.each do |it|
-		# 				each_scope = Ore::Scope.new 'each{;}'
-		# 				runtime.push_scope each_scope
-		# 				each_scope.declare 'it', it
-		# 				expr.right.expressions.each do |expr|
-		# 					interpret expr
-		# 				end
-		# 				runtime.pop_scope
-		# 			end
-		# 		end
-		# 		return left
-		#
-		# 	elsif left.kind_of? Ore::Dictionary
-		# 		case expr.right.value
-		# 		when 'keys', 'values', 'count'
-		# 			# note: keys, values, and count are declared on Ore::Dictionary so just call through to it
-		# 			left.dict.send expr.right.value
-		# 		else
-		# 			# Fall through to normal scope lookup
-		# 			runtime.push_scope left
-		# 			result = interpret expr.right
-		# 			runtime.pop_scope
-		# 			return result
-		# 		end
-		#
-		# 	else
-		# 		raise Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if left == nil
-		#
-		# 		runtime.push_scope left
-		# 		result = interpret expr.right
-		# 		runtime.pop_scope
-		#
-		# 		return result
-		# 	end
-		# end
 
 		# @param expr [Ore::Infix_Expr]
 		def interp_infix expr
@@ -819,68 +783,6 @@ module Ore
 			result
 		end
 
-		def render_dom_to_html dom_instance
-			# todo: Clean up this method
-			html_attrs = dom_instance.declarations.select { |k, v| k.to_s.start_with? 'html_' }
-			css_attrs  = dom_instance.declarations.select { |k, v| k.to_s.start_with? 'css_' }
-			render     = dom_instance.declarations['render']
-			element    = html_attrs['html_element']
-
-			html_attrs = html_attrs.reject { |k, v| k == 'html_element' }
-
-			html_attrs = html_attrs.map do |key, value|
-				key = key.to_s.gsub 'html_', ''
-				key = key.gsub '_', '-'
-				[key, value]
-			end.to_h
-
-			css_attrs = css_attrs.map do |key, value|
-				key = key.to_s.gsub 'css_', ''
-				key = key.gsub '_', '-'
-				[key, value]
-			end.to_h
-
-			html = "<#{element}"
-
-			unless html_attrs.empty?
-				html += " "
-				html += html_attrs.map { |key, value| "#{key}=\"#{value}\"" }.join(' ')
-			end
-
-			unless css_attrs.empty?
-				html += " style=\""
-				html += css_attrs.map { |key, value| "#{key}:#{value}" }.join(';')
-				html += "\""
-			end
-
-			html += ">"
-
-			if render
-				call_expr           = Ore::Call_Expr.new
-				call_expr.receiver  = render
-				call_expr.arguments = []
-
-				render_result = interp_func_call render, call_expr
-
-				if render_result.is_a?(String)
-					html += render_result
-				elsif render_result.is_a?(Ore::Array)
-					render_result.values.each do |child|
-						if child.is_a?(String)
-							html += child
-						elsif child.is_a?(Ore::Instance) && child.types.include?('Dom')
-							html += render_dom_to_html(child)
-						end
-					end
-				elsif render_result.is_a?(Ore::Instance) && render_result.types.include?('Dom')
-					html += render_dom_to_html(render_result)
-				end
-			end
-
-			html += "</#{element}>"
-			html
-		end
-
 		def interp_type expr
 			type = Ore::Type.new expr.name.value
 
@@ -908,13 +810,12 @@ module Ore
 		def interp_element expr
 			element             = Ore::Html_Element.new expr.element.value
 			element.expressions = expr.expressions
-			# element.attributes = filtered element.expressions
 
 			runtime.stack.last.declare element.name, element
 
 			runtime.push_then_pop element do |scope|
 				expr.expressions.each do |expr|
-					# TODO: When evaluating render{;}, it should expect one of the following:
+					# todo: When evaluating render{;}, it should expect one of the following:
 					# - string
 					# - another Html_Element
 					# - array of Html_Elements
@@ -1169,23 +1070,6 @@ module Ore
 					result || nil
 				end
 			end
-		end
-
-		# todo:_Maybe this should go on Ore::Server?
-		def collect_routes_from_instance instance
-			routes = {}
-
-			instance.types.each do |type_name|
-				type_def = runtime.stack.first[type_name]
-				next unless type_def && type_def.respond_to?(:routes) && type_def.routes
-
-				# Merge routes from this type
-				type_def.routes.each do |key, route|
-					routes[key] ||= route
-				end
-			end
-
-			routes
 		end
 
 		def interp_directive expr

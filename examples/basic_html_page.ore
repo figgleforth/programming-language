@@ -1,10 +1,22 @@
 #load 'ore/html.ore'
 #load 'ore/server.ore'
 
+Page_Body | Body {
+  css_display = 'flex'
+  css_justify_content = 'center'
+  css_align_items = 'center'
+  css_min_height = '100vh'
+  css_margin = '0'
+}
+
 ```Layout component```
 Layout | Html {
 	title;
 	body_content;
+
+	css_filter = 'invert()'
+	css_font_family = 'monospace'
+	css_font_size = '1.2em'
 
 	new { title, body_content;
 		./title = title
@@ -14,7 +26,7 @@ Layout | Html {
 	render {;
 		[
 			Head(Title(title)),
-			Body(body_content)
+			Page_Body(body_content)
 		]
 	}
 }
