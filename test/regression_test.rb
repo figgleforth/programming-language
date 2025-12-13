@@ -300,4 +300,39 @@ class Regression_Test < Base_Test
 		out = Ore.interp '{ a=1, b:"two", c: :three }.values'
 		assert_equal [1, "two", :three], out
 	end
+
+	def test_nested_type_declaration_shadowing_regression
+		# When creating an instance of an inner Type (like Title) inside an outer Type's render function (like Layout), declarations in the inner Type's body (like `title;`) were incorrectly being assigned to the outer Type's instance if it had the same identifier name. This test ensures each Type/Instance has its own namespace.
+		out = Ore.interp <<~CODE
+		    Outer {
+		    	name;
+
+		    	new { name;
+		    		./name = name
+		    	}
+
+		    	make_inner {;
+		    		Inner("inner_value")
+		    	}
+		    }
+
+		    Inner {
+		    	name;
+
+		    	new { name;
+		    		./name = name
+		    	}
+
+		    	get_name {;
+		    		name
+		    	}
+		    }
+
+		    outer = Outer("outer_value")
+		    inner = outer.make_inner()
+		    (outer.name, inner.get_name())
+		CODE
+		assert_equal "outer_value", out.values[0]
+		assert_equal "inner_value", out.values[1]
+	end
 end
