@@ -15,6 +15,10 @@ module Ore
 			@inner_html = inner_html
 		end
 
+		def has_inner_html? # aka void tag
+			!Ore::VOID_HTML_TAGS.include?(element)
+		end
+
 		def html_attrs
 			@html_attrs ||= dom.declarations.reject do |key, _|
 				key == 'html_element' # This identifier is just used to determine the element to render, so it shouldn't be included as an attribute of the final HTML string.
@@ -62,10 +66,11 @@ module Ore
 					html << "\""
 				end
 
-				# todo: Handle self-closing tags
 				html << ">"
-				html << inner_html
-				html << "</#{element}>"
+				if has_inner_html?
+					html << inner_html
+					html << "</#{element}>"
+				end
 			end
 		end
 	end

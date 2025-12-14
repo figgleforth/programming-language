@@ -1,0 +1,14 @@
+#load 'ore/html.ore'
+#load 'ore/server.ore'
+
+Inverted_Html | Html {
+	css_filter = 'invert()'
+}
+
+App | Server {
+	get:// {;
+		Inverted_Html([P("Example with void HTML tags"), Hr(), Small('Expect that they don\'t have a closing /tag'), Br()])
+	}
+}
+
+#start App()

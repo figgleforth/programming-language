@@ -64,6 +64,10 @@ P | Dom {
 	html_element = 'p'
 }
 
+Small | Dom {
+	html_element = 'small'
+}
+
 Span | Dom {
 	html_element = 'span'
 }

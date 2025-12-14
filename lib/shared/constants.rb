@@ -4,6 +4,7 @@ module Ore
 	DIRECTIVE_PREFIX           = '#'
 	HTML_ATTRS                 = %w(id class href)
 	HTTP_VERBS                 = %w(get put patch post delete head options connect trace)
+	VOID_HTML_TAGS             = %w(area base br col command embed hr img input keygen link meta param source track wbr)
 	HTTP_VERB_SEPARATOR        = '://'
 	INTERPOLATE_CHAR           = '|'
 	COMMENT_CHAR               = '`'
