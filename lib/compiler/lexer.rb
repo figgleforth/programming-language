@@ -104,7 +104,7 @@ module Ore
 		end
 
 		def lex_number
-			it    = String.new
+			it    = ::String.new
 			valid = %w(. _) # An exception for _ is that it cannot be the last character because then you could miss underscored declarations like `1_decl`. This should be lexed as number 1, and identifier _decl.
 
 			# 7/7/25, I'm intentionally allowing multiple dots in a number for Array_Index_Expr
@@ -188,7 +188,7 @@ module Ore
 		end
 
 		def lex_operator
-			it = String.new
+			it = ::String.new
 			while chars? && symbol? && !%w(' ").include?(curr)
 				it << eat
 			end
@@ -197,7 +197,7 @@ module Ore
 		end
 
 		def lex_identifier
-			it = String.new
+			it = ::String.new
 			it << eat while curr == '_'
 			can_end_with = %w(! ?)
 
@@ -214,7 +214,7 @@ module Ore
 		end
 
 		def lex_route
-			verb = String.new
+			verb = ::String.new
 			while chars? && (identifier? || alphanumeric?)
 				break unless HTTP_VERBS.any? { |v| v.start_with?(verb + curr) }
 				verb << eat
@@ -222,7 +222,7 @@ module Ore
 
 			protocol_sep = lex_many 3, HTTP_VERB_SEPARATOR
 
-			path = String.new
+			path = ::String.new
 			while chars? && !whitespace? && !newline? && curr != '{'
 				path << eat
 			end
@@ -305,7 +305,7 @@ module Ore
 								lex_operator
 
 							elsif (curr == '|' && peek == '|') || (curr == '&' && peek == '&')
-								str = String.new
+								str = ::String.new
 								str << eat
 								str << eat
 								str

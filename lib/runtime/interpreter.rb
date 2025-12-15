@@ -117,12 +117,12 @@ module Ore
 				render_result = interp_func_call render, call_expr
 
 				"".tap do |html|
-					if render_result.is_a? String
+					if render_result.is_a? ::String
 						html << render_result
 
 					elsif render_result.is_a? Ore::Array
 						render_result.values.each do |child|
-							if child.is_a? String
+							if child.is_a? ::String
 								html << child
 							elsif child.is_a?(Ore::Instance) && child.types.include?('Dom')
 								html << render_dom_to_html(child)
@@ -748,13 +748,13 @@ module Ore
 				break if result.is_a? Ore::Return
 			end
 
-			if result.is_a? String
+			if result.is_a? ::String
 				res.body_content         = result
 				res.declarations['body'] = result
 			elsif result.is_a? Ore::Array
 				html = ''
 				result.values.each do |it|
-					if it.is_a? String
+					if it.is_a? ::String
 						html += it
 					elsif it.is_a?(Ore::Instance) && it.types.include?('Dom')
 						html += render_dom_to_html it

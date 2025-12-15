@@ -9,7 +9,7 @@ module Ore
 		def is compare
 			if compare.is_a? Symbol
 				compare == type
-			elsif compare.is_a? String
+			elsif compare.is_a? ::String
 				compare == value
 			elsif compare.is_a? Class
 				compare.new.is_a? self.class
