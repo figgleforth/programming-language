@@ -85,13 +85,13 @@ module Ore
 	end
 
 	def self.interp source_code, with_std: true, filepath: nil
-		runtime = Ore::Runtime.new
+		global_scope = with_std ? Global.with_standard_library : Global.new
+		runtime      = Ore::Runtime.new global_scope
 		runtime.register_source filepath, source_code
 
-		lexemes      = Lexer.new(source_code, filepath: filepath).output
-		expressions  = Parser.new(lexemes, source_file: filepath).output
-		global_scope = with_std ? Global.with_standard_library : Global.new
-		interpreter  = Interpreter.new expressions, runtime
+		lexemes     = Lexer.new(source_code, filepath: filepath).output
+		expressions = Parser.new(lexemes, source_file: filepath).output
+		interpreter = Interpreter.new expressions, runtime
 
 		interpreter.output
 	end
