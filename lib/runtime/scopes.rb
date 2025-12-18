@@ -92,7 +92,7 @@ module Ore
 	end
 
 	class Func < Scope
-		attr_accessor :expressions
+		attr_accessor :expressions, :intrinsic
 	end
 
 	class Route < Func

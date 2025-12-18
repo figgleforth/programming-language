@@ -1619,6 +1619,26 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
+	def test_intrinsic_string_members
+		out = Ore.interp "String().length"
+		assert_equal 0, out
+
+		out = Ore.interp "'hello'.length"
+		assert_equal 5, out
+
+		out = Ore.interp "'a'.ord"
+		assert_equal 97, out
+
+		out = Ore.interp "'A'.ord"
+		assert_equal 65, out
+
+		out = Ore.interp "'walt!'.upcase()"
+		assert_equal "WALT!", out
+
+		out = Ore.interp "'WALT!'.downcase()"
+		assert_equal "walt!", out
+	end
+
 	# todo test_binding_and_privacy_with_composition
 
 	# todo: Currently there is no clear rule on unpack collisions. This test fails with [4, 8] :double_unpack.

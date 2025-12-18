@@ -8,7 +8,6 @@ require_relative 'compiler/lexer'
 require_relative 'compiler/parser'
 
 # Runtime (AST to execution)
-require_relative 'runtime/intrinsics'
 require_relative 'runtime/errors'
 require_relative 'runtime/scopes'
 require_relative 'runtime/types'
