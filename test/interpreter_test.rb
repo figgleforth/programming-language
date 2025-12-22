@@ -1529,18 +1529,21 @@ class Interpreter_Test < Base_Test
 	def test_privacy_and_binding
 		shared_code = <<~CODE
 		    Type {
+				`Instance declarations`
 		    	number = 4
 		    	_private = 8
-		    	__static = 15
-		    	___static_private = 16
 
-				private_from_within {; _private }
-		    	
-		    	static_from_within {; __static }
-		    	static_private_from_within {; ___static_private }
+				calling_private_through_instance {; _private }
+		    	calling_static_through_instance {; static }
+		    	calling_static_private_through_instance {; _static_private }
 
-		    	__static_from_static {; __static }
-		    	__static_private_from_static {; ___static_private }
+				`Static declarations`
+				#static nilled;
+		    	#static static = 15
+		    	#static _static_private = 16
+
+		    	#static calling_static_through_static {; static }
+		    	#static calling_static_private_througb_static {; _static_private }
 		    }
 		CODE
 
@@ -1549,31 +1552,27 @@ class Interpreter_Test < Base_Test
 		assert_equal 4, out
 
 		out = Ore.interp "#{shared_code}
-		Type().private_from_within()"
+		Type().calling_private_through_instance()"
 		assert_equal 8, out
 
 		out = Ore.interp "#{shared_code}
-		Type().__static"
+		Type().static"
 		assert_equal 15, out
 
 		out = Ore.interp "#{shared_code}
-		Type().static_from_within()"
+		Type().calling_static_through_instance()"
 		assert_equal 15, out
 
 		out = Ore.interp "#{shared_code}
-		Type().static_private_from_within()"
+		Type().calling_static_private_through_instance()"
 		assert_equal 16, out
 
 		out = Ore.interp "#{shared_code}
-		Type.__static"
+		Type.calling_static_through_static()"
 		assert_equal 15, out
 
 		out = Ore.interp "#{shared_code}
-		Type.__static_from_static()"
-		assert_equal 15, out
-
-		out = Ore.interp "#{shared_code}
-		Type.__static_private_from_static()"
+		Type.calling_static_private_througb_static()"
 		assert_equal 16, out
 
 		assert_raises Ore::Cannot_Call_Private_Instance_Member do
@@ -1583,17 +1582,12 @@ class Interpreter_Test < Base_Test
 
 		assert_raises Ore::Cannot_Call_Private_Instance_Member do
 			Ore.interp "#{shared_code}
-			Type().___static_private"
-		end
-
-		assert_raises Ore::Cannot_Call_Instance_Member_On_Type do
-			Ore.interp "#{shared_code}
-			Type.number"
+			Type()._static_private"
 		end
 
 		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
 			Ore.interp "#{shared_code}
-			Type.___static_private"
+			Type._static_private"
 		end
 
 		assert_raises Ore::Cannot_Call_Private_Instance_Member do
@@ -1604,9 +1598,13 @@ class Interpreter_Test < Base_Test
 		end
 
 		out = Ore.interp "#{shared_code}
-		Type.__static = 4815
-		Type.__static"
+		Type.static = 4815
+		Type.static"
 		assert_equal 4815, out
+
+		out = Ore.interp "#{shared_code}
+		Type.nilled"
+		assert_equal nil, out
 
 		assert_raises Ore::Cannot_Call_Private_Instance_Member do
 			Ore.interp "#{shared_code}
@@ -1615,7 +1613,28 @@ class Interpreter_Test < Base_Test
 
 		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
 			Ore.interp "#{shared_code}
-		    Type.___static_private = 100"
+		    Type._static_private = 100"
+		end
+
+		assert_raises Ore::Cannot_Call_Instance_Member_On_Type do
+			Ore.interp "#{shared_code}
+			Type.number"
+		end
+
+		assert_raises Ore::Invalid_Static_Directive_Declaration do
+			Ore.interp "#static whatever"
+		end
+
+		assert_raises Ore::Invalid_Static_Directive_Declaration do
+			Ore.interp "#static 123"
+		end
+
+		assert_raises Ore::Invalid_Static_Directive_Declaration do
+			Ore.interp "Type { #static whatever }"
+		end
+
+		assert_raises Ore::Invalid_Static_Directive_Declaration do
+			Ore.interp "Type { #static 123 }"
 		end
 	end
 
@@ -1637,6 +1656,18 @@ class Interpreter_Test < Base_Test
 
 		out = Ore.interp "'WALT!'.downcase()"
 		assert_equal "walt!", out
+
+		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+			Ore.interp "#intrinsic whatever"
+		end
+
+		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+			Ore.interp "#intrinsic 123"
+		end
+
+		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+			Ore.interp "Type { #intrinsic 123; }"
+		end
 	end
 
 	# todo test_binding_and_privacy_with_composition

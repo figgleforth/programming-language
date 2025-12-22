@@ -77,9 +77,8 @@ module Ore
 		end
 
 		def location_line
-
 			# todo bug: Does not display source code properly
-			if expression.instance_of?(Ore::Expression) && expression.l0
+			if expression.is_a?(Ore::Expression) && expression.l0
 				"#{expression.source_file}:#{expression.l0}:#{expression.c0}"
 			else
 				# todo: How do I get the source string here?
@@ -149,7 +148,7 @@ module Ore
 		private
 
 		def get_location_coords
-			if expression.instance_of?(Ore::Expression) && expression.l0
+			if expression.is_a?(Ore::Expression) && expression.l0
 				[expression.l0, expression.c0, expression.l1 || expression.l0, expression.c1 || expression.c0]
 			else
 				[nil, nil, nil, nil]

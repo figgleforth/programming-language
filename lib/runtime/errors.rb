@@ -90,6 +90,14 @@ module Ore
 	class Cannot_Call_Private_Static_Type_Member < Error
 	end
 
+	class Invalid_Intrinsic_Directive_Declaration < Error
+		# #intrinsic directive only supports function and variable declarations in the body of a Type declaration
+	end
+
+	class Invalid_Static_Directive_Declaration < Error
+		# #static directive only supports function and variable declarations in the body of a Type declaration
+	end
+
 	class Unterminated_String_Literal < Error
 	end
 

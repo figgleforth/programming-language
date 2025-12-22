@@ -8,13 +8,13 @@ module Ore
 			@source_file = source_file ? File.expand_path(source_file) : '<inline>'
 		end
 
-		def copy_location expr, from_lexeme
-			return expr unless from_lexeme
+		def copy_location expr, from_lexeme_or_expr
+			return expr unless from_lexeme_or_expr
 
-			expr.l0          = from_lexeme.l0
-			expr.c0          = from_lexeme.c0
-			expr.l1          = from_lexeme.l1
-			expr.c1          = from_lexeme.c1
+			expr.l0          = from_lexeme_or_expr.l0
+			expr.c0          = from_lexeme_or_expr.c0
+			expr.l1          = from_lexeme_or_expr.l1
+			expr.c1          = from_lexeme_or_expr.c1
 			expr.source_file = source_file
 
 			expr
@@ -203,7 +203,7 @@ module Ore
 			func  = Ore::Func_Expr.new
 
 			if curr? :identifier
-				func.name = eat(:identifier)
+				func.name = parse_identifier_expr
 
 				if curr? ':' and eat ':'
 					func.type = eat(:Identifier)
@@ -345,7 +345,6 @@ module Ore
 
 			expr.value   = eat.value
 			expr.privacy = Ore.privacy_of_ident expr.value
-			expr.binding = Ore.binding_of_ident expr.value
 
 			# 7/20/25, I'm storing the type as well, even though I haven't written any code to support types yet.
 
@@ -355,8 +354,6 @@ module Ore
 			end
 
 			expr.kind = Ore.type_of_identifier expr.value
-			expr
-
 			copy_location expr, start
 		end
 
@@ -555,6 +552,17 @@ module Ore
 				directive.name       = expr
 				directive.expression = parse_expression
 
+				if expr.value == 'static'
+					# note: The only possible expressions here are Func_Expr and Infix_Expr.
+					case directive.expression
+					when Ore::Func_Expr
+						directive.expression.name.binding = :static
+					when Ore::Infix_Expr
+						directive.expression.left.binding = :static
+					end
+				end
+
+				copy_location directive, expr
 				return complete_expression directive, precedence
 			end
 

@@ -69,12 +69,16 @@ module Ore
 		end
 	end
 
+	class Global < Scope
+	end
+
 	class Type < Scope
-		attr_accessor :expressions, :types, :routes
+		attr_accessor :expressions, :types, :routes, :static_declarations
 
 		def initialize name = nil
 			super name
-			@types = [name].compact
+			@types               = Set[name]
+			@static_declarations = Set.new
 		end
 	end
 
@@ -84,15 +88,12 @@ module Ore
 		end
 	end
 
-	class Global < Scope
+	class Func < Scope
+		attr_accessor :expressions, :intrinsic, :static
 	end
 
 	class Html_Element < Scope
 		attr_accessor :expressions, :attributes, :types
-	end
-
-	class Func < Scope
-		attr_accessor :expressions, :intrinsic
 	end
 
 	class Route < Func
