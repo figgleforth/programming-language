@@ -25,7 +25,7 @@ class Regression_Test < Base_Test
 
 	def test_dot_slashes_regression
 		invalid_samples = [
-			'./', '../', '.../',
+			'./', '../',
 		]
 
 		invalid_samples.each do |sample|
@@ -34,12 +34,10 @@ class Regression_Test < Base_Test
 			end
 		end
 
-		ds   = Ore.parse './abc'
-		dds  = Ore.parse '../def'
-		ddds = Ore.parse '.../ghi'
+		ds  = Ore.parse './abc'
+		dds = Ore.parse '../def'
 		assert_kind_of Ore::Identifier_Expr, ds.first
 		assert_kind_of Ore::Identifier_Expr, dds.first
-		assert_kind_of Ore::Identifier_Expr, ddds.first
 
 		ds = Ore.parse './abc'
 		assert_kind_of Ore::Identifier_Expr, ds.last
@@ -78,11 +76,7 @@ class Regression_Test < Base_Test
 		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
-		out = Ore.parse '../one_up_the_stack'
-		assert_kind_of Ore::Identifier_Expr, out.first
-		assert_equal 1, out.count
-
-		out = Ore.parse '.../global_scope'
+		out = Ore.parse '../global_scope'
 		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal 1, out.count
 	end

@@ -30,7 +30,7 @@ module Ore
 	TYPE_COMPOSITION_OPERATORS = %w(| & ~ ^) # Union, Intersection, Removal, Symmetric Difference
 	ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
 	GSCOPE                     = :global
-	SCOPE_OPERATORS            = %w(./ ../ .../)
+	SCOPE_OPERATORS            = %w(./ ../)
 	STARTING_PRECEDENCE        = 0
 	DELIMITERS                 = %W(, ; { } ( ) [ ] \n \r).freeze
 	NEWLINES                   = %W(\r\n \n).freeze
@@ -49,7 +49,7 @@ module Ore
 		== === != !== <= >= < >
 		! ? ?? !! && || & | << >>
 		.. >. .< >< <=>
-		@ ./ ../ .../ ~/
+		@ ./ ../ ~/
 		``` `
 
 		for

@@ -360,15 +360,8 @@ module Ore
 		def parse_manual_scope
 			scope = eat.value
 
-			if scope == '../'
-				# It would be interesting to climb the stack like "../../../thing.whatever", especially if debugging.
-				while curr? '../'
-					scope += eat('../').value
-				end
-			end
-
 			if curr?(SCOPE_OPERATORS) || !curr?(ANY_IDENTIFIER)
-				# There should not be any more scope operators at this point. We've implicitly handled ./ and .../, and explicitly handled chains of ../ so it's either malformed or something
+				# There should not be any more scope operators at this point. We've implicitly handled ./ and ../.
 				raise Ore::Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
 			end
 
@@ -566,7 +559,7 @@ module Ore
 				return complete_expression directive, precedence
 			end
 
-			scope_prefix = %w(./ ../ .../).find do |it|
+			scope_prefix = %w(./ ../).find do |it|
 				expr.is it
 			end
 

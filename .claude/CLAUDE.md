@@ -8,7 +8,7 @@ Ore is an educational programming language for web development, implemented in R
 
 - Naming conventions that replace keywords (Capitalized classes, lowercase functions/variables, UPPERCASE constants)
 - Class composition operators instead of inheritance (|, &, ~, ^)
-- Dot notation for accessing nested structures and scopes (./, ../, .../)
+- Dot notation for accessing nested structures and scopes (./, ../)
 - First-class functions and classes
 - Built-in web server support with routing
 - When writing .ore source, use backtick (\`) character for comments (no space after backtick: "\`comment" not "\` comment")
@@ -109,8 +109,7 @@ Each scope can have **sibling scopes
 Scope operators in the language:
 
 - `./identifier` - Instance scope
-- `../identifier` - Parent scope (TBD)
-- `.../identifier` - Global scope
+- `../identifier` - Global scope
 
 ## Identifier Naming Conventions
 

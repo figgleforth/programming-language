@@ -59,7 +59,7 @@ Greet('Ore').greeting()
 - Dot notation for convenience
 	- `array.1.0.8` accesses nested structures
 	- `./identifier` accesses instance scope
-	- `.../identifier` accesses global scope
+	- `../identifier` accesses global scope
 - First-class functions and classes
 - Data containers `List`, `Tuple`, `Dictionary`
 - Loops like `for`, `while`, and `until`

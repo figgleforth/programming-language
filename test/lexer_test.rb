@@ -170,10 +170,6 @@ class Lexer_Test < Base_Test
 		out = Ore.lex '../global_scope'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
-
-		out = Ore.lex '.../third_party'
-		assert_equal %I(operator identifier), out.map(&:type)
-		assert_equal 2, out.count
 	end
 
 	def test_declaration_operators

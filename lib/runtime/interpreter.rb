@@ -29,13 +29,10 @@ module Ore
 			# ident
 			# ./ident
 			# ../ident
-			# .../ident
 
 			case expr.scope_operator
-			when '.../'
-				runtime.stack.first
 			when '../'
-				raise "../ not implemented in #scope_for_identifier"
+				runtime.stack.first
 			when './'
 				# Should default to the global scope if no Ore::Instance is present.
 				scope = runtime.stack.reverse_each.find do |scope|
