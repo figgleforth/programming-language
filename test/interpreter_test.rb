@@ -1670,7 +1670,239 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	# todo test_binding_and_privacy_with_composition
+	def test_binding_and_privacy_with_composition
+		shared_code = <<~CODE
+		    Base {
+		    	base_instance_public = 1
+		    	_base_instance_private = 2
+
+		    	#static base_static_public = 10
+		    	#static _base_static_private = 20
+		    }
+
+		    Other {
+		    	other_instance = 3
+		    	_other_private = 4
+
+		    	#static other_static_public = 30
+		    	#static _other_static_private = 40
+		    }
+		CODE
+
+		# Union composition - should merge all members
+		out = Ore.interp "#{shared_code}
+		Merged | Base | Other {}
+		m = Merged()
+		(m.base_instance_public, m.other_instance)"
+		assert_equal [1, 3], out.values
+
+		# Static members accessible from union
+		out = Ore.interp "#{shared_code}
+		Merged | Base | Other {}
+		Merged.base_static_public"
+		assert_equal 10, out
+
+		out = Ore.interp "#{shared_code}
+		Merged | Base | Other {}
+		Merged.other_static_public"
+		assert_equal 30, out
+
+		# Instance can access static from union
+		out = Ore.interp "#{shared_code}
+		Merged | Base | Other {}
+		Merged().base_static_public"
+		assert_equal 10, out
+
+		# Privacy preserved through union
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "#{shared_code}
+			Merged | Base | Other {}
+			Merged()._base_instance_private"
+		end
+
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "#{shared_code}
+			Merged | Base | Other {}
+			Merged()._other_private"
+		end
+
+		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+			Ore.interp "#{shared_code}
+			Merged | Base | Other {}
+			Merged._base_static_private"
+		end
+
+		# Binding preserved - cannot access instance members on Type
+		assert_raises Ore::Cannot_Call_Instance_Member_On_Type do
+			Ore.interp "#{shared_code}
+			Merged | Base | Other {}
+			Merged.base_instance_public"
+		end
+
+		assert_raises Ore::Cannot_Call_Instance_Member_On_Type do
+			Ore.interp "#{shared_code}
+			Merged | Base | Other {}
+			Merged.other_instance"
+		end
+
+		# Difference composition - static members removed correctly
+		out = Ore.interp "#{shared_code}
+		Diff | Base ~ Other {}
+		Diff().base_instance_public"
+		assert_equal 1, out
+
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Diff | Base ~ Other {}
+			Diff().other_instance"
+		end
+
+		# Static members also removed
+		out = Ore.interp "#{shared_code}
+		Diff | Base ~ Other {}
+		Diff.base_static_public"
+		assert_equal 10, out
+
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Diff | Base ~ Other {}
+			Diff.other_static_public"
+		end
+
+		# Privacy maintained after difference
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "#{shared_code}
+			Diff | Base ~ Other {}
+			Diff()._base_instance_private"
+		end
+
+		# Intersection composition - keeps only shared members
+		shared_code = <<~CODE
+		    Left {
+		    	shared_instance = 1
+		    	_shared_private = 2
+		    	left_only = 3
+
+		    	#static shared_static = 10
+		    	#static _shared_static_private = 20
+		    	#static left_static_only = 30
+		    }
+
+		    Right {
+		    	shared_instance = 4
+		    	_shared_private = 5
+		    	right_only = 6
+
+		    	#static shared_static = 40
+		    	#static _shared_static_private = 50
+		    	#static right_static_only = 60
+		    }
+		CODE
+
+		# Intersection keeps shared instance members
+		out = Ore.interp "#{shared_code}
+		Inter | Left & Right {}
+		Inter().shared_instance"
+		assert_equal 1, out
+
+		# Intersection removes non-shared instance members
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Inter | Left & Right {}
+			Inter().left_only"
+		end
+
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Inter | Left & Right {}
+			Inter().right_only"
+		end
+
+		# Intersection keeps shared static members
+		out = Ore.interp "#{shared_code}
+		Inter | Left & Right {}
+		Inter.shared_static"
+		assert_equal 10, out
+
+		# Intersection removes non-shared static members
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Inter | Left & Right {}
+			Inter.left_static_only"
+		end
+
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Inter | Left & Right {}
+			Inter.right_static_only"
+		end
+
+		# Privacy preserved through intersection
+		assert_raises Ore::Cannot_Call_Private_Instance_Member do
+			Ore.interp "#{shared_code}
+			Inter | Left & Right {}
+			Inter()._shared_private"
+		end
+
+		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+			Ore.interp "#{shared_code}
+			Inter | Left & Right {}
+			Inter._shared_static_private"
+		end
+
+		# Binding preserved through intersection
+		assert_raises Ore::Cannot_Call_Instance_Member_On_Type do
+			Ore.interp "#{shared_code}
+			Inter | Left & Right {}
+			Inter.shared_instance"
+		end
+
+		# Symmetric difference composition - keeps only non-shared members
+		# Symmetric diff keeps unique instance members from Left
+		out = Ore.interp "#{shared_code}
+		Sym | Left ^ Right {}
+		Sym().left_only"
+		assert_equal 3, out
+
+		# Symmetric diff keeps unique instance members from Right
+		out = Ore.interp "#{shared_code}
+		Sym | Left ^ Right {}
+		Sym().right_only"
+		assert_equal 6, out
+
+		# Symmetric diff removes shared instance members
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Sym | Left ^ Right {}
+			Sym().shared_instance"
+		end
+
+		# Symmetric diff keeps unique static members from Left
+		out = Ore.interp "#{shared_code}
+		Sym | Left ^ Right {}
+		Sym.left_static_only"
+		assert_equal 30, out
+
+		# Symmetric diff keeps unique static members from Right
+		out = Ore.interp "#{shared_code}
+		Sym | Left ^ Right {}
+		Sym.right_static_only"
+		assert_equal 60, out
+
+		# Symmetric diff removes shared static members
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "#{shared_code}
+			Sym | Left ^ Right {}
+			Sym.shared_static"
+		end
+
+		# Binding preserved through symmetric difference
+		assert_raises Ore::Cannot_Call_Instance_Member_On_Type do
+			Ore.interp "#{shared_code}
+			Sym | Left ^ Right {}
+			Sym.left_only"
+		end
+	end
 
 	# todo: Currently there is no clear rule on unpack collisions. This test fails with [4, 8] :double_unpack.
 	# def test_unpack_collisions

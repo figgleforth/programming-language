@@ -925,6 +925,9 @@ module Ore
 					curr_scope[key] ||= value
 				end
 
+				curr_scope.static_declarations ||= Set.new
+				curr_scope.static_declarations.merge operand_scope.static_declarations
+
 				curr_scope.types ||= []
 				curr_scope.types += operand_scope.types
 				curr_scope.types = curr_scope.types.uniq
@@ -942,6 +945,8 @@ module Ore
 					curr_scope.delete key
 				end
 
+				curr_scope.static_declarations.subtract operand_scope.static_declarations
+
 				curr_scope.types = curr_scope.types.reject do |type|
 					type == expr.identifier.value
 				end
@@ -957,6 +962,8 @@ module Ore
 					curr_scope.declarations.delete key
 				end
 
+				curr_scope.static_declarations = curr_scope.static_declarations & operand_scope.static_declarations
+
 			when '^'
 				# Symmetric difference of Types, aka what they don't share.
 
@@ -971,6 +978,8 @@ module Ore
 				curr_scope.declarations.delete_if do |key, _|
 					!keys_to_keep.include? key
 				end
+
+				curr_scope.static_declarations = curr_scope.static_declarations ^ operand_scope.static_declarations
 
 				operand_unique_keys.each do |key|
 					curr_scope[key] ||= operand_scope[key]

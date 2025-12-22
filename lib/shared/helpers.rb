@@ -64,6 +64,8 @@ module Helpers
 		ident = ident&.to_s
 		return :static if %i(IDENTIFIER Identifier).include? type_of_identifier ident
 
+		return nil unless scope.has? ident
+
 		if scope.is_a?(Ore::Type) && scope.static_declarations&.include?(ident)
 			:static
 		else
