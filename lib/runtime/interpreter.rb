@@ -75,7 +75,8 @@ module Ore
 		end
 
 		def check_dot_access_permissions scope, ident, expr
-			binding, privacy = Ore.binding_and_privacy ident
+			binding = Ore.binding_of_ident scope, ident
+			privacy = Ore.privacy_of_ident ident
 
 			case scope
 			when Ore::Instance
@@ -378,7 +379,7 @@ module Ore
 		end
 
 		def interp_dot_array_or_tuple expr
-			scope = interpret expr.left # maybe_instance interpret expr.left
+			scope = interpret expr.left
 
 			case
 			when expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
@@ -1102,10 +1103,34 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
+			when 'static'
+				# #static something = 1
+				# #static something;
+				# #static something {;}
+				unless (expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)) && runtime.stack.last.is_a?(Ore::Type)
+					raise Invalid_Static_Directive_Declaration.new(expr.expression, runtime)
+				end
+
+				type_scope = runtime.stack.last
+				member     = interpret expr.expression
+
+				# Track static member name in Type's static_declarations set
+				member_name = if expr.expression.is_a? Ore::Func_Expr
+					expr.expression.name.value
+				elsif expr.expression.is_a? Ore::Infix_Expr
+					expr.expression.left.value
+				end
+
+				type_scope.static_declarations.add member_name.to_s if member_name
+
+				# Mark Func objects with .static flag
+				member.static = true if member.is_a? Ore::Func
+
+				member
 			when 'intrinsic'
 				# note: The #intrinsic directive is basically just a label and is ignored. It goes on to declare the function in expr.expression which should remain empty as the actual implementation of the function is in Ruby. See preload.ore String type as an example.
-				unless expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)
-					raise "#intrinsic directive only supports function and variable declarations"
+				unless (expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)) && runtime.stack.last.is_a?(Ore::Type)
+					raise Invalid_Intrinsic_Directive_Declaration.new(expr.expression, runtime)
 				end
 
 				member           = interpret expr.expression

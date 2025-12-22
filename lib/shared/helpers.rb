@@ -53,36 +53,21 @@ module Helpers
 		leading_underscores = ident.match(/^_*/)[0].length
 
 		case leading_underscores
-		when 0, 2
+		when 0
 			:public
-		when 1, 3
-			:private
 		else
-			:public # 4+ underscores
+			:private
 		end
 	end
 
-	# Rules:
-	# _ident   = instance
-	# __ident  = static
-	# ___ident = static
-	# IDENT    = static
-	# else       instance
-	def binding_of_ident ident
-		# note: Constants and Type declarations are considered static
-		return :static if %i(IDENTIFIER Identifier).include? type_of_identifier(ident)
+	def binding_of_ident scope, ident
+		ident = ident&.to_s
+		return :static if %i(IDENTIFIER Identifier).include? type_of_identifier ident
 
-		leading_underscores = ident.match(/^_*/)[0].length
-
-		case leading_underscores
-		when 2, 3
+		if scope.is_a?(Ore::Type) && scope.static_declarations&.include?(ident)
 			:static
 		else
 			:instance
 		end
-	end
-
-	def binding_and_privacy ident
-		return binding_of_ident(ident), privacy_of_ident(ident)
 	end
 end
