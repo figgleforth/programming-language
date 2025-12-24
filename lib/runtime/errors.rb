@@ -72,7 +72,13 @@ module Ore
 	class Out_Of_Tokens < Error
 	end
 
-	class Invalid_Scoped_Identifier < Error
+	class Invalid_Scope_Syntax < Error
+	end
+
+	class Cannot_Use_Instance_Scope_Operator_Outside_Instance < Error
+	end
+
+	class Cannot_Use_Type_Scope_Operator_Outside_Type < Error
 	end
 
 	class Too_Many_Subscript_Expressions < Error

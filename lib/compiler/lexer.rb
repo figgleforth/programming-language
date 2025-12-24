@@ -191,6 +191,11 @@ module Ore
 			it = ::String.new
 			while chars? && symbol? && !%w(' ").include?(curr)
 				it << eat
+
+				# todo: Break on all known operator, not just scope operators
+				if SCOPE_OPERATORS.include? it
+					break
+				end
 			end
 
 			it

@@ -31,6 +31,23 @@ rescue Exception => e
 	raise e
 end
 
+task :lex, [:string] do |_, args|
+	if args[:string].nil? || args[:string].empty?
+		raise ArgumentError, "rake lex expected file arguments `bundle exec rake lex[\"Hello!\"]`"
+	end
+
+	# Rake splits on commas, so rejoin all arguments. I wouldn't do this anywhere else except for this specific task. It helps me to not have to remember to escape commas when I'm lexreting code using this task.
+	full_string = ([args[:string]] + args.extras).join(',')
+	pp Ore.lex(full_string)
+rescue SystemExit
+	# Interrupt exit
+rescue Ore::Error => e
+	$stderr.puts e.message # Prevents Ruby stack trace from polluting Ore error message
+	exit 1
+rescue Exception => e
+	raise e
+end
+
 task :parse, [:string] do |_, args|
 	if args[:string].nil? || args[:string].empty?
 		raise ArgumentError, "rake parse expected file arguments `bundle exec rake parse[\"Hello!\"]`"

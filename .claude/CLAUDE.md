@@ -103,13 +103,62 @@ Ore uses a sophisticated scope hierarchy:
 - **Html_Element** - HTML element scopes (tracks `@expressions`, `@attributes`, `@types`)
 - **Return** - Return value wrapper (tracks `@value`)
 
-Each scope can have **sibling scopes
-** - additional scopes checked first during identifier lookup, used by the unpack feature.
+Each scope can have **sibling scopes** - additional scopes checked first during identifier lookup, used by the unpack feature.
 
-Scope operators in the language:
+### Scope Operators
 
-- `./identifier` - Instance scope
-- `../identifier` - Global scope
+Ore provides three scope operators for explicit scope access:
+
+- `~/identifier` - Access global scope
+- `./identifier` - Access current instance scope only
+- `../identifier` - Access current type scope only
+
+**Identifier Search Behavior:**
+
+- `identifier` (no operator) - Searches through all scopes in the stack from current to global, including checking for intrinsic methods
+- `./identifier` - Only searches the current instance scope (does not fall back to global)
+- `../identifier` - Only searches the current type scope
+- `~/identifier` - Only searches the global scope
+
+**Privacy Convention:**
+
+Identifiers starting with `_` are considered private by convention (e.g., `_private_var`, `_helper_function`).
+
+**Validation:**
+
+- Scope operators cannot be followed by literals (e.g., `../123` is a parse error)
+- Using `./` outside an instance context raises `Cannot_Use_Instance_Scope_Operator_Outside_Instance`
+- Using `../` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
+
+## Static Declarations
+
+Type-level (static) members are declared using the `../` scope operator:
+
+```ore
+Person {
+    ../count = 0  `Static variable shared across all instances
+
+    ../increment {;  `Static method
+        count += 1
+    }
+
+    init {;
+        ../count += 1  `Access static from instance method
+    }
+}
+
+Person().init()
+Person().init()
+Person.increment()  `Call static method on type => 2
+```
+
+**Implementation Details:**
+
+- Static declarations are tracked in `type.static_declarations` set
+- Instance methods can access type-level variables via `../` operator
+- When calling instance methods, the interpreter pushes both the type scope and instance scope onto the stack
+- Instances are linked to their types via `instance.enclosing_scope = type`
+- Static functions and variables are declared on the Type scope
 
 ## Identifier Naming Conventions
 

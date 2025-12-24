@@ -24,16 +24,6 @@ class Regression_Test < Base_Test
 	end
 
 	def test_dot_slashes_regression
-		invalid_samples = [
-			'./', '../',
-		]
-
-		invalid_samples.each do |sample|
-			assert_raises Ore::Invalid_Scoped_Identifier do
-				Ore.parse sample
-			end
-		end
-
 		ds  = Ore.parse './abc'
 		dds = Ore.parse '../def'
 		assert_kind_of Ore::Identifier_Expr, ds.first
@@ -50,15 +40,15 @@ class Regression_Test < Base_Test
 		assert_equal 123, out
 	end
 
-	def test_look_up_dot_slash_without_dot_slash_regression
-		out = Ore.interp './x = 456
+	def test_look_up_tilde_slash_without_dot_slash_regression
+		out = Ore.interp '~/x = 456
 		x'
 		assert_equal 456, out
 	end
 
-	def test_look_up_dot_slash_with_dot_slash_regression
-		out = Ore.interp './y = 789
-		./y'
+	def test_look_up_tilde_slash_with_dot_slash_regression
+		out = Ore.interp '~/y = 789
+		~/y'
 		assert_equal 789, out
 	end
 
@@ -157,19 +147,16 @@ class Regression_Test < Base_Test
 	end
 
 	def test_identifier_lookup_regression
-		out = Ore.interp "./x = 123, ./x"
-		assert_equal 123, out
-
 		out = Ore.interp "x = 123
 		funk {;
-			./x + 2
+			~/x + 2
 		}
 		funk()"
 		assert_equal 125, out
 
 		out = Ore.interp "y = 0
 		add { amount_to_add = 1;
-			./y + amount_to_add
+			~/y + amount_to_add
 		}
 		(a = add(4))
 

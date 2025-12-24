@@ -85,13 +85,6 @@ class Error_Test < Base_Test
 		end
 	end
 
-	def test_invalid_scoped_identifier
-		# todo: Doesn't display code and location
-		assert_raises Ore::Invalid_Scoped_Identifier do
-			Ore.interp '../'
-		end
-	end
-
 	def test_too_many_subscript_expressions
 		error = assert_raises Ore::Too_Many_Subscript_Expressions do
 			Ore.interp 'arr = [1, 2, 3], arr[0, 1]'
