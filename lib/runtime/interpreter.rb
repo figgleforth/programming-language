@@ -388,7 +388,15 @@ module Ore
 			when Ore::Dictionary
 				interp_dot_dictionary expr
 			else
-				interp_dot_scope expr
+				# @copypaste from #interp_dot_scope because we already interpreted expr as 'left'. If #interp_dot_scope interprets expr again, we end up with duplicate duplicate isntnatiations
+				raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime) unless expr.right.instance_of? Ore::Identifier_Expr
+
+				check_dot_access_permissions left, expr.right.value, expr
+
+				runtime.push_scope left
+				result = interpret expr.right
+				runtime.pop_scope
+				result
 			end
 		end
 

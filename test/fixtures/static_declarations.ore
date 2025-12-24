@@ -8,4 +8,4 @@ Person {
 
 Person()
 Person()
-Person.count `=> 2
+Person().count == 3

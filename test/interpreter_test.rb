@@ -1907,7 +1907,7 @@ class Interpreter_Test < Base_Test
 
 	def test_static_declarations_fixture
 		out = Ore.interp_file 'test/fixtures/static_declarations.ore'
-		assert_equal 2, out
+		assert_equal true, out
 	end
 
 	# todo: Currently there is no clear rule on unpack collisions. This test fails with [4, 8] :double_unpack.

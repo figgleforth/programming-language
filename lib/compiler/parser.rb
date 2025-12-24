@@ -639,7 +639,7 @@ module Ore
 						copy_location expr, left
 
 						if expr.left.is(Ore::Identifier_Expr) && expr.operator == '.' && expr.right.is(Ore::Number_Expr) && expr.right.type == :float
-							# Copypaste from above #parse_expression when :number.
+							# @copypaste from above #parse_expression when :number.
 							number                  = Ore::Array_Index_Expr.new expr.right.value.to_s
 							number.indices_in_order = number.value.split '.'
 							number.indices_in_order = number.indices_in_order.map &:to_i
