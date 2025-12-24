@@ -1910,6 +1910,20 @@ class Interpreter_Test < Base_Test
 		assert_equal true, out
 	end
 
+	def test_echo_directive
+		output          = StringIO.new
+		original_stdout = $stdout
+		$stdout         = output
+
+		begin
+			result = Ore.interp "#echo 'Walt!'"
+			assert_equal 'Walt!', result
+			assert_equal "Walt!\n", output.string
+		ensure
+			$stdout = original_stdout
+		end
+	end
+
 	# todo: Currently there is no clear rule on unpack collisions. This test fails with [4, 8] :double_unpack.
 	# def test_unpack_collisions
 	# 	out = Ore.interp "

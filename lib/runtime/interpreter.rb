@@ -1182,6 +1182,10 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
+			when 'echo'
+				value = interpret expr.expression
+				puts value
+				value
 			when 'intrinsic'
 				# note: The #intrinsic directive is basically just a label and is ignored. It goes on to declare the function in expr.expression which should remain empty as the actual implementation of the function is in Ruby. See preload.ore String type as an example.
 				unless (expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)) && runtime.stack.last.is_a?(Ore::Type)
