@@ -80,6 +80,10 @@ module Ore
 			@types               = Set[name]
 			@static_declarations = Set.new
 		end
+
+		def has? identifier
+			super(identifier) || @static_declarations.include?(identifier)
+		end
 	end
 
 	class Instance < Type

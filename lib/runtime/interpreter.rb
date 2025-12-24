@@ -22,29 +22,40 @@ module Ore
 		end
 
 		def scope_for_identifier expr
-			if !expr.is_a?(Ore::Identifier_Expr)
+			unless expr.is_a? Ore::Identifier_Expr
 				return runtime.stack.last
 			end
 
-			# ident
-			# ./ident
-			# ../ident
+			# ident     => self.ident
+			# ./ident   => self.ident
+			# ../ident  => self.class.ident
+			# ~/ident   => (global_scope.)ident
 
 			case expr.scope_operator
-			when '../'
+			when '~/' # global
 				runtime.stack.first
-			when './'
-				# Should default to the global scope if no Ore::Instance is present.
-				scope = runtime.stack.reverse_each.find do |scope|
-					(scope.is_a?(Ore::Instance) || scope.is_a?(Ore::Global)) && scope.has?(expr.value)
+			when './' # self (instance scope only)
+				runtime.stack.reverse_each.find do |scope|
+					scope.instance_of? Ore::Instance
 				end
-				scope || runtime.stack.first
+			when '../'
+				runtime.stack.reverse_each.find do |scope|
+					scope.instance_of? Ore::Type
+				end
 			else
-				scope = runtime.stack.reverse_each.find do |scope|
-					scope.has? expr.value
+				# If no scope operator, search through all scopes to find the identifier
+				found_scope = nil
+				runtime.stack.reverse_each do |scope|
+					if scope.has?(expr.value) || scope.respond_to?("intrinsic_#{expr.value}")
+						found_scope = scope
+						break
+					elsif scope.is_a?(Ore::Instance) && scope.enclosing_scope&.has?(expr.value)
+						# For instances, also check the type (enclosing_scope) for static members
+						found_scope = scope.enclosing_scope
+						break
+					end
 				end
-
-				scope || runtime.stack.last
+				found_scope
 			end
 		end
 
@@ -190,10 +201,14 @@ module Ore
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
 				end
 			else
-				# todo, Test this because I don't think this'll ever execute because #scope_for_identifier should now always return some scope.
-				scope = runtime.stack.last
-				raise Ore::Undeclared_Identifier.new(expr, runtime) unless scope.has? expr.value
-				scope[expr.value]
+				# When scope is nil, it means no scope was found
+				if expr.scope_operator == '../'
+					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
+				elsif expr.scope_operator == './'
+					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
+				else
+					raise Ore::Undeclared_Identifier.new(expr, runtime)
+				end
 			end
 
 			# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
@@ -261,9 +276,22 @@ module Ore
 		def interp_infix_equals expr
 			assignment_scope = scope_for_identifier expr.left
 
+			# If using a scope operator but the scope doesn't exist, raise an error
+			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator && assignment_scope.nil?
+				case expr.left.scope_operator
+				when './'
+					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
+				when '../'
+					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
+				else
+					raise Ore::Invalid_Scope_Syntax.new(expr, runtime)
+				end
+			end
+
 			# For plain identifiers (no scope operator) inside an Instance/Type body, new declarations should go to that Instance/Type, not to an enclosing scope that happens to have the same identifier. This fixes a bug that prevented HTML Layout's `title` from capturing Title's `title` declaration in examples/basic_html_page.ore.
 			if expr.left.is_a?(Ore::Identifier_Expr) && !expr.left.scope_operator
-				current_scope = runtime.stack.last
+				current_scope    = runtime.stack.last
+				assignment_scope ||= current_scope
 
 				if (current_scope.is_a?(Ore::Instance) || current_scope.is_a?(Ore::Type)) &&
 				   assignment_scope != current_scope && !current_scope.has?(expr.left.value)
@@ -332,6 +360,13 @@ module Ore
 			end
 
 			assignment_scope.declare expr.left.value, right_value
+
+			# Track static declarations (members assigned with ../)
+			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
+				assignment_scope.static_declarations ||= Set.new
+				assignment_scope.static_declarations.add expr.left.value.to_s
+			end
+
 			return right_value
 		end
 
@@ -629,20 +664,34 @@ module Ore
 			# :generalize_me
 
 			# todo: This case statement should handle all types that have intrinsics
-			instance       = case type.name
+			instance                 = case type.name
 			when 'String'
 				Ore::String.new
 			else
 				Ore::Instance.new type.name
 			end
-			instance.types = type.types
+			instance.types           = type.types
+			instance.enclosing_scope = type
 
 			# note: There was a bug here where I wasn't popping the instance after interpreting the type's expressions. That caused the #new function below (func_new) to not properly interpret arguments passed to it.
+			runtime.push_scope type
 			runtime.push_then_pop instance do |scope|
 				type.expressions.each do |expr|
+					# Skip static declarations - they were already executed during type definition and shouldn't be re-executed for each instance
+					if expr.is_a?(Ore::Infix_Expr) && expr.operator == '=' &&
+					   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
+						next
+					end
+
+					if expr.is_a?(Ore::Func_Expr) && expr.name.is_a?(Ore::Identifier_Expr) &&
+					   expr.name.scope_operator == '../'
+						next
+					end
+
 					interpret expr
 				end
 			end
+			runtime.pop_scope
 
 			instance.declarations.each do |key, decl|
 				next unless decl.is_a? Ore::Func
@@ -686,8 +735,13 @@ module Ore
 				return func.enclosing_scope.send(intrinsic_method, *arg_values)
 			end
 
+			# Push type scope if calling an instance method (instance methods need access to type-level declarations)
+			if func.enclosing_scope.is_a?(Ore::Instance) && func.enclosing_scope.enclosing_scope
+				runtime.push_scope func.enclosing_scope.enclosing_scope # Push the Type
+			end
 			runtime.push_scope func.enclosing_scope
 			runtime.push_scope func_scope
+
 			params.each_with_index do |param, i|
 				value = if i < arg_values.length
 					arg_values[i]
@@ -719,6 +773,10 @@ module Ore
 
 			Ore.assert runtime.pop_scope == func_scope
 			Ore.assert runtime.pop_scope == func.enclosing_scope
+
+			if func.enclosing_scope.is_a?(Ore::Instance) && func.enclosing_scope.enclosing_scope
+				Ore.assert runtime.pop_scope == func.enclosing_scope.enclosing_scope
+			end
 
 			result
 		end
@@ -900,6 +958,13 @@ module Ore
 
 			if func.name
 				runtime.stack.last.declare func.name, func
+
+				# Track static functions (functions defined with ../)
+				# Get the original name expression to check for scope operator
+				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '../'
+					runtime.stack.last.static_declarations ||= Set.new
+					runtime.stack.last.static_declarations.add func.name.to_s
+				end
 			end
 
 			func
@@ -1109,30 +1174,6 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
-			when 'static'
-				# #static something = 1
-				# #static something;
-				# #static something {;}
-				unless (expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)) && runtime.stack.last.is_a?(Ore::Type)
-					raise Invalid_Static_Directive_Declaration.new(expr.expression, runtime)
-				end
-
-				type_scope = runtime.stack.last
-				member     = interpret expr.expression
-
-				# Track static member name in Type's static_declarations set
-				member_name = if expr.expression.is_a? Ore::Func_Expr
-					expr.expression.name.value
-				elsif expr.expression.is_a? Ore::Infix_Expr
-					expr.expression.left.value
-				end
-
-				type_scope.static_declarations.add member_name.to_s if member_name
-
-				# Mark Func objects with .static flag
-				member.static = true if member.is_a? Ore::Func
-
-				member
 			when 'intrinsic'
 				# note: The #intrinsic directive is basically just a label and is ignored. It goes on to declare the function in expr.expression which should remain empty as the actual implementation of the function is in Ruby. See preload.ore String type as an example.
 				unless (expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)) && runtime.stack.last.is_a?(Ore::Type)

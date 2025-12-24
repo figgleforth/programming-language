@@ -598,19 +598,20 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_dot_slash
-		out = Ore.interp './x = 123'
-		assert_equal 123, out
+		assert_raises Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance do
+			Ore.interp './x = 123'
+		end
 	end
 
 	def test_look_up_dot_slash_without_dot_slash
-		out = Ore.interp './x = 123
-		x'
-		assert_equal 123, out
+		assert_raises Ore::Cannot_Use_Type_Scope_Operator_Outside_Type do
+			Ore.interp '../x = 123'
+		end
 	end
 
 	def test_look_up_dot_slash_with_dot_slash
-		out = Ore.interp './y = 543
-		./y'
+		out = Ore.interp '~/y = 543
+		~/y'
 		assert_equal 543, out
 	end
 
@@ -1533,17 +1534,17 @@ class Interpreter_Test < Base_Test
 		    	number = 4
 		    	_private = 8
 
+				`Static declarations`
+				../nilled;
+		    	../static = 15
+		    	../_static_private = 16
+
 				calling_private_through_instance {; _private }
 		    	calling_static_through_instance {; static }
 		    	calling_static_private_through_instance {; _static_private }
 
-				`Static declarations`
-				#static nilled;
-		    	#static static = 15
-		    	#static _static_private = 16
-
-		    	#static calling_static_through_static {; static }
-		    	#static calling_static_private_througb_static {; _static_private }
+		    	../calling_static_through_static {; static }
+		    	../calling_static_private_througb_static {; _static_private }
 		    }
 		CODE
 
@@ -1604,7 +1605,7 @@ class Interpreter_Test < Base_Test
 
 		out = Ore.interp "#{shared_code}
 		Type.nilled"
-		assert_equal nil, out
+		assert_nil out
 
 		assert_raises Ore::Cannot_Call_Private_Instance_Member do
 			Ore.interp "#{shared_code}
@@ -1621,20 +1622,20 @@ class Interpreter_Test < Base_Test
 			Type.number"
 		end
 
-		assert_raises Ore::Invalid_Static_Directive_Declaration do
-			Ore.interp "#static whatever"
+		assert_raises Ore::Cannot_Use_Type_Scope_Operator_Outside_Type do
+			Ore.interp "../whatever"
 		end
 
-		assert_raises Ore::Invalid_Static_Directive_Declaration do
-			Ore.interp "#static 123"
+		assert_raises Ore::Invalid_Scope_Syntax do
+			Ore.interp "../123"
 		end
 
-		assert_raises Ore::Invalid_Static_Directive_Declaration do
-			Ore.interp "Type { #static whatever }"
+		assert_raises Ore::Undeclared_Identifier do
+			Ore.interp "Type { ../whatever }"
 		end
 
-		assert_raises Ore::Invalid_Static_Directive_Declaration do
-			Ore.interp "Type { #static 123 }"
+		assert_raises Ore::Invalid_Scope_Syntax do
+			x Ore.interp "Type { ../123 }"
 		end
 	end
 
@@ -1676,16 +1677,16 @@ class Interpreter_Test < Base_Test
 		    	base_instance_public = 1
 		    	_base_instance_private = 2
 
-		    	#static base_static_public = 10
-		    	#static _base_static_private = 20
+		    	../base_static_public = 10
+		    	../_base_static_private = 20
 		    }
 
 		    Other {
 		    	other_instance = 3
 		    	_other_private = 4
 
-		    	#static other_static_public = 30
-		    	#static _other_static_private = 40
+		    	../other_static_public = 30
+		    	../_other_static_private = 40
 		    }
 		CODE
 
@@ -1783,9 +1784,9 @@ class Interpreter_Test < Base_Test
 		    	_shared_private = 2
 		    	left_only = 3
 
-		    	#static shared_static = 10
-		    	#static _shared_static_private = 20
-		    	#static left_static_only = 30
+		    	../shared_static = 10
+		    	../_shared_static_private = 20
+		    	../left_static_only = 30
 		    }
 
 		    Right {
@@ -1793,9 +1794,9 @@ class Interpreter_Test < Base_Test
 		    	_shared_private = 5
 		    	right_only = 6
 
-		    	#static shared_static = 40
-		    	#static _shared_static_private = 50
-		    	#static right_static_only = 60
+		    	../shared_static = 40
+		    	../_shared_static_private = 50
+		    	../right_static_only = 60
 		    }
 		CODE
 
@@ -1902,6 +1903,11 @@ class Interpreter_Test < Base_Test
 			Sym | Left ^ Right {}
 			Sym.left_only"
 		end
+	end
+
+	def test_static_declarations_fixture
+		out = Ore.interp_file 'test/fixtures/static_declarations.ore'
+		assert_equal 2, out
 	end
 
 	# todo: Currently there is no clear rule on unpack collisions. This test fails with [4, 8] :double_unpack.

@@ -284,9 +284,9 @@ class Parser_Test < Base_Test
 		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal './', out.first.scope_operator
 
-		out = Ore.parse '../global_scope'
+		out = Ore.parse '~/global_scope'
 		assert_kind_of Ore::Identifier_Expr, out.first
-		assert_equal '../', out.first.scope_operator
+		assert_equal '~/', out.first.scope_operator
 	end
 
 	def test_functions
@@ -718,11 +718,7 @@ class Parser_Test < Base_Test
 		assert_instance_of Ore::Circumfix_Expr, out.first.collection # note, The iterable becomes an Array in the interpreter.
 		assert_equal '[]', out.first.collection.grouping
 	end
-
-	def test_import_syntax
-		out = Ore.parse 'project_root = ~/'
-	end
-
+	
 	def test_directive_identifier
 		out = Ore.parse '#whatever'
 		refute_instance_of Ore::Directive_Expr, out.first

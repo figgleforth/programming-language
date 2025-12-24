@@ -202,7 +202,7 @@ module Ore
 			start = curr_lexeme
 			func  = Ore::Func_Expr.new
 
-			if curr? :identifier
+			if curr?(:identifier) || curr?(SCOPE_OPERATORS)
 				func.name = parse_identifier_expr
 
 				if curr? ':' and eat ':'
@@ -340,7 +340,7 @@ module Ore
 			if curr? DIRECTIVE_PREFIX and eat DIRECTIVE_PREFIX
 				expr.directive = true
 			elsif curr? SCOPE_OPERATORS
-				expr.scope_operator = parse_manual_scope
+				expr.scope_operator = parse_scope_operator
 			end
 
 			expr.value   = eat.value
@@ -357,12 +357,12 @@ module Ore
 			copy_location expr, start
 		end
 
-		def parse_manual_scope
+		def parse_scope_operator
 			scope = eat.value
 
-			if curr?(SCOPE_OPERATORS) || !curr?(ANY_IDENTIFIER)
+			if curr? SCOPE_OPERATORS
 				# There should not be any more scope operators at this point. We've implicitly handled ./ and ../.
-				raise Ore::Invalid_Scoped_Identifier, "#{scope.inspect} with next token: #{curr_lexeme.inspect}"
+				raise Ore::Invalid_Scope_Syntax.new curr_lexeme
 			end
 
 			scope
@@ -422,7 +422,19 @@ module Ore
 		def parse_operator_expr
 			start = curr_lexeme
 			# A method just for this might seem silly, but I thought the same when I decided #make_expr should be a giant method. This will help in the long run, and consistency is key to keeping this maintainable.
-			it = Ore::Operator_Expr.new eat(:operator).value
+
+			operator_value = eat(:operator).value
+
+			# Scope operators can't be followed by literals like numbers or strings
+			if SCOPE_OPERATORS.include? operator_value
+				if curr? :number
+					raise Ore::Invalid_Scope_Syntax.new
+				elsif curr? :string
+					raise Ore::Invalid_Scope_Syntax.new
+				end
+			end
+
+			it = Ore::Operator_Expr.new operator_value
 			copy_location it, start
 		end
 
@@ -463,10 +475,10 @@ module Ore
 			if curr? :route
 				parse_route_expr
 
-			elsif curr? ANY_IDENTIFIER, ';'
+			elsif curr?(ANY_IDENTIFIER, ';') || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER, ';')
 				parse_nil_init_expr
 
-			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{')) && peek_contains?(';', '}')
+			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{') || curr?(SCOPE_OPERATORS, :identifier, '{')) && peek_contains?(';', '}')
 				parse_func precedence, named: curr?(:identifier)
 
 			elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || curr?(:IDENTIFIER, TYPE_COMPOSITION_OPERATORS) || curr?(:IDENTIFIER, '{')
@@ -481,7 +493,7 @@ module Ore
 			elsif curr? %w(if while unless until)
 				parse_conditional_expr
 
-			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(UNPACK_PREFIX, :identifier) || curr?(SCOPE_OPERATORS) || curr?(DIRECTIVE_PREFIX, :identifier)
+			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(UNPACK_PREFIX, :identifier) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER) || curr?(DIRECTIVE_PREFIX, :identifier)
 				parse_identifier_expr
 
 			elsif curr?('<', ANY_IDENTIFIER, '>')
@@ -502,6 +514,9 @@ module Ore
 
 			elsif curr? :string
 				Ore::String_Expr.new eat(:string).value
+
+				# elsif curr? SCOPE_OPERATORS
+				# 	parse_operator_expr
 
 			elsif curr? [';', ',']
 				eat and nil
@@ -570,12 +585,13 @@ module Ore
 					expr.operator   = scope_prefix
 					expr.expression = next_expr
 				end
+				return complete_expression expr
 			end
 
-			prefix    = PREFIX.include? expr.value
-			infix     = INFIX.include? curr_lexeme.value
-			postfix   = POSTFIX.include? curr_lexeme.value
-			circumfix = CIRCUMFIX.include? curr_lexeme.value
+			prefix    = PREFIX.include?(expr.value)
+			infix     = INFIX.include?(curr_lexeme.value)
+			postfix   = POSTFIX.include?(curr_lexeme.value)
+			circumfix = CIRCUMFIX.include?(curr_lexeme.value)
 
 			if prefix
 				expr = Ore::Prefix_Expr.new.tap do |it|

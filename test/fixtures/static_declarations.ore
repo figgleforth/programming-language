@@ -1,0 +1,11 @@
+Person {
+    ../count = 0
+
+    new {;
+        ../count += 1
+    }
+}
+
+Person()
+Person()
+Person.count `=> 2
