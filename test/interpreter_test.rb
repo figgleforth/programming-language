@@ -1924,23 +1924,40 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	# todo: Currently there is no clear rule on unpack collisions. This test fails with [4, 8] :double_unpack.
-	# def test_unpack_collisions
-	# 	out = Ore.interp "
-	# 	Point {
-	# 		a = 0
-	# 		b = 0
-	#
-	# 		new { a, b;
-	# 			./a = a
-	# 			./b = b
-	# 		}
-	# 	}
-	#
-	# 	p = Point(4, 8)
-	# 	@ += p
-	# 	@ += Point(15, 16)
-	# 	(a, b)"
-	# 	assert_equal [15, 16], out.values # Fails with [4, 8]
-	# end
+	def test_multiple_unpacks
+		shared_code = <<~ORE
+		    Point {
+		    	a = 0
+		    	b = 0
+
+		    	new { a, b;
+		    		./a = a
+		    		./b = b
+		    	}
+		    }
+		ORE
+
+		out = Ore.interp "#{shared_code}
+		p = Point(4, 8)
+		@ += p
+		(a, b)"
+		assert_equal [4, 8], out.values
+
+		# note: Unpacks function like a stack, the most recent unpack is the one whose identifier takes precedence.
+		out = Ore.interp "#{shared_code}
+		p = Point(4, 8)
+		p2 = Point(15, 16)
+		@ += p
+		@ += p2
+		(a, b)"
+		assert_equal [15, 16], out.values
+
+		out = Ore.interp "#{shared_code}
+		p = Point(4, 8)
+		p2 = Point(15, 16)
+		@ += p
+		@ -= p2
+		(a, b)"
+		assert_equal [4, 8], out.values
+	end
 end
