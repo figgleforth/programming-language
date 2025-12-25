@@ -63,9 +63,6 @@ module Ore
 	class Invalid_Start_Diretive_Argument < Error
 	end
 
-	class Directive_Not_Implemented < Error
-	end
-
 	class Interpret_Expr_Not_Implemented < Error
 	end
 
@@ -96,7 +93,11 @@ module Ore
 	class Cannot_Call_Private_Static_Type_Member < Error
 	end
 
-	class Invalid_Intrinsic_Directive_Declaration < Error
+	class Invalid_Directive_Usage < Error
+		# `#ident` without
+	end
+
+	class Invalid_Intrinsic_Directive_Usage < Error
 		# #intrinsic directive only supports function and variable declarations in the body of a Type declaration
 	end
 

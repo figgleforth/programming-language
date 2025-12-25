@@ -151,8 +151,11 @@ module Ore
 		end
 
 		def interp_identifier expr
-			# todo: Proper error
-			raise "Expected Ore::Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Ore::Identifier_Expr
+			if expr.directive
+				dir_expr      = Ore::Directive_Expr.new
+				dir_expr.name = expr
+				return interp_directive dir_expr
+			end
 
 			scope = case expr.value
 			when 'nil'
@@ -188,10 +191,9 @@ module Ore
 					declared_value = type_def[expr.value] if type_def
 
 					if declared_value.is_a? Ore::Func
-						func                 = Ore::Func.new expr.value
-						func.intrinsic       = true
+						# Use the actual function from the Type, not an empty wrapper
+						func                 = declared_value.dup
 						func.enclosing_scope = scope
-						func.expressions     = []
 						return func
 					else
 						# It's a variable/property
@@ -374,13 +376,13 @@ module Ore
 		def interp_dot_infix expr
 			return interp_dot_new expr if expr.right.is 'new'
 
-			left = maybe_instance interpret expr.left
+			receiver = maybe_instance interpret expr.left
 
-			unless left.kind_of?(Ore::Scope) || left.kind_of?(Ore::Range)
+			unless receiver.kind_of?(Ore::Scope) || receiver.kind_of?(Ore::Range)
 				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
 			end
 
-			case left
+			case receiver
 			when Ore::Array, Ore::Tuple
 				interp_dot_array_or_tuple expr
 			when Ore::Range
@@ -391,9 +393,9 @@ module Ore
 				# @copypaste from #interp_dot_scope because we already interpreted expr as 'left'. If #interp_dot_scope interprets expr again, we end up with duplicate duplicate isntnatiations
 				raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime) unless expr.right.instance_of? Ore::Identifier_Expr
 
-				check_dot_access_permissions left, expr.right.value, expr
+				check_dot_access_permissions receiver, expr.right.value, expr
 
-				runtime.push_scope left
+				runtime.push_scope receiver
 				result = interpret expr.right
 				runtime.pop_scope
 				result
@@ -724,7 +726,7 @@ module Ore
 		end
 
 		def interp_func_call func, expr
-			func_scope = Ore::Scope.new func.name
+			func_scope = Ore::Func.new func.name
 
 			params = func.expressions.select do |expr|
 				expr.is_a? Ore::Param_Expr
@@ -737,11 +739,6 @@ module Ore
 
 			# Evaluate arguments in caller's scope (before pushing function scopes)
 			arg_values = expr.arguments.map { |arg| interpret arg }
-
-			if func.is_a?(Ore::Func) && func.intrinsic
-				intrinsic_method = "intrinsic_#{func.name}"
-				return func.enclosing_scope.send(intrinsic_method, *arg_values)
-			end
 
 			# Push type scope if calling an instance method (instance methods need access to type-level declarations)
 			if func.enclosing_scope.is_a?(Ore::Instance) && func.enclosing_scope.enclosing_scope
@@ -1187,14 +1184,19 @@ module Ore
 				puts value
 				value
 			when 'intrinsic'
-				# note: The #intrinsic directive is basically just a label and is ignored. It goes on to declare the function in expr.expression which should remain empty as the actual implementation of the function is in Ruby. See preload.ore String type as an example.
-				unless (expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)) && runtime.stack.last.is_a?(Ore::Type)
-					raise Invalid_Intrinsic_Directive_Declaration.new(expr.expression, runtime)
+				# The #intrinsic directive evaluates to the result of calling the intrinsic Ruby method
+				func_scope = runtime.stack.last
+				raise Ore::Invalid_Intrinsic_Directive_Usage.new(func_scope, runtime) unless func_scope.is_a? Ore::Func
+
+				func_name        = func_scope.name
+				instance_or_type = runtime.stack[-2] # This is instance/type that has the intrinsic method is one level down the stack
+				intrinsic_method = "intrinsic_#{func_name}"
+
+				unless instance_or_type.respond_to? intrinsic_method
+					raise Ore::Invalid_Directive_Usage.new expr, runtime
 				end
 
-				member           = interpret expr.expression
-				member.intrinsic = true if expr.expression.is_a? Ore::Func_Expr
-				member
+				instance_or_type.send intrinsic_method
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
@@ -1214,7 +1216,12 @@ module Ore
 				runtime.load_file filepath, runtime.stack.last
 				# note: #load_file returns the output but it's ignored. Assigning the value of a #load directive executres code in #interp_infix_expr
 			else
-				raise Ore::Directive_Not_Implemented.new(expr, runtime)
+				# todo: Allow intrinsics to be extended by the user. Requirements would be:
+				#   1) Create type in Ore
+				#   2) Create equivalent type in types.rb or similar
+				#   3) Make sure functions which use the #intrinsic expression in its body are named in to match the Ore::Type "intrinsic_#{func_name}"
+				# For example, `String { upcase{; #intrinsic } }` maps to `Ore::String#intrinsic_upcase`
+				raise Ore::Invalid_Directive_Usage.new(expr, runtime)
 			end
 		end
 

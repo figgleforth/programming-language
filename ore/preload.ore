@@ -37,7 +37,12 @@ Bool {
 String {
 	length;
 	ord;
-	
-	#intrinsic upcase {;}
-	#intrinsic downcase {;}
+
+	downcase {;
+		#intrinsic
+	}
+
+	upcase {;
+		#intrinsic
+	}
 }

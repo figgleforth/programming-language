@@ -71,9 +71,9 @@ class Error_Test < Base_Test
 		end
 	end
 
-	def test_directive_not_implemented
+	def test_invalid_directive_usage
 		# todo: Doesn't display code and location
-		assert_raises Ore::Directive_Not_Implemented do
+		assert_raises Ore::Invalid_Directive_Usage do
 			Ore.interp '#unknown 123'
 		end
 	end

@@ -1658,15 +1658,15 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp "'WALT!'.downcase()"
 		assert_equal "walt!", out
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
 			Ore.interp "#intrinsic whatever"
 		end
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
 			Ore.interp "#intrinsic 123"
 		end
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
 			Ore.interp "Type { #intrinsic 123; }"
 		end
 	end
