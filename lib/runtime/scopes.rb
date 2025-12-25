@@ -93,7 +93,7 @@ module Ore
 	end
 
 	class Func < Scope
-		attr_accessor :expressions, :intrinsic, :static
+		attr_accessor :expressions, :intrinsic, :static, :arguments
 	end
 
 	class Html_Element < Scope

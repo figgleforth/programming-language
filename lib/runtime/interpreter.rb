@@ -647,7 +647,7 @@ module Ore
 			when Ore::Instance, Ore::Type, Ore::Html_Element
 				interp_type_call receiver, expr
 
-			when Ore::Func # func()
+			when Ore::Func
 				interp_func_call receiver, expr
 
 			else
@@ -726,8 +726,6 @@ module Ore
 		end
 
 		def interp_func_call func, expr
-			func_scope = Ore::Func.new func.name
-
 			params = func.expressions.select do |expr|
 				expr.is_a? Ore::Param_Expr
 			end
@@ -738,14 +736,15 @@ module Ore
 			end
 
 			# Evaluate arguments in caller's scope (before pushing function scopes)
-			arg_values = expr.arguments.map { |arg| interpret arg }
+			arg_values     = expr.arguments.map { |arg| interpret arg }
+			func.arguments = arg_values
 
 			# Push type scope if calling an instance method (instance methods need access to type-level declarations)
 			if func.enclosing_scope.is_a?(Ore::Instance) && func.enclosing_scope.enclosing_scope
 				runtime.push_scope func.enclosing_scope.enclosing_scope # Push the Type
 			end
 			runtime.push_scope func.enclosing_scope
-			runtime.push_scope func_scope
+			runtime.push_scope func
 
 			params.each_with_index do |param, i|
 				value = if i < arg_values.length
@@ -759,7 +758,7 @@ module Ore
 				runtime.stack.last.declare param.name, value
 
 				if param.unpack && value.is_a?(Ore::Instance)
-					func_scope.sibling_scopes << value
+					func.sibling_scopes << value
 				end
 			end
 
@@ -776,7 +775,7 @@ module Ore
 				break if result.is_a? Ore::Return
 			end
 
-			Ore.assert runtime.pop_scope == func_scope
+			Ore.assert runtime.pop_scope == func
 			Ore.assert runtime.pop_scope == func.enclosing_scope
 
 			if func.enclosing_scope.is_a?(Ore::Instance) && func.enclosing_scope.enclosing_scope
@@ -1196,7 +1195,7 @@ module Ore
 					raise Ore::Invalid_Directive_Usage.new expr, runtime
 				end
 
-				instance_or_type.send intrinsic_method
+				instance_or_type.send intrinsic_method, *func_scope.arguments
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance

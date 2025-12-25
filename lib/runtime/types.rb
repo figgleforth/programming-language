@@ -26,6 +26,58 @@ module Ore
 		def intrinsic_downcase
 			value.downcase
 		end
+
+		def intrinsic_split delimiter
+			value.split *delimiter
+		end
+
+		def intrinsic_slice substr
+			value.slice! *substr
+		end
+
+		def intrinsic_trim
+			value.strip
+		end
+
+		def intrinsic_trim_left
+			value.lstrip
+		end
+
+		def intrinsic_trim_right
+			value.rstrip
+		end
+
+		def intrinsic_chars
+			value.chars
+		end
+
+		def intrinsic_index substr
+			value.index *substr
+		end
+
+		def intrinsic_to_i
+			value.to_i
+		end
+
+		def intrinsic_to_f
+			value.to_f
+		end
+
+		def intrinsic_empty?
+			value.empty?
+		end
+
+		def intrinsic_include? substr
+			value.include? *substr
+		end
+
+		def intrinsic_reverse
+			value.reverse
+		end
+
+		def intrinsic_replace new
+			value.replace *new
+		end
 	end
 
 	# note: Be sure to prefix with Ore:: whenever referencing this Array type to prevent ambiguity with Ruby's ::Array!
