@@ -356,19 +356,12 @@ module Ore
 			end
 
 			if expr.right.is_a?(Ore::Directive_Expr) && expr.right.name.value == 'load'
-				filepath = interpret expr.right.expression
-
-				# Create new scope to load into
+				filepath  = interpret expr.right.expression
 				new_scope = Ore::Scope.new expr.left.value
 				runtime.load_file filepath, new_scope
 				right_value = new_scope
 			else
-				# Normal assignment path
-				evaluation_scope = scope_for_identifier expr.right
-
-				runtime.push_scope(evaluation_scope) if evaluation_scope
 				right_value = interpret expr.right
-				runtime.pop_scope if evaluation_scope
 			end
 
 			case Ore.type_of_identifier expr.left.value
