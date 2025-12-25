@@ -50,8 +50,8 @@ module Ore
 						found_scope = scope
 						break
 					elsif scope.is_a?(Ore::Instance) && scope.enclosing_scope&.has?(expr.value)
-						# For instances, also check the type (enclosing_scope) for static members
-						found_scope = scope.enclosing_scope
+						# Method exists on the Type - return the instance as the scope so lookups happen in instance context
+						found_scope = scope
 						break
 					end
 				end
@@ -70,7 +70,14 @@ module Ore
 				scope.denominator = 1
 				scope
 			when ::String
-				Ore::String.new expr
+				string = Ore::String.new expr
+				link_instance_to_type string, 'String'
+				string
+			when ::Array
+				array        = Ore::Array.new
+				array.values = expr
+				link_instance_to_type array, 'Array'
+				array
 			when nil
 				Ore::Nil.shared
 			when true
@@ -79,6 +86,13 @@ module Ore
 				Ore::Bool.falsy
 			else
 				expr
+			end
+		end
+
+		def link_instance_to_type instance, type_name
+			global_scope = runtime.stack.first
+			if global_scope.has? type_name
+				instance.enclosing_scope = global_scope[type_name]
 			end
 		end
 
@@ -183,7 +197,7 @@ module Ore
 			elsif scope
 				intrinsic_method = "intrinsic_#{expr.value}"
 				if scope.has?(expr.value) && !scope.respond_to?(intrinsic_method)
-					scope[expr.value]
+					scope.get expr.value
 				elsif scope.respond_to? intrinsic_method
 					type_name      = scope.class.name.split('::').last
 					type_scope     = runtime.stack.reverse_each.find { |s| s.has?(type_name) }
@@ -198,6 +212,17 @@ module Ore
 					else
 						# It's a variable/property
 						return scope.send(intrinsic_method)
+					end
+				elsif scope.is_a?(Ore::Instance) && scope.enclosing_scope&.is_a?(Ore::Type) && scope.enclosing_scope&.has?(expr.value)
+					# todo: This seems like a hack. This currently prevents instances from shadowing it's type's declarations.
+					# Method/property exists on the Type, not the instance
+					value = scope.enclosing_scope.get expr.value
+					if value.is_a? Ore::Func
+						func                 = value.dup
+						func.enclosing_scope = scope
+						return func
+					else
+						return value
 					end
 				else
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
@@ -434,7 +459,7 @@ module Ore
 			when expr.right.is(Ore::Array_Index_Expr)
 				expr.right.indices_in_order.reduce(scope) do |current, index|
 					raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) unless current.is_a?(Ore::Array)
-					current[index]
+					current.get index
 				end
 
 			else
@@ -470,6 +495,7 @@ module Ore
 
 		def interp_dot_scope expr
 			scope = maybe_instance interpret expr.left
+
 			raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if scope.nil?
 			raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime) unless expr.right.instance_of? Ore::Identifier_Expr
 
@@ -594,16 +620,24 @@ module Ore
 		def interp_circumfix expr
 			case expr.grouping
 			when '[]'
-				array = Ore::Array.new
+				array             = Ore::Array.new
+				array.expressions = expr.expressions
 
+				values = []
 				expr.expressions.each do |e|
-					array.values << interpret(e)
+					result = interpret e
+					values << result
 				end
+				link_instance_to_type array, 'Array'
+
+				# Make values accessible as an Ore identifier - point to the array itself so `for values` works
+				array.values                 = values
+				array.declarations['values'] = array
 
 				array
 			when '()'
 				if expr.expressions.empty?
-					Ore::Tuple.new 'Tuple' # For now, I guess. What else should I do with empty parens?
+					Ore::Tuple.new 'Tuple' # todo: For now, I guess. What else should I do with empty parens?
 				elsif expr.expressions.count == 1
 					interpret expr.expressions.first
 				else
@@ -674,11 +708,13 @@ module Ore
 			# :generalize_me
 
 			# todo: This case statement should handle all types that have intrinsics
-			instance                 = case type.name
+			instance                 = nil
+
+			case type.name
 			when 'String'
-				Ore::String.new
+				instance = Ore::String.new
 			else
-				Ore::Instance.new type.name
+				instance = Ore::Instance.new type.name
 			end
 			instance.types           = type.types
 			instance.enclosing_scope = type

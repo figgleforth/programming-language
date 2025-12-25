@@ -10,7 +10,6 @@ require_relative 'compiler/parser'
 # Runtime (AST to execution)
 require_relative 'runtime/errors'
 require_relative 'runtime/scopes'
-require_relative 'runtime/types'
 require_relative 'runtime/runtime'
 require_relative 'runtime/server_runner'
 require_relative 'runtime/dom_renderer'

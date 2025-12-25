@@ -1,64 +1,36 @@
+`todo: Document all members
+
 String {
-	length;
-	ord;
+	length; `Total number of characters
+	ord; `Integer ordinal of the first character
 
-	downcase {;
-		#intrinsic
-	}
+	downcase {; #intrinsic }
 
-	upcase {;
-		#intrinsic
-	}
+	upcase {; #intrinsic }
 
-	split { delimiter;
-		#intrinsic
-	}
+	split { delimiter; #intrinsic }
 
-    slice { substr;
-        #intrinsic
-	}
+    slice { substr; #intrinsic }
 
-    trim {;
-        #intrinsic
-	}
+    trim {; #intrinsic }
 
-	trim_left {;
-		#intrinsic
-	}
+	trim_left {; #intrinsic }
 
-	trim_right {;
-		#intrinsic
-	}
+	trim_right {; #intrinsic }
 
-    chars {;
-        #intrinsic
-	}
+    chars {; #intrinsic }
 
-    index { substr;
-        #intrinsic
-	}
+    index { substr; #intrinsic }
 
-    to_i {;
-        #intrinsic
-	}
+    to_i {; #intrinsic }
 
-    to_f {;
-        #intrinsic
-	}
+    to_f {; #intrinsic }
 
-	empty? {;
-		#intrinsic
-	}
+	empty? {; #intrinsic }
 
-	include? { substr;
-		#intrinsic
-	}
+	include? { substr; #intrinsic }
 
-	reverse {;
-		#intrinsic
-	}
+	reverse {; #intrinsic }
 
-	replace { new;
-		#intrinsic
-	}
+	replace { new; #intrinsic }
 }

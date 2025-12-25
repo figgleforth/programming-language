@@ -10,6 +10,9 @@ class Intrinsics_Test < Base_Test
 	end
 
 	def test_string_intrinsics
+		assert_equal 12, Ore.interp("'hello, world'.length")
+		assert_equal 104, Ore.interp("'hello, world'.ord")
+
 		assert_equal "HELLO", Ore.interp("'hello'.upcase()")
 		assert_equal "world", Ore.interp("'WORLD'.downcase()")
 
@@ -34,5 +37,17 @@ class Intrinsics_Test < Base_Test
 
 		assert_equal 'edcba', Ore.interp("'abcde'.reverse()")
 		assert_equal 'replaced', Ore.interp("'replace_me'.replace('replaced')")
+	end
+
+	def test_array_builtin_each
+		out = Ore.interp <<~ORE
+		    x = [1, 2, 3]
+		    y = []
+		    x.each({ item;
+		        y << item * 2
+		    })
+		    y
+		ORE
+		assert_equal [2, 4, 6], out.values
 	end
 end
