@@ -1,5 +1,6 @@
 require_relative 'shared/constants'
 require_relative 'shared/helpers'
+require_relative 'shared/intrinsic_methods'
 
 # Compile-time (source to AST)
 require_relative 'compiler/lexeme'

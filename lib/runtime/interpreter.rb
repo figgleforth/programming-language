@@ -26,19 +26,14 @@ module Ore
 				return runtime.stack.last
 			end
 
-			# ident     => self.ident
-			# ./ident   => self.ident
-			# ../ident  => self.class.ident
-			# ~/ident   => (global_scope.)ident
-
 			case expr.scope_operator
 			when '~/' # global
 				runtime.stack.first
-			when './' # self (instance scope only)
+			when './' # instance within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.instance_of? Ore::Instance
 				end
-			when '../'
+			when '../' # underlying type within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.instance_of? Ore::Type
 				end

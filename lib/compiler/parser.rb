@@ -132,6 +132,7 @@ module Ore
 			it.body = []
 			until curr? 'end'
 				it.body << parse_expression
+				reduce_newlines
 			end
 			it.body = it.body.compact
 
@@ -236,12 +237,6 @@ module Ore
 					param.default = parse_expression
 				end
 
-				if param.default.is_a?(Ore::Postfix_Expr) && param.default.operator == ';'
-					param.default = param.default.expression
-					func.expressions << param
-					break
-				end
-
 				func.expressions << param
 				eat if curr? ','
 				reduce_newlines
@@ -251,11 +246,11 @@ module Ore
 			reduce_newlines
 
 			until curr? '}'
-				statement = parse_expression
-				func.expressions << statement
+				func.expressions << parse_expression
+				reduce_newlines
 			end
 
-			func.expressions = func.expressions.compact.uniq # bug, The first Param is twice in the array, with the same object_id. Dedupe it for now. Figure out the real issue later.
+			# func.expressions = func.expressions #.compact #.uniq # bug, The first Param is twice in the array, with the same object_id. Dedupe it for now. Figure out the real issue later.
 			eat '}'
 
 			func
@@ -289,6 +284,7 @@ module Ore
 
 			until curr? '}'
 				it.expressions << parse_expression
+				reduce_newlines
 			end
 
 			it.expressions = it.expressions.compact
@@ -311,6 +307,7 @@ module Ore
 			it.expressions = []
 			until curr? '}'
 				it.expressions << parse_expression
+				reduce_newlines
 			end
 
 			it.expressions.compact!
@@ -464,7 +461,12 @@ module Ore
 			expr          = Ore::Infix_Expr.new
 			expr.left     = parse_identifier_expr
 			expr.operator = '='
-			expr.right    = Ore::Identifier_Expr.new('nil')
+
+			nil_expr         = Ore::Identifier_Expr.new
+			nil_expr.value   = 'nil'
+			nil_expr.kind    = :identifier
+			nil_expr.privacy = Ore.privacy_of_ident 'nil'
+			expr.right       = nil_expr
 
 			copy_location expr, start
 		end
@@ -513,7 +515,9 @@ module Ore
 				parse_number_expr
 
 			elsif curr? :string
-				Ore::String_Expr.new eat(:string).value
+				start = curr_lexeme
+				expr  = Ore::String_Expr.new eat(:string).value
+				copy_location expr, start
 
 				# elsif curr? SCOPE_OPERATORS
 				# 	parse_operator_expr
@@ -522,7 +526,7 @@ module Ore
 				eat and nil
 
 			elsif curr? :delimiter
-				reduce_newlines
+				reduce_newlines and nil
 
 			elsif curr? :comment
 				# 8/6/25, Returning the comment here means that it will count as an expression in, for example, a case where a comment is the last thing inside a function body. So this breaks expressions with comments at the end. I'll leave this here, commented out, because I do want to do something with these comments in the future.

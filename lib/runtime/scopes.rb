@@ -118,6 +118,8 @@ module Ore
 	end
 
 	class String < Instance
+		extend Intrinsic_Methods
+
 		attr_accessor :value
 
 		def initialize value = ""
@@ -125,12 +127,7 @@ module Ore
 			@value = value
 		end
 
-		def self.intrinsic method_name, as: method_name
-			define_method "intrinsic_#{as}" do |*args|
-				value.send method_name, *args
-			end
-		end
-
+		intrinsic_delegate 'value'
 		intrinsic :length
 		intrinsic :ord
 		intrinsic :upcase

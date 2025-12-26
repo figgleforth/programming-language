@@ -653,7 +653,7 @@ class Interpreter_Test < Base_Test
 		assert_equal 4, out
 	end
 
-	def test_closures_do_not_exist
+	def test_closures_do_capture_values
 		out = Ore.interp '
 		counter = -1
 		increment { count;
