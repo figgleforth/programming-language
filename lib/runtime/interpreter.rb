@@ -1241,7 +1241,7 @@ module Ore
 			else
 				# todo: Allow intrinsics to be extended by the user. Requirements would be:
 				#   1) Create type in Ore
-				#   2) Create equivalent type in types.rb or similar
+				#   2) Create equivalent type in scopes.rb or similar
 				#   3) Make sure functions which use the #intrinsic expression in its body are named in to match the Ore::Type "intrinsic_#{func_name}"
 				# For example, `String { upcase{; #intrinsic } }` maps to `Ore::String#intrinsic_upcase`
 				raise Ore::Invalid_Directive_Usage.new(expr, runtime)
