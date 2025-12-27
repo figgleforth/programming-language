@@ -706,7 +706,7 @@ class Interpreter_Test < Base_Test
 
 	def test_standalone_array_index_expr
 		out = Ore.interp '4.8.15.16.23.42'
-		assert_equal [4, 8, 15, 16, 23, 42], out
+		assert_equal [4, 8, 15, 16, 23, 42], out.values
 	end
 
 	def test_array_access_by_dot_index

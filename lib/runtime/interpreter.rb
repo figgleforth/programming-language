@@ -434,7 +434,7 @@ module Ore
 		end
 
 		def interp_dot_array_or_tuple expr
-			scope = interpret expr.left
+			scope = maybe_instance interpret expr.left
 
 			case
 			when expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
@@ -1001,7 +1001,7 @@ module Ore
 		def interp_composition expr
 			# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
-			operand_scope = interp_identifier expr.identifier
+			operand_scope = maybe_instance interp_identifier expr.identifier
 			unless operand_scope.is_a? Ore::Scope
 				# todo: Proper error
 				raise "Expected a scope to compose with, got #{operand_scope.inspect}"
@@ -1312,7 +1312,7 @@ module Ore
 				interp_conditional expr
 
 			when Ore::Array_Index_Expr
-				expr.indices_in_order
+				maybe_instance expr.indices_in_order
 
 			when Ore::Subscript_Expr
 				interp_subscript expr
