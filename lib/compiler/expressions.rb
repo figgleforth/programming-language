@@ -12,7 +12,7 @@ module Ore
 			elsif compare.is_a? ::String
 				compare == value
 			elsif compare.is_a? Class
-				compare.new.is_a? self.class
+				self.is_a? compare
 			else
 				compare == self
 			end
@@ -102,7 +102,6 @@ module Ore
 	# https://stackoverflow.com/a/18533211/1426880
 	# https://stackoverflow.com/a/1235891/1426880
 	class Number_Expr < Expression
-		attr_accessor :type
 	end
 
 	class Symbol_Expr < Expression

@@ -653,7 +653,7 @@ class Interpreter_Test < Base_Test
 		assert_equal 4, out
 	end
 
-	def test_closures_do_not_exist
+	def test_closures_do_capture_values
 		out = Ore.interp '
 		counter = -1
 		increment { count;
@@ -706,7 +706,7 @@ class Interpreter_Test < Base_Test
 
 	def test_standalone_array_index_expr
 		out = Ore.interp '4.8.15.16.23.42'
-		assert_equal [4, 8, 15, 16, 23, 42], out
+		assert_equal [4, 8, 15, 16, 23, 42], out.values
 	end
 
 	def test_array_access_by_dot_index
@@ -1658,15 +1658,15 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp "'WALT!'.downcase()"
 		assert_equal "walt!", out
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
 			Ore.interp "#intrinsic whatever"
 		end
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
 			Ore.interp "#intrinsic 123"
 		end
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Declaration do
+		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
 			Ore.interp "Type { #intrinsic 123; }"
 		end
 	end

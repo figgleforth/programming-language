@@ -26,19 +26,14 @@ module Ore
 				return runtime.stack.last
 			end
 
-			# ident     => self.ident
-			# ./ident   => self.ident
-			# ../ident  => self.class.ident
-			# ~/ident   => (global_scope.)ident
-
 			case expr.scope_operator
 			when '~/' # global
 				runtime.stack.first
-			when './' # self (instance scope only)
+			when './' # instance within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.instance_of? Ore::Instance
 				end
-			when '../'
+			when '../' # underlying type within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.instance_of? Ore::Type
 				end
@@ -50,8 +45,8 @@ module Ore
 						found_scope = scope
 						break
 					elsif scope.is_a?(Ore::Instance) && scope.enclosing_scope&.has?(expr.value)
-						# For instances, also check the type (enclosing_scope) for static members
-						found_scope = scope.enclosing_scope
+						# Method exists on the Type - return the instance as the scope so lookups happen in instance context
+						found_scope = scope
 						break
 					end
 				end
@@ -70,7 +65,14 @@ module Ore
 				scope.denominator = 1
 				scope
 			when ::String
-				Ore::String.new expr
+				string = Ore::String.new expr
+				link_instance_to_type string, 'String'
+				string
+			when ::Array
+				array        = Ore::Array.new
+				array.values = expr
+				link_instance_to_type array, 'Array'
+				array
 			when nil
 				Ore::Nil.shared
 			when true
@@ -79,6 +81,13 @@ module Ore
 				Ore::Bool.falsy
 			else
 				expr
+			end
+		end
+
+		def link_instance_to_type instance, type_name
+			global_scope = runtime.stack.first
+			if global_scope.has? type_name
+				instance.enclosing_scope = global_scope[type_name]
 			end
 		end
 
@@ -151,8 +160,11 @@ module Ore
 		end
 
 		def interp_identifier expr
-			# todo: Proper error
-			raise "Expected Ore::Identifier_Expr, got #{expr.inspect}" unless expr.is_a? Ore::Identifier_Expr
+			if expr.directive
+				dir_expr      = Ore::Directive_Expr.new
+				dir_expr.name = expr
+				return interp_directive dir_expr
+			end
 
 			scope = case expr.value
 			when 'nil'
@@ -180,7 +192,7 @@ module Ore
 			elsif scope
 				intrinsic_method = "intrinsic_#{expr.value}"
 				if scope.has?(expr.value) && !scope.respond_to?(intrinsic_method)
-					scope[expr.value]
+					scope.get expr.value
 				elsif scope.respond_to? intrinsic_method
 					type_name      = scope.class.name.split('::').last
 					type_scope     = runtime.stack.reverse_each.find { |s| s.has?(type_name) }
@@ -188,14 +200,24 @@ module Ore
 					declared_value = type_def[expr.value] if type_def
 
 					if declared_value.is_a? Ore::Func
-						func                 = Ore::Func.new expr.value
-						func.intrinsic       = true
+						# Use the actual function from the Type, not an empty wrapper
+						func                 = declared_value.dup
 						func.enclosing_scope = scope
-						func.expressions     = []
 						return func
 					else
 						# It's a variable/property
 						return scope.send(intrinsic_method)
+					end
+				elsif scope.is_a?(Ore::Instance) && scope.enclosing_scope&.is_a?(Ore::Type) && scope.enclosing_scope&.has?(expr.value)
+					# todo: This seems like a hack. This currently prevents instances from shadowing it's type's declarations.
+					# Method/property exists on the Type, not the instance
+					value = scope.enclosing_scope.get expr.value
+					if value.is_a? Ore::Func
+						func                 = value.dup
+						func.enclosing_scope = scope
+						return func
+					else
+						return value
 					end
 				else
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
@@ -329,19 +351,12 @@ module Ore
 			end
 
 			if expr.right.is_a?(Ore::Directive_Expr) && expr.right.name.value == 'load'
-				filepath = interpret expr.right.expression
-
-				# Create new scope to load into
+				filepath  = interpret expr.right.expression
 				new_scope = Ore::Scope.new expr.left.value
 				runtime.load_file filepath, new_scope
 				right_value = new_scope
 			else
-				# Normal assignment path
-				evaluation_scope = scope_for_identifier expr.right
-
-				runtime.push_scope(evaluation_scope) if evaluation_scope
 				right_value = interpret expr.right
-				runtime.pop_scope if evaluation_scope
 			end
 
 			case Ore.type_of_identifier expr.left.value
@@ -374,13 +389,13 @@ module Ore
 		def interp_dot_infix expr
 			return interp_dot_new expr if expr.right.is 'new'
 
-			left = maybe_instance interpret expr.left
+			receiver = maybe_instance interpret expr.left
 
-			unless left.kind_of?(Ore::Scope) || left.kind_of?(Ore::Range)
+			unless receiver.kind_of?(Ore::Scope) || receiver.kind_of?(Ore::Range)
 				raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime)
 			end
 
-			case left
+			case receiver
 			when Ore::Array, Ore::Tuple
 				interp_dot_array_or_tuple expr
 			when Ore::Range
@@ -391,9 +406,9 @@ module Ore
 				# @copypaste from #interp_dot_scope because we already interpreted expr as 'left'. If #interp_dot_scope interprets expr again, we end up with duplicate duplicate isntnatiations
 				raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime) unless expr.right.instance_of? Ore::Identifier_Expr
 
-				check_dot_access_permissions left, expr.right.value, expr
+				check_dot_access_permissions receiver, expr.right.value, expr
 
-				runtime.push_scope left
+				runtime.push_scope receiver
 				result = interpret expr.right
 				runtime.pop_scope
 				result
@@ -419,7 +434,7 @@ module Ore
 		end
 
 		def interp_dot_array_or_tuple expr
-			scope = interpret expr.left
+			scope = maybe_instance interpret expr.left
 
 			case
 			when expr.right.is(Ore::Func_Expr) && expr.right.name.value == 'each'
@@ -432,7 +447,7 @@ module Ore
 			when expr.right.is(Ore::Array_Index_Expr)
 				expr.right.indices_in_order.reduce(scope) do |current, index|
 					raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) unless current.is_a?(Ore::Array)
-					current[index]
+					current.get index
 				end
 
 			else
@@ -468,6 +483,7 @@ module Ore
 
 		def interp_dot_scope expr
 			scope = maybe_instance interpret expr.left
+
 			raise Ore::Invalid_Dot_Infix_Left_Operand.new(expr, runtime) if scope.nil?
 			raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime) unless expr.right.instance_of? Ore::Identifier_Expr
 
@@ -592,16 +608,24 @@ module Ore
 		def interp_circumfix expr
 			case expr.grouping
 			when '[]'
-				array = Ore::Array.new
+				array             = Ore::Array.new
+				array.expressions = expr.expressions
 
+				values = []
 				expr.expressions.each do |e|
-					array.values << interpret(e)
+					result = interpret e
+					values << result
 				end
+				link_instance_to_type array, 'Array'
+
+				# Make values accessible as an Ore identifier - point to the array itself so `for values` works
+				array.values                 = values
+				array.declarations['values'] = array
 
 				array
 			when '()'
 				if expr.expressions.empty?
-					Ore::Tuple.new 'Tuple' # For now, I guess. What else should I do with empty parens?
+					Ore::Tuple.new 'Tuple' # todo: For now, I guess. What else should I do with empty parens?
 				elsif expr.expressions.count == 1
 					interpret expr.expressions.first
 				else
@@ -645,7 +669,7 @@ module Ore
 			when Ore::Instance, Ore::Type, Ore::Html_Element
 				interp_type_call receiver, expr
 
-			when Ore::Func # func()
+			when Ore::Func
 				interp_func_call receiver, expr
 
 			else
@@ -672,11 +696,13 @@ module Ore
 			# :generalize_me
 
 			# todo: This case statement should handle all types that have intrinsics
-			instance                 = case type.name
+			instance                 = nil
+
+			case type.name
 			when 'String'
-				Ore::String.new
+				instance = Ore::String.new
 			else
-				Ore::Instance.new type.name
+				instance = Ore::Instance.new type.name
 			end
 			instance.types           = type.types
 			instance.enclosing_scope = type
@@ -724,8 +750,6 @@ module Ore
 		end
 
 		def interp_func_call func, expr
-			func_scope = Ore::Scope.new func.name
-
 			params = func.expressions.select do |expr|
 				expr.is_a? Ore::Param_Expr
 			end
@@ -736,19 +760,15 @@ module Ore
 			end
 
 			# Evaluate arguments in caller's scope (before pushing function scopes)
-			arg_values = expr.arguments.map { |arg| interpret arg }
-
-			if func.is_a?(Ore::Func) && func.intrinsic
-				intrinsic_method = "intrinsic_#{func.name}"
-				return func.enclosing_scope.send(intrinsic_method, *arg_values)
-			end
+			arg_values     = expr.arguments.map { |arg| interpret arg }
+			func.arguments = arg_values
 
 			# Push type scope if calling an instance method (instance methods need access to type-level declarations)
 			if func.enclosing_scope.is_a?(Ore::Instance) && func.enclosing_scope.enclosing_scope
 				runtime.push_scope func.enclosing_scope.enclosing_scope # Push the Type
 			end
 			runtime.push_scope func.enclosing_scope
-			runtime.push_scope func_scope
+			runtime.push_scope func
 
 			params.each_with_index do |param, i|
 				value = if i < arg_values.length
@@ -762,7 +782,7 @@ module Ore
 				runtime.stack.last.declare param.name, value
 
 				if param.unpack && value.is_a?(Ore::Instance)
-					func_scope.sibling_scopes << value
+					func.sibling_scopes << value
 				end
 			end
 
@@ -779,7 +799,7 @@ module Ore
 				break if result.is_a? Ore::Return
 			end
 
-			Ore.assert runtime.pop_scope == func_scope
+			Ore.assert runtime.pop_scope == func
 			Ore.assert runtime.pop_scope == func.enclosing_scope
 
 			if func.enclosing_scope.is_a?(Ore::Instance) && func.enclosing_scope.enclosing_scope
@@ -981,7 +1001,7 @@ module Ore
 		def interp_composition expr
 			# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
-			operand_scope = interp_identifier expr.identifier
+			operand_scope = maybe_instance interp_identifier expr.identifier
 			unless operand_scope.is_a? Ore::Scope
 				# todo: Proper error
 				raise "Expected a scope to compose with, got #{operand_scope.inspect}"
@@ -1187,14 +1207,19 @@ module Ore
 				puts value
 				value
 			when 'intrinsic'
-				# note: The #intrinsic directive is basically just a label and is ignored. It goes on to declare the function in expr.expression which should remain empty as the actual implementation of the function is in Ruby. See preload.ore String type as an example.
-				unless (expr.expression.is_a?(Ore::Func_Expr) || expr.expression.is_a?(Ore::Infix_Expr)) && runtime.stack.last.is_a?(Ore::Type)
-					raise Invalid_Intrinsic_Directive_Declaration.new(expr.expression, runtime)
+				# The #intrinsic directive evaluates to the result of calling the intrinsic Ruby method
+				func_scope = runtime.stack.last
+				raise Ore::Invalid_Intrinsic_Directive_Usage.new(func_scope, runtime) unless func_scope.is_a? Ore::Func
+
+				func_name        = func_scope.name
+				instance_or_type = runtime.stack[-2] # This is instance/type that has the intrinsic method is one level down the stack
+				intrinsic_method = "intrinsic_#{func_name}"
+
+				unless instance_or_type.respond_to? intrinsic_method
+					raise Ore::Invalid_Directive_Usage.new expr, runtime
 				end
 
-				member           = interpret expr.expression
-				member.intrinsic = true if expr.expression.is_a? Ore::Func_Expr
-				member
+				instance_or_type.send intrinsic_method, *func_scope.arguments
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
@@ -1214,7 +1239,12 @@ module Ore
 				runtime.load_file filepath, runtime.stack.last
 				# note: #load_file returns the output but it's ignored. Assigning the value of a #load directive executres code in #interp_infix_expr
 			else
-				raise Ore::Directive_Not_Implemented.new(expr, runtime)
+				# todo: Allow intrinsics to be extended by the user. Requirements would be:
+				#   1) Create type in Ore
+				#   2) Create equivalent type in scopes.rb or similar
+				#   3) Make sure functions which use the #intrinsic expression in its body are named in to match the Ore::Type "intrinsic_#{func_name}"
+				# For example, `String { upcase{; #intrinsic } }` maps to `Ore::String#intrinsic_upcase`
+				raise Ore::Invalid_Directive_Usage.new(expr, runtime)
 			end
 		end
 
@@ -1282,7 +1312,7 @@ module Ore
 				interp_conditional expr
 
 			when Ore::Array_Index_Expr
-				expr.indices_in_order
+				maybe_instance expr.indices_in_order
 
 			when Ore::Subscript_Expr
 				interp_subscript expr
