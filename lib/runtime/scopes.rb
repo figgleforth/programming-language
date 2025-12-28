@@ -179,9 +179,6 @@ module Ore
 		intrinsic :slice
 		intrinsic :reverse
 		intrinsic :join
-		intrinsic :map
-		intrinsic :filter
-		intrinsic :reduce
 		intrinsic :sort
 		intrinsic :uniq
 		intrinsic :include?

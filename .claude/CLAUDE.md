@@ -205,26 +205,85 @@ x = island_member  `Access members directly
 - Only works with Instance types; errors with `Invalid_Unpack_Infix_Right_Operand` for non-instances
 - Only `+=` and `-=` operators supported; other operators error with `Invalid_Unpack_Infix_Operator`
 
-## Built-in Types
+## Built-in Types and Intrinsic Methods
+
+Ore's built-in types (String, Array, Dictionary, Number) have intrinsic methods that delegate to Ruby's native implementations.
+
+### Intrinsic Method Implementation Pattern
+
+**In Ore** (`.ore` files):
+```ore
+String {
+    upcase {; #intrinsic }
+    downcase {; #intrinsic }
+}
+```
+
+**In Ruby** (`scopes.rb`):
+```ruby
+class String < Instance
+    extend Intrinsic_Methods
+
+    intrinsic_delegate 'value'  # Delegate to @value
+    intrinsic :upcase           # Calls @value.upcase
+    intrinsic :downcase         # Calls @value.downcase
+end
+```
+
+**Custom intrinsic handlers** for methods that need special logic:
+```ruby
+def intrinsic_concat other_array
+    values.concat other_array.values  # Extract Ruby array first
+end
+```
+
+**Methods implemented in Ore** (not as Ruby intrinsics):
+Some methods like `find`, `any?`, and `all?` are implemented directly in Ore using for loops rather than Ruby intrinsics, as they need to execute Ore functions.
+
+### String
+
+Properties: `length`, `ord`
+
+Methods: `upcase()`, `downcase()`, `split(delimiter)`, `slice(substr)`, `trim()`, `trim_left()`, `trim_right()`, `chars()`, `index(substr)`, `to_i()`, `to_f()`, `empty?()`, `include?(substr)`, `reverse()`, `replace(new)`, `start_with?(prefix)`, `end_with?(suffix)`, `gsub(pattern, replacement)`
+
+Defined in: `ore/string.ore`, implemented in `scopes.rb` as `Ore::String`
+
+### Array
+
+Properties: `values`
+
+Methods: `push(item)`, `pop()`, `shift()`, `unshift(item)`, `length()`, `first(count)`, `last(count)`, `slice(from, to)`, `reverse()`, `join(separator)`, `map(func)`, `filter(func)`, `reduce(func, init)`, `concat(other)`, `flatten()`, `sort()`, `uniq()`, `include?(item)`, `empty?()`, `find(func)` *(Ore)*, `any?(func)` *(Ore)*, `all?(func)` *(Ore)*, `each(func)`
+
+Defined in: `ore/array.ore`, implemented in `scopes.rb` as `Ore::Array`
+
+**Note:** Methods marked *(Ore)* are implemented in Ore using for loops, not as Ruby intrinsics.
 
 ### Dictionary
 
-Ore includes a built-in Dictionary type for key-value storage:
+Methods: `keys()`, `values()`, `has_key?(key)`, `delete(key)`, `merge(other)`, `count()`, `empty?()`, `clear()`, `fetch(key, default)`
 
 ```ore
 dict = {x: 4, y: 8}
-dict[:x]  `Access by key
-dict[:z] = 15  `Assignment
-dict.keys  `Get all keys
-dict.values  `Get all values
+dict[:x]           `Access by key => 4
+dict[:z] = 15      `Assignment
+dict.keys()        `[:x, :y, :z]
+dict.values()      `[4, 8, 15]
+dict.empty?()      `false
+dict.count()       `3
 ```
 
 **Features:**
-
 - Symbol, string, or identifier keys
 - Subscript access via `dict[key]`
-- Methods: `keys`, `values`
-- Implemented in `scopes.rb` as `Ore::Dictionary`
+- Defined in: `ore/dictionary.ore`, implemented in `scopes.rb` as `Ore::Dictionary`
+
+### Number
+
+Properties: `numerator`, `denominator`, `type`
+
+Methods: `to_s()`, `abs()`, `floor()`, `ceil()`, `round()`, `sqrt()`, `even?()`, `odd?()`, `to_i()`, `to_f()`, `clamp(min, max)`
+
+Defined in: `ore/number.ore`, implemented in `scopes.rb` as `Ore::Number`
 
 ## Loop Control Flow
 
@@ -266,6 +325,29 @@ end
 - **stop** - Exit the loop immediately (like `break`)
 - Works with `for`, `while`, and `until` loops
 
+### Return Statement
+
+The `return` keyword exits a function and returns a value. It properly propagates even when used inside loops:
+
+```ore
+find { func;
+    for values
+        if func(it)
+            return it  `Exits the function, not just the loop
+        end
+    end
+    nil
+}
+
+[1, 2, 3].find({ x; x > 1 })  `Returns 2
+```
+
+**Implementation:**
+- `return value` creates an `Ore::Return` object wrapping the value
+- For loops detect `Return` objects and propagate them up to the function
+- Functions unwrap the `Return` object and return the inner value
+- Without `return`, functions return the last expression evaluated
+
 ## Code Style Preferences
 
 ### Ruby Code Style
@@ -283,6 +365,7 @@ Tests use Minitest and inherit from `Base_Test` (in test/base_test.rb):
 - `test/lexer_test.rb` - Lexer tests
 - `test/parser_test.rb` - Parser tests
 - `test/interpreter_test.rb` - Interpreter tests
+- `test/intrinsics_test.rb` - Intrinsic method tests
 - `test/regression_test.rb` - Regression tests
 - `test/server_test.rb` - Server and routing tests
 - `test/e2e_server_test.rb` - End-to-end server tests

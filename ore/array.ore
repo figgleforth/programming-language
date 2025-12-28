@@ -18,9 +18,6 @@ Array {
 	slice { from, to; #intrinsic }
 	reverse {; #intrinsic }
 	join { separator; #intrinsic }
-	map { func; #intrinsic }
-	filter { func; #intrinsic }
-	reduce { func, init; #intrinsic }
 	concat { other; #intrinsic }
 	flatten {; #intrinsic }
 	sort {; #intrinsic }
@@ -53,5 +50,31 @@ Array {
 			end
 		end
 		true
+	}
+
+	map { func;
+		result = []
+		for values
+			result << func(it)
+		end
+		result
+	}
+
+	filter { func;
+		result = []
+		for values
+			if func(it)
+				result << it
+			end
+		end
+		result
+	}
+
+	reduce { init, func;
+		accumulator = init
+		for values
+			accumulator = func(accumulator, it)
+		end
+		accumulator
 	}
 }

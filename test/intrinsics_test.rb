@@ -61,6 +61,34 @@ class Intrinsics_Test < Base_Test
 	end
 
 	def test_array_intrinsics
+		out = Ore.interp("arr = [1, 2]; arr.push(3); arr")
+		assert_equal [1, 2, 3], out.values
+
+		out = Ore.interp("arr = [1, 2, 3]; arr.pop(); arr")
+		assert_equal [1, 2], out.values
+
+		out = Ore.interp("arr = [1, 2, 3]; arr.shift(); arr")
+		assert_equal [2, 3], out.values
+
+		out = Ore.interp("arr = [2, 3]; arr.unshift(1); arr")
+		assert_equal [1, 2, 3], out.values
+
+		assert_equal 3, Ore.interp("[1, 2, 3].length()")
+		assert_equal 0, Ore.interp("[].length()")
+
+		assert_equal [1, 2], Ore.interp("[1, 2, 3, 4].first(2)")
+		assert_equal [3, 4], Ore.interp("[1, 2, 3, 4].last(2)")
+
+		assert_equal [2, 3], Ore.interp("[1, 2, 3, 4].slice(1, 2)")
+
+		assert_equal [3, 2, 1], Ore.interp("[1, 2, 3].reverse()")
+
+		assert_equal "1,2,3", Ore.interp("[1, 2, 3].join(',')")
+
+		assert_equal [2, 4, 6], Ore.interp("[1, 2, 3].map({ x; x * 2 })").values
+		assert_equal [2, 4], Ore.interp("[1, 2, 3, 4].filter({ x; x % 2 == 0 })").values
+		assert_equal 10, Ore.interp("[1, 2, 3, 4].reduce(0, { acc, x; acc + x })")
+
 		assert_equal [1, 2, 3, 4, 5], Ore.interp("[1, 2, 3].concat([4, 5])")
 		assert_equal [1, 2, 3, 4], Ore.interp("[[1, 2], [3, 4]].flatten()").values
 		assert_equal [1, 2, 3], Ore.interp("[3, 1, 2].sort()")
@@ -73,7 +101,7 @@ class Intrinsics_Test < Base_Test
 		refute Ore.interp("[1].empty?()")
 
 		assert_equal 2, Ore.interp("[1, 2, 3].find({ x; x > 1 })")
-		assert_equal nil, Ore.interp("[1, 2, 3].find({ x; x > 5 })")
+		assert_nil Ore.interp("[1, 2, 3].find({ x; x > 5 })")
 
 		assert Ore.interp("[1, 2, 3].any?({ x; x > 2 })")
 		refute Ore.interp("[1, 2, 3].any?({ x; x > 5 })")
