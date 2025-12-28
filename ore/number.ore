@@ -14,4 +14,9 @@ Number {
 	ceil {; #intrinsic }
 	round {; #intrinsic }
 	sqrt {; #intrinsic }
+	even? {; #intrinsic }
+	odd? {; #intrinsic }
+	to_i {; #intrinsic }
+	to_f {; #intrinsic }
+	clamp { min, max; #intrinsic }
 }

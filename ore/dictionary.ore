@@ -1,9 +1,11 @@
 Dictionary {
 	keys {; #intrinsic }
 	values {; #intrinsic }
-
 	has_key? { key; #intrinsic }
 	delete { key; #intrinsic }
 	merge { other; #intrinsic }
 	count {; #intrinsic }
+	empty? {; #intrinsic }
+	clear {; #intrinsic }
+	fetch { key, default; #intrinsic }
 }

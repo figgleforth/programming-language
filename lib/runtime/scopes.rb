@@ -145,6 +145,17 @@ module Ore
 		intrinsic :include?
 		intrinsic :reverse
 		intrinsic :replace
+		intrinsic :start_with?
+		intrinsic :end_with?
+		intrinsic :gsub
+
+		def + other
+			value + other.value
+		end
+
+		def * other
+			value * other
+		end
 	end
 
 	# note: Be sure to prefix with Ore:: whenever referencing this Array type to prevent ambiguity with Ruby's ::Array!
@@ -171,6 +182,20 @@ module Ore
 		intrinsic :map
 		intrinsic :filter
 		intrinsic :reduce
+		intrinsic :sort
+		intrinsic :uniq
+		intrinsic :include?
+		intrinsic :empty?
+
+		def intrinsic_concat other_array
+			values.concat other_array.values
+		end
+
+		def intrinsic_flatten depth = -1
+			# Convert Ore::Array objects to Ruby arrays for flattening
+			ruby_array = values.map { |v| v.is_a?(Ore::Array) ? v.values : v }
+			Ore::Array.new ruby_array.flatten depth
+		end
 
 		def get key
 			# note: This is required because Instance extends Scope whose [] method reads from @declarations
@@ -206,6 +231,9 @@ module Ore
 		intrinsic :count
 		intrinsic :keys
 		intrinsic :values
+		intrinsic :empty?
+		intrinsic :clear
+		intrinsic :fetch
 
 		def intrinsic_merge other_dict
 			dict.merge other_dict.dict
@@ -289,6 +317,11 @@ module Ore
 		intrinsic :ceil
 		intrinsic :round
 		intrinsic :sqrt
+		intrinsic :even?
+		intrinsic :odd?
+		intrinsic :to_i
+		intrinsic :to_f
+		intrinsic :clamp
 	end
 
 	class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value.

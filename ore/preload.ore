@@ -18,5 +18,9 @@ Tuple {
 }
 
 Bool {
+	new { value = true;
+		/truthiness = value != false
+	}
+
 	truthiness;
 }

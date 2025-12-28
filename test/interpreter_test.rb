@@ -762,8 +762,7 @@ class Interpreter_Test < Base_Test
 			return "should not get here"
 		}
 		eject()'
-		assert_instance_of Ore::Return, out
-		assert_equal "true!", out.value
+		assert_equal "true!", out
 	end
 
 	def test_type_does_have_new_function

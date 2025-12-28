@@ -795,7 +795,7 @@ module Ore
 				Ore.assert runtime.pop_scope == func.enclosing_scope.enclosing_scope
 			end
 
-			result
+			result.is_a?(Ore::Return) ? result.value : result
 		end
 
 		# @param route [Ore::Route] The route to execute
@@ -1076,6 +1076,7 @@ module Ore
 			Ore.assert collection.is_a?(Ore::Array) || collection.is_a?(Ore::Range)
 			Ore.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
 
+			result = nil
 			runtime.push_then_pop Scope.new('for_loop') do |scope|
 				values = if collection.is_a? Ore::Range
 					collection
@@ -1083,14 +1084,15 @@ module Ore
 					collection.values
 				end
 
-				if stride
+				result = if stride
 					catch :stop do
 						values.each_slice(stride).with_index do |elements, index|
 							scope.declare 'it', elements
 							scope.declare 'at', index
 							catch :skip do
 								expr.body.each do |e|
-									interpret e
+									result = interpret e
+									throw(:stop, result) if result.is_a? Ore::Return
 								end
 							end
 						end
@@ -1102,13 +1104,15 @@ module Ore
 							scope.declare 'at', index
 							catch :skip do
 								expr.body.each do |e|
-									interpret e
+									result = interpret e
+									throw(:stop, result) if result.is_a? Ore::Return
 								end
 							end
 						end
 					end
 				end
 			end
+			result
 		end
 
 		def interp_conditional expr

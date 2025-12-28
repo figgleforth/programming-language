@@ -21,4 +21,37 @@ Array {
 	map { func; #intrinsic }
 	filter { func; #intrinsic }
 	reduce { func, init; #intrinsic }
+	concat { other; #intrinsic }
+	flatten {; #intrinsic }
+	sort {; #intrinsic }
+	uniq {; #intrinsic }
+	include? { item; #intrinsic }
+	empty? {; #intrinsic }
+
+	find { func;
+		for values
+			if func(it)
+				return it
+			end
+		end
+		nil
+	}
+
+	any? { func;
+		for values
+			if func(it)
+				return true
+			end
+		end
+		false
+	}
+
+	all? { func;
+		for values
+			if !func(it)
+				return false
+			end
+		end
+		true
+	}
 }
