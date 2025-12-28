@@ -48,7 +48,7 @@ class Intrinsics_Test < Base_Test
 		assert_equal 'heyo world', Ore.interp("'hello world'.gsub('hell', 'hey')")
 	end
 
-	def test_array_builtin_each
+	def test_array_intrinsics
 		out = Ore.interp <<~ORE
 		    x = [1, 2, 3]
 		    y = []
@@ -58,9 +58,7 @@ class Intrinsics_Test < Base_Test
 		    y
 		ORE
 		assert_equal [2, 4, 6], out.values
-	end
-
-	def test_array_intrinsics
+		
 		out = Ore.interp("arr = [1, 2]; arr.push(3); arr")
 		assert_equal [1, 2, 3], out.values
 
@@ -119,6 +117,21 @@ class Intrinsics_Test < Base_Test
 
 		assert_equal 1, Ore.interp("{x: 1}.fetch(:x, 0)")
 		assert_equal 0, Ore.interp("{x: 1}.fetch(:y, 0)")
+
+		assert_equal [:x, :y, :z], Ore.interp("{x: 1, y: 2, z: 3}.keys()")
+		assert_equal [1, 2, 3], Ore.interp("{x: 1, y: 2, z: 3}.values()")
+
+		assert Ore.interp("{x: 1, y: 2}.has_key?(:x)")
+		refute Ore.interp("{x: 1, y: 2}.has_key?(:z)")
+
+		out = Ore.interp("d = {x: 1, y: 2, z: 3}; d.delete(:y); d")
+		assert_equal({ x: 1, z: 3 }, out.dict)
+
+		assert_equal 3, Ore.interp("{x: 1, y: 2, z: 3}.count()")
+		assert_equal 0, Ore.interp("{}.count()")
+
+		out = Ore.interp "{x: 1}.merge({y: 2, z: 3})"
+		assert_equal({ x: 1, y: 2, z: 3 }, out)
 	end
 
 	def test_number_intrinsics
@@ -134,5 +147,23 @@ class Intrinsics_Test < Base_Test
 		assert_equal 5, Ore.interp("3.clamp(5, 10)")
 		assert_equal 7, Ore.interp("7.clamp(5, 10)")
 		assert_equal 10, Ore.interp("15.clamp(5, 10)")
+
+		assert_equal "42", Ore.interp("42.to_s()")
+		assert_equal "3.14", Ore.interp("3.14.to_s()")
+
+		assert_equal 5, Ore.interp("5.abs()")
+		assert_equal 5, Ore.interp("-5.abs()")
+
+		assert_equal 3, Ore.interp("3.14.floor()")
+		assert_equal(-4, Ore.interp("-3.14.floor()"))
+
+		assert_equal 4, Ore.interp("3.14.ceil()")
+		assert_equal(-3, Ore.interp("-3.14.ceil()"))
+
+		assert_equal 3, Ore.interp("3.14.round()")
+		assert_equal 4, Ore.interp("3.5.round()")
+
+		assert_equal 3, Ore.interp("9.sqrt()")
+		assert_equal 5, Ore.interp("25.sqrt()")
 	end
 end

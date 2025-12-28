@@ -313,12 +313,15 @@ module Ore
 		intrinsic :floor
 		intrinsic :ceil
 		intrinsic :round
-		intrinsic :sqrt
 		intrinsic :even?
 		intrinsic :odd?
 		intrinsic :to_i
 		intrinsic :to_f
 		intrinsic :clamp
+
+		def intrinsic_sqrt
+			Math.sqrt numerator
+		end
 	end
 
 	class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value.

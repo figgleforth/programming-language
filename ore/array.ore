@@ -1,13 +1,6 @@
 Array {
 	values;
 
-	`todo: Decide whether this should be an intrinsic or implemented more as it currently is. This implementation doesn't provide the caller with free `it` and `at` declarations that for-loops get, so that's the biggest motivator to refactor this. :refactor
-	each { iteration;
-		for values
-			iteration(it)
-		end
-	}
-
 	push { item; #intrinsic }
 	pop {; #intrinsic }
 	shift {; #intrinsic }
@@ -76,5 +69,11 @@ Array {
 			accumulator = func(accumulator, it)
 		end
 		accumulator
+	}
+
+	each { func;
+		for values
+			func(it)
+		end
 	}
 }
