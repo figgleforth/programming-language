@@ -32,11 +32,10 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_prefixed_numbers
-
 		out = Ore.lex '-15'
-		assert_equal %I(operator number), out.map(&:type)
-		assert_equal '15', out.last.value # These are converted to numerical values once they become Number_Exprs
-		assert_equal 2, out.count
+		assert_equal %I(number), out.map(&:type)
+		assert_equal '-15', out.last.value # These are converted to numerical values once they become Number_Exprs
+		assert_equal 1, out.count
 
 		out = Ore.lex '+1.6'
 		assert_equal %I(operator number), out.map(&:type)

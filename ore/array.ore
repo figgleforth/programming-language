@@ -7,4 +7,18 @@ Array {
 			iteration(it)
 		end
 	}
+
+	push { item; #intrinsic }
+	pop {; #intrinsic }
+	shift {; #intrinsic }
+	unshift { item; #intrinsic }
+	length {; #intrinsic }
+	first { count; #intrinsic }
+	last { count; #intrinsic }
+	slice { from, to; #intrinsic }
+	reverse {; #intrinsic }
+	join { separator; #intrinsic }
+	map { func; #intrinsic }
+	filter { func; #intrinsic }
+	reduce { func, init; #intrinsic }
 }

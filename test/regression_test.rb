@@ -275,10 +275,10 @@ class Regression_Test < Base_Test
 	def test_lexer_operator_quote_regression
 		# #lex_operator was consuming quotes as symbols, creating invalid operators like ="
 		# This caused { b="two" } to fail lexing when = was immediately followed by "
-		out = Ore.interp '{ a=1, b="two", c: :three }.values'
+		out = Ore.interp '{ a=1, b="two", c: :three }.values()'
 		assert_equal [1, "two", :three], out
 
-		out = Ore.interp '{ a=1, b:"two", c: :three }.values'
+		out = Ore.interp '{ a=1, b:"two", c: :three }.values()'
 		assert_equal [1, "two", :three], out
 	end
 

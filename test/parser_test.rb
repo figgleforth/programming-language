@@ -27,10 +27,8 @@ class Parser_Test < Base_Test
 
 	def test_numbers_with_prefixes
 		out = Ore.parse '-42'
-		assert_kind_of Ore::Prefix_Expr, out.first
-		assert_equal '-', out.first.operator
-		assert_equal 42, out.first.expression.value
-		assert_kind_of Ore::Number_Expr, out.first.expression
+		assert_kind_of Ore::Number_Expr, out.first
+		assert_equal -42, out.first.value
 
 		out = Ore.parse '+4.2'
 		assert_kind_of Ore::Prefix_Expr, out.first
@@ -59,9 +57,9 @@ class Parser_Test < Base_Test
 
 		out = Ore.parse '-20three'
 		assert_equal 2, out.count
-		assert_kind_of Ore::Prefix_Expr, out.first
+		assert_kind_of Ore::Number_Expr, out.first
 		assert_kind_of Ore::Identifier_Expr, out.last
-		assert_equal 20, out.first.expression.value
+		assert_equal -20, out.first.value
 		assert_equal 'three', out.last.value
 
 		out = Ore.parse '40_two'
@@ -718,7 +716,7 @@ class Parser_Test < Base_Test
 		assert_instance_of Ore::Circumfix_Expr, out.first.collection # note, The iterable becomes an Array in the interpreter.
 		assert_equal '[]', out.first.collection.grouping
 	end
-	
+
 	def test_directive_identifier
 		out = Ore.parse '#whatever'
 		refute_instance_of Ore::Directive_Expr, out.first

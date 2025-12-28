@@ -118,6 +118,18 @@ module Ore
 			it
 		end
 
+		def should_lex_negative_number? tokens
+			last_token = tokens.reverse.find { |t| t.type != :whitespace }
+			return true if last_token.nil?
+
+			# After operators or opening delimiters, lex as negative number nut NOT after closing delimiters like ')' which would be subtraction: (x)-1
+			if last_token.type == :delimiter
+				return !%w<) ] }>.include?(last_token.value)
+			end
+
+			last_token.type == :operator
+		end
+
 		def lex_oneline_comment
 			it = ''
 			eat COMMENT_CHAR
@@ -189,7 +201,7 @@ module Ore
 
 		def lex_operator
 			it = ::String.new
-			while chars? && symbol? && !%w(' ").include?(curr)
+			while chars? && symbol? && !%w(' " {).include?(curr)
 				it << eat
 
 				# todo: Break on all known operator, not just scope operators
@@ -261,6 +273,11 @@ module Ore
 					elsif whitespace? curr
 						it.type  = :whitespace
 						it.value = eat
+
+					elsif curr == '-' && numeric?(peek) && should_lex_negative_number?(tokens)
+						it.type = :number
+						eat
+						it.value = '-' + lex_number
 
 					elsif numeric?
 						it.type  = :number

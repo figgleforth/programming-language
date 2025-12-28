@@ -468,19 +468,11 @@ module Ore
 		def interp_dot_dictionary expr
 			dict = interpret expr.left
 
-			case expr.right.value
-			when 'keys', 'values', 'count'
-				# note: keys, values, and count are declared on Ore::Dictionary so just call through to it
-				dict.dict.send expr.right.value
+			runtime.push_scope dict
+			result = interpret expr.right
+			runtime.pop_scope
 
-			else
-				# Fall through to normal scope lookup
-				runtime.push_scope dict
-				result = interpret expr.right
-				runtime.pop_scope
-
-				result
-			end
+			result
 		end
 
 		def interp_dot_scope expr
@@ -905,7 +897,6 @@ module Ore
 
 			# todo: Make @types a set
 			type.types = type.types.uniq
-			runtime.stack.last.declare type.name, type
 
 			runtime.push_then_pop type do |scope|
 				expr.expressions.each do |expr|
@@ -913,6 +904,7 @@ module Ore
 				end
 			end
 
+			runtime.stack.last.declare type.name, type
 			type
 		end
 
@@ -998,30 +990,30 @@ module Ore
 		def interp_composition expr
 			# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
-			operand_scope = maybe_instance interp_identifier expr.identifier
-			unless operand_scope.is_a? Ore::Scope
+			right      = maybe_instance interp_identifier expr.identifier
+			unless right.is_a? Ore::Scope
 				# todo: Proper error
-				raise "Expected a scope to compose with, got #{operand_scope.inspect}"
+				raise "Expected a scope to compose with, got #{right.inspect}"
 			end
-			curr_scope    = runtime.stack.last
+			curr_scope = runtime.stack.last
 
 			case expr.operator
 			when '|'
 				# Union with Ore::Type
-				operand_scope.declarations.each do |key, value|
+				right.declarations.each do |key, value|
 					curr_scope[key] ||= value
 				end
 
 				curr_scope.static_declarations ||= Set.new
-				curr_scope.static_declarations.merge operand_scope.static_declarations
+				curr_scope.static_declarations.merge right.static_declarations
 
 				curr_scope.types ||= []
-				curr_scope.types += operand_scope.types
+				curr_scope.types += right.types
 				curr_scope.types = curr_scope.types.uniq
 			when '~'
 				# Removal of Ore::Type
 
-				operand_keys_to_remove = operand_scope.declarations.keys
+				operand_keys_to_remove = right.declarations.keys
 
 				# Maybe I'll have other keys to protect in the future.
 				operand_keys_to_remove.reject! do |key|
@@ -1032,7 +1024,7 @@ module Ore
 					curr_scope.delete key
 				end
 
-				curr_scope.static_declarations.subtract operand_scope.static_declarations
+				curr_scope.static_declarations.subtract right.static_declarations
 
 				curr_scope.types = curr_scope.types.reject do |type|
 					type == expr.identifier.value
@@ -1040,7 +1032,7 @@ module Ore
 			when '&'
 				# Intersection of Types, aka what they share.
 
-				shared_keys    = operand_scope.declarations.keys.select do |key|
+				shared_keys    = right.declarations.keys.select do |key|
 					curr_scope.has? key
 				end
 				keys_to_delete = curr_scope.declarations.keys - shared_keys
@@ -1049,27 +1041,27 @@ module Ore
 					curr_scope.declarations.delete key
 				end
 
-				curr_scope.static_declarations = curr_scope.static_declarations & operand_scope.static_declarations
+				curr_scope.static_declarations = curr_scope.static_declarations & right.static_declarations
 
 			when '^'
 				# Symmetric difference of Types, aka what they don't share.
 
 				shared_keys = curr_scope.declarations.keys.select do |key|
-					operand_scope.has? key
+					right.has? key
 				end
 
 				current_unique_keys = curr_scope.declarations.keys - shared_keys
-				operand_unique_keys = operand_scope.declarations.keys - shared_keys
+				operand_unique_keys = right.declarations.keys - shared_keys
 				keys_to_keep        = current_unique_keys + operand_unique_keys
 
 				curr_scope.declarations.delete_if do |key, _|
 					!keys_to_keep.include? key
 				end
 
-				curr_scope.static_declarations = curr_scope.static_declarations ^ operand_scope.static_declarations
+				curr_scope.static_declarations = curr_scope.static_declarations ^ right.static_declarations
 
 				operand_unique_keys.each do |key|
-					curr_scope[key] ||= operand_scope[key]
+					curr_scope[key] ||= right[key]
 				end
 			else
 				# todo: Proper error

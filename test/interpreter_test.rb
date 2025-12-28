@@ -352,31 +352,31 @@ class Interpreter_Test < Base_Test
 
 	def test_create_dictionary_with_identifiers_as_keys_without_commas
 		out = Ore.interp '{a b c}'
-		assert_equal %i(a b c), out.keys
-		out.values.each do |value|
+		assert_equal %i(a b c), out.dict.keys
+		out.dict.values.each do |value|
 			assert_instance_of NilClass, value
 		end
 	end
 
 	def test_create_dictionary_with_identifiers_as_keys_with_commas
 		out = Ore.interp '{a, b}'
-		out.values.each do |value|
+		out.dict.values.each do |value|
 			assert_instance_of NilClass, value
 		end
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation
 		out = Ore.interp '{ x:0 y=1 z}'
-		refute_instance_of NilClass, out.values.first
-		refute_instance_of NilClass, out.values[1]
-		assert_instance_of NilClass, out.values.last
+		refute_instance_of NilClass, out.dict.values.first
+		refute_instance_of NilClass, out.dict.values[1]
+		assert_instance_of NilClass, out.dict.values.last
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation_and_commas
 		out = Ore.interp '{ x:4, y=8, z}'
-		assert_equal 4, out.values.first
-		assert_equal 8, out.values[1]
-		assert_instance_of NilClass, out.values.last
+		assert_equal 4, out.dict.values.first
+		assert_equal 8, out.dict.values[1]
+		assert_instance_of NilClass, out.dict.values.last
 	end
 
 	def test_create_dictionary_with_local_value
@@ -405,21 +405,21 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_dictionary_keys
-		out = Ore.interp '{ a b c }.keys'
+		out = Ore.interp '{ a b c }.keys()'
 		assert_equal [:a, :b, :c], out
 	end
 
 	def test_dictionary_values
-		out = Ore.interp '{ a b c }.values'
+		out = Ore.interp '{ a b c }.values()'
 		assert_equal [nil, nil, nil], out
 
-		out = Ore.interp '{ a=1, b= "two", c: :three }.values'
+		out = Ore.interp '{ a=1, b= "two", c: :three }.values()'
 		assert_equal [1, "two", :three], out
 
-		out = Ore.interp '{ a=1, b="two", c: :three }.values'
+		out = Ore.interp '{ a=1, b="two", c: :three }.values()'
 		assert_equal [1, "two", :three], out
 
-		out = Ore.interp '{ a=1, b:"two", c: :three }.values'
+		out = Ore.interp '{ a=1, b:"two", c: :three }.values()'
 		assert_equal [1, "two", :three], out
 	end
 

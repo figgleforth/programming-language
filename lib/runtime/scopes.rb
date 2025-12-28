@@ -149,12 +149,28 @@ module Ore
 
 	# note: Be sure to prefix with Ore:: whenever referencing this Array type to prevent ambiguity with Ruby's ::Array!
 	class Array < Instance
+		extend Intrinsic_Methods
 		attr_accessor :values
 
 		def initialize values = []
 			super 'List'
 			@values = values
 		end
+
+		intrinsic_delegate 'values'
+		intrinsic :push
+		intrinsic :pop
+		intrinsic :shift
+		intrinsic :unshift
+		intrinsic :length
+		intrinsic :first
+		intrinsic :last
+		intrinsic :slice
+		intrinsic :reverse
+		intrinsic :join
+		intrinsic :map
+		intrinsic :filter
+		intrinsic :reduce
 
 		def get key
 			# note: This is required because Instance extends Scope whose [] method reads from @declarations
@@ -176,11 +192,23 @@ module Ore
 	end
 
 	class Dictionary < Instance
+		extend Intrinsic_Methods
 		attr_accessor :dict
 
 		def initialize dict = {}
 			super 'Dictionary'
 			@dict = dict
+		end
+
+		intrinsic_delegate 'dict'
+		intrinsic :has_key?
+		intrinsic :delete
+		intrinsic :count
+		intrinsic :keys
+		intrinsic :values
+
+		def intrinsic_merge other_dict
+			dict.merge other_dict.dict
 		end
 
 		def [] key
@@ -198,18 +226,6 @@ module Ore
 		def to_s
 			dict.inspect
 		end
-
-		def keys
-			dict.keys
-		end
-
-		def values
-			dict.values
-		end
-
-		def count
-			dict.count
-		end
 	end
 
 	class Tuple < Ore::Array
@@ -219,6 +235,7 @@ module Ore
 	end
 
 	class Number < Instance
+		extend Intrinsic_Methods
 		attr_accessor :numerator, :denominator, :type
 
 		def + other
@@ -264,6 +281,14 @@ module Ore
 		def | other
 			numerator | other.numerator
 		end
+
+		intrinsic_delegate 'numerator'
+		intrinsic :to_s
+		intrinsic :abs
+		intrinsic :floor
+		intrinsic :ceil
+		intrinsic :round
+		intrinsic :sqrt
 	end
 
 	class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value.
