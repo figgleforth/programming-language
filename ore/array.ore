@@ -1,0 +1,24 @@
+Array {
+	values;
+
+	`todo: Decide whether this should be an intrinsic or implemented more as it currently is. This implementation doesn't provide the caller with free `it` and `at` declarations that for-loops get, so that's the biggest motivator to refactor this. :refactor
+	each { iteration;
+		for values
+			iteration(it)
+		end
+	}
+
+	push { item; #intrinsic }
+	pop {; #intrinsic }
+	shift {; #intrinsic }
+	unshift { item; #intrinsic }
+	length {; #intrinsic }
+	first { count; #intrinsic }
+	last { count; #intrinsic }
+	slice { from, to; #intrinsic }
+	reverse {; #intrinsic }
+	join { separator; #intrinsic }
+	map { func; #intrinsic }
+	filter { func; #intrinsic }
+	reduce { func, init; #intrinsic }
+}

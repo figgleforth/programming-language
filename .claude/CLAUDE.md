@@ -66,7 +66,7 @@ The AST is executed to produce output:
 - `interpreter.rb` - Traverses and executes the AST, is stateless
 - `scope.rb` - Manages variable scoping and declarations (Global, Type, Instance, Func, Route, Return scopes)
 - `runtime.rb` - Tracks execution state (declarations, routes, servers, loaded files)
-- `types.rb` - Runtime type definitions (includes Request, Response, Server classes)
+- `scopes.rb` - Runtime type definitions (includes Request, Response, Server classes)
 - `errors.rb` - Runtime error definitions
 - `server_runner.rb` - HTTP server implementation using WEBrick (handles routing, URL params, query strings)
 
@@ -224,7 +224,7 @@ dict.values  `Get all values
 - Symbol, string, or identifier keys
 - Subscript access via `dict[key]`
 - Methods: `keys`, `values`
-- Implemented in `types.rb` as `Ore::Dictionary`
+- Implemented in `scopes.rb` as `Ore::Dictionary`
 
 ## Loop Control Flow
 
@@ -297,7 +297,7 @@ Ore has built-in web server support:
 - **Route syntax** - Routes defined as `method://path` (e.g., `get://`, `post://users/:id`)
 - **URL parameters** - Use `:param` syntax in routes, accessed via route function parameters
 - **Query strings** - Available via `request.query` dictionary
-- **Request/Response objects** - Automatically available in route handlers (from `types.rb`)
+- **Request/Response objects** - Automatically available in route handlers (from `scopes.rb`)
 - **`#start` directive** - Non-blocking server startup, allows multiple concurrent servers
 - **Graceful shutdown** - Servers stop when program exits (handled in Rakefile's `_interp_file`)
 - **WEBrick backend** - HTTP server implementation in `server_runner.rb`

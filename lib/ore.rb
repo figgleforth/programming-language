@@ -1,5 +1,6 @@
 require_relative 'shared/constants'
 require_relative 'shared/helpers'
+require_relative 'shared/intrinsic_methods'
 
 # Compile-time (source to AST)
 require_relative 'compiler/lexeme'
@@ -10,7 +11,6 @@ require_relative 'compiler/parser'
 # Runtime (AST to execution)
 require_relative 'runtime/errors'
 require_relative 'runtime/scopes'
-require_relative 'runtime/types'
 require_relative 'runtime/runtime'
 require_relative 'runtime/server_runner'
 require_relative 'runtime/dom_renderer'

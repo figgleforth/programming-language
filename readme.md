@@ -375,5 +375,3 @@ Note: Rendering HTML only works when
 	- [Lexer#output](lib/compiler/lexer.rb) – Source code to Lexemes
 	- [Parser#output](lib/compiler/parser.rb) – Lexemes to Expressions
 	- [Interpreter#output](lib/runtime/interpreter.rb) – Expressions to values
-
-### ![](ore.svg)
