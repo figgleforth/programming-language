@@ -90,7 +90,7 @@ module Ore
 	class Cannot_Call_Instance_Member_On_Type < Error
 	end
 
-	class Cannot_Call_Private_Static_Type_Member < Error
+	class Cannot_Call_Private_Static_Member_On_Type < Error
 	end
 
 	class Invalid_Directive_Usage < Error

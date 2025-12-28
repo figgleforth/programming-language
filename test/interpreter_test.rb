@@ -1586,7 +1586,7 @@ class Interpreter_Test < Base_Test
 			Type()._static_private"
 		end
 
-		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+		assert_raises Ore::Cannot_Call_Private_Static_Member_On_Type do
 			Ore.interp "#{shared_code}
 			Type._static_private"
 		end
@@ -1612,7 +1612,7 @@ class Interpreter_Test < Base_Test
 			Type()._private = 100"
 		end
 
-		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+		assert_raises Ore::Cannot_Call_Private_Static_Member_On_Type do
 			Ore.interp "#{shared_code}
 		    Type._static_private = 100"
 		end
@@ -1727,7 +1727,7 @@ class Interpreter_Test < Base_Test
 			Merged()._other_private"
 		end
 
-		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+		assert_raises Ore::Cannot_Call_Private_Static_Member_On_Type do
 			Ore.interp "#{shared_code}
 			Merged | Base | Other {}
 			Merged._base_static_private"
@@ -1845,7 +1845,7 @@ class Interpreter_Test < Base_Test
 			Inter()._shared_private"
 		end
 
-		assert_raises Ore::Cannot_Call_Private_Static_Type_Member do
+		assert_raises Ore::Cannot_Call_Private_Static_Member_On_Type do
 			Ore.interp "#{shared_code}
 			Inter | Left & Right {}
 			Inter._shared_static_private"

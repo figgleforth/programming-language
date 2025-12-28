@@ -104,7 +104,7 @@ module Ore
 				if binding == :instance
 					raise Ore::Cannot_Call_Instance_Member_On_Type.new(expr, runtime)
 				elsif privacy == :private
-					raise Ore::Cannot_Call_Private_Static_Type_Member.new(expr, runtime)
+					raise Ore::Cannot_Call_Private_Static_Member_On_Type.new(expr, runtime)
 				end
 			end
 		end
@@ -161,6 +161,7 @@ module Ore
 
 		def interp_identifier expr
 			if expr.directive
+				# todo: Why is this not handled by Parser#complete_expression?
 				dir_expr      = Ore::Directive_Expr.new
 				dir_expr.name = expr
 				return interp_directive dir_expr
@@ -190,6 +191,7 @@ module Ore
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
 				end
 			elsif scope
+				# note: Delegate intrinsic calls automatically
 				intrinsic_method = "intrinsic_#{expr.value}"
 				if scope.has?(expr.value) && !scope.respond_to?(intrinsic_method)
 					scope.get expr.value
@@ -223,7 +225,7 @@ module Ore
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
 				end
 			else
-				# When scope is nil, it means no scope was found
+				# When scope is nil, errors must be raised
 				if expr.scope_operator == '../'
 					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
 				elsif expr.scope_operator == './'
@@ -545,12 +547,7 @@ module Ore
 				elsif INFIX_ARITHMETIC_OPERATORS.include? expr.operator
 					left  = maybe_instance interpret expr.left
 					right = maybe_instance interpret expr.right
-
-					if left.is_a?(Ore::Array) && expr.operator == '<<'
-						left.values << right
-					else
-						left.send expr.operator, right
-					end
+					left.send expr.operator, right
 
 				elsif COMPARISON_OPERATORS.include? expr.operator
 					left  = interpret expr.left
@@ -627,6 +624,7 @@ module Ore
 				if expr.expressions.empty?
 					Ore::Tuple.new 'Tuple' # todo: For now, I guess. What else should I do with empty parens?
 				elsif expr.expressions.count == 1
+					# note: Single expressions should be treated as though they were not inside parentheses so that algebraic expressions can be grouped using parentheses. If I wrap single expressions in a Tuple then I have to also unwrap them later for arithmetic operations.
 					interpret expr.expressions.first
 				else
 					values       = expr.expressions.reduce([]) do |arr, expr|
@@ -682,7 +680,7 @@ module Ore
 			# Ore::Type_Expr is converted to Ore::Type in #interp_type.
 			# Ore::Instance inherits Ore::Type's @name and @types.
 			#
-			#     (See constructs.rb for Ore::Type and Ore::Instance declarations)
+			#     (See types.rb for Ore::Type and Ore::Instance declarations)
 			#     (See expressions.rb for Ore::Type_Expr declaration)
 			#
 			# - Push instance onto runtime.stack
@@ -695,10 +693,9 @@ module Ore
 
 			# :generalize_me
 
-			# todo: This case statement should handle all types that have intrinsics
 			instance                 = nil
-
 			case type.name
+				# todo: This case statement should handle all types that have intrinsics
 			when 'String'
 				instance = Ore::String.new
 			else
@@ -708,24 +705,24 @@ module Ore
 			instance.enclosing_scope = type
 
 			# note: There was a bug here where I wasn't popping the instance after interpreting the type's expressions. That caused the #new function below (func_new) to not properly interpret arguments passed to it.
-			runtime.push_scope type
-			runtime.push_then_pop instance do |scope|
-				type.expressions.each do |expr|
-					# Skip static declarations - they were already executed during type definition and shouldn't be re-executed for each instance
-					if expr.is_a?(Ore::Infix_Expr) && expr.operator == '=' &&
-					   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
-						next
-					end
+			runtime.push_then_pop type do
+				runtime.push_then_pop instance do |scope|
+					type.expressions.each do |expr|
+						# Skip static declarations - they were already executed during type definition and shouldn't be re-executed for each instance
+						if expr.is_a?(Ore::Infix_Expr) && expr.operator == '=' &&
+						   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
+							next
+						end
 
-					if expr.is_a?(Ore::Func_Expr) && expr.name.is_a?(Ore::Identifier_Expr) &&
-					   expr.name.scope_operator == '../'
-						next
-					end
+						if expr.is_a?(Ore::Func_Expr) && expr.name.is_a?(Ore::Identifier_Expr) &&
+						   expr.name.scope_operator == '../'
+							next
+						end
 
-					interpret expr
+						interpret expr
+					end
 				end
 			end
-			runtime.pop_scope
 
 			instance.declarations.each do |key, decl|
 				next unless decl.is_a? Ore::Func
@@ -1253,7 +1250,7 @@ module Ore
 				raise Ore::Too_Many_Subscript_Expressions.new(expr.expression, runtime)
 			end
 
-			receiver = interpret expr.receiver
+			receiver = maybe_instance interpret expr.receiver
 
 			case receiver
 			when Ore::Dictionary, Ore::Array

@@ -564,16 +564,6 @@ module Ore
 				directive.name       = expr
 				directive.expression = parse_expression
 
-				if expr.value == 'static'
-					# note: The only possible expressions here are Func_Expr and Infix_Expr.
-					case directive.expression
-					when Ore::Func_Expr
-						directive.expression.name.binding = :static
-					when Ore::Infix_Expr
-						directive.expression.left.binding = :static
-					end
-				end
-
 				copy_location directive, expr
 				return complete_expression directive, precedence
 			end
