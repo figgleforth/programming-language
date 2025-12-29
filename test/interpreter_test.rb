@@ -1959,4 +1959,16 @@ class Interpreter_Test < Base_Test
 		(a, b)"
 		assert_equal [4, 8], out.values
 	end
+
+	def test_using_pound_intrinsic_as_expression
+		code = <<~CODE
+		    String | String {
+		        upcase {;
+		        	#intrinsic + " (SWIZZLED)"
+		        }
+		    }
+			"test".upcase()
+		CODE
+		assert_equal "TEST (SWIZZLED)", Ore.interp(code)
+	end
 end

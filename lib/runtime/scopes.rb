@@ -124,7 +124,8 @@ module Ore
 
 		def initialize value = ""
 			super self.class.name
-			@value = value
+			@value        = value
+			self['value'] = value
 		end
 
 		intrinsic_delegate 'value'

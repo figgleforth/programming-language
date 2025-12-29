@@ -1,8 +1,14 @@
 `todo: Document all members
 
 String {
+	value;
+
 	length; `Total number of characters
 	ord; `Integer ordinal of the first character
+
+	new { value = '';
+		./value = value
+	}
 
 	downcase {; #intrinsic }
 	upcase {; #intrinsic }
