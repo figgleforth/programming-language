@@ -100,8 +100,8 @@ module Ore
 		attr_accessor :expressions, :intrinsic, :static, :arguments
 	end
 
-	class Html_Element < Scope
-		attr_accessor :expressions, :attributes, :types
+	class Html_Element < Instance
+		attr_accessor :expressions, :attributes
 	end
 
 	class Route < Func
@@ -198,10 +198,6 @@ module Ore
 		def get key
 			# note: This is required because Instance extends Scope whose [] method reads from @declarations
 			key.is_a?(Integer) ? values[key] : super
-		end
-
-		def []= key, value
-			values[key] = value
 		end
 
 		def == other
@@ -337,7 +333,7 @@ module Ore
 		end
 	end
 
-	class Bool < Scope
+	class Bool < Instance
 		attr_accessor :truthiness
 
 		def !
@@ -352,9 +348,9 @@ module Ore
 			@falsy ||= new(false)
 		end
 
-		private_class_method :new # prevent external instantiation
+		# private_class_method :new # prevent external instantiation
 
-		def initialize truthiness
+		def initialize truthiness = true
 			super((!!truthiness).to_s.capitalize) # Scope class only needs @name
 			@truthiness = !!truthiness
 		end
@@ -363,7 +359,7 @@ module Ore
 	class Range < ::Range
 	end
 
-	class Server < Type
+	class Server < Instance
 		attr_accessor :port, :routes
 
 		def initialize
@@ -408,6 +404,37 @@ module Ore
 			@declarations['status']  = @status
 			@declarations['headers'] = @headers
 			@declarations['body']    = @body_content
+		end
+	end
+
+	class Record < Instance
+		extend Intrinsic_Methods
+
+		def database
+			@declarations['database']
+		end
+
+		def table_name
+			@declarations['table_name'] ||= self.class.name.downcase
+		end
+	end
+
+	class Database < Instance
+		require 'sequel'
+
+		attr_accessor :database
+
+		# Calls Sequel.sqlite with the `url` declaration on this database, and returns the resulting database instance. Caches the database in @database.
+		def intrinsic_create_connection!
+			return @database if @database
+
+			url = get 'url'
+			raise Ore::Url_Not_Set_For_Database_Instance unless url
+
+			# Note: As SQLite is a file-based database, the :host and :port options are ignored, and the :database option should be a path to the file — https://sequel.jeremyevans.net/rdoc/files/doc/opening_databases_rdoc.html#label-sqlite
+			database = Sequel.sqlite adapter: 'sqlite', database: url
+
+			@declarations['connection'] = @database = database
 		end
 	end
 end

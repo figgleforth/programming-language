@@ -1,0 +1,15 @@
+Database {
+	adapter;
+	connection;
+	url;
+
+	`Creates a Sequel::SQLite::Database instance using ./adapter and ./url as configuration options. Populates ./connection with the instance, and returns it.
+	create_connection! {; #intrinsic }
+}
+
+Sqlite | Database {
+	new { url = './test/fixtures/sqlite_test.db';
+		adapter = 'sqlite'
+		./url = url
+	}
+}

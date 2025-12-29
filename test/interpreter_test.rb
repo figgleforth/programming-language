@@ -1118,7 +1118,8 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp "#load 'ore/preload.ore'; (Bool, Bool())"
 
 		assert_instance_of Ore::Type, out.values[0]
-		assert_instance_of Ore::Instance, out.values[1]
+		assert_kind_of Ore::Instance, out.values[1]
+		assert_instance_of Ore::Bool, out.values[1]
 	end
 
 	def test_standalone_load_into_current_scope

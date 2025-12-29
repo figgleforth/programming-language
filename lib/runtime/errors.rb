@@ -113,4 +113,7 @@ module Ore
 
 	class Lex_Char_Not_Implemented < Error
 	end
+
+	class Url_Not_Set_For_Database_Instance < Error
+	end
 end

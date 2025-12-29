@@ -684,16 +684,37 @@ module Ore
 			# - Delete :new from instance, no longer needed
 			#
 
-			# :generalize_me
-
-			instance                 = nil
-			case type.name
-				# todo: This case statement should handle all types that have intrinsics
-			when 'String'
-				instance = Ore::String.new
+			# todo: Clean this up
+			ore_name = "Ore::#{type.name}"
+			instance = if Object.const_defined?(ore_name)
+				konstant = Object.const_get(ore_name)
+				# note: Only instantiate if it's a subclass of Instance (but not Instance itself) to exclude core runtime types like Type, Scope, Func, etc.
+				if konstant.is_a?(Class) && konstant < Ore::Instance && konstant != Ore::Instance
+					if konstant.respond_to?(:new)
+						konstant.new
+					else
+						konstant
+					end
+				else
+					Ore::Instance.new type.name
+				end
 			else
-				instance = Ore::Instance.new type.name
+				types               = type.types.to_a # note: Types is a set, so the #to_a lets me iterate below
+				first_composed_with = "Ore::#{types[1] || types[0]}" # note: types[0] is this type's name, fallback to itself
+
+				first_composition = if Object.const_defined? first_composed_with
+					Object.const_get first_composed_with
+				else
+					Ore::Instance
+				end
+
+				if first_composition < Ore::Instance && first_composition != Ore::Instance
+					first_composition.new
+				else
+					Ore::Instance.new type.name
+				end
 			end
+
 			instance.types           = type.types
 			instance.enclosing_scope = type
 
@@ -1198,7 +1219,7 @@ module Ore
 			case expr.name.value
 			when 'echo'
 				value = interpret expr.expression
-				puts value
+				puts value # note: Don't remove this like I did, it is supposed to print out. todo: Be able to set your own output stream
 				value
 			when 'intrinsic'
 				# The #intrinsic directive evaluates to the result of calling the intrinsic Ruby method
