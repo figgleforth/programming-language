@@ -34,7 +34,7 @@ Title | Dom {
 	render {; title }
 }
 
-` Headings
+`Headings
 H1 | Dom {
 	html_element = 'h1'
 }
@@ -59,7 +59,7 @@ H6 | Dom {
 	html_element = 'h6'
 }
 
-` Text and inline elements
+`Text and inline elements
 P | Dom {
 	html_element = 'p'
 }
@@ -101,7 +101,7 @@ Pre | Dom {
 	html_element = 'pre'
 }
 
-` Lists
+`Lists
 Ul | Dom {
 	html_element = 'ul'
 }
@@ -114,7 +114,7 @@ Li | Dom {
 	html_element = 'li'
 }
 
-` Forms
+`Forms
 Form | Dom {
 	html_element = 'form'
 }
@@ -143,7 +143,7 @@ Option | Dom {
 	html_element = 'option'
 }
 
-` Containers
+`Containers
 Section | Dom {
 	html_element = 'section'
 }
@@ -176,12 +176,12 @@ Div | Dom {
 	html_element = 'div'
 }
 
-` Media
+`Media
 Img | Dom {
 	html_element = 'img'
 }
 
-` Tables
+`Tables
 Table | Dom {
 	html_element = 'table'
 }
@@ -206,7 +206,7 @@ Td | Dom {
 	html_element = 'td'
 }
 
-` Other
+`Other
 Br | Dom {
 	html_element = 'br'
 }
