@@ -1,6 +1,10 @@
 Array {
 	values;
 
+	new { values;
+		./values = values
+	}
+
 	push { item; #intrinsic }
 	pop {; #intrinsic }
 	shift {; #intrinsic }

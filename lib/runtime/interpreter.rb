@@ -31,7 +31,7 @@ module Ore
 				runtime.stack.first
 			when './' # instance within context
 				runtime.stack.reverse_each.find do |scope|
-					scope.instance_of? Ore::Instance
+					scope.is_a? Ore::Instance
 				end
 			when '../' # underlying type within context
 				runtime.stack.reverse_each.find do |scope|
@@ -508,6 +508,7 @@ module Ore
 			when '.'
 				interp_dot_infix expr
 			when '<<'
+				# todo: This was implemented sometime when I first got arrays working, but it shouldn't be special-cased like this. Once operator declarations work then this can be declared on Array as `<< {iten; ./values.push(item) }`
 				left  = maybe_instance interpret expr.left
 				right = interpret expr.right
 

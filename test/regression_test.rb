@@ -316,4 +316,49 @@ class Regression_Test < Base_Test
 		assert_equal "outer_value", out.values[0]
 		assert_equal "inner_value", out.values[1]
 	end
+
+	def test_dot_slash_inside_for_loop
+		# note: Composing Array with itself allows extending or overriding behavior of Array. Notice how `values` is accessible despite being declared on the original Array type.
+		without_prefix = <<~CODE
+		    Array | Array {
+		        each { func;
+		        	for values
+		        		func(it)
+		        	end
+		        }
+		    }
+		CODE
+
+		with_prefix = <<~CODE
+		    Array | Array {
+		        each { func;
+		        	for ./values
+		        		func(it)
+		        	end
+		        }
+		    }
+		CODE
+
+		out = Ore.interp <<~CODE
+		    values = Array([1,2,3])
+		    #{without_prefix}
+		    values2 = []
+		    values.each({it;
+		    	values2.push(it)
+		    })
+		    values2
+		CODE
+		assert_equal [1, 2, 3], out.values
+
+		out = Ore.interp <<~CODE
+		    values = Array([1,2,3])
+		    #{with_prefix}
+		    values2 = []
+		    values.each({it;
+		    	values2.push(it)
+		    })
+		    values2
+		CODE
+		assert_equal [1, 2, 3], out.values
+	end
 end
