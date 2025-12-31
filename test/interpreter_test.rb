@@ -1235,7 +1235,7 @@ class Interpreter_Test < Base_Test
 		assert_equal [[4, 8], [15, 16], [23, 42]], out.values
 	end
 
-	def test_for_loop_at_and_it_intrinsics
+	def test_for_loop_at_and_it_builtins
 		out = Ore.interp "
 		indices = []
 
@@ -1639,7 +1639,7 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	def test_intrinsic_string_members
+	def test_proxy_string_members
 		out = Ore.interp "String().length"
 		assert_equal 0, out
 
@@ -1658,16 +1658,16 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp "'WALT!'.downcase()"
 		assert_equal "walt!", out
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
-			Ore.interp "#intrinsic whatever"
+		assert_raises Ore::Invalid_Proxy_Directive_Usage do
+			Ore.interp "#proxy whatever"
 		end
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
-			Ore.interp "#intrinsic 123"
+		assert_raises Ore::Invalid_Proxy_Directive_Usage do
+			Ore.interp "#proxy 123"
 		end
 
-		assert_raises Ore::Invalid_Intrinsic_Directive_Usage do
-			Ore.interp "Type { #intrinsic 123; }"
+		assert_raises Ore::Invalid_Proxy_Directive_Usage do
+			Ore.interp "Type { #proxy 123; }"
 		end
 	end
 
@@ -1961,11 +1961,11 @@ class Interpreter_Test < Base_Test
 		assert_equal [4, 8], out.values
 	end
 
-	def test_using_pound_intrinsic_as_expression
+	def test_using_pound_proxy_as_expression
 		code = <<~CODE
 		    String | String {
 		        upcase {;
-		        	#intrinsic + " (SWIZZLED)"
+		        	#proxy + " (SWIZZLED)"
 		        }
 		    }
 			"test".upcase()

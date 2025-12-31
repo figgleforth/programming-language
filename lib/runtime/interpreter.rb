@@ -41,7 +41,7 @@ module Ore
 				# If no scope operator, search through all scopes to find the identifier
 				found_scope = nil
 				runtime.stack.reverse_each do |scope|
-					if scope.has?(expr.value) || scope.respond_to?("intrinsic_#{expr.value}")
+					if scope.has?(expr.value) || scope.respond_to?("proxy_#{expr.value}")
 						found_scope = scope
 						break
 					elsif scope.is_a?(Ore::Instance) && scope.enclosing_scope&.has?(expr.value)
@@ -191,11 +191,11 @@ module Ore
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
 				end
 			elsif scope
-				# note: Delegate intrinsic calls automatically
-				intrinsic_method = "intrinsic_#{expr.value}"
-				if scope.has?(expr.value) && !scope.respond_to?(intrinsic_method)
+				# note: Delegate ruby calls automatically
+				proxy_method = "proxy_#{expr.value}"
+				if scope.has?(expr.value) && !scope.respond_to?(proxy_method)
 					scope.get expr.value
-				elsif scope.respond_to? intrinsic_method
+				elsif scope.respond_to? proxy_method
 					type_name      = scope.class.name.split('::').last
 					type_scope     = runtime.stack.reverse_each.find { |s| s.has?(type_name) }
 					type_def       = type_scope[type_name]
@@ -208,7 +208,7 @@ module Ore
 						return func
 					else
 						# It's a variable/property
-						return scope.send(intrinsic_method)
+						return scope.send(proxy_method)
 					end
 				elsif scope.is_a?(Ore::Instance) && scope.enclosing_scope&.is_a?(Ore::Type) && scope.enclosing_scope&.has?(expr.value)
 					# todo: This seems like a hack. This currently prevents instances from shadowing it's type's declarations.
@@ -1224,16 +1224,16 @@ module Ore
 				value = interpret expr.expression
 				puts value # note: Don't remove this like I did, it is supposed to print out. todo: Be able to set your own output stream
 				value
-			when 'intrinsic'
-				# The #intrinsic directive evaluates to the result of calling the intrinsic Ruby method
+			when 'proxy'
+				# The #proxy directive evaluates to the result of calling the ruby Ruby method
 				func_scope = runtime.stack.last
 				unless func_scope.is_a? Ore::Func
-					raise Ore::Invalid_Intrinsic_Directive_Usage.new func_scope, runtime
+					raise Ore::Invalid_Proxy_Directive_Usage.new func_scope, runtime
 				end
 
 				func_name        = func_scope.name
-				intrinsic_method = "intrinsic_#{func_name}"
-				instance_or_type = func_scope.enclosing_scope # An instance or type that should have the intrinsic method declared
+				proxy_method     = "proxy_#{func_name}"
+				instance_or_type = func_scope.enclosing_scope # An instance or type that should have the ruby method declared
 
 				# note: For some types, like Record, calling a static member failed to look up its matching Ore::Record class.
 				target = if instance_or_type.instance_of?(Ore::Type) && instance_or_type.name
@@ -1254,11 +1254,11 @@ module Ore
 					instance_or_type
 				end
 
-				unless target.respond_to? intrinsic_method
-					raise Ore::Missing_Intrinsic_Method_Declaration.new expr, runtime
+				unless target.respond_to? proxy_method
+					raise Ore::Missing_Proxy_Method_Declaration.new expr, runtime
 				end
 
-				target.send intrinsic_method, *func_scope.arguments
+				target.send proxy_method, *func_scope.arguments
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
@@ -1278,11 +1278,11 @@ module Ore
 				runtime.load_file filepath, runtime.stack.last
 				# note: #load_file returns the output but it's ignored. Assigning the value of a #load directive executres code in #interp_infix_expr
 			else
-				# todo: Allow intrinsics to be extended by the user. Requirements would be:
+				# todo: Allow builtins to be extended by the user. Requirements would be:
 				#   1) Create type in Ore
 				#   2) Create equivalent type in scopes.rb or similar
-				#   3) Make sure functions which use the #intrinsic expression in its body are named in to match the Ore::Type "intrinsic_#{func_name}"
-				# For example, `String { upcase{; #intrinsic } }` maps to `Ore::String#intrinsic_upcase`
+				#   3) Make sure functions which use the #proxy expression in its body are named in to match the Ore::Type "proxy_#{func_name}"
+				# For example, `String { upcase{; #proxy } }` maps to `Ore::String#proxy_upcase`
 				raise Ore::Invalid_Directive_Usage.new(expr, runtime)
 			end
 		end

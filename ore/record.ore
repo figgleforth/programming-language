@@ -2,7 +2,7 @@ Record {
 	../database;
 	table_name;
 
-	infer_table_name_from_class! {; #intrinsic }
+	infer_table_name_from_class! {; #proxy }
 
-	../find { id; #intrinsic }
+	../find { id; #proxy }
 }

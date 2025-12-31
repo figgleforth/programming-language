@@ -1,11 +1,11 @@
 Dictionary {
-	keys {; #intrinsic }
-	values {; #intrinsic }
-	has_key? { key; #intrinsic }
-	delete { key; #intrinsic }
-	merge { other; #intrinsic }
-	count {; #intrinsic }
-	empty? {; #intrinsic }
-	clear {; #intrinsic }
-	fetch { key, default; #intrinsic }
+	keys {; #proxy }
+	values {; #proxy }
+	has_key? { key; #proxy }
+	delete { key; #proxy }
+	merge { other; #proxy }
+	count {; #proxy }
+	empty? {; #proxy }
+	clear {; #proxy }
+	fetch { key, default; #proxy }
 }

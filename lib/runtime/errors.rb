@@ -97,15 +97,15 @@ module Ore
 		# `#ident` without
 	end
 
-	class Invalid_Intrinsic_Directive_Usage < Error
-		# #intrinsic directive only supports function and variable declarations in the body of a Type declaration
+	class Missing_Proxy_Method_Declaration < Error
+	end
+
+	class Invalid_Proxy_Directive_Usage < Error
+		# #proxy directive only supports function and variable declarations in the body of a Type declaration
 	end
 
 	class Invalid_Static_Directive_Declaration < Error
 		# #static directive only supports function and variable declarations in the body of a Type declaration
-	end
-
-	class Missing_Intrinsic_Method_Declaration < Error
 	end
 
 	class Unterminated_String_Literal < Error

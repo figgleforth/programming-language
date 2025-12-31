@@ -97,7 +97,7 @@ module Ore
 	end
 
 	class Func < Scope
-		attr_accessor :expressions, :intrinsic, :static, :arguments
+		attr_accessor :expressions, :static, :arguments
 	end
 
 	class Html_Element < Instance
@@ -118,7 +118,7 @@ module Ore
 	end
 
 	class String < Instance
-		extend Intrinsic_Methods
+		extend Proxy_Methods
 
 		attr_accessor :value
 
@@ -128,27 +128,27 @@ module Ore
 			self['value'] = value
 		end
 
-		intrinsic_delegate 'value'
-		intrinsic :length
-		intrinsic :ord
-		intrinsic :upcase
-		intrinsic :downcase
-		intrinsic :split
-		intrinsic :slice!, as: :slice
-		intrinsic :strip, as: :trim
-		intrinsic :lstrip, as: :trim_left
-		intrinsic :rstrip, as: :trim_right
-		intrinsic :chars
-		intrinsic :index
-		intrinsic :to_i
-		intrinsic :to_f
-		intrinsic :empty?
-		intrinsic :include?
-		intrinsic :reverse
-		intrinsic :replace
-		intrinsic :start_with?
-		intrinsic :end_with?
-		intrinsic :gsub
+		proxy_delegate 'value'
+		proxy :length
+		proxy :ord
+		proxy :upcase
+		proxy :downcase
+		proxy :split
+		proxy :slice!, as: :slice
+		proxy :strip, as: :trim
+		proxy :lstrip, as: :trim_left
+		proxy :rstrip, as: :trim_right
+		proxy :chars
+		proxy :index
+		proxy :to_i
+		proxy :to_f
+		proxy :empty?
+		proxy :include?
+		proxy :reverse
+		proxy :replace
+		proxy :start_with?
+		proxy :end_with?
+		proxy :gsub
 
 		def + other
 			value + other.value
@@ -161,7 +161,7 @@ module Ore
 
 	# note: Be sure to prefix with Ore:: whenever referencing this Array type to prevent ambiguity with Ruby's ::Array!
 	class Array < Instance
-		extend Intrinsic_Methods
+		extend Proxy_Methods
 		attr_accessor :values
 
 		def initialize values = []
@@ -169,27 +169,27 @@ module Ore
 			@values = values
 		end
 
-		intrinsic_delegate 'values'
-		intrinsic :push
-		intrinsic :pop
-		intrinsic :shift
-		intrinsic :unshift
-		intrinsic :length
-		intrinsic :first
-		intrinsic :last
-		intrinsic :slice
-		intrinsic :reverse
-		intrinsic :join
-		intrinsic :sort
-		intrinsic :uniq
-		intrinsic :include?
-		intrinsic :empty?
+		proxy_delegate 'values'
+		proxy :push
+		proxy :pop
+		proxy :shift
+		proxy :unshift
+		proxy :length
+		proxy :first
+		proxy :last
+		proxy :slice
+		proxy :reverse
+		proxy :join
+		proxy :sort
+		proxy :uniq
+		proxy :include?
+		proxy :empty?
 
-		def intrinsic_concat other_array
+		def proxy_concat other_array
 			values.concat other_array.values
 		end
 
-		def intrinsic_flatten depth = -1
+		def proxy_flatten depth = -1
 			# Convert Ore::Array objects to Ruby arrays for flattening
 			ruby_array = values.map { |v| v.is_a?(Ore::Array) ? v.values : v }
 			Ore::Array.new ruby_array.flatten depth
@@ -211,7 +211,7 @@ module Ore
 	end
 
 	class Dictionary < Instance
-		extend Intrinsic_Methods
+		extend Proxy_Methods
 		attr_accessor :dict
 
 		def initialize dict = {}
@@ -219,17 +219,17 @@ module Ore
 			@dict = dict
 		end
 
-		intrinsic_delegate 'dict'
-		intrinsic :has_key?
-		intrinsic :delete
-		intrinsic :count
-		intrinsic :keys
-		intrinsic :values
-		intrinsic :empty?
-		intrinsic :clear
-		intrinsic :fetch
+		proxy_delegate 'dict'
+		proxy :has_key?
+		proxy :delete
+		proxy :count
+		proxy :keys
+		proxy :values
+		proxy :empty?
+		proxy :clear
+		proxy :fetch
 
-		def intrinsic_merge other_dict
+		def proxy_merge other_dict
 			dict.merge other_dict.dict
 		end
 
@@ -257,7 +257,7 @@ module Ore
 	end
 
 	class Number < Instance
-		extend Intrinsic_Methods
+		extend Proxy_Methods
 		attr_accessor :numerator, :denominator, :type
 
 		def + other
@@ -304,19 +304,19 @@ module Ore
 			numerator | other.numerator
 		end
 
-		intrinsic_delegate 'numerator'
-		intrinsic :to_s
-		intrinsic :abs
-		intrinsic :floor
-		intrinsic :ceil
-		intrinsic :round
-		intrinsic :even?
-		intrinsic :odd?
-		intrinsic :to_i
-		intrinsic :to_f
-		intrinsic :clamp
+		proxy_delegate 'numerator'
+		proxy :to_s
+		proxy :abs
+		proxy :floor
+		proxy :ceil
+		proxy :round
+		proxy :even?
+		proxy :odd?
+		proxy :to_i
+		proxy :to_f
+		proxy :clamp
 
-		def intrinsic_sqrt
+		def proxy_sqrt
 			Math.sqrt numerator
 		end
 	end
@@ -408,15 +408,15 @@ module Ore
 	end
 
 	class Record < Instance
-		extend Intrinsic_Methods
+		extend Proxy_Methods
 
-		def intrinsic_infer_table_name_from_class!
+		def proxy_infer_table_name_from_class!
 			require 'sequel/extensions/inflector.rb'
 			first_type                  = types.to_a.first
 			@declarations['table_name'] = first_type.split('::').last.downcase.pluralize
 		end
 
-		def intrinsic_find id
+		def proxy_find id
 			raise Ore::Database_Not_Set_For_Record_Instance unless get 'database'
 		end
 	end
@@ -427,7 +427,7 @@ module Ore
 		attr_accessor :database
 
 		# Calls Sequel.sqlite with the `url` declaration on this database, and returns the resulting database instance. Caches the database in @database.
-		def intrinsic_create_connection!
+		def proxy_create_connection!
 			return @database if @database
 
 			url = get 'url'

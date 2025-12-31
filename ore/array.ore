@@ -5,22 +5,22 @@ Array {
 		./values = values
 	}
 
-	push { item; #intrinsic }
-	pop {; #intrinsic }
-	shift {; #intrinsic }
-	unshift { item; #intrinsic }
-	length {; #intrinsic }
-	first { count; #intrinsic }
-	last { count; #intrinsic }
-	slice { from, to; #intrinsic }
-	reverse {; #intrinsic }
-	join { separator; #intrinsic }
-	concat { other; #intrinsic }
-	flatten {; #intrinsic }
-	sort {; #intrinsic }
-	uniq {; #intrinsic }
-	include? { item; #intrinsic }
-	empty? {; #intrinsic }
+	push { item; #proxy }
+	pop {; #proxy }
+	shift {; #proxy }
+	unshift { item; #proxy }
+	length {; #proxy }
+	first { count; #proxy }
+	last { count; #proxy }
+	slice { from, to; #proxy }
+	reverse {; #proxy }
+	join { separator; #proxy }
+	concat { other; #proxy }
+	flatten {; #proxy }
+	sort {; #proxy }
+	uniq {; #proxy }
+	include? { item; #proxy }
+	empty? {; #proxy }
 
 	find { func;
 		for values

@@ -63,8 +63,8 @@ Greet('Ore').greeting()
 - First-class functions and classes
 - Data containers `List`, `Tuple`, `Dictionary`
 - Loops like `for`, `while`, and `until`
-	- Intrinsic `it` for iteration value
-	- Intrinsic `at` for iteration index
+	- Automatic `it` declaration for iteration value
+	- Automatic `at` declaration for iteration index
 	- `skip` and `stop` keywords for loop control
 	- Stride support with `for x by 2` syntax
 - Unpacking an instance's declarations with `@` operator

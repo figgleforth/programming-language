@@ -4,7 +4,7 @@ Database {
 	url;
 
 	`Creates a Sequel::SQLite::Database instance using ./adapter and ./url as configuration options. Populates ./connection with the instance, and returns it.
-	create_connection! {; #intrinsic }
+	create_connection! {; #proxy }
 }
 
 Sqlite | Database {
