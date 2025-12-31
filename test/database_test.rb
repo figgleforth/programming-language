@@ -5,8 +5,8 @@ require 'net/http'
 require 'uri'
 
 class Database_Test < Base_Test
-	DATABASE = "#load 'ore/database.ore'"
-	RECORD   = "#load 'ore/record.ore'"
+	DATABASE = "#use 'ore/database.ore'"
+	RECORD   = "#use 'ore/record.ore'"
 
 	def test_database_instance
 		out = Ore.interp <<~ORE

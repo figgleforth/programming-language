@@ -407,8 +407,8 @@ Ore has built-in web server support:
 
 ## File Loading
 
-The `#load` directive allows importing Ore files:
+The `#use` directive allows importing Ore files:
 
 - Context tracks loaded files to prevent duplicate parsing
-- Files are loaded into specified scope via `Context#load_file`
+- Files are loaded into specified scope via `Runtime#load_file`
 - Expressions are cached in `@loaded_files` hash keyed by resolved filepath
