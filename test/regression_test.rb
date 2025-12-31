@@ -382,4 +382,12 @@ class Regression_Test < Base_Test
 			ORE
 		end
 	end
+
+	def test_commented_closing_brace_causing_infinite_loop
+		Ore.interp <<~ORE
+		    Thing {
+		    `}
+		    }
+		ORE
+	end
 end

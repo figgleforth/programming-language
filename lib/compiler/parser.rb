@@ -281,15 +281,17 @@ module Ore
 			end
 
 			eat '{'
+			reduce_newlines
 
-			until curr? '}'
+			until curr?(:delimiter) && curr?('}') # note: Added explicit check for delimiter because there was a bug where a comment whose value is simply "}" was evaluating to true in this condition, leaving the parser with an unhandled } todo: Maybe #curr? should always return false if it detects a comment?
 				it.expressions << parse_expression
 				reduce_newlines
 			end
 
 			it.expressions = it.expressions.compact
 
-			eat '}'
+			eat '}' and assert !curr?('}')
+
 			it
 			copy_location it, start
 		end

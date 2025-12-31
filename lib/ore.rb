@@ -16,6 +16,8 @@ require_relative 'runtime/server_runner'
 require_relative 'runtime/dom_renderer'
 require_relative 'runtime/interpreter'
 
+def assert(args) = Ore.assert(*args)
+
 module Ore
 	extend Helpers
 
