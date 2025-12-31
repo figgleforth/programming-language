@@ -1235,14 +1235,14 @@ module Ore
 				proxy_method     = "proxy_#{func_name}"
 				instance_or_type = func_scope.enclosing_scope # An instance or type that should have the ruby method declared
 
-				# note: For some types, like Record, calling a static member failed to look up its matching Ore::Record class.
+				# note: For static proxies on Types (like Record.find), create a temporary instance of the Ruby class. This allows the proxy method to access the Type's declarations.
 				target = if instance_or_type.instance_of?(Ore::Type) && instance_or_type.name
 					ore_class_name = "Ore::#{instance_or_type.name}"
 					if Object.const_defined?(ore_class_name)
 						konstant = Object.const_get ore_class_name
 						if konstant.is_a?(Class) && konstant < Ore::Instance
-							temp_instance = konstant.new instance_or_type.name
-							instance_or_type.declarations.each { |k, v| temp_instance[k] = v } # todo: I don't like this at all, but it fixes the issue noted above.
+							temp_instance              = konstant.new instance_or_type.name
+							temp_instance.declarations = instance_or_type.declarations
 							temp_instance
 						else
 							instance_or_type

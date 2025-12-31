@@ -81,9 +81,8 @@ class Database_Test < Base_Test
 			    db = Sqlite()
 			   	db.create_connection!()
 
-			    r = Record()
-			   	r.database = db.connection
-			   	r.find(1)
+			   	Record.database = db.connection
+			   	Record.find(1)
 			ORE
 		end
 	end
