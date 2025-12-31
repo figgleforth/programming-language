@@ -374,7 +374,7 @@ class Regression_Test < Base_Test
 			ORE
 		end
 
-		assert_raises Ore::Missing_Intrinsic_Method_Declaration do
+		assert_raises Ore::Database_Not_Set_For_Record_Instance do
 			Ore.interp <<~ORE
 			    #load 'ore/record.ore'
 

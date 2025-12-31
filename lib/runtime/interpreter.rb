@@ -1235,14 +1235,30 @@ module Ore
 				intrinsic_method = "intrinsic_#{func_name}"
 				instance_or_type = func_scope.enclosing_scope # An instance or type that should have the intrinsic method declared
 
-				unless instance_or_type.respond_to? intrinsic_method
-					puts "directive:", expr.inspect
-					puts "current_scope:", func_scope.inspect
-					puts "intrinsic_method:", intrinsic_method.inspect
+				# note: For some types, like Record, calling a static member failed to look up its matching Ore::Record class.
+				target = if instance_or_type.instance_of?(Ore::Type) && instance_or_type.name
+					ore_class_name = "Ore::#{instance_or_type.name}"
+					if Object.const_defined?(ore_class_name)
+						konstant = Object.const_get ore_class_name
+						if konstant.is_a?(Class) && konstant < Ore::Instance
+							temp_instance = konstant.new instance_or_type.name
+							instance_or_type.declarations.each { |k, v| temp_instance[k] = v } # todo: I don't like this at all, but it fixes the issue noted above.
+							temp_instance
+						else
+							instance_or_type
+						end
+					else
+						instance_or_type
+					end
+				else
+					instance_or_type
+				end
+
+				unless target.respond_to? intrinsic_method
 					raise Ore::Missing_Intrinsic_Method_Declaration.new expr, runtime
 				end
 
-				instance_or_type.send intrinsic_method, *func_scope.arguments
+				target.send intrinsic_method, *func_scope.arguments
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
