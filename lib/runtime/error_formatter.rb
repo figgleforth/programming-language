@@ -56,7 +56,7 @@ module Ore
 			parts  = []
 			indent = "    "
 
-			parts << error_name_styled
+			parts << "ORE ERROR #{error_name_styled}"
 
 			if location_available?
 				parts << ""
@@ -110,7 +110,7 @@ module Ore
 
 				# Expand tabs once per line for consistent display
 				visual_content = line_content.gsub("\t", "    ")
-				prefix         = Colors.cyan("#{line_num.to_s.rjust(5)} | ")
+				gutter         = Colors.cyan("#{line_num.to_s.rjust(5)} | ")
 
 				is_error_line = (line_num >= l0 && line_num <= l1)
 
@@ -130,23 +130,32 @@ module Ore
 					after      = visual_content[visual_end_char_count..-1] || ""
 
 					# Apply color/style to the error span
-					styled_span = Colors.bold(Colors.red(error_span))
+					styled_span    = Colors.bold(Colors.red(error_span))
+					gutter         = Colors.cyan("#{' '.rjust(5)} │ ")
+					gutter_no_pipe = Colors.cyan("#{' '.rjust(5)} ")
+					spaces         = " " * visual_start_char_count
 
 					# Use Colors.make only for the single-line case where we want a different style
 					if l0 == l1 && line_num == l0
 						styled_span = Colors.bold(Colors.make(error_span))
 					end
 
-					snippet_lines << prefix + before + styled_span + after
-					spaces      = " " * visual_start_char_count
-					error_label = error_name.gsub '_', ' '
+					error_line = spaces + Colors.bold(Colors.cyan("╭── " + location_line))
 
-					prefix     = Colors.cyan("#{' '.rjust(5)} | ")
-					error_line = spaces + Colors.bold(Colors.red("╰── " + error_label))
-					snippet_lines << prefix + error_line
+					snippet_lines << gutter_no_pipe + error_line
+
+					snippet_lines << gutter
+					snippet_lines << gutter + before + styled_span + after
+
+					snippet_lines << gutter
+
+					error_label = error_name.gsub '_', ' '
+					error_line  = Colors.bold(Colors.cyan("╰── ") + Colors.red(error_label))
+
+					snippet_lines << gutter_no_pipe + error_line
 				else
 					# Regular surrounding line
-					snippet_lines << prefix + visual_content
+					snippet_lines << gutter + visual_content
 				end
 			end
 
