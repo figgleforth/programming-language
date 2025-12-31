@@ -67,10 +67,9 @@ class Database_Test < Base_Test
 
 	def test_record_requires_database_to_use_query_methods
 		assert_raises Ore::Database_Not_Set_For_Record_Instance do
-			# bug note: Record.find() raises Missing_Proxy_Method_Declaration so for now calling the static method through an instance
 			Ore.interp <<~ORE
 			    #{RECORD}
-			    Record().find(1)
+			    Record.find(1)
 			ORE
 		end
 
