@@ -6,6 +6,7 @@ require 'uri'
 
 class Database_Test < Base_Test
 	DATABASE = "#load 'ore/database.ore'"
+	RECORD   = "#load 'ore/record.ore'"
 
 	def test_database_instance
 		out = Ore.interp <<~ORE
@@ -47,5 +48,43 @@ class Database_Test < Base_Test
 		    (c1, c2)
 		ORE
 		assert_equal out.values[0].object_id, out.values[1].object_id
+	end
+
+	def test_inferring_record_table_name
+		out = Ore.interp <<~ORE
+		    #{RECORD}
+			r = Record()
+			r.table_name
+
+			Thing | Record {}
+			t = Thing()
+			t.infer_table_name_from_class!()
+			(r, t)
+		ORE
+		assert_nil out.values.first.get 'table_name'
+		assert_equal 'things', out.values.last.get('table_name')
+	end
+
+	def test_record_requires_database_to_use_query_methods
+		assert_raises Ore::Database_Not_Set_For_Record_Instance do
+			# bug note: Record.find() raises Missing_Intrinsic_Method_Declaration so for now calling the static method through an instance
+			Ore.interp <<~ORE
+			    #{RECORD}
+			    Record().find(1)
+			ORE
+		end
+
+		refute_raises Ore::Database_Not_Set_For_Record_Instance do
+			Ore.interp <<~ORE
+				#{DATABASE}
+			    #{RECORD}
+			    db = Sqlite()
+			   	db.create_connection!()
+
+			    r = Record()
+			   	r.database = db.connection
+			   	r.find(1)
+			ORE
+		end
 	end
 end

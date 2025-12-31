@@ -410,12 +410,14 @@ module Ore
 	class Record < Instance
 		extend Intrinsic_Methods
 
-		def database
-			@declarations['database']
+		def intrinsic_infer_table_name_from_class!
+			require 'sequel/extensions/inflector.rb'
+			first_type                  = types.to_a.first
+			@declarations['table_name'] = first_type.split('::').last.downcase.pluralize
 		end
 
-		def table_name
-			@declarations['table_name'] ||= self.class.name.downcase
+		def intrinsic_find id
+			raise Ore::Database_Not_Set_For_Record_Instance unless get 'database'
 		end
 	end
 

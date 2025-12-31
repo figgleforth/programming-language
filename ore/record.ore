@@ -1,3 +1,8 @@
 Record {
+	../database;
 	table_name;
+
+	infer_table_name_from_class! {; #intrinsic }
+
+	../find { id; #intrinsic }
 }

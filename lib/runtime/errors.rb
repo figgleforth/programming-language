@@ -105,6 +105,9 @@ module Ore
 		# #static directive only supports function and variable declarations in the body of a Type declaration
 	end
 
+	class Missing_Intrinsic_Method_Declaration < Error
+	end
+
 	class Unterminated_String_Literal < Error
 	end
 
@@ -115,5 +118,8 @@ module Ore
 	end
 
 	class Url_Not_Set_For_Database_Instance < Error
+	end
+
+	class Database_Not_Set_For_Record_Instance < Error
 	end
 end

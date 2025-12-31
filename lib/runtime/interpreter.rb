@@ -668,6 +668,33 @@ module Ore
 			end
 		end
 
+		def interp_type expr
+			type             = Ore::Type.new expr.name.value
+			type.expressions = expr.expressions
+
+			ore_name = "Ore::#{expr.name.value}"
+			defined  = Object.const_defined? ore_name
+			link_instance_to_type type, expr.name.value if defined
+
+			if type.types
+				type.types << type.name
+			else
+				type.types = [type.name]
+			end
+
+			# todo: Make @types a set
+			type.types = type.types.uniq
+
+			runtime.push_then_pop type do |scope|
+				expr.expressions.each do |expr|
+					interpret expr
+				end
+			end
+
+			runtime.stack.last.declare type.name, type
+			type
+		end
+
 		def interp_type_call type, expr
 			#
 			# Ore::Type_Expr is converted to Ore::Type in #interp_type.
@@ -758,6 +785,25 @@ module Ore
 
 			instance.delete :new
 			instance
+		end
+
+		def interp_func expr
+			func                 = Ore::Func.new expr.name&.value
+			func.enclosing_scope = runtime.stack.last
+			func.expressions     = expr.expressions
+
+			if func.name
+				runtime.stack.last.declare func.name, func
+
+				# Track static functions (functions defined with ../)
+				# Get the original name expression to check for scope operator
+				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '../'
+					runtime.stack.last.static_declarations ||= Set.new
+					runtime.stack.last.static_declarations.add func.name.to_s
+				end
+			end
+
+			func
 		end
 
 		def interp_func_call func, expr
@@ -906,30 +952,6 @@ module Ore
 			result
 		end
 
-		def interp_type expr
-			type = Ore::Type.new expr.name.value
-
-			type.expressions = expr.expressions
-
-			if type.types
-				type.types << type.name
-			else
-				type.types = [type.name]
-			end
-
-			# todo: Make @types a set
-			type.types = type.types.uniq
-
-			runtime.push_then_pop type do |scope|
-				expr.expressions.each do |expr|
-					interpret expr
-				end
-			end
-
-			runtime.stack.last.declare type.name, type
-			type
-		end
-
 		def interp_element expr
 			element             = Ore::Html_Element.new expr.element.value
 			element.expressions = expr.expressions
@@ -988,25 +1010,6 @@ module Ore
 			runtime.stack.last.declare route_key, route if expression.name && expression.name != 'Ore::Func'
 
 			route
-		end
-
-		def interp_func expr
-			func                 = Ore::Func.new expr.name&.value
-			func.enclosing_scope = runtime.stack.last
-			func.expressions     = expr.expressions
-
-			if func.name
-				runtime.stack.last.declare func.name, func
-
-				# Track static functions (functions defined with ../)
-				# Get the original name expression to check for scope operator
-				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '../'
-					runtime.stack.last.static_declarations ||= Set.new
-					runtime.stack.last.static_declarations.add func.name.to_s
-				end
-			end
-
-			func
 		end
 
 		def interp_composition expr
@@ -1224,14 +1227,19 @@ module Ore
 			when 'intrinsic'
 				# The #intrinsic directive evaluates to the result of calling the intrinsic Ruby method
 				func_scope = runtime.stack.last
-				raise Ore::Invalid_Intrinsic_Directive_Usage.new(func_scope, runtime) unless func_scope.is_a? Ore::Func
+				unless func_scope.is_a? Ore::Func
+					raise Ore::Invalid_Intrinsic_Directive_Usage.new func_scope, runtime
+				end
 
 				func_name        = func_scope.name
-				instance_or_type = runtime.stack[-2] # This is instance/type that has the intrinsic method is one level down the stack
 				intrinsic_method = "intrinsic_#{func_name}"
+				instance_or_type = func_scope.enclosing_scope # An instance or type that should have the intrinsic method declared
 
 				unless instance_or_type.respond_to? intrinsic_method
-					raise Ore::Invalid_Directive_Usage.new expr, runtime
+					puts "directive:", expr.inspect
+					puts "current_scope:", func_scope.inspect
+					puts "intrinsic_method:", intrinsic_method.inspect
+					raise Ore::Missing_Intrinsic_Method_Declaration.new expr, runtime
 				end
 
 				instance_or_type.send intrinsic_method, *func_scope.arguments
