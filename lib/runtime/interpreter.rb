@@ -69,8 +69,7 @@ module Ore
 				link_instance_to_type string, 'String'
 				string
 			when ::Array
-				array        = Ore::Array.new
-				array.values = expr
+				array = Ore::Array.new expr
 				link_instance_to_type array, 'Array'
 				array
 			when nil
@@ -198,7 +197,7 @@ module Ore
 				elsif scope.respond_to? proxy_method
 					type_name      = scope.class.name.split('::').last
 					type_scope     = runtime.stack.reverse_each.find { |s| s.has?(type_name) }
-					type_def       = type_scope[type_name]
+					type_def       = type_scope[type_name] if type_scope
 					declared_value = type_def[expr.value] if type_def
 
 					if declared_value.is_a? Ore::Func
@@ -909,7 +908,8 @@ module Ore
 			body   = handler.expressions - params
 			result = nil
 
-			body.each do |expr|
+			body.compact.each do |expr|
+				# bug todo: Sometimes body contains `nil` when that should never be the case
 				next if expr.is_a? Ore::Param_Expr # Reminder, param expressions are part of the function body by design. This is redundant because I'm subtracting the params from the handler expressions a few lines above, but just in case!
 
 				result = interpret expr

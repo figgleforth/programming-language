@@ -83,6 +83,7 @@ module Ore
 			super name
 			@types               = Set[name]
 			@static_declarations = Set.new
+			@expressions         = [] # note: Fancy subclasses of this like Ore::Array don't have @expressions therefore fail in places I assume @expressions is an array with some elements. Therefore giving it a default value here.
 		end
 
 		def has? identifier
@@ -165,8 +166,9 @@ module Ore
 		attr_accessor :values
 
 		def initialize values = []
-			super 'List'
-			@values = values
+			super 'Array'
+			@values                 = values
+			@declarations['values'] = values
 		end
 
 		proxy_delegate 'values'

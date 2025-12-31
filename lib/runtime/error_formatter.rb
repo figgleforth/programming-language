@@ -110,7 +110,7 @@ module Ore
 
 				# Expand tabs once per line for consistent display
 				visual_content = line_content.gsub("\t", "    ")
-				prefix         = Colors.cyan("#{line_num.to_s.rjust(5)} | ")
+				prefix         = Colors.cyan("#{line_num.to_s.rjust(5)} │ ")
 
 				is_error_line = (line_num >= l0 && line_num <= l1)
 
@@ -141,7 +141,7 @@ module Ore
 					spaces      = " " * visual_start_char_count
 					error_label = error_name.gsub '_', ' '
 
-					prefix     = Colors.cyan("#{' '.rjust(5)} | ")
+					prefix     = Colors.cyan("#{' '.rjust(5)} │ ")
 					error_line = spaces + Colors.bold(Colors.red("╰── " + error_label))
 					snippet_lines << prefix + error_line
 				else
