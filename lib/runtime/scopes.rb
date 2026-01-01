@@ -187,6 +187,10 @@ module Ore
 		proxy :include?
 		proxy :empty?
 
+		def proxy_get index
+			get index
+		end
+
 		def proxy_concat other_array
 			values.concat other_array.values
 		end

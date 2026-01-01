@@ -1,0 +1,81 @@
+#use 'ore/html.ore'
+#use 'ore/database.ore'
+#use 'ore/record.ore'
+#use 'ore/server.ore'
+
+Page_Layout | Html {
+	css_filter = 'invert()'
+	css_font_size = '1.6em'
+	css_font_family = 'monospace'
+	css_padding = '2em'
+
+	render {;
+		[Head(Title("Todos")), Body(children)]
+	}
+}
+
+Todo_View | Div {
+	todo;
+
+	new { todo = 'New Todo';
+		./todo = todo
+	}
+
+	render {;
+		[A('/', 'Back to all'), Br(), todo]
+	}
+}
+
+Todo_Item | Li {
+	id;
+	text;
+
+	new { text, id;
+		./text = text
+		./id = id
+	}
+
+	render {;
+		A("/|id|", text)
+	}
+}
+
+Todo_List | Ul {
+	todos;
+
+	new { todos = [];
+		./todos = todos
+	}
+
+	render {;
+		todos.map({it, at;
+			Todo_Item(it, at)
+		})
+	}
+}
+
+App | Server {
+	port = 80
+
+	todos = []
+
+	new { todos;
+		./todos = todos
+	}
+
+	get:// {;
+		Page_Layout(Todo_List(todos))
+	}
+
+	get://:id { id;
+		Page_Layout(Todo_View(todos[id.to_i()]))
+	}
+}
+
+todos = [
+	"Database code",
+	"Record code"
+]
+
+app = App(todos)
+#start app

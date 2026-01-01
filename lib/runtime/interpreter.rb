@@ -869,13 +869,15 @@ module Ore
 		# @param req [Ore::Request] Request object to inject
 		# @param res [Ore::Response] Response object to inject
 		# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
+		# @param server_instance [Ore::Instance] The server instance (for accessing instance variables)
 		# @return The result of handler execution
-		def interp_route_handler route, req, res, url_params = {}
+		def interp_route_handler route, req, res, url_params = {}, server_instance: nil
 			handler = route.handler
 			params  = handler.expressions.select { |e| e.is_a? Ore::Param_Expr }
 
 			call_scope = Ore::Scope.new "#{handler.name || 'anonymous'}_route"
 			runtime.push_scope handler.enclosing_scope
+			runtime.push_scope server_instance if server_instance
 			runtime.push_scope call_scope
 
 			# Make request and response available without explicit declaration
@@ -942,11 +944,16 @@ module Ore
 				end
 			end
 
-			# Clean up scopes
-			popped_call      = runtime.pop_scope
-			popped_enclosing = runtime.pop_scope
-
+			# Clean up scopes in reverse order
+			popped_call = runtime.pop_scope
 			Ore.assert popped_call == call_scope
+
+			if server_instance
+				popped_instance = runtime.pop_scope
+				Ore.assert popped_instance == server_instance
+			end
+
+			popped_enclosing = runtime.pop_scope
 			Ore.assert popped_enclosing == handler.enclosing_scope
 
 			result
@@ -1369,6 +1376,7 @@ module Ore
 				when 'stop'
 					throw :stop
 				end
+			when nil
 			else
 				raise Ore::Interpret_Expr_Not_Implemented.new(expr, runtime)
 			end

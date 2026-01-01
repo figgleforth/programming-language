@@ -83,7 +83,7 @@ class ProxiesTest < Base_Test
 
 		assert_equal "1,2,3", Ore.interp("[1, 2, 3].join(',')")
 
-		assert_equal [2, 4, 6], Ore.interp("[1, 2, 3].map({ x; x * 2 })").values
+		assert_equal [2, 4, 6], Ore.interp("[1, 2, 3].map({ x, i; x * 2 })").values
 		assert_equal [2, 4], Ore.interp("[1, 2, 3, 4].filter({ x; x % 2 == 0 })").values
 		assert_equal 10, Ore.interp("[1, 2, 3, 4].reduce(0, { acc, x; acc + x })")
 

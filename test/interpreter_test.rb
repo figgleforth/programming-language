@@ -1222,6 +1222,29 @@ class Interpreter_Test < Base_Test
 		assert out.values[0]
 	end
 
+	def test_for_loop_with_scopes
+		out = Ore.interp <<~ORE
+		    Numbers {
+		    	numbers = []
+
+				new { numbers;
+					./numbers = numbers
+				}
+
+		    	multiply { by;
+					result = []
+		    		for ./numbers
+		    			result.push(it * by)
+		    		end
+		    		result
+		    	}
+		    }
+
+		    Numbers([1, 2, 3]).multiply(2)
+		ORE
+		assert_equal [2, 4, 6], out.values
+	end
+
 	def test_for_loop_by_strides
 		out = Ore.interp "
 		NUMBERS = [4, 8, 15, 16, 23, 42]

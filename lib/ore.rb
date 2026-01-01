@@ -49,10 +49,10 @@ module Ore
 			while reload && !shutdown
 				reload = false
 
-				code    = File.read filepath
-				runtime = Ore::Runtime.new
-				runtime.register_source filepath, code
+				code        = File.read filepath
 				global      = Ore::Global.with_standard_library
+				runtime     = Ore::Runtime.new global
+				runtime.register_source filepath, code
 				expressions = Ore.parse(code, filepath: filepath)
 				interpreter = Ore::Interpreter.new expressions, runtime
 				result      = interpreter.output

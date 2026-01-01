@@ -21,6 +21,7 @@ Array {
 	uniq {; #proxy }
 	include? { item; #proxy }
 	empty? {; #proxy }
+	get { index; #proxy }
 
 	find { func;
 		for values
@@ -52,7 +53,7 @@ Array {
 	map { func;
 		result = []
 		for values
-			result << func(it)
+			result << func(it, at)
 		end
 		result
 	}
