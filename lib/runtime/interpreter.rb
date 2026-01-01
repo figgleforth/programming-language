@@ -193,7 +193,14 @@ module Ore
 				# note: Delegate ruby calls automatically
 				proxy_method = "proxy_#{expr.value}"
 				if scope.has?(expr.value) && !scope.respond_to?(proxy_method)
-					scope.get expr.value
+					result = scope.get expr.value
+					# If the result is a function, duplicate it and set its enclosing_scope to the current scope. This ensures composed types (like `Thing | Record`) have functions that reference the correct type
+					if result.is_a? Ore::Func
+						func                 = result.dup
+						func.enclosing_scope = scope
+						return func
+					end
+					result
 				elsif scope.respond_to? proxy_method
 					type_name      = scope.class.name.split('::').last
 					type_scope     = runtime.stack.reverse_each.find { |s| s.has?(type_name) }
@@ -1244,16 +1251,24 @@ module Ore
 
 				# note: For static proxies on Types (like Record.find), create a temporary instance of the Ruby class. This allows the proxy method to access the Type's declarations.
 				target = if instance_or_type.instance_of?(Ore::Type) && instance_or_type.name
-					ore_class_name = "Ore::#{instance_or_type.name}"
-					if Object.const_defined?(ore_class_name)
-						konstant = Object.const_get ore_class_name
-						if konstant.is_a?(Class) && konstant < Ore::Instance
-							temp_instance              = konstant.new instance_or_type.name
-							temp_instance.declarations = instance_or_type.declarations
-							temp_instance
-						else
-							instance_or_type
+					# Check all types in the composition to find a matching Ruby class
+					matching_class = nil
+					instance_or_type.types.to_a.reverse.each do |type_name|
+						ore_class_name = "Ore::#{type_name}"
+						if Object.const_defined?(ore_class_name)
+							konstant = Object.const_get ore_class_name
+							if konstant.is_a?(Class) && konstant < Ore::Instance
+								matching_class = konstant
+								break
+							end
 						end
+					end
+
+					if matching_class
+						temp_instance              = matching_class.new instance_or_type.name
+						temp_instance.declarations = instance_or_type.declarations
+						# todo: Do static_declarations need to be copied over?
+						temp_instance
 					else
 						instance_or_type
 					end
