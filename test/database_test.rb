@@ -105,7 +105,7 @@ class Database_Test < Base_Test
 
 			(pre_tables, post_tables)
 		ORE
-		assert_equal [[], [:users]], out.values.map { |ore_array| ore_array.get('values') }
+		assert_equal [[], [:users]], out.values.map { |ore_array| ore_array.get('values').values }
 	end
 
 	def test_record_database_reference

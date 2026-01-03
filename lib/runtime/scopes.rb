@@ -168,7 +168,7 @@ module Ore
 		def initialize values = []
 			super 'Array'
 			@values                 = values
-			@declarations['values'] = values
+			@declarations['values'] = self
 		end
 
 		proxy_delegate 'values'
@@ -240,11 +240,12 @@ module Ore
 		end
 
 		def [] key
-			dict[key]
+			dict[key] || declarations[key]
 		end
 
 		def []= key, value
-			dict[key] = value
+			dict[key]         = value
+			declarations[key] = value
 		end
 
 		def == other
@@ -329,7 +330,7 @@ module Ore
 
 	class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value.
 		NIL = new()
-		
+
 		def self.shared
 			NIL
 		end
@@ -499,6 +500,10 @@ module Ore
 					end
 				end
 			end
+		end
+
+		def proxy_delete_table name
+			connection.drop_table name.to_sym
 		end
 
 		def proxy_table_exists? table_name

@@ -22,7 +22,7 @@ Single_Todo | Div {
 	}
 
 	render {;
-		[A('/', 'Back to all'), Br(), todo]
+		[A('/', 'Back to all'), Br(), Todo_Item(todo)]
 	}
 }
 
@@ -30,13 +30,13 @@ Todo_Item | Li {
 	id;
 	data;
 
-	new { data, id;
-		./data = data
-		./id = id
+	new { todo;
+		./data = todo[:text]
+		./id = todo[:id]
 	}
 
 	render {;
-		A("/|id|", data)
+		A("/|id|", "|id|: |data|")
 	}
 }
 
@@ -49,7 +49,7 @@ List_Of_Todos | Ul {
 
 	render {;
 		todos.map({ it, at;
-			Todo_Item(it['text'], at)
+			Todo_Item(it)
 		})
 	}
 }
@@ -68,10 +68,10 @@ App | Server {
 	}
 
 	get://:id { id;
-		Page_Layout(Single_Todo(todos[id.to_i()]))
+		todo = todos[id.to_i() - 1]
+		Page_Layout(Single_Todo(todo))
 	}
 }
-
 
 db = Sqlite('./temp/todo_app.db') `Sqlite composes with Database
 #connect db  `=> calls Database#create_connection!
@@ -81,14 +81,23 @@ Todo | Record {
 	table_name = 'todos'
 }
 
-if !db.table_exists?('todos')
-	db.create_table('todos' { id: 'primary_key', text: 'String' })
-	Todo.create({text: "Make Databases work"})
-	Todo.create({text: "Allow reading and writing Records"})
-	Todo.create({text: "Show Todos in this app"})
+if db.table_exists?('todos')
+	db.delete_table('todos')
+	db.create_table('todos', { id: 'primary_key', text: 'String' })
 end
 
-todos = Todo.all()
+Todo.create({text: "Make Databases work"})
+Todo.create({text: "Allow reading and writing Records"})
+Todo.create({text: "Show Todos in this app"})
+Todo.create({text: "Implement user authentication"})
+Todo.create({text: "Add dark mode toggle"})
+Todo.create({text: "Write comprehensive documentation"})
+Todo.create({text: "Optimize database queries"})
+Todo.create({text: "Add file upload feature"})
+Todo.create({text: "Create RESTful API endpoints"})
+Todo.create({text: "Build admin dashboard"})
 
+todos = Todo.all()
 app = App(todos)
+
 #start app

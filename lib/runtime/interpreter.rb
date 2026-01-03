@@ -72,6 +72,10 @@ module Ore
 				array = Ore::Array.new expr
 				link_instance_to_type array, 'Array'
 				array
+			when ::Hash
+				dict = Ore::Dictionary.new expr
+				link_instance_to_type dict, 'Dictionary'
+				dict
 			when nil
 				Ore::Nil.shared
 			when true
@@ -472,7 +476,7 @@ module Ore
 		end
 
 		def interp_dot_dictionary expr
-			dict = interpret expr.left
+			dict = maybe_instance interpret expr.left
 
 			runtime.push_scope dict
 			result = interpret expr.right
@@ -1280,7 +1284,15 @@ module Ore
 					raise Ore::Missing_Super_Proxy_Declaration.new expr, runtime
 				end
 
-				target.send proxy_method, *func_scope.arguments
+				result = target.send proxy_method, *func_scope.arguments
+
+				# Auto-link instances created by proxy methods to their global types
+				if result.is_a?(Ore::Instance) && result.enclosing_scope.nil?
+					type_name = result.class.name.split('::').last
+					link_instance_to_type result, type_name
+				end
+
+				result
 			when 'start'
 				server_instance = interpret expr.expression
 				unless server_instance.is_a? Ore::Instance
