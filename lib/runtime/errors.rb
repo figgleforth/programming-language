@@ -97,8 +97,11 @@ module Ore
 		# `#ident` without
 	end
 
-	class Invalid_Intrinsic_Directive_Usage < Error
-		# #intrinsic directive only supports function and variable declarations in the body of a Type declaration
+	class Missing_Proxy_Method_Declaration < Error
+	end
+
+	class Invalid_Proxy_Directive_Usage < Error
+		# #proxy directive only supports function and variable declarations in the body of a Type declaration
 	end
 
 	class Invalid_Static_Directive_Declaration < Error
@@ -112,5 +115,11 @@ module Ore
 	end
 
 	class Lex_Char_Not_Implemented < Error
+	end
+
+	class Url_Not_Set_For_Database_Instance < Error
+	end
+
+	class Database_Not_Set_For_Record_Instance < Error
 	end
 end
