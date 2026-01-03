@@ -212,7 +212,7 @@ x = island_member  `Access members directly
 ## Built-in Types and Intrinsic Methods
 
 Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that delegate to Ruby's native implementations. These methods are declared using a
-`proxy_` prefix (see lib/shared/ruby_proxy_methods.rb)
+`proxy_` prefix (see lib/shared/super_proxies.rb)
 
 ### Intrinsic Method Implementation Pattern
 
@@ -220,8 +220,8 @@ Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that 
 
 ```ore
 String {
-    upcase {; #proxy }
-    downcase {; #proxy }
+    upcase {; #super }
+    downcase {; #super }
 }
 ```
 
@@ -230,7 +230,7 @@ String {
 ```ruby
 
 class String < Instance
-	extend Proxy_Methods
+	extend Super_Proxies
 
 	proxy_delegate 'value' # Delegate to @value
 	proxy :upcase # Calls @value.upcase
@@ -385,7 +385,7 @@ Tests use Minitest and inherit from `Base_Test` (in test/base_test.rb):
 - `test/lexer_test.rb` - Lexer tests
 - `test/parser_test.rb` - Parser tests
 - `test/interpreter_test.rb` - Interpreter tests
-- `test/proxies_test.rb` - Ruby Proxy method tests
+- `test/proxies_test.rb` - Super Proxy method tests
 - `test/regression_test.rb` - Regression tests
 - `test/server_test.rb` - Server and routing tests
 - `test/e2e_server_test.rb` - End-to-end server tests

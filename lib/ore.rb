@@ -1,6 +1,6 @@
 require_relative 'shared/constants'
 require_relative 'shared/helpers'
-require_relative 'shared/proxy_methods'
+require_relative 'shared/super_proxies'
 
 # Compile-time (source to AST)
 require_relative 'compiler/lexeme'
@@ -49,9 +49,9 @@ module Ore
 			while reload && !shutdown
 				reload = false
 
-				code        = File.read filepath
-				global      = Ore::Global.with_standard_library
-				runtime     = Ore::Runtime.new global
+				code    = File.read filepath
+				global  = Ore::Global.with_standard_library
+				runtime = Ore::Runtime.new global
 				runtime.register_source filepath, code
 				expressions = Ore.parse(code, filepath: filepath)
 				interpreter = Ore::Interpreter.new expressions, runtime

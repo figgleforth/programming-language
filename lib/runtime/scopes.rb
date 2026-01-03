@@ -119,7 +119,7 @@ module Ore
 	end
 
 	class String < Instance
-		extend Proxy_Methods
+		extend Super_Proxies
 
 		attr_accessor :value
 
@@ -162,7 +162,7 @@ module Ore
 
 	# note: Be sure to prefix with Ore:: whenever referencing this Array type to prevent ambiguity with Ruby's ::Array!
 	class Array < Instance
-		extend Proxy_Methods
+		extend Super_Proxies
 		attr_accessor :values
 
 		def initialize values = []
@@ -217,7 +217,7 @@ module Ore
 	end
 
 	class Dictionary < Instance
-		extend Proxy_Methods
+		extend Super_Proxies
 		attr_accessor :dict
 
 		def initialize dict = {}
@@ -263,7 +263,7 @@ module Ore
 	end
 
 	class Number < Instance
-		extend Proxy_Methods
+		extend Super_Proxies
 		attr_accessor :numerator, :denominator, :type
 
 		def + other
@@ -328,8 +328,10 @@ module Ore
 	end
 
 	class Nil < Scope # Like Ruby's NilClass, this represents the absence of a value.
+		NIL = new()
+		
 		def self.shared
-			@instance ||= new
+			NIL
 		end
 
 		private_class_method :new # prevent external instantiation
@@ -340,6 +342,9 @@ module Ore
 	end
 
 	class Bool < Instance
+		TRUE  = new(true)
+		FALSE = new(false)
+
 		attr_accessor :truthiness
 
 		def !
@@ -347,11 +352,11 @@ module Ore
 		end
 
 		def self.truthy
-			@truthy ||= new(true)
+			TRUE
 		end
 
 		def self.falsy
-			@falsy ||= new(false)
+			FALSE
 		end
 
 		# private_class_method :new # prevent external instantiation
@@ -414,7 +419,7 @@ module Ore
 	end
 
 	class Record < Instance
-		extend Proxy_Methods
+		extend Super_Proxies
 
 		def proxy_infer_table_name_from_class!
 			require 'sequel/extensions/inflector.rb'

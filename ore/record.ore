@@ -1,10 +1,10 @@
 Record {
 	table_name;
-	infer_table_name_from_class! {; #proxy }
+	infer_table_name_from_class! {; #super }
 
 	../database;
-	../all {; #proxy }
-	../find { id; #proxy }
-	../create { dict; #proxy }
-	../delete { id; #proxy }
+	../all {; #super }
+	../find { id; #super }
+	../create { dict; #super }
+	../delete { id; #super }
 }

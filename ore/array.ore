@@ -5,23 +5,23 @@ Array {
 		./values = values
 	}
 
-	push { item; #proxy }
-	pop {; #proxy }
-	shift {; #proxy }
-	unshift { item; #proxy }
-	length {; #proxy }
-	first { count; #proxy }
-	last { count; #proxy }
-	slice { from, to; #proxy }
-	reverse {; #proxy }
-	join { separator; #proxy }
-	concat { other; #proxy }
-	flatten {; #proxy }
-	sort {; #proxy }
-	uniq {; #proxy }
-	include? { item; #proxy }
-	empty? {; #proxy }
-	get { index; #proxy }
+	push { item; #super }
+	pop {; #super }
+	shift {; #super }
+	unshift { item; #super }
+	length {; #super }
+	first { count; #super }
+	last { count; #super }
+	slice { from, to; #super }
+	reverse {; #super }
+	join { separator; #super }
+	concat { other; #super }
+	flatten {; #super }
+	sort {; #super }
+	uniq {; #super }
+	include? { item; #super }
+	empty? {; #super }
+	get { index; #super }
 
 	find { func;
 		for values
@@ -53,7 +53,7 @@ Array {
 	map { func;
 		result = []
 		for values
-			result << func(it, at)
+			result.push(func(it, at))
 		end
 		result
 	}
@@ -62,7 +62,7 @@ Array {
 		result = []
 		for values
 			if func(it)
-				result << it
+				result.push(it)
 			end
 		end
 		result

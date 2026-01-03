@@ -97,11 +97,11 @@ module Ore
 		# `#ident` without
 	end
 
-	class Missing_Proxy_Method_Declaration < Error
+	class Missing_Super_Proxy_Declaration < Error
 	end
 
-	class Invalid_Proxy_Directive_Usage < Error
-		# #proxy directive only supports function and variable declarations in the body of a Type declaration
+	class Invalid_Super_Proxy_Directive_Usage < Error
+		# #super directive only supports function and variable declarations in the body of a Type declaration
 	end
 
 	class Invalid_Static_Directive_Declaration < Error

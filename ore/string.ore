@@ -10,22 +10,22 @@ String {
 		./value = value
 	}
 
-	downcase {; #proxy }
-	upcase {; #proxy }
-	split { delimiter; #proxy }
-    slice { substr; #proxy }
-    trim {; #proxy }
-	trim_left {; #proxy }
-	trim_right {; #proxy }
-    chars {; #proxy }
-    index { substr; #proxy }
-    to_i {; #proxy }
-    to_f {; #proxy }
-	empty? {; #proxy }
-	include? { substr; #proxy }
-	reverse {; #proxy }
-	replace { new; #proxy }
-	start_with? { prefix; #proxy }
-	end_with? { suffix; #proxy }
-	gsub { pattern, replacement; #proxy }
+	downcase {; #super }
+	upcase {; #super }
+	split { delimiter; #super }
+    slice { substr; #super }
+    trim {; #super }
+	trim_left {; #super }
+	trim_right {; #super }
+    chars {; #super }
+    index { substr; #super }
+    to_i {; #super }
+    to_f {; #super }
+	empty? {; #super }
+	include? { substr; #super }
+	reverse {; #super }
+	replace { new; #super }
+	start_with? { prefix; #super }
+	end_with? { suffix; #super }
+	gsub { pattern, replacement; #super }
 }

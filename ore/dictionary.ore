@@ -1,11 +1,11 @@
 Dictionary {
-	keys {; #proxy }
-	values {; #proxy }
-	has_key? { key; #proxy }
-	delete { key; #proxy }
-	merge { other; #proxy }
-	count {; #proxy }
-	empty? {; #proxy }
-	clear {; #proxy }
-	fetch { key, default; #proxy }
+	keys {; #super }
+	values {; #super }
+	has_key? { key; #super }
+	delete { key; #super }
+	merge { other; #super }
+	count {; #super }
+	empty? {; #super }
+	clear {; #super }
+	fetch { key, default; #super }
 }
