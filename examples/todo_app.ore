@@ -4,7 +4,7 @@
 #use 'ore/server.ore'
 
 Page_Layout | Html {
-	css_filter = 'invert()'
+`	css_filter = 'invert()'
 	css_font_size = '1.6em'
 	css_font_family = 'monospace'
 	css_padding = '3.2em'
@@ -28,15 +28,15 @@ Single_Todo | Div {
 
 Todo_Item | Li {
 	id;
-	text;
+	data;
 
-	new { text, id;
-		./text = text
+	new { data, id;
+		./data = data
 		./id = id
 	}
 
 	render {;
-		A("/|id|", text)
+		A("/|id|", data)
 	}
 }
 
@@ -48,8 +48,8 @@ List_Of_Todos | Ul {
 	}
 
 	render {;
-		todos.map({it, at;
-			Todo_Item(it, at)
+		todos.map({ it, at;
+			Todo_Item(it['text'], at)
 		})
 	}
 }
@@ -73,18 +73,22 @@ App | Server {
 }
 
 
-db = Sqlite('./test/fixtures/sqlite_test.db') `Sqlite composes with Database
+db = Sqlite('./temp/todo_app.db') `Sqlite composes with Database
 #connect db  `=> calls Database#create_connection!
 
 Todo | Record {
-	../database = ~/db
+	../database = ~/db `Must set the database in order for Todo query methods to work
 	table_name = 'todos'
 }
 
-todos = [ `todo: Replace these with a fetch from the database
-	"Make Databases work",
-	"Allow reading and writing Records"
-]
+if !db.table_exists?('todos')
+	db.create_table('todos' { id: 'primary_key', text: 'String' })
+	Todo.create({text: "Make Databases work"})
+	Todo.create({text: "Allow reading and writing Records"})
+	Todo.create({text: "Show Todos in this app"})
+end
+
+todos = Todo.all()
 
 app = App(todos)
 #start app
