@@ -1294,6 +1294,11 @@ module Ore
 
 				server_runner.start
 				server_runner
+			when 'connect'
+				database = interpret expr.expression
+				database.create_connection!
+				database
+
 			when Ore::IMPORT_FILE_DIRECTIVE
 				# Standalone load is interpreted into current scope by passing the scope into runtime#load_file
 				filepath = interpret expr.expression

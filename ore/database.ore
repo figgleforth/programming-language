@@ -1,10 +1,11 @@
 Database {
 	adapter;
-	connection;
+	connection; `todo: Make a type for this, currently it stores an Sequel::SQLite::Database instance
 	url;
 
-	`Creates a Sequel::SQLite::Database instance using ./adapter and ./url as configuration options. Populates ./connection with the instance, and returns it.
-	create_connection! {; #proxy }
+	create_table { name, columns_dict; #proxy }
+	tables {; #proxy }
+	table_exists? { name; #proxy }
 }
 
 Sqlite | Database {

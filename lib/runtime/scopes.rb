@@ -422,27 +422,86 @@ module Ore
 			@declarations['table_name'] = first_type.split('::').last.downcase.pluralize
 		end
 
+		# @return [Ore::Database]
+		def database
+			@declarations['database']
+		end
+
+		# @return [Symbol]
+		def table_name
+			@declarations['table_name']&.to_sym
+		end
+
+		# @return [Sequal::SQLite::Dataset]
+		def table
+			raise Ore::Database_Not_Set_For_Record_Instance unless database
+
+			database['connection'][table_name]
+		end
+
+		def proxy_all
+			Ore::Array.new(table&.all || [])
+		end
+
 		def proxy_find id
-			raise Ore::Database_Not_Set_For_Record_Instance unless get 'database'
+			# todo: Convert this to a Record instance
+			Ore::Dictionary.new table.where(id: id).first
+		end
+
+		def proxy_create ore_dict
+			# todo: Return self, or a hash of the inserted row. By default, table#insert returns the id of the inserted row
+			table.insert ore_dict.dict
+		end
+
+		def proxy_delete id
+			table.where(id: id).delete
 		end
 	end
 
 	class Database < Instance
 		require 'sequel'
 
-		attr_accessor :database
+		# @return [Sequel::SQLite::Database]
+		attr_accessor :connection
 
 		# Calls Sequel.sqlite with the `url` declaration on this database, and returns the resulting database instance. Caches the database in @database.
-		def proxy_create_connection!
-			return @database if @database
+		def create_connection!
+			return @connection if @connection
 
 			url = get 'url'
 			raise Ore::Url_Not_Set_For_Database_Instance unless url
 
 			# Note: As SQLite is a file-based database, the :host and :port options are ignored, and the :database option should be a path to the file — https://sequel.jeremyevans.net/rdoc/files/doc/opening_databases_rdoc.html#label-sqlite
-			database = Sequel.sqlite adapter: 'sqlite', database: url
+			db = Sequel.sqlite adapter: 'sqlite', database: url
 
-			@declarations['connection'] = @database = database
+			@declarations['connection'] = @connection = db
+		end
+
+		def proxy_create_table name, columns_ore_dict
+			return connection[name.to_sym] if proxy_table_exists? name
+
+			connection.create_table name.to_sym do
+				columns_ore_dict.dict.each do |col, type|
+					col = col.to_sym
+
+					case type
+					when 'primary_key'
+						primary_key col
+					when 'String'
+						String col
+					else
+						raise "Metaprogram the rest of these"
+					end
+				end
+			end
+		end
+
+		def proxy_table_exists? table_name
+			connection.table_exists? table_name.to_sym
+		end
+
+		def proxy_tables
+			Ore::Array.new connection.tables
 		end
 	end
 end
