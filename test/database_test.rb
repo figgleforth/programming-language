@@ -11,7 +11,7 @@ class Database_Test < Base_Test
 	RECORD   = "#use 'ore/record.ore'"
 
 	def before_setup
-		@filepath = "./test/fixtures/#{SecureRandom.hex}.db"
+		@filepath = "./temp#{SecureRandom.hex}.db"
 		File.delete(@filepath) if File.exist? @filepath
 	end
 
