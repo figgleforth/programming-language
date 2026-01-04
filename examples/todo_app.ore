@@ -4,7 +4,7 @@
 #use 'ore/server.ore'
 
 Page_Layout | Html {
-`	css_filter = 'invert()'
+	css_filter = 'invert()'
 	css_font_size = '1.6em'
 	css_font_family = 'monospace'
 	css_padding = '3.2em'
@@ -22,7 +22,7 @@ Single_Todo | Div {
 	}
 
 	render {;
-		[A('/', 'Back to all'), Br(), Todo_Item(todo)]
+		[A('/', 'Back to all'), P("|id|: |todo[:text]|")]
 	}
 }
 
@@ -54,24 +54,33 @@ List_Of_Todos | Ul {
 	}
 }
 
-App | Server {
-	port = 80
+New_Todo_Form | Form {
+	html_action = '/new'
+	html_method = 'POST'
 
-	todos = []
-
-	new { todos;
-		./todos = todos
-	}
-
-	get:// {;
-		Page_Layout(List_Of_Todos(todos))
-	}
-
-	get://:id { id;
-		todo = todos[id.to_i() - 1]
-		Page_Layout(Single_Todo(todo))
+	render {;
+		[
+			Label('Add a new todo:'),
+			Br(),
+			Input_Field(),
+			Br(),
+			Submit_Button()
+		]
 	}
 }
+
+Input_Field | Input {
+	html_type = 'text'
+	html_name = 'todo'
+	html_placeholder = 'Enter todo text...'
+}
+
+Submit_Button | Button {
+	html_type = 'submit'
+
+	render {; 'Add Todo' }
+}
+
 
 db = Sqlite('./temp/todo_app.db') `Sqlite composes with Database
 #connect db  `=> calls Database#create_connection!
@@ -81,21 +90,57 @@ Todo | Record {
 	table_name = 'todos'
 }
 
+App | Server {
+	port = 80
+
+	todos = []
+
+	new { todos;
+		./todos = todos
+	}
+
+	home = get:// {;
+		todos = Todo.all()
+		Page_Layout([
+			H2('My Todos'),
+			New_Todo_Form(),
+			Hr(),
+			List_Of_Todos(todos)
+		])
+	}
+
+	get://favicon.ico {;
+		response.status = 404
+		'' `This prevents "GET /favicon.ico HTTP/1.1" 500 error
+	}
+
+	get://:id { id;
+		todo = Todo.find(id.to_i())
+		Page_Layout(Single_Todo(todo))
+	}
+
+	post://new {;
+		id = Todo.create({text: request.body.todo })
+		response.redirect("/|id|")
+	}
+}
+
 if db.table_exists?('todos')
 	db.delete_table('todos')
 	db.create_table('todos', { id: 'primary_key', text: 'String' })
+
+	Todo.create({text: "Make Databases work"})
+	Todo.create({text: "Allow reading and writing Records"})
+	Todo.create({text: "Show Todos in this app"})
+	Todo.create({text: "Implement user authentication"})
+	Todo.create({text: "Add dark mode toggle"})
+	Todo.create({text: "Write comprehensive documentation"})
+	Todo.create({text: "Optimize database queries"})
+	Todo.create({text: "Add file upload feature"})
+	Todo.create({text: "Create RESTful API endpoints"})
+	Todo.create({text: "Build admin dashboard"})
 end
 
-Todo.create({text: "Make Databases work"})
-Todo.create({text: "Allow reading and writing Records"})
-Todo.create({text: "Show Todos in this app"})
-Todo.create({text: "Implement user authentication"})
-Todo.create({text: "Add dark mode toggle"})
-Todo.create({text: "Write comprehensive documentation"})
-Todo.create({text: "Optimize database queries"})
-Todo.create({text: "Add file upload feature"})
-Todo.create({text: "Create RESTful API endpoints"})
-Todo.create({text: "Build admin dashboard"})
 
 todos = Todo.all()
 app = App(todos)

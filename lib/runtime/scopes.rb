@@ -405,17 +405,22 @@ module Ore
 	end
 
 	class Response < Scope
-		attr_accessor :status, :headers, :body_content
+		attr_accessor :status, :headers, :body_content, :webrick_response
 
-		def initialize
+		def initialize webrick_response
 			super 'Response'
-			@status       = 200
-			@headers      = { 'Content-Type' => 'text/html; charset=utf-8' }
-			@body_content = ''
+			@webrick_response = webrick_response
+			@status           = 200
+			@headers          = { 'Content-Type' => 'text/html; charset=utf-8' }
+			@body_content     = ''
 
 			@declarations['status']  = @status
 			@declarations['headers'] = @headers
 			@declarations['body']    = @body_content
+		end
+
+		def proxy_redirect to
+			webrick_response.set_redirect WEBrick::HTTPStatus::SeeOther, to
 		end
 	end
 

@@ -11,6 +11,8 @@ Response {
 	status;
 	headers;
 	body;
+
+	redirect { location; #super }
 }
 
 Server {
