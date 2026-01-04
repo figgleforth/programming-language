@@ -67,14 +67,19 @@ module Ore
 				query_params = parse_query_string query_string
 
 				req = Ore::Request.new
-				res = Ore::Response.new
+				interpreter.link_instance_to_type req, 'Request'
 
-				req.path    = path_string
-				req.method  = http_method
-				req.query   = query_params
-				req.params  = url_params
-				req.headers = request.header.to_h
-				req.body    = request.body
+				body_hash = URI.decode_www_form(request.body || "").to_h
+				body_dict = Ore::Dictionary.new body_hash
+				interpreter.link_instance_to_type body_dict, 'Dictionary'
+
+				req.path              = path_string
+				req.method            = http_method
+				req.query             = query_params
+				req.params            = url_params
+				req.headers           = request.header.to_h
+				req.body              = body_dict
+				req.body.declarations = body_hash
 
 				# Update declarations
 				req.declarations['path']    = req.path
@@ -85,12 +90,20 @@ module Ore
 				req.declarations['body']    = req.body
 
 				begin
-					result = interpreter.interp_route_handler target_route, req, res, url_params
+					res = Ore::Response.new response
+					interpreter.link_instance_to_type res, 'Response'
+
+					result = interpreter.interp_route_handler target_route, req, res, url_params, server_instance: @server_instance
 
 					# Apply response object's configuration to WEBrick response
-					response.status = res.status
-					res.headers.each { |k, v| response.header[k] = v }
-					response.body = res.body_content.to_s
+					response.status = res.declarations['status'] || res.status
+					headers_hash    = res.declarations['headers'] || res.headers
+					headers_hash.each { |k, v| response.header[k] = v }
+					response.body = res.declarations['body'] || res.body_content.to_s
+					result
+
+				rescue WEBrick::HTTPStatus::Status
+					raise # note: Must propagate the WEBrick status exceptions as this is how it handles redirects, and such,
 
 				rescue => e
 					warn "\n\e[31m[Ore Server Error]\e[0m #{e.class}: #{e.message}"
