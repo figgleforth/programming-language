@@ -96,18 +96,20 @@ Todo | Record {
 if db.table_exists?('todos')
 	db.delete_table('todos')
 	db.create_table('todos', { id: 'primary_key', text: 'String' })
-
-	Todo.create({text: "Make Databases work"})
-	Todo.create({text: "Allow reading and writing Records"})
-	Todo.create({text: "Show Todos in this app"})
-	Todo.create({text: "Implement user authentication"})
-	Todo.create({text: "Add dark mode toggle"})
-	Todo.create({text: "Write comprehensive documentation"})
-	Todo.create({text: "Optimize database queries"})
-	Todo.create({text: "Add file upload feature"})
-	Todo.create({text: "Create RESTful API endpoints"})
-	Todo.create({text: "Build admin dashboard"})
+else
+	db.create_table('todos', { id: 'primary_key', text: 'String' })
 end
+
+Todo.create({text: "Make Databases work"})
+Todo.create({text: "Allow reading and writing Records"})
+Todo.create({text: "Show Todos in this app"})
+Todo.create({text: "Implement user authentication"})
+Todo.create({text: "Add dark mode toggle"})
+Todo.create({text: "Write comprehensive documentation"})
+Todo.create({text: "Optimize database queries"})
+Todo.create({text: "Add file upload feature"})
+Todo.create({text: "Create RESTful API endpoints"})
+Todo.create({text: "Build admin dashboard"})
 
 ```Server```
 App | Server {
@@ -140,7 +142,7 @@ App | Server {
 	}
 
 	post://new {;
-		`id = Todo.create({text: request.body.todo })
+		Todo.create({text: request.body.todo })
 		response.redirect("/")
 	}
 }
