@@ -3,6 +3,7 @@
 #use 'ore/record.ore'
 #use 'ore/server.ore'
 
+```Page components```
 Page_Layout | Html {
 	css_filter = 'invert()'
 	css_font_size = '1.6em'
@@ -69,7 +70,7 @@ New_Todo_Form | Form {
 	}
 }
 
-Input_Field | Input {
+Input_Field | Textarea {
 	html_type = 'text'
 	html_name = 'todo'
 	html_placeholder = 'Enter todo text...'
@@ -81,8 +82,10 @@ Submit_Button | Button {
 	render {; 'Add Todo' }
 }
 
-
+```Database```
 db = Sqlite('./temp/todo_app.db') `Sqlite composes with Database
+
+`db = #connect Sqlite(...) is also valid
 #connect db  `=> calls Database#create_connection!
 
 Todo | Record {
@@ -90,6 +93,23 @@ Todo | Record {
 	table_name = 'todos'
 }
 
+if db.table_exists?('todos')
+	db.delete_table('todos')
+	db.create_table('todos', { id: 'primary_key', text: 'String' })
+
+	Todo.create({text: "Make Databases work"})
+	Todo.create({text: "Allow reading and writing Records"})
+	Todo.create({text: "Show Todos in this app"})
+	Todo.create({text: "Implement user authentication"})
+	Todo.create({text: "Add dark mode toggle"})
+	Todo.create({text: "Write comprehensive documentation"})
+	Todo.create({text: "Optimize database queries"})
+	Todo.create({text: "Add file upload feature"})
+	Todo.create({text: "Create RESTful API endpoints"})
+	Todo.create({text: "Build admin dashboard"})
+end
+
+```Server```
 App | Server {
 	port = 80
 
@@ -120,27 +140,10 @@ App | Server {
 	}
 
 	post://new {;
-		id = Todo.create({text: request.body.todo })
-		response.redirect("/|id|")
+		`id = Todo.create({text: request.body.todo })
+		response.redirect("/")
 	}
 }
-
-if db.table_exists?('todos')
-	db.delete_table('todos')
-	db.create_table('todos', { id: 'primary_key', text: 'String' })
-
-	Todo.create({text: "Make Databases work"})
-	Todo.create({text: "Allow reading and writing Records"})
-	Todo.create({text: "Show Todos in this app"})
-	Todo.create({text: "Implement user authentication"})
-	Todo.create({text: "Add dark mode toggle"})
-	Todo.create({text: "Write comprehensive documentation"})
-	Todo.create({text: "Optimize database queries"})
-	Todo.create({text: "Add file upload feature"})
-	Todo.create({text: "Create RESTful API endpoints"})
-	Todo.create({text: "Build admin dashboard"})
-end
-
 
 todos = Todo.all()
 app = App(todos)
