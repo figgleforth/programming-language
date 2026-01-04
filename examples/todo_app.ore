@@ -115,12 +115,6 @@ Todo.create({text: "Build admin dashboard"})
 App | Server {
 	port = 80
 
-	todos = []
-
-	new { todos;
-		./todos = todos
-	}
-
 	home = get:// {;
 		todos = Todo.all()
 		Page_Layout([
@@ -129,11 +123,6 @@ App | Server {
 			Hr(),
 			List_Of_Todos(todos)
 		])
-	}
-
-	get://favicon.ico {;
-		response.status = 404
-		'' `This prevents "GET /favicon.ico HTTP/1.1" 500 error
 	}
 
 	get://:id { id;
@@ -145,9 +134,19 @@ App | Server {
 		Todo.create({text: request.body.todo })
 		response.redirect("/")
 	}
+
+	`note: The following routes prevent 500 errors since we're handling all routes here, nothing is filtered.
+	get://favicon.ico {;
+		response.status = 404
+		''
+	}
+
+	get://apple-touch-icon-precomposed.png {;
+		response.status = 404
+		''
+	}
 }
 
-todos = Todo.all()
-app = App(todos)
+app = App()
 
 #start app

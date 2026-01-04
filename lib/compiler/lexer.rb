@@ -200,8 +200,9 @@ module Ore
 		end
 
 		def lex_operator
+			# todo: Operators cannot start with or end with: ' " { } ( )
 			it = ::String.new
-			while chars? && symbol? && !%w(' " {).include?(curr)
+			while chars? && symbol? && !%w(' " { } ( ) ).include?(curr)
 				it << eat
 
 				# todo: Break on all known operator, not just scope operators
