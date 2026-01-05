@@ -59,8 +59,8 @@ Greet('Ore').greeting()
 	- `~` Difference - discard right side declarations
 	- `^` Symmetric Difference - discard shared declarations
 - Scope operators for explicit access
-	- `.identifier` accesses instance scope only
-	- `..identifier` accesses type/static scope
+	- `.identifier` accesses instance scope only, like `self.identifier`
+	- `..identifier` accesses type/static scope, like `self.class.identifier`
 	- `~/identifier` accesses global scope
 - First-class functions and classes
 - Data containers `Array`, `Tuple`, `Dictionary`
