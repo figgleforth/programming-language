@@ -19,6 +19,8 @@ require_relative 'runtime/interpreter'
 def assert(args) = Ore.assert(*args)
 
 module Ore
+	VERSION = "0.1.0"
+	
 	extend Helpers
 
 	def self.interp_file filepath, with_std: true

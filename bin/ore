@@ -8,7 +8,10 @@ INSTRUCTIONS = <<~INST
     Run Ore programs or inspect compilation stages.
 
     COMMANDS:
-        ore <file>                      Run file with hot reload
+		ore (-v | --version)            Show version number
+		ore (-h | --help)               Show help instructions
+        
+		ore <file>                      Run file with hot reload
 
         ore lex <code>                  Show lexer tokens for code
         ore lexf <file>                 Show lexer tokens for file
@@ -33,6 +36,12 @@ end
 
 begin
 	case ARGV[0]
+	when '-v', '--version'
+		puts "Ore #{Ore::VERSION}"
+		exit 0
+	when '-h', '--help'
+		puts INSTRUCTIONS
+		exit 0
 	when 'lex'
 		pp Ore.lex ARGV[1]
 	when 'parse'
