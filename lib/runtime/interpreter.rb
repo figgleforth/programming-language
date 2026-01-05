@@ -29,11 +29,11 @@ module Ore
 			case expr.scope_operator
 			when '~/' # global
 				runtime.stack.first
-			when './' # instance within context
+			when '.' # instance within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.is_a? Ore::Instance
 				end
-			when '../' # underlying type within context
+			when '..' # underlying type within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.instance_of? Ore::Type
 				end
@@ -236,9 +236,9 @@ module Ore
 				end
 			else
 				# When scope is nil, errors must be raised
-				if expr.scope_operator == '../'
+				if expr.scope_operator == '..'
 					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
-				elsif expr.scope_operator == './'
+				elsif expr.scope_operator == '.'
 					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
 				else
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
@@ -313,9 +313,9 @@ module Ore
 			# If using a scope operator but the scope doesn't exist, raise an error
 			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator && assignment_scope.nil?
 				case expr.left.scope_operator
-				when './'
+				when '.'
 					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
-				when '../'
+				when '..'
 					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
 				else
 					raise Ore::Invalid_Scope_Syntax.new(expr, runtime)
@@ -388,8 +388,8 @@ module Ore
 
 			assignment_scope.declare expr.left.value, right_value
 
-			# Track static declarations (members assigned with ../)
-			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
+			# Track static declarations (members assigned with ..)
+			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '..'
 				assignment_scope.static_declarations ||= Set.new
 				assignment_scope.static_declarations.add expr.left.value.to_s
 			end
@@ -478,6 +478,14 @@ module Ore
 		def interp_dot_dictionary expr
 			dict = maybe_instance interpret expr.left
 
+			if expr.right.is_a? Ore::Identifier_Expr
+				key_sym = expr.right.value.to_sym
+				if dict.dict.has_key?(key_sym)
+					return dict.dict[key_sym]
+				end
+			end
+
+			# todo: Handle the case when dictionary keys shadow one of the builtin dictionary functions. Ideally check the dict scope first, then dict.dict, but manually check the scope instead of using #interpret because #interpret will look up the stack so the identifier may be found and evaluated despite not existing in dictionary.dict or dictionary the built-in.
 			runtime.push_scope dict
 			result = interpret expr.right
 			runtime.pop_scope
@@ -518,7 +526,7 @@ module Ore
 			when '.'
 				interp_dot_infix expr
 			when '<<'
-				# todo: This was implemented sometime when I first got arrays working, but it shouldn't be special-cased like this. Once operator declarations work then this can be declared on Array as `<< {iten; ./values.push(item) }`
+				# todo: This was implemented sometime when I first got arrays working, but it shouldn't be special-cased like this. Once operator declarations work then this can be declared on Array as `<< {iten; .values.push(item) }`
 				left  = maybe_instance interpret expr.left
 				right = interpret expr.right
 
@@ -670,6 +678,9 @@ module Ore
 			when Ore::Instance, Ore::Type, Ore::Html_Element
 				interp_type_call receiver, expr
 
+			when Ore::Route
+				interp_func_call receiver.handler, expr
+
 			when Ore::Func
 				interp_func_call receiver, expr
 
@@ -761,12 +772,12 @@ module Ore
 					type.expressions.each do |expr|
 						# Skip static declarations - they were already executed during type definition and shouldn't be re-executed for each instance
 						if expr.is_a?(Ore::Infix_Expr) && expr.operator == '=' &&
-						   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
+						   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '..'
 							next
 						end
 
 						if expr.is_a?(Ore::Func_Expr) && expr.name.is_a?(Ore::Identifier_Expr) &&
-						   expr.name.scope_operator == '../'
+						   expr.name.scope_operator == '..'
 							next
 						end
 
@@ -805,9 +816,9 @@ module Ore
 			if func.name
 				runtime.stack.last.declare func.name, func
 
-				# Track static functions (functions defined with ../)
+				# Track static functions (functions defined with ..)
 				# Get the original name expression to check for scope operator
-				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '../'
+				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '..'
 					runtime.stack.last.static_declarations ||= Set.new
 					runtime.stack.last.static_declarations.add func.name.to_s
 				end
@@ -990,11 +1001,11 @@ module Ore
 		end
 
 		def interp_route expr
-			expression = interpret expr.expression
+			func = interpret expr.expression
 
 			route                 = Ore::Route.new
 			route.enclosing_scope = runtime.stack.last
-			route.handler         = expression
+			route.handler         = func
 			route.http_method     = expr.http_method
 			route.path            = expr.path
 			route.path            = route.path[1..] if route.path.start_with? '/'
@@ -1004,12 +1015,8 @@ module Ore
 				_1.empty?
 			end
 
-			unless expression.is_a? Ore::Func
-				raise Ore::Invalid_Http_Directive_Handler.new(expr, runtime)
-			end
-
-			route_key = if expression.name && expression.name != 'Ore::Func'
-				expression.name
+			route_key = if func.name && func.name != 'Ore::Func'
+				func.name
 			else
 				# Anonymous route with auto-generated key: "method:path"
 				"#{route.http_method.value}:#{route.path}"
@@ -1025,7 +1032,7 @@ module Ore
 			end
 
 			runtime.routes[route_key] = route
-			runtime.stack.last.declare route_key, route if expression.name && expression.name != 'Ore::Func'
+			runtime.stack.last.declare route_key, route
 
 			route
 		end
@@ -1238,7 +1245,7 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
-			when 'echo'
+			when 'puts'
 				value = interpret expr.expression
 				puts value # note: Don't remove this like I did, it is supposed to print out. todo: Be able to set your own output stream
 				value
@@ -1337,6 +1344,8 @@ module Ore
 			when Ore::Dictionary, Ore::Array
 				key = interpret expr.expression.expressions.first
 				receiver[key]
+			when Ore::Nil
+				nil
 			else
 				raise Ore::Invalid_Subscript_Left_Operand.new(expr.receiver, runtime)
 			end

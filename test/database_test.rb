@@ -116,7 +116,7 @@ class Database_Test < Base_Test
 			db.create_table('users' { id: 'primary_key', name: 'String' })
 
 			User | Record {
-				../database = db
+				..database = db
 				table_name = 'users'
 			}
 
@@ -132,7 +132,7 @@ class Database_Test < Base_Test
 		ORE
 		assert_equal 0, out.values[0].values.count
 		assert_equal 2, out.values[1].values.count
-		assert_equal([{ id: 1, name: 'Cooper' }, { id: 2, name: 'Luna' }], out.values[1].values)
+		assert_equal [{ id: 1, name: 'Cooper' }, { id: 2, name: 'Luna' }], out.values[1].values.map(&:dict)
 		assert_equal({ id: 1, name: 'Cooper' }, out.values[2].dict)
 		assert_equal({ id: 2, name: 'Luna' }, out.values[3].dict)
 		assert out.values.last

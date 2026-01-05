@@ -220,9 +220,10 @@ module Ore
 		extend Super_Proxies
 		attr_accessor :dict
 
-		def initialize dict = {}
+		def initialize dict = nil
 			super 'Dictionary'
-			@dict = dict
+			@dict         = dict || {}
+			@declarations = {}
 		end
 
 		proxy_delegate 'dict'
@@ -390,9 +391,9 @@ module Ore
 			super 'Request'
 			@path    = nil
 			@method  = nil
-			@query   = {} # Query string params (?key=value)
-			@params  = {} # Url params (:id in route)
-			@headers = {}
+			@query   = Ore::Dictionary.new
+			@params  = Ore::Dictionary.new
+			@headers = Ore::Dictionary.new
 			@body    = nil
 
 			@declarations['path']    = @path
@@ -451,12 +452,15 @@ module Ore
 		end
 
 		def proxy_all
-			Ore::Array.new(table&.all || [])
+			records      = table&.all || []
+			dictionaries = records.map { |hash| Ore::Dictionary.new hash }
+			Ore::Array.new dictionaries
 		end
 
 		def proxy_find id
 			# todo: Convert this to a Record instance
-			Ore::Dictionary.new table.where(id: id).first
+			record = table.where(id: id).first
+			record ? Ore::Dictionary.new(record) : nil
 		end
 
 		def proxy_create ore_dict

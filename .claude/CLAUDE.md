@@ -8,7 +8,7 @@ Ore is an educational programming language for web development, implemented in R
 
 - Naming conventions that replace keywords (Capitalized classes, lowercase functions/variables, UPPERCASE constants)
 - Class composition operators instead of inheritance (|, &, ~, ^)
-- Dot notation for accessing nested structures and scopes (./, ../)
+- Dot notation for accessing nested structures and scopes (., ..)
 - First-class functions and classes
 - Built-in web server support with routing
 - When writing .ore source, use backtick (\`) character for comments (no space after backtick: "\`comment" not "\` comment")
@@ -115,14 +115,14 @@ Each scope can have **sibling scopes
 Ore provides three scope operators for explicit scope access:
 
 - `~/identifier` - Access global scope
-- `./identifier` - Access current instance scope only
-- `../identifier` - Access current type scope only
+- `.identifier` - Access current instance scope only
+- `..identifier` - Access current type scope only
 
 **Identifier Search Behavior:**
 
 - `identifier` (no operator) - Searches through all scopes in the stack from current to global, including checking for proxies methods
-- `./identifier` - Only searches the current instance scope (does not fall back to global)
-- `../identifier` - Only searches the current type scope
+- `.identifier` - Only searches the current instance scope (does not fall back to global)
+- `..identifier` - Only searches the current type scope
 - `~/identifier` - Only searches the global scope
 
 **Privacy Convention:**
@@ -131,24 +131,24 @@ Identifiers starting with `_` are considered private by convention (e.g., `_priv
 
 **Validation:**
 
-- Scope operators cannot be followed by literals (e.g., `../123` is a parse error)
-- Using `./` outside an instance context raises `Cannot_Use_Instance_Scope_Operator_Outside_Instance`
-- Using `../` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
+- Scope operators cannot be followed by literals (e.g., `..123` is a parse error)
+- Using `.` outside an instance context raises `Cannot_Use_Instance_Scope_Operator_Outside_Instance`
+- Using `..` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
 
 ## Static Declarations
 
-Type-level (static) members are declared using the `../` scope operator:
+Type-level (static) members are declared using the `..` scope operator:
 
 ```ore
 Person {
-    ../count = 0  `Static variable shared across all instances
+    ..count = 0  `Static variable shared across all instances
 
-    ../increment {;  `Static method
+    ..increment {;  `Static method
         count += 1
     }
 
     init {;
-        ../count += 1  `Access static from instance method
+        ..count += 1  `Access static from instance method
     }
 }
 
@@ -160,7 +160,7 @@ Person.increment()  `Call static method on type => 2
 **Implementation Details:**
 
 - Static declarations are tracked in `type.static_declarations` set
-- Instance methods can access type-level variables via `../` operator
+- Instance methods can access type-level variables via `..` operator
 - When calling instance methods, the interpreter pushes both the type scope and instance scope onto the stack
 - Instances are linked to their types via `instance.enclosing_scope = type`
 - Static functions and variables are declared on the Type scope
@@ -423,7 +423,7 @@ The `Record` type provides ActiveRecord-style ORM functionality:
 #use 'ore/record.ore'
 
 User | Record {
-    ../database = ~/db      `Set database (static declaration)
+    ..database = ~/db      `Set database (static declaration)
     table_name = 'users'
 }
 ```
@@ -465,7 +465,7 @@ db.create_table('posts', {
 
 `Define model
 Post | Record {
-    ../database = ~/db
+    ..database = ~/db
     table_name = 'posts'
 }
 
@@ -474,7 +474,7 @@ Post.create({title: "Hello", body: "World"})
 posts = Post.all()
 
 for posts
-    #echo "|it[:title]|: |it[:body]|"
+    #puts "|it[:title]|: |it[:body]|"
 end
 ```
 
@@ -482,7 +482,7 @@ end
 - Database operations use Ruby's Sequel gem
 - Record methods are proxy methods (see `lib/runtime/scopes.rb`)
 - Records return `Ore::Dictionary` instances
-- Static declarations (`../database`) link models to database
+- Static declarations (`..database`) link models to database
 
 ## Web Server Features
 

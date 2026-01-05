@@ -21,6 +21,6 @@ Bool {
 	truthiness;
 
 	new { value = true;
-		./truthiness = value != false
+		.truthiness = value != false
 	}
 }

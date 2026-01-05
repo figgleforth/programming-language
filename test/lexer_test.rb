@@ -162,11 +162,11 @@ class Lexer_Test < Base_Test
 		assert_equal %I(number operator number delimiter number operator number delimiter number operator number delimiter number operator number), out.map(&:type)
 		assert_equal 15, out.count
 
-		out = Ore.lex './this_instance'
+		out = Ore.lex '.this_instance'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
 
-		out = Ore.lex '../global_scope'
+		out = Ore.lex '..class_scope'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
 	end

@@ -69,15 +69,22 @@ module Ore
 				req = Ore::Request.new
 				interpreter.link_instance_to_type req, 'Request'
 
-				body_hash = URI.decode_www_form(request.body || "").to_h
-				body_dict = Ore::Dictionary.new body_hash
+				body_hash    = URI.decode_www_form(request.body || "").to_h
+				headers_hash = request.header.to_h
+				body_dict    = Ore::Dictionary.new body_hash
+				query_dict   = Ore::Dictionary.new query_params
+				params_dict  = Ore::Dictionary.new url_params
+				headers_dict = Ore::Dictionary.new headers_hash
 				interpreter.link_instance_to_type body_dict, 'Dictionary'
+				interpreter.link_instance_to_type query_dict, 'Dictionary'
+				interpreter.link_instance_to_type params_dict, 'Dictionary'
+				interpreter.link_instance_to_type headers_dict, 'Dictionary'
 
 				req.path              = path_string
 				req.method            = http_method
-				req.query             = query_params
-				req.params            = url_params
-				req.headers           = request.header.to_h
+				req.query             = query_dict
+				req.params            = params_dict
+				req.headers           = headers_dict
 				req.body              = body_dict
 				req.body.declarations = body_hash
 
@@ -106,7 +113,7 @@ module Ore
 					raise # note: Must propagate the WEBrick status exceptions as this is how it handles redirects, and such,
 
 				rescue => e
-					warn "\n\e[31m[Ore Server Error]\e[0m #{e.class}: #{e.message}"
+					warn "\n[Ore Server Error] #{e.class}: #{e.message}"
 					warn e.backtrace.first(10).map { |line| "  #{line}" }.join("\n")
 					warn ""
 

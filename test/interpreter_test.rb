@@ -599,13 +599,13 @@ class Interpreter_Test < Base_Test
 
 	def test_dot_slash
 		assert_raises Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance do
-			Ore.interp './x = 123'
+			Ore.interp '.x = 123'
 		end
 	end
 
 	def test_look_up_dot_slash_without_dot_slash
 		assert_raises Ore::Cannot_Use_Type_Scope_Operator_Outside_Type do
-			Ore.interp '../x = 123'
+			Ore.interp '..x = 123'
 		end
 	end
 
@@ -889,20 +889,20 @@ class Interpreter_Test < Base_Test
 			x = 0, y = 0
 
 			new { x, y;
-				./x = x
-				./y = y
+				.x = x
+				.y = y
 			}
 
 			multiply! { times;
-				./x *= times
-				./y *= times
+				.x *= times
+				.y *= times
 			}
 
 		}
 
 		Transform | Vec2 {
 			new { position = Vec2();
-				./x = position.x
+				.x = position.x
 				y = position.y
 			}
 
@@ -942,14 +942,14 @@ class Interpreter_Test < Base_Test
 				x = 0, y = 0
 
 				new { x, y;
-					./x = x
-					./y = y
+					.x = x
+					.y = y
 				}
 			}
 
 			Transform | Vec2 {
 				new { position = Vec2();
-					./x = position.x
+					.x = position.x
 					y = position.y
 				}
 			}
@@ -1228,12 +1228,12 @@ class Interpreter_Test < Base_Test
 		    	numbers = []
 
 				new { numbers;
-					./numbers = numbers
+					.numbers = numbers
 				}
 
 		    	multiply { by;
 					result = []
-		    		for ./numbers
+		    		for .numbers
 		    			result.push(it * by)
 		    		end
 		    		result
@@ -1446,8 +1446,8 @@ class Interpreter_Test < Base_Test
 			y = 0
 
 			new { x, y;
-				./x = x
-				./y = y
+				.x = x
+				.y = y
 			}
 		}
 
@@ -1467,8 +1467,8 @@ class Interpreter_Test < Base_Test
 			b = 0
 
 			new { a, b;
-				./a = a
-				./b = b
+				.a = a
+				.b = b
 			}
 		}
 
@@ -1489,8 +1489,8 @@ class Interpreter_Test < Base_Test
 			b = 0
 
 			new { a, b;
-				./a = a
-				./b = b
+				.a = a
+				.b = b
 			}
 		}
 
@@ -1511,8 +1511,8 @@ class Interpreter_Test < Base_Test
 			b = 0
 
 			new { a, b;
-				./a = a
-				./b = b
+				.a = a
+				.b = b
 			}
 		}
 
@@ -1558,16 +1558,16 @@ class Interpreter_Test < Base_Test
 		    	_private = 8
 
 				`Static declarations`
-				../nilled;
-		    	../static = 15
-		    	../_static_private = 16
+				..nilled;
+		    	..static = 15
+		    	.._static_private = 16
 
 				calling_private_through_instance {; _private }
 		    	calling_static_through_instance {; static }
 		    	calling_static_private_through_instance {; _static_private }
 
-		    	../calling_static_through_static {; static }
-		    	../calling_static_private_througb_static {; _static_private }
+		    	..calling_static_through_static {; static }
+		    	..calling_static_private_througb_static {; _static_private }
 		    }
 		CODE
 
@@ -1646,19 +1646,19 @@ class Interpreter_Test < Base_Test
 		end
 
 		assert_raises Ore::Cannot_Use_Type_Scope_Operator_Outside_Type do
-			Ore.interp "../whatever"
+			Ore.interp "..whatever"
 		end
 
 		assert_raises Ore::Invalid_Scope_Syntax do
-			Ore.interp "../123"
+			Ore.interp "..123"
 		end
 
 		assert_raises Ore::Undeclared_Identifier do
-			Ore.interp "Type { ../whatever }"
+			Ore.interp "Type { ..whatever }"
 		end
 
 		assert_raises Ore::Invalid_Scope_Syntax do
-			x Ore.interp "Type { ../123 }"
+			x Ore.interp "Type { ..123 }"
 		end
 	end
 
@@ -1700,16 +1700,16 @@ class Interpreter_Test < Base_Test
 		    	base_instance_public = 1
 		    	_base_instance_private = 2
 
-		    	../base_static_public = 10
-		    	../_base_static_private = 20
+		    	..base_static_public = 10
+		    	.._base_static_private = 20
 		    }
 
 		    Other {
 		    	other_instance = 3
 		    	_other_private = 4
 
-		    	../other_static_public = 30
-		    	../_other_static_private = 40
+		    	..other_static_public = 30
+		    	.._other_static_private = 40
 		    }
 		CODE
 
@@ -1807,9 +1807,9 @@ class Interpreter_Test < Base_Test
 		    	_shared_private = 2
 		    	left_only = 3
 
-		    	../shared_static = 10
-		    	../_shared_static_private = 20
-		    	../left_static_only = 30
+		    	..shared_static = 10
+		    	.._shared_static_private = 20
+		    	..left_static_only = 30
 		    }
 
 		    Right {
@@ -1817,9 +1817,9 @@ class Interpreter_Test < Base_Test
 		    	_shared_private = 5
 		    	right_only = 6
 
-		    	../shared_static = 40
-		    	../_shared_static_private = 50
-		    	../right_static_only = 60
+		    	..shared_static = 40
+		    	.._shared_static_private = 50
+		    	..right_static_only = 60
 		    }
 		CODE
 
@@ -1933,13 +1933,13 @@ class Interpreter_Test < Base_Test
 		assert_equal true, out
 	end
 
-	def test_echo_directive
+	def test_puts_directive
 		output          = StringIO.new
 		original_stdout = $stdout
 		$stdout         = output
 
 		begin
-			result = Ore.interp "#echo 'Walt!'"
+			result = Ore.interp "#puts 'Walt!'"
 			assert_equal 'Walt!', result
 			assert_equal "Walt!\n", output.string
 		ensure
@@ -1954,8 +1954,8 @@ class Interpreter_Test < Base_Test
 		    	b = 0
 
 		    	new { a, b;
-		    		./a = a
-		    		./b = b
+		    		.a = a
+		    		.b = b
 		    	}
 		    }
 		ORE

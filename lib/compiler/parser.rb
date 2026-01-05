@@ -360,7 +360,7 @@ module Ore
 			scope = eat.value
 
 			if curr? SCOPE_OPERATORS
-				# There should not be any more scope operators at this point. We've implicitly handled ./ and ../.
+				# There should not be any more scope operators at this point. We've implicitly handled . and ..
 				raise Ore::Invalid_Scope_Syntax.new curr_lexeme
 			end
 
@@ -392,10 +392,10 @@ module Ore
 			# Parse handler function (must follow route declaration).
 			# todo: Consider being able to use an existing identifier in place of a function expression
 			reduce_newlines
-			handler = parse_func
+			func = parse_func
 
 			# Validate: handler params must include all route params
-			handler_params = handler.expressions
+			handler_params = func.expressions
 			                 .select { |expr| expr.is_a?(Ore::Param_Expr) }
 			                 .map(&:name)
 
@@ -411,7 +411,7 @@ module Ore
 				expr.kind  = :identifier
 			end
 			route.path        = path_string
-			route.expression  = handler
+			route.expression  = func
 			route.param_names = param_names
 
 			route
@@ -571,18 +571,18 @@ module Ore
 				return complete_expression directive, precedence
 			end
 
-			scope_prefix = %w(./ ../).find do |it|
+			scope_prefix = SCOPE_OPERATORS.find do |it|
 				expr.is it
 			end
 
 			if scope_prefix
-				next_expr = begin_expression
+				next_expr = begin_expression precedence
 				if next_expr.is_a? Ore::Infix_Expr
 					expr            = Ore::Prefix_Expr.new
 					expr.operator   = scope_prefix
 					expr.expression = next_expr
 				end
-				return complete_expression expr
+				return complete_expression next_expr, precedence
 			end
 
 			prefix    = PREFIX.include?(expr.value)

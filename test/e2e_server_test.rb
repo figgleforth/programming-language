@@ -22,7 +22,7 @@ class E2E_Server_Test < Minitest::Test
 		    Server {
 		    	port;
 		    	new { port = #{@port};
-		    		./port = port
+		    		.port = port
 		    	}
 		    }
 
@@ -71,7 +71,7 @@ class E2E_Server_Test < Minitest::Test
 		    Server {
 		    	port;
 		    	new { port = #{@port};
-		    		./port = port
+		    		.port = port
 		    	}
 		    }
 
@@ -104,7 +104,7 @@ class E2E_Server_Test < Minitest::Test
 		    Server {
 		    	port;
 		    	new { port = #{@port};
-		    		./port = port
+		    		.port = port
 		    	}
 		    }
 
@@ -140,7 +140,7 @@ class E2E_Server_Test < Minitest::Test
 		    Server {
 		    	port;
 		    	new { port;
-		    		./port = port
+		    		.port = port
 		    	}
 		    }
 
