@@ -1238,7 +1238,7 @@ module Ore
 
 		def interp_directive expr
 			case expr.name.value
-			when 'echo'
+			when 'puts'
 				value = interpret expr.expression
 				puts value # note: Don't remove this like I did, it is supposed to print out. todo: Be able to set your own output stream
 				value

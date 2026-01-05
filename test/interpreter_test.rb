@@ -1933,13 +1933,13 @@ class Interpreter_Test < Base_Test
 		assert_equal true, out
 	end
 
-	def test_echo_directive
+	def test_puts_directive
 		output          = StringIO.new
 		original_stdout = $stdout
 		$stdout         = output
 
 		begin
-			result = Ore.interp "#echo 'Walt!'"
+			result = Ore.interp "#puts 'Walt!'"
 			assert_equal 'Walt!', result
 			assert_equal "Walt!\n", output.string
 		ensure
