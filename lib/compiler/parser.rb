@@ -360,7 +360,7 @@ module Ore
 			scope = eat.value
 
 			if curr? SCOPE_OPERATORS
-				# There should not be any more scope operators at this point. We've implicitly handled ./ and ../.
+				# There should not be any more scope operators at this point. We've implicitly handled . and ..
 				raise Ore::Invalid_Scope_Syntax.new curr_lexeme
 			end
 
@@ -571,18 +571,20 @@ module Ore
 				return complete_expression directive, precedence
 			end
 
-			scope_prefix = %w(./ ../).find do |it|
+			scope_prefix = SCOPE_OPERATORS.find do |it|
 				expr.is it
 			end
 
 			if scope_prefix
-				next_expr = begin_expression
+				next_expr = begin_expression precedence
 				if next_expr.is_a? Ore::Infix_Expr
 					expr            = Ore::Prefix_Expr.new
 					expr.operator   = scope_prefix
 					expr.expression = next_expr
 				end
-				return complete_expression expr
+				# puts "CURR: #{expr.inspect}"
+				# puts "NEXT: #{next_expr.inspect}"
+				return complete_expression next_expr, precedence
 			end
 
 			prefix    = PREFIX.include?(expr.value)

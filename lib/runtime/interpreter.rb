@@ -29,11 +29,11 @@ module Ore
 			case expr.scope_operator
 			when '~/' # global
 				runtime.stack.first
-			when './' # instance within context
+			when '.' # instance within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.is_a? Ore::Instance
 				end
-			when '../' # underlying type within context
+			when '..' # underlying type within context
 				runtime.stack.reverse_each.find do |scope|
 					scope.instance_of? Ore::Type
 				end
@@ -236,9 +236,9 @@ module Ore
 				end
 			else
 				# When scope is nil, errors must be raised
-				if expr.scope_operator == '../'
+				if expr.scope_operator == '..'
 					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
-				elsif expr.scope_operator == './'
+				elsif expr.scope_operator == '.'
 					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
 				else
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
@@ -313,9 +313,9 @@ module Ore
 			# If using a scope operator but the scope doesn't exist, raise an error
 			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator && assignment_scope.nil?
 				case expr.left.scope_operator
-				when './'
+				when '.'
 					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
-				when '../'
+				when '..'
 					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
 				else
 					raise Ore::Invalid_Scope_Syntax.new(expr, runtime)
@@ -388,8 +388,8 @@ module Ore
 
 			assignment_scope.declare expr.left.value, right_value
 
-			# Track static declarations (members assigned with ../)
-			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
+			# Track static declarations (members assigned with ..)
+			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '..'
 				assignment_scope.static_declarations ||= Set.new
 				assignment_scope.static_declarations.add expr.left.value.to_s
 			end
@@ -518,7 +518,7 @@ module Ore
 			when '.'
 				interp_dot_infix expr
 			when '<<'
-				# todo: This was implemented sometime when I first got arrays working, but it shouldn't be special-cased like this. Once operator declarations work then this can be declared on Array as `<< {iten; ./values.push(item) }`
+				# todo: This was implemented sometime when I first got arrays working, but it shouldn't be special-cased like this. Once operator declarations work then this can be declared on Array as `<< {iten; .values.push(item) }`
 				left  = maybe_instance interpret expr.left
 				right = interpret expr.right
 
@@ -761,12 +761,12 @@ module Ore
 					type.expressions.each do |expr|
 						# Skip static declarations - they were already executed during type definition and shouldn't be re-executed for each instance
 						if expr.is_a?(Ore::Infix_Expr) && expr.operator == '=' &&
-						   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '../'
+						   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '..'
 							next
 						end
 
 						if expr.is_a?(Ore::Func_Expr) && expr.name.is_a?(Ore::Identifier_Expr) &&
-						   expr.name.scope_operator == '../'
+						   expr.name.scope_operator == '..'
 							next
 						end
 
@@ -805,9 +805,9 @@ module Ore
 			if func.name
 				runtime.stack.last.declare func.name, func
 
-				# Track static functions (functions defined with ../)
+				# Track static functions (functions defined with ..)
 				# Get the original name expression to check for scope operator
-				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '../'
+				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '..'
 					runtime.stack.last.static_declarations ||= Set.new
 					runtime.stack.last.static_declarations.add func.name.to_s
 				end

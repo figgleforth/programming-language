@@ -205,10 +205,7 @@ module Ore
 			while chars? && symbol? && !%w(' " { } ( ) ).include?(curr)
 				it << eat
 
-				# todo: Break on all known operator, not just scope operators
-				if SCOPE_OPERATORS.include? it
-					break
-				end
+				break if (SCOPE_OPERATORS - ['.']).include? it # note: This needs to break on all known operators except plain '.' because '.' is part of other identifiers like `..`, so we need to be able to capture other operators that include dot.
 			end
 
 			it
@@ -292,7 +289,7 @@ module Ore
 						it.type  = :route
 						it.value = lex_route
 
-					elsif identifier? || %w(_).include?(curr)
+					elsif identifier?
 						it.value = lex_identifier
 						it.type  = Ore.type_of_identifier it.value
 						if %w(for skip stop).include?(it.value)
@@ -302,32 +299,20 @@ module Ore
 					elsif symbol?(curr)
 						it.type  = :operator
 						it.value = if %w(. | & ).include? curr
-							# #todo Is it possible to avoid having to do this?
-							if curr == '.' && (peek == '.' || peek == '<')
+							case [curr, peek, peek(2)]
+							in ['.', p, _] if identifier?(p) && p != '_'
 								lex_operator
-
-							elsif curr == '.' && peek == '/'
+							in ['.', '<', _] | ['.', '.', _]
 								lex_operator
-
-							elsif curr == '.' && (peek == '.' && peek(2) == '/')
+							in ['|', '|', '=']
 								lex_operator
-
-							elsif curr == '.' && (peek == '.' && peek(2) == '.' && peek(3) == '/')
+							in ['&', '&', '=']
 								lex_operator
-
-							elsif curr == '|' && peek == '|' && peek(2) == '='
+							in ['|', '=', _]
 								lex_operator
-
-							elsif curr == '&' && peek == '&' && peek(2) == '='
+							in ['&', '=', _]
 								lex_operator
-
-							elsif curr == '|' && peek == '='
-								lex_operator
-
-							elsif curr == '&' && peek == '='
-								lex_operator
-
-							elsif (curr == '|' && peek == '|') || (curr == '&' && peek == '&')
+							in ['|', '|', _] | ['&', '&', _]
 								str = ::String.new
 								str << eat
 								str << eat

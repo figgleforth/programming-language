@@ -19,7 +19,7 @@ Single_Todo | Div {
 	todo;
 
 	new { todo = 'New Todo';
-		./todo = todo
+		.todo = todo
 	}
 
 	render {;
@@ -32,8 +32,8 @@ Todo_Item | Li {
 	data;
 
 	new { todo;
-		./data = todo[:text]
-		./id = todo[:id]
+		.data = todo[:text]
+		.id = todo[:id]
 	}
 
 	render {;
@@ -45,7 +45,7 @@ List_Of_Todos | Ul {
 	todos;
 
 	new { todos = [];
-		./todos = todos
+		.todos = todos
 	}
 
 	render {;
@@ -89,7 +89,7 @@ db = Sqlite('./temp/todo_app.db') `Sqlite composes with Database
 #connect db  `=> calls Database#create_connection!
 
 Todo | Record {
-	../database = ~/db `Must set the database in order for Todo query methods to work
+	..database = ~/db `Must set the database in order for Todo query methods to work
 	table_name = 'todos'
 }
 

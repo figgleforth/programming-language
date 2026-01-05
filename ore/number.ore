@@ -4,8 +4,8 @@ Number {
 	type;
 
 	new { num;
-		./numerator = num
-		./denominator = 1
+		.numerator = num
+		.denominator = 1
 	}
 
 	to_s {; #super }

@@ -19,6 +19,6 @@ Server {
 	port;
 
 	new { port = 80;
-		./port = port
+		.port = port
 	}
 }

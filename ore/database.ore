@@ -12,6 +12,6 @@ Database {
 Sqlite | Database {
 	new { url = './test/fixtures/sqlite_test.db';
 		adapter = 'sqlite'
-		./url = url
+		.url = url
 	}
 }

@@ -21,7 +21,7 @@ Greet {
 	subject;
 
 	new { subject;
-		./subject = subject
+		.subject = subject
 	}
 
 	greeting {;
@@ -59,8 +59,8 @@ Greet('Ore').greeting()
 	- `~` Difference - discard right side declarations
 	- `^` Symmetric Difference - discard shared declarations
 - Scope operators for explicit access
-	- `./identifier` accesses instance scope only
-	- `../identifier` accesses type/static scope
+	- `.identifier` accesses instance scope only
+	- `..identifier` accesses type/static scope
 	- `~/identifier` accesses global scope
 - First-class functions and classes
 - Data containers `Array`, `Tuple`, `Dictionary`
@@ -84,7 +84,7 @@ Greet('Ore').greeting()
 	- Base composable `Record` type with `all()`, `find()`, `create()`, `delete()` methods
 	- Database operations via `Database` type
 	- Schema definition with dictionaries
-	- Static database linking with `../database = ~/db`
+	- Static database linking with `..database = ~/db`
 - HTML rendering with `Dom` composition
 	- Compose HTML with built-in HTML DOM elements (`Dom`, `Html`, `Body`, `Div`, `H1`, etc)
 	- Declare `html_` prefixed attributes for HTML attributes (`html_href`, `html_class`)
@@ -163,8 +163,8 @@ Repo {
 
 	`"new" is reserved for constructors
 	new { user, name;
-		./user = user
-		./name = name
+		.user = user
+		.name = name
 	}
 
 	to_s {;
@@ -228,8 +228,8 @@ Vector {
 	y;
 
 	new { x, y;
-		./x = x
-		./y = y
+		.x = x
+		.y = y
 	}
 }
 
@@ -288,7 +288,7 @@ db.create_table('posts', {
 
 `Define model by composing with Record
 Post | Record {
-	../database = ~/db     `Link to static ../database declaration
+	..database = ~/db     `Link to static ..database declaration
 	table_name = 'posts'
 }
 
@@ -356,8 +356,8 @@ Layout | Dom {
 	body_content;
 
 	new { title = 'My page', body_content = 'Hello!';
-		./title = title
-		./body_content = body_content
+		.title = title
+		.body_content = body_content
 	}
 
 	render {;

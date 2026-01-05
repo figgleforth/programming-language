@@ -116,7 +116,7 @@ class Database_Test < Base_Test
 			db.create_table('users' { id: 'primary_key', name: 'String' })
 
 			User | Record {
-				../database = db
+				..database = db
 				table_name = 'users'
 			}
 
