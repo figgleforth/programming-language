@@ -390,4 +390,13 @@ class Regression_Test < Base_Test
 		    }
 		ORE
 	end
+
+	def test_accessing_dictionary_keys_with_dot
+		# todo: I plan to make the x inside {x} to set x to whatever x happens to evaluate to. When that happens, {x}.x should return 123!
+		out = Ore.interp <<~ORE
+		    x = 123
+		    {x}.x
+		ORE
+		assert_nil out
+	end
 end

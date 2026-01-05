@@ -478,6 +478,14 @@ module Ore
 		def interp_dot_dictionary expr
 			dict = maybe_instance interpret expr.left
 
+			if expr.right.is_a? Ore::Identifier_Expr
+				key_sym = expr.right.value.to_sym
+				if dict.dict.has_key?(key_sym)
+					return dict.dict[key_sym]
+				end
+			end
+
+			# todo: Handle the case when dictionary keys shadow one of the builtin dictionary functions. Ideally check the dict scope first, then dict.dict, but manually check the scope instead of using #interpret because #interpret will look up the stack so the identifier may be found and evaluated despite not existing in dictionary.dict or dictionary the built-in.
 			runtime.push_scope dict
 			result = interpret expr.right
 			runtime.pop_scope
