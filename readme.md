@@ -1,6 +1,7 @@
 ![Status of project Ruby tests](https://github.com/figgleforth/ore-lang/actions/workflows/tests.yml/badge.svg)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
-[![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-9ff)](https://justforfunnoreally.dev)
+![Version](https://img.shields.io/badge/version-0.1.0-2B7FFF.svg)
+![License: MIT](https://img.shields.io/badge/License-MIT-2B7FFF.svg)
+[![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
 
 ### Quick Start
 
@@ -41,6 +42,7 @@ Greet('Ore').greeting()
 	- [Loops](#loops)
 	- [Instance Unpacking](#instance-unpacking)
 	- [File Loading](#file-loading)
+	- [Database & ORM](#database--orm)
 	- [Web Servers](#web-servers)
 	- [HTML Rendering](#html-rendering)
 - [Project Structure](#project-structure)
@@ -56,12 +58,12 @@ Greet('Ore').greeting()
 	- `&` Intersection - keep only shared declarations
 	- `~` Difference - discard right side declarations
 	- `^` Symmetric Difference - discard shared declarations
-- Dot notation for convenience
-	- `array.1.0.8` accesses nested structures
-	- `./identifier` accesses instance scope
-	- `../identifier` accesses global scope
+- Scope operators for explicit access
+	- `./identifier` accesses instance scope only
+	- `../identifier` accesses type/static scope
+	- `~/identifier` accesses global scope
 - First-class functions and classes
-- Data containers `List`, `Tuple`, `Dictionary`
+- Data containers `Array`, `Tuple`, `Dictionary`
 - Loops like `for`, `while`, and `until`
 	- Automatic `it` declaration for iteration value
 	- Automatic `at` declaration for iteration index
@@ -71,14 +73,20 @@ Greet('Ore').greeting()
 	- Makes declarations accessible without `instance.` prefix
 	- Auto-unpack function parameters in function body `funk { @with; }`
 	- Manually unpack `@ += instance` and undo `@ -= instance`
-- Basic Web server support with routing
+- Basic web server with routing
 	- Route definitions use `method://path` syntax (e.g., `get://`, `post://users/:id`)
 	- URL parameters via `:param` syntax
-	- Query string access via `request.query`
+	- Query string and form data access via `request.query` and `request.body`
+	- HTTP redirects with `response.redirect(url)`
 	- Non-blocking `#start` directive allows running multiple servers
 	- Graceful shutdown handling when program exits
-- Basic HTML rendering with `Dom` composition
-	- Compose with built-in HTML elements (`Dom`, `Html`, `Body`, `Div`, `H1`, etc)
+- Database ORM with SQLite
+	- Base composable `Record` type with `all()`, `find()`, `create()`, `delete()` methods
+	- Database operations via `Database` type
+	- Schema definition with dictionaries
+	- Static database linking with `../database = ~/db`
+- HTML rendering with `Dom` composition
+	- Compose HTML with built-in HTML DOM elements (`Dom`, `Html`, `Body`, `Div`, `H1`, etc)
 	- Declare `html_` prefixed attributes for HTML attributes (`html_href`, `html_class`)
 	- Declare `css_` prefixed properties for CSS (`css_color`, `css_background`)
 	- Routes returning `Dom` instances automatically render to HTML
@@ -260,6 +268,47 @@ multiply(2)  `Vector(10, 20)
 user = User('Alice', 'alice@example.com')
 formatted = format_name(user.name)
 ```
+
+#### Database & ORM
+
+```ore
+#use 'ore/database.ore'
+#use 'ore/record.ore'
+
+`Create and connect to database
+db = Sqlite('./temp/blog.db')
+#connect db
+
+`Create table with schema
+db.create_table('posts', {
+	id: 'primary_key',
+	title: 'String',
+	body: 'String'
+})
+
+`Define model by composing with Record
+Post | Record {
+	../database = ~/db     `Link to static ../database declaration
+	table_name = 'posts'
+}
+
+`Create records
+Post.create({title: "Hello Ore", body: "Building web apps is fun!"})
+Post.create({title: "Databases", body: "SQLite integration works!"})
+
+`Query records
+posts = Post.all()         `Fetch all posts
+post = Post.find(1)        `Find by ID
+
+`Access record data (returns Dictionary)
+post[:title]               `"Hello Ore"
+post[:body]                `"Building web apps is fun!"
+
+`Delete records
+Post.delete(2)
+```
+
+> For a complete full-stack example, see [todo_app.ore](examples/todo_app.ore) which combines Database, ORM, Server, HTML rendering, and forms into a working CRUD application.
 
 #### Web Servers
 
