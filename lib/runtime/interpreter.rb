@@ -1337,6 +1337,8 @@ module Ore
 			when Ore::Dictionary, Ore::Array
 				key = interpret expr.expression.expressions.first
 				receiver[key]
+			when Ore::Nil
+				nil
 			else
 				raise Ore::Invalid_Subscript_Left_Operand.new(expr.receiver, runtime)
 			end

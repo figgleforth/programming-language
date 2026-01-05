@@ -29,15 +29,15 @@ Single_Todo | Div {
 
 Todo_Item | Li {
 	id;
-	data;
+	text;
 
 	new { todo;
-		.data = todo[:text]
-		.id = todo[:id]
+		.text = todo[:text]
+		.id   = todo[:id]
 	}
 
 	render {;
-		A("/|id|", "|id|: |data|")
+		A("/|id|", "|id|: |text|")
 	}
 }
 

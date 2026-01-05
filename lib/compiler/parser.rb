@@ -582,8 +582,6 @@ module Ore
 					expr.operator   = scope_prefix
 					expr.expression = next_expr
 				end
-				# puts "CURR: #{expr.inspect}"
-				# puts "NEXT: #{next_expr.inspect}"
 				return complete_expression next_expr, precedence
 			end
 
