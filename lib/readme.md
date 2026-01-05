@@ -42,8 +42,7 @@ interpreter = Ore::Interpreter.new expressions
 result      = interpreter.output # => Hello, World!
 ```
 
-Another option is to use one of the [`#Ore.lex*`, `Ore.parse*`,
-`Ore.interp*`](runtime/helpers.rb) helpers, which saves you three lines if you only need the output.
+Another option is to use one of the [`#Ore.lex*`, `Ore.parse*`,`Ore.interp*`](runtime/helpers.rb) helpers, which saves you three lines if you only need the output.
 
 ```ruby
 require './lib/ore'

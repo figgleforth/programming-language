@@ -362,9 +362,7 @@ My_Div | Dom {
 `=> <p class='my_class' id='my_id' style='background-color:black;color:white;'></p>
 ```
 
-Note: Rendering HTML only works when
-`render{;}` is called by a Server instance. See [html.ore](ore/html.ore) for predefined
-`Dom` elements. See [web1.ore](examples/web1.ore) for Server and HTML usage.
+Note: Rendering HTML only works when `render{;}` is called by a Server instance. See [html.ore](ore/html.ore) for predefined `Dom` elements. See [web1.ore](examples/web1.ore) for Server and HTML usage.
 
 ### Project Structure
 

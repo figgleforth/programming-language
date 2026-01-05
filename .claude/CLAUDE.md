@@ -32,11 +32,17 @@ bundle exec rake
 ### Running Ore Programs
 
 ```bash
-# Execute Ore code directly
-bundle exec bin/ore interp "4 + 8"
+# Run Ore file with hot reload (watches for changes)
+bin/ore <file.ore>
 
-# Execute Ore file
-bundle exec bin/ore path/to/file.ore
+# Debug/inspect compilation stages
+bin/ore lex "4 + 8"              # Show lexer tokens
+bin/ore parse "4 + 8"            # Show AST
+bin/ore interp "4 + 8"           # Execute code
+
+bin/ore lex -f <file.ore>        # Tokenize file
+bin/ore parse -f <file.ore>      # Parse file to AST
+bin/ore interp -f <file.ore>     # Execute file
 ```
 
 ### Setup
@@ -75,9 +81,7 @@ The AST is executed to produce output:
 Used by both compiler and runtime:
 
 - `constants.rb` - Language constants, operators, precedence table, reserved words
--
-
-`helpers.rb` - Utility functions for identifier classification (constant_identifier?, type_identifier?, member_identifier?)
+- `helpers.rb` - Utility functions for identifier classification (constant_identifier?, type_identifier?, member_identifier?)
 
 ### Entry Point
 
@@ -116,10 +120,7 @@ Ore provides three scope operators for explicit scope access:
 
 **Identifier Search Behavior:**
 
--
-
-`identifier` (no operator) - Searches through all scopes in the stack from current to global, including checking for proxies methods
-
+- `identifier` (no operator) - Searches through all scopes in the stack from current to global, including checking for proxies methods
 - `./identifier` - Only searches the current instance scope (does not fall back to global)
 - `../identifier` - Only searches the current type scope
 - `~/identifier` - Only searches the global scope
@@ -211,8 +212,7 @@ x = island_member  `Access members directly
 
 ## Built-in Types and Intrinsic Methods
 
-Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that delegate to Ruby's native implementations. These methods are declared using a
-`proxy_` prefix (see lib/shared/super_proxies.rb)
+Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that delegate to Ruby's native implementations. These methods are declared using a `proxy_` prefix (see lib/shared/super_proxies.rb)
 
 ### Intrinsic Method Implementation Pattern
 
@@ -248,16 +248,13 @@ end
 ```
 
 **Methods implemented in Ore** (not as Ruby proxies):
-Some methods like `find`, `any?`, and
-`all?` are implemented directly in Ore using for loops rather than Ruby proxies, as they need to execute Ore functions.
+Some methods like `find`, `any?`, and `all?` are implemented directly in Ore using for loops rather than Ruby proxies, as they need to execute Ore functions.
 
 ### String
 
 Properties: `length`, `ord`
 
-Methods: `upcase()`, `downcase()`, `split(delimiter)`, `slice(substr)`, `trim()`, `trim_left()`, `trim_right()`,
-`chars()`, `index(substr)`, `to_i()`, `to_f()`, `empty?()`, `include?(substr)`, `reverse()`, `replace(new)`,
-`start_with?(prefix)`, `end_with?(suffix)`, `gsub(pattern, replacement)`
+Methods: `upcase()`, `downcase()`, `split(delimiter)`, `slice(substr)`, `trim()`, `trim_left()`, `trim_right()`, `chars()`, `index(substr)`, `to_i()`, `to_f()`, `empty?()`, `include?(substr)`, `reverse()`, `replace(new)`, `start_with?(prefix)`, `end_with?(suffix)`, `gsub(pattern, replacement)`
 
 Defined in: `ore/string.ore`, implemented in `scopes.rb` as `Ore::String`
 
@@ -265,10 +262,7 @@ Defined in: `ore/string.ore`, implemented in `scopes.rb` as `Ore::String`
 
 Properties: `values`
 
-Methods: `push(item)`, `pop()`, `shift()`, `unshift(item)`, `length()`, `first(count)`, `last(count)`,
-`slice(from, to)`, `reverse()`, `join(separator)`, `map(func)`, `filter(func)`, `reduce(func, init)`, `concat(other)`,
-`flatten()`, `sort()`, `uniq()`, `include?(item)`, `empty?()`, `find(func)` *(Ore)*, `any?(func)` *(Ore)*, `all?(func)`
-*(Ore)*, `each(func)`
+Methods: `push(item)`, `pop()`, `shift()`, `unshift(item)`, `length()`, `first(count)`, `last(count)`, `slice(from, to)`, `reverse()`, `join(separator)`, `map(func)`, `filter(func)`, `reduce(func, init)`, `concat(other)`,`flatten()`, `sort()`, `uniq()`, `include?(item)`, `empty?()`, `find(func)` *(Ore)*, `any?(func)` *(Ore)*, `all?(func)`*(Ore)*, `each(func)`
 
 Defined in: `ore/array.ore`, implemented in `scopes.rb` as `Ore::Array`
 
@@ -276,8 +270,7 @@ Defined in: `ore/array.ore`, implemented in `scopes.rb` as `Ore::Array`
 
 ### Dictionary
 
-Methods: `keys()`, `values()`, `has_key?(key)`, `delete(key)`, `merge(other)`, `count()`, `empty?()`, `clear()`,
-`fetch(key, default)`
+Methods: `keys()`, `values()`, `has_key?(key)`, `delete(key)`, `merge(other)`, `count()`, `empty?()`, `clear()`, `fetch(key, default)`
 
 ```ore
 dict = {x: 4, y: 8}
@@ -299,8 +292,7 @@ dict.count()       `3
 
 Properties: `numerator`, `denominator`, `type`
 
-Methods: `to_s()`, `abs()`, `floor()`, `ceil()`, `round()`, `sqrt()`, `even?()`, `odd?()`, `to_i()`, `to_f()`,
-`clamp(min, max)`
+Methods: `to_s()`, `abs()`, `floor()`, `ceil()`, `round()`, `sqrt()`, `even?()`, `odd?()`, `to_i()`, `to_f()`, `clamp(min, max)`
 
 Defined in: `ore/number.ore`, implemented in `scopes.rb` as `Ore::Number`
 
@@ -389,8 +381,108 @@ Tests use Minitest and inherit from `Base_Test` (in test/base_test.rb):
 - `test/regression_test.rb` - Regression tests
 - `test/server_test.rb` - Server and routing tests
 - `test/e2e_server_test.rb` - End-to-end server tests
+- `test/database_test.rb` - Database and ORM tests
 
 The base test class provides `refute_raises` helper for asserting no exceptions.
+
+## Database and ORM
+
+Ore includes built-in database support with an ActiveRecord-style ORM using Sequel and SQLite.
+
+### Database Connection
+
+```ore
+#use 'ore/database.ore'
+
+db = Sqlite('./data/myapp.db')
+#connect db  `Establishes connection
+```
+
+**Database methods:**
+- `create_table(name, columns)` - Create table from schema dictionary
+- `delete_table(name)` - Drop table
+- `table_exists?(name)` - Check if table exists
+- `tables()` - List all tables
+
+```ore
+db.create_table('users', {
+    id: 'primary_key',
+    name: 'String',
+    email: 'String'
+})
+
+db.table_exists?('users')  `=> true
+db.tables()                `=> ['users']
+```
+
+### Record ORM
+
+The `Record` type provides ActiveRecord-style ORM functionality:
+
+```ore
+#use 'ore/record.ore'
+
+User | Record {
+    ../database = ~/db      `Set database (static declaration)
+    table_name = 'users'
+}
+```
+
+**Record class methods (static):**
+- `all()` - Fetch all records as Array of Dictionaries
+- `find(id)` - Find record by ID, returns Dictionary
+- `create(attributes)` - Insert new record, returns ID
+- `delete(id)` - Delete record by ID
+
+```ore
+`Create records
+User.create({name: "Alice", email: "alice@example.com"})
+User.create({name: "Bob", email: "bob@example.com"})
+
+`Query records
+users = User.all()         `=> Array of Dictionary instances
+user = User.find(1)        `=> Dictionary with {id: 1, name: "Alice", ...}
+
+`Delete records
+User.delete(1)
+```
+
+### Full Example
+
+```ore
+#use 'ore/database.ore'
+#use 'ore/record.ore'
+
+db = Sqlite('./temp/blog.db')
+#connect db
+
+`Create schema
+db.create_table('posts', {
+    id: 'primary_key',
+    title: 'String',
+    body: 'String'
+})
+
+`Define model
+Post | Record {
+    ../database = ~/db
+    table_name = 'posts'
+}
+
+`Use ORM
+Post.create({title: "Hello", body: "World"})
+posts = Post.all()
+
+for posts
+    #echo "|it[:title]|: |it[:body]|"
+end
+```
+
+**Implementation:**
+- Database operations use Ruby's Sequel gem
+- Record methods are proxy methods (see `lib/runtime/scopes.rb`)
+- Records return `Ore::Dictionary` instances
+- Static declarations (`../database`) link models to database
 
 ## Web Server Features
 
@@ -401,9 +493,29 @@ Ore has built-in web server support:
 - **URL parameters** - Use `:param` syntax in routes, accessed via route function parameters
 - **Query strings** - Available via `request.query` dictionary
 - **Request/Response objects** - Automatically available in route handlers (from `scopes.rb`)
+- **HTTP redirects** - `response.redirect(url)` for POST/Redirect/GET pattern (uses 303 See Other)
+- **Form data** - POST body available via `request.body` dictionary
 - **`#start` directive** - Non-blocking server startup, allows multiple concurrent servers
 - **Graceful shutdown** - Servers stop when program exits
 - **WEBrick backend** - HTTP server implementation in `server_runner.rb`
+
+### Response Methods
+
+- `response.redirect(url)` - Redirect to URL (HTTP 303 See Other, changes POST to GET)
+- `response.status = code` - Set HTTP status code
+- `response.headers[key] = value` - Set response headers
+- `response.body = content` - Set response body
+
+```ore
+post://login {;
+    if authenticate(request.body.username, request.body.password)
+        response.redirect("/dashboard")
+    else
+        response.status = 401
+        "Unauthorized"
+    end
+}
+```
 
 ## File Loading
 
