@@ -148,8 +148,8 @@ fizz_buzz { n;
 		'Buzz'
 	else
 		'|n|'
-	end             `Control flows close with `end`
-}                       `Code blocks close with `}`
+	end           `Control flows close with `end`
+}                 `Code blocks close with `}`
 ```
 
 #### Classes
