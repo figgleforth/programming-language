@@ -25,7 +25,7 @@ module Ore
 		interp File.read(filepath), with_std: with_std, filepath: File.expand_path(filepath)
 	end
 
-	def self.interp_file_with_hot_reload filepath
+	def self.interp_file_with_hot_reload filepath, with_std: true
 		require 'listen'
 
 		reload          = true
@@ -49,9 +49,14 @@ module Ore
 			while reload && !shutdown
 				reload = false
 
-				code    = File.read filepath
-				global  = Ore::Global.with_standard_library
-				runtime = Ore::Runtime.new global
+				code  = File.read filepath
+				scope = if with_std
+					Ore::Global.with_standard_library
+				else
+					Ore::Global.new
+				end
+
+				runtime = Ore::Runtime.new scope
 				runtime.register_source filepath, code
 				expressions = Ore.parse(code, filepath: filepath)
 				interpreter = Ore::Interpreter.new expressions, runtime

@@ -33,10 +33,10 @@ bundle exec rake
 
 ```bash
 # Execute Ore code directly
-bundle exec rake interp["4 + 8"]
+bundle exec bin/ore interp "4 + 8"
 
 # Execute Ore file
-bundle exec rake interp_file["path/to/file.ore"]
+bundle exec bin/ore path/to/file.ore
 ```
 
 ### Setup
@@ -402,7 +402,7 @@ Ore has built-in web server support:
 - **Query strings** - Available via `request.query` dictionary
 - **Request/Response objects** - Automatically available in route handlers (from `scopes.rb`)
 - **`#start` directive** - Non-blocking server startup, allows multiple concurrent servers
-- **Graceful shutdown** - Servers stop when program exits (handled in Rakefile's `_interp_file`)
+- **Graceful shutdown** - Servers stop when program exits
 - **WEBrick backend** - HTTP server implementation in `server_runner.rb`
 
 ## File Loading

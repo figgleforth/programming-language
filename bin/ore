@@ -3,16 +3,27 @@
 require_relative '../lib/ore'
 
 INSTRUCTIONS = <<~INST
-    Usage:
-        bundle exec bin/ore <file.ore>              - Run once
-        bundle exec bin/ore dev <file.ore>          - Run with hot reload
-        bundle exec bin/ore lex "<code>"            - Produce Lexer output for given code
-        bundle exec bin/ore parse "<code>"          - Produce Parser output for given code
-        bundle exec bin/ore interp "<code>"         - Produce Interpreter output for given code
+    Usage: ore <command> <input>
 
-		bundle exec bin/ore lexf "<file.ore>"       - Produce Lexer output for given file
-        bundle exec bin/ore parsef "<file.ore>"     - Produce Parser output for given file
-        bundle exec bin/ore interpf "<file.ore>"    - Produce Interpreter output for given file
+    Run Ore programs or inspect compilation stages.
+
+    COMMANDS:
+        ore <file>                      Run file with hot reload
+
+        ore lex <code>                  Show lexer tokens for code
+        ore lexf <file>                 Show lexer tokens for file
+
+        ore parse <code>                Show AST for code
+        ore parsef <file>               Show AST for file
+
+        ore interp <code>               Execute code string
+        ore interpf <file>              Execute file
+
+    EXAMPLES:
+        ore myapp.ore
+        ore lex "x = 5 + 3"
+        ore parse -f test.ore
+        ore interp myapp.ore
 INST
 
 if ARGV.empty?
@@ -22,13 +33,6 @@ end
 
 begin
 	case ARGV[0]
-	when 'dev'
-		if ARGV[1]
-			puts Ore.interp_file_with_hot_reload ARGV[1]
-		else
-			puts "Error: No file specified.\n#{INSTRUCTIONS}"
-			exit 1
-		end
 	when 'lex'
 		pp Ore.lex ARGV[1]
 	when 'parse'
@@ -43,12 +47,16 @@ begin
 		pp Ore.interp_file ARGV[1]
 	else
 		if ARGV[0]
-			puts Ore.interp_file ARGV[0]
+			puts Ore.interp_file_with_hot_reload ARGV[0]
 		else
 			puts "Error: No file specified.\n#{INSTRUCTIONS}"
 			exit 1
 		end
 	end
+rescue Errno::ENOENT => e
+	$stderr.puts "Could not find file `#{ARGV[0]}`"
+	exit 1
+
 rescue Ore::Error => e
 	$stderr.puts e.message
 	exit 1
