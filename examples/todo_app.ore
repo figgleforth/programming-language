@@ -11,29 +11,29 @@ Page_Layout | Html {
 	css_padding = '3.2em'
 
 	render {;
-		[Head(Title("Todos")), Body(children)]
+		[Head(Title("Tasks")), Body(children)]
 	}
 }
 
-Single_Todo | Div {
-	todo;
+Single_Task | Div {
+	task;
 
-	new { todo = 'New Todo';
-		.todo = todo
+	new { task = 'New Task';
+		.task = task
 	}
 
 	render {;
-		[A('/', 'Back to all'), P("|id|: |todo[:text]|")]
+		[A('/', 'Back to all'), P("|id|: |task[:text]|")]
 	}
 }
 
-Todo_Item | Li {
+Task_Item | Li {
 	id;
 	text;
 
-	new { todo;
-		.text = todo[:text]
-		.id   = todo[:id]
+	new { task;
+		.text = task[:text]
+		.id   = task[:id]
 	}
 
 	render {;
@@ -41,27 +41,27 @@ Todo_Item | Li {
 	}
 }
 
-List_Of_Todos | Ul {
-	todos;
+List_Of_Tasks | Ul {
+	tasks;
 
-	new { todos = [];
-		.todos = todos
+	new { tasks = [];
+		.tasks = tasks
 	}
 
 	render {;
-		todos.map({ it, at;
-			Todo_Item(it)
+		tasks.map({ it, at;
+			Task_Item(it)
 		})
 	}
 }
 
-New_Todo_Form | Form {
+New_Task_Form | Form {
 	html_action = '/new'
 	html_method = 'POST'
 
 	render {;
 		[
-			Label('Add a new todo:'),
+			Label('Add a new task:'),
 			Br(),
 			Input_Field(),
 			Br(),
@@ -72,69 +72,69 @@ New_Todo_Form | Form {
 
 Input_Field | Textarea {
 	html_type = 'text'
-	html_name = 'todo'
-	html_placeholder = 'Enter todo text...'
+	html_name = 'task'
+	html_placeholder = 'Enter task text...'
 }
 
 Submit_Button | Button {
 	html_type = 'submit'
 
-	render {; 'Add Todo' }
+	render {; 'Add Task' }
 }
 
 ```Database```
-db = Sqlite('./temp/todo_app.db') `Sqlite composes with Database
+db = Sqlite('./temp/task_app.db') `Sqlite composes with Database
 
 `db = #connect Sqlite(...) is also valid
 #connect db  `=> calls Database#create_connection!
 
-Todo | Record {
-	..database = ~/db `Must set the database in order for Todo query methods to work
-	table_name = 'todos'
+Task | Record {
+	..database = ~/db `Must set the database in order for Task query methods to work
+	table_name = 'tasks'
 }
 
-if db.table_exists?('todos')
-	db.delete_table('todos')
-	db.create_table('todos', { id: 'primary_key', text: 'String' })
+if db.table_exists?('tasks')
+	db.delete_table('tasks')
+	db.create_table('tasks', { id: 'primary_key', text: 'String' })
 else
-	db.create_table('todos', { id: 'primary_key', text: 'String' })
+	db.create_table('tasks', { id: 'primary_key', text: 'String' })
 end
 
-Todo.create({text: "Make Databases work"})
-Todo.create({text: "Allow reading and writing Records"})
-Todo.create({text: "Show Todos in this app"})
-Todo.create({text: "Implement user authentication"})
-Todo.create({text: "Add dark mode toggle"})
-Todo.create({text: "Write comprehensive documentation"})
-Todo.create({text: "Optimize database queries"})
-Todo.create({text: "Add file upload feature"})
-Todo.create({text: "Create RESTful API endpoints"})
-Todo.create({text: "Build admin dashboard"})
+Task.create({text: "Make Databases work"})
+Task.create({text: "Allow reading and writing Records"})
+Task.create({text: "Show Tasks in this app"})
+Task.create({text: "Implement user authentication"})
+Task.create({text: "Add dark mode toggle"})
+Task.create({text: "Write comprehensive documentation"})
+Task.create({text: "Optimize database queries"})
+Task.create({text: "Add file upload feature"})
+Task.create({text: "Create RESTful API endpoints"})
+Task.create({text: "Build admin dashboard"})
 
 ```Server```
 App | Server {
 	port = 80
 
 	get:// home {;
-		todos = Todo.all()
+		tasks = Task.all()
 		Page_Layout([
-			H2('My Todos'),
-			New_Todo_Form(),
+			H2('My Tasks'),
+			New_Task_Form(),
 			Hr(),
-			List_Of_Todos(todos)
+			List_Of_Tasks(tasks)
 		])
 	}
 
-	get://:id get_todo { id;
-		todo = Todo.find(id.to_i())
-		Page_Layout(Single_Todo(todo))
+	get://:id get_task { id;
+		task = Task.find(id.to_i())
+		Page_Layout(Single_Task(task))
 	}
 
 	post://new {;
-		id = Todo.create({text: request.body.todo })
+		id = Task.create({text: request.body.task })
 		`You can call response.redirect("/") to manually set the destination, or call the named route functions:
 		`home()
-		get_todo(id)
+		get_task(id)
 	}
 
 	`note: The following routes prevent 500 errors since we're handling all routes here, nothing is filtered.
