@@ -670,6 +670,9 @@ module Ore
 			when Ore::Instance, Ore::Type, Ore::Html_Element
 				interp_type_call receiver, expr
 
+			when Ore::Route
+				interp_func_call receiver.handler, expr
+
 			when Ore::Func
 				interp_func_call receiver, expr
 
@@ -990,11 +993,11 @@ module Ore
 		end
 
 		def interp_route expr
-			expression = interpret expr.expression
+			func = interpret expr.expression
 
 			route                 = Ore::Route.new
 			route.enclosing_scope = runtime.stack.last
-			route.handler         = expression
+			route.handler         = func
 			route.http_method     = expr.http_method
 			route.path            = expr.path
 			route.path            = route.path[1..] if route.path.start_with? '/'
@@ -1004,12 +1007,8 @@ module Ore
 				_1.empty?
 			end
 
-			unless expression.is_a? Ore::Func
-				raise Ore::Invalid_Http_Directive_Handler.new(expr, runtime)
-			end
-
-			route_key = if expression.name && expression.name != 'Ore::Func'
-				expression.name
+			route_key = if func.name && func.name != 'Ore::Func'
+				func.name
 			else
 				# Anonymous route with auto-generated key: "method:path"
 				"#{route.http_method.value}:#{route.path}"
@@ -1025,7 +1024,7 @@ module Ore
 			end
 
 			runtime.routes[route_key] = route
-			runtime.stack.last.declare route_key, route if expression.name && expression.name != 'Ore::Func'
+			runtime.stack.last.declare route_key, route
 
 			route
 		end

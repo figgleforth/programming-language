@@ -115,7 +115,7 @@ Todo.create({text: "Build admin dashboard"})
 App | Server {
 	port = 80
 
-	home = get:// {;
+	get:// home {;
 		todos = Todo.all()
 		Page_Layout([
 			H2('My Todos'),
@@ -125,14 +125,16 @@ App | Server {
 		])
 	}
 
-	get://:id { id;
+	get://:id get_todo { id;
 		todo = Todo.find(id.to_i())
 		Page_Layout(Single_Todo(todo))
 	}
 
 	post://new {;
-		Todo.create({text: request.body.todo })
-		response.redirect("/")
+		id = Todo.create({text: request.body.todo })
+		`You can call response.redirect("/") to manually set the destination, or call the named route functions:
+		`home()
+		get_todo(id)
 	}
 
 	`note: The following routes prevent 500 errors since we're handling all routes here, nothing is filtered.

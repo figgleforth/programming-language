@@ -392,10 +392,10 @@ module Ore
 			# Parse handler function (must follow route declaration).
 			# todo: Consider being able to use an existing identifier in place of a function expression
 			reduce_newlines
-			handler = parse_func
+			func = parse_func
 
 			# Validate: handler params must include all route params
-			handler_params = handler.expressions
+			handler_params = func.expressions
 			                 .select { |expr| expr.is_a?(Ore::Param_Expr) }
 			                 .map(&:name)
 
@@ -411,7 +411,7 @@ module Ore
 				expr.kind  = :identifier
 			end
 			route.path        = path_string
-			route.expression  = handler
+			route.expression  = func
 			route.param_names = param_names
 
 			route
