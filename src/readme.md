@@ -1,15 +1,15 @@
 ### What's here?
 
-This [`lib`](/lib) folder contains the implementation of Ore in Ruby. The codebase is organized into two main phases:
+This [`src`](/src) folder contains the implementation of Ore in Ruby. The codebase is organized into two main phases:
 
-**Compile-time** (`lib/compiler/`) Source code to AST
+**Compile-time** (`src/compiler/`) Source code to AST
 
 - [`lexeme.rb`](compiler/lexeme.rb) - Token representation
 - [`expressions.rb`](compiler/expressions.rb) - AST node definitions
 - [`lexer.rb`](compiler/lexer.rb) - Tokenizes source code into lexemes
 - [`parser.rb`](compiler/parser.rb) - Parses lexemes into an AST
 
-**Runtime** (`lib/runtime/`) AST to Execution
+**Runtime** (`src/runtime/`) AST to Execution
 
 - [`interpreter.rb`](runtime/interpreter.rb) - Executes the AST
 - [`errors.rb`](runtime/errors.rb) - Runtime error definitions
@@ -30,7 +30,7 @@ This [`lib`](/lib) folder contains the implementation of Ore in Ruby. The codeba
 To run an Ore program, the source code must go through the [Lexer](compiler/lexer.rb), whose output goes through the [Parser](compiler/parser.rb), whose output goes through the [Interpreter](runtime/interpreter.rb), resulting in final program output.
 
 ```ruby
-require './lib/ore'
+require './src/ore'
 
 lexer   = Ore::Lexer.new "'Hello, World!'"
 lexemes = lexer.output # => array of Lexemes
@@ -45,7 +45,7 @@ result      = interpreter.output # => Hello, World!
 Another option is to use one of the [`#Ore.lex*`, `Ore.parse*`,`Ore.interp*`](runtime/helpers.rb) helpers, which saves you three lines if you only need the output.
 
 ```ruby
-require './lib/ore'
+require './src/ore'
 
 source      = '"Hello, Again!"'
 lexemes     = Ore.lex source # => array of Lexemes

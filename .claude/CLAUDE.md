@@ -56,7 +56,7 @@ bundle install
 
 The codebase follows a three-phase pipeline: **Lexer → Parser → Interpreter**
 
-### Compile-time (lib/compiler/)
+### Compile-time (src/compiler/)
 
 Source code is tokenized and parsed into an Abstract Syntax Tree (AST):
 
@@ -65,7 +65,7 @@ Source code is tokenized and parsed into an Abstract Syntax Tree (AST):
 - `lexeme.rb` - Token representation
 - `expressions.rb` - AST node definitions
 
-### Runtime (lib/runtime/)
+### Runtime (src/runtime/)
 
 The AST is executed to produce output:
 
@@ -76,7 +76,7 @@ The AST is executed to produce output:
 - `errors.rb` - Runtime error definitions
 - `server_runner.rb` - HTTP server implementation using WEBrick (handles routing, URL params, query strings)
 
-### Shared (lib/shared/)
+### Shared (src/shared/)
 
 Used by both compiler and runtime:
 
@@ -85,7 +85,7 @@ Used by both compiler and runtime:
 
 ### Entry Point
 
-- `lib/ore.rb` - Main module that ties everything together and provides convenience methods:
+- `src/ore.rb` - Main module that ties everything together and provides convenience methods:
 	- `Ore.lex(source)` / `Ore.lex_file(filepath)` - Tokenize only
 	- `Ore.parse(source)` / `Ore.parse_file(filepath)` - Parse to AST
 	- `Ore.interp(source)` / `Ore.interp_file(filepath)` - Full execution
@@ -212,7 +212,7 @@ x = island_member  `Access members directly
 
 ## Built-in Types and Intrinsic Methods
 
-Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that delegate to Ruby's native implementations. These methods are declared using a `proxy_` prefix (see lib/shared/super_proxies.rb)
+Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that delegate to Ruby's native implementations. These methods are declared using a `proxy_` prefix (see src/shared/super_proxies.rb)
 
 ### Intrinsic Method Implementation Pattern
 
@@ -480,7 +480,7 @@ end
 
 **Implementation:**
 - Database operations use Ruby's Sequel gem
-- Record methods are proxy methods (see `lib/runtime/scopes.rb`)
+- Record methods are proxy methods (see `src/runtime/scopes.rb`)
 - Records return `Ore::Dictionary` instances
 - Static declarations (`..database`) link models to database
 
