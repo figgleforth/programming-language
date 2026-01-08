@@ -158,6 +158,11 @@ module Ore
 		def * other
 			value * other
 		end
+
+		# note: I use pp (pretty_print) in lots of places, which uses #inspect, which happens to output strings with odd formatting in Ore.
+		def inspect
+			value.inspect
+		end
 	end
 
 	# note: Be sure to prefix with Ore:: whenever referencing this Array type to prevent ambiguity with Ruby's ::Array!
@@ -209,10 +214,6 @@ module Ore
 		def == other
 			# I think there's more to this than a simple evaluation. Tbd...
 			values == other&.values
-		end
-
-		def to_s
-			values.inspect
 		end
 	end
 
@@ -521,6 +522,17 @@ module Ore
 
 		def proxy_tables
 			Ore::Array.new connection.tables
+		end
+	end
+
+	class Inout < Instance # I don't want to name it File because ::File
+		# todo: Improve read and write, these are just naive implementations to make IO possible.
+		def proxy_read_file_to_string filepath
+			Ore::String.new File.read filepath
+		end
+
+		def proxy_write_string_to_file filepath, string
+			File.write filepath, string
 		end
 	end
 end
