@@ -1,0 +1,20 @@
+require 'minitest/autorun'
+require_relative '../src/ore'
+require_relative 'base_test'
+
+class Advent_Of_Code_Test < Base_Test
+	def test_2015_01
+		assert Ore.interp_file 'ore/examples/aoc/2015/01/part1.ore'
+		assert Ore.interp_file 'ore/examples/aoc/2015/01/part2.ore'
+	end
+
+	def test_2015_02
+		assert Ore.interp_file 'ore/examples/aoc/2015/02/part1.ore'
+		assert Ore.interp_file 'ore/examples/aoc/2015/02/part2.ore'
+	end
+
+	def test_2015_03
+		assert Ore.interp_file 'ore/examples/aoc/2015/03/part1.ore'
+		assert Ore.interp_file 'ore/examples/aoc/2015/03/part2.ore'
+	end
+end

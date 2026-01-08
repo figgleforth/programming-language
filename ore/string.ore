@@ -12,7 +12,7 @@ String {
 
 	downcase {; #super }
 	upcase {; #super }
-	split { delimiter; #super }
+	split { delimiter = nil; #super } `todo: Without the default nil value, .split() fails
     slice { substr; #super }
     trim {; #super }
 	trim_left {; #super }

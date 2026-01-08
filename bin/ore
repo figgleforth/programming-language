@@ -65,7 +65,7 @@ begin
 		end
 	end
 rescue Errno::ENOENT => e
-	$stderr.puts "Could not find file `#{ARGV[0]}`"
+	$stderr.puts "Could not find file `#{ARGV[0]}`\n\n#{e.full_message}"
 	exit 1
 
 rescue Ore::Error => e

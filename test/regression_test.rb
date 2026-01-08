@@ -399,4 +399,11 @@ class Regression_Test < Base_Test
 		ORE
 		assert_nil out
 	end
+
+	# https://github.com/figgleforth/ore-lang/issues/80
+	def test_parsing_bug_from_issue_80
+		assert_instance_of Ore::String_Expr, Ore.parse("'{'").first
+		assert_instance_of Ore::String_Expr, Ore.parse("'('").first
+		assert_instance_of Ore::String_Expr, Ore.parse("'['").first
+	end
 end

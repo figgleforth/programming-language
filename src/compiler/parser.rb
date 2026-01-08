@@ -503,7 +503,7 @@ module Ore
 			elsif curr?('<', ANY_IDENTIFIER, '>')
 				parse_html_expr
 
-			elsif curr? %w( [ \( { |)
+			elsif curr?(%w( [ \( { |)) && curr?(:delimiter)
 				# :absolute_value_circumfix
 				parse_circumfix_expr opening: curr_lexeme.value
 
@@ -603,6 +603,11 @@ module Ore
 				return complete_expression expr, precedence
 			elsif infix
 				if COMPOUND_OPERATORS.include? curr_lexeme.value
+					### note: I seem to have forgotten this important check for precedence here. I'm sure there are other places todo
+					curr_operator_prec = precedence_for curr_lexeme.value
+					return expr if curr_operator_prec <= precedence
+					###
+
 					it          = Ore::Infix_Expr.new
 					it.left     = expr
 					it.operator = eat.value
@@ -654,7 +659,7 @@ module Ore
 				end
 			end
 
-			call_expr = curr? '('
+			call_expr = curr?('(') && curr?(:delimiter)
 			subscript = curr? '['
 			if call_expr && (precedence_for(curr_lexeme.value) > precedence)
 				receiver       = expr

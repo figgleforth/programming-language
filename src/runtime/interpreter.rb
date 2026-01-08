@@ -416,7 +416,10 @@ module Ore
 				interp_dot_dictionary expr
 			else
 				# @copypaste from #interp_dot_scope because we already interpreted expr as 'left'. If #interp_dot_scope interprets expr again, we end up with duplicate duplicate isntnatiations
-				raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime) unless expr.right.instance_of? Ore::Identifier_Expr
+
+				unless expr.right.instance_of? Ore::Identifier_Expr
+					raise Ore::Invalid_Dot_Infix_Right_Operand.new(expr.right, runtime)
+				end
 
 				check_dot_access_permissions receiver, expr.right.value, expr
 
@@ -1123,15 +1126,20 @@ module Ore
 			collection = interpret expr.collection
 			stride     = interpret(expr.stride) if expr.stride
 
-			Ore.assert collection.is_a?(Ore::Array) || collection.is_a?(Ore::Range)
 			Ore.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
 
 			result = nil
 			runtime.push_then_pop Scope.new('for_loop') do |scope|
-				values = if collection.is_a? Ore::Range
+				# todo: I don't like this entire case/when, there's probably a better way
+				values = case collection
+				when Ore::Range
 					collection
-				else
+				when Ore::Array
 					collection.values
+				when Ore::String
+					collection.value.chars
+				else
+					collection
 				end
 
 				result = if stride
