@@ -1178,12 +1178,16 @@ module Ore
 			case expr.type
 			when 'while', 'until', 'elwhile'
 				result    = nil
-				condition = interpret(expr.condition)
+				condition = interpret expr.condition
 
+				index = 0
 				if expr.type == 'until'
 					catch :stop do
 						until condition == true
 							catch :skip do
+								index += 1
+								runtime.stack.last.declare 'at', index
+
 								expr.when_true.each do |stmt|
 									result = interpret(stmt)
 								end
@@ -1195,6 +1199,9 @@ module Ore
 					catch :stop do
 						while condition == true
 							catch :skip do
+								index += 1
+								runtime.stack.last.declare 'at', index
+
 								expr.when_true.each do |stmt|
 									result = interpret(stmt)
 								end

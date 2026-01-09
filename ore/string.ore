@@ -28,4 +28,6 @@ String {
 	start_with? { prefix; #super }
 	end_with? { suffix; #super }
 	gsub { pattern, replacement; #super }
+
+	to_md5_hash {; #super }
 }

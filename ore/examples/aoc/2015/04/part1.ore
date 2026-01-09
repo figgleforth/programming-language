@@ -12,4 +12,14 @@ If your secret key is pqrstuv, the lowest number it combines with to make an MD5
 Your puzzle input is iwrupvqb.
 ```
 
-`todo: Can't work on this without MD5 hashing :(
+input = 'iwrupvqb'
+lowest = nil
+while true
+	test = "|input||at|".to_md5_hash()
+	if test.start_with?('00000')
+		lowest = at
+		stop
+	end
+end
+
+lowest == 346386

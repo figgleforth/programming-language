@@ -119,6 +119,7 @@ module Ore
 	end
 
 	class String < Instance
+		require 'digest/md5'
 		extend Super_Proxies
 
 		attr_accessor :value
@@ -150,6 +151,10 @@ module Ore
 		proxy :start_with?
 		proxy :end_with?
 		proxy :gsub
+
+		def proxy_to_md5_hash
+			Digest::MD5.hexdigest value
+		end
 
 		def + other
 			value + other.value
