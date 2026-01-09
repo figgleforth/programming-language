@@ -23,4 +23,10 @@ class Advent_Of_Code_Test < Base_Test
 	# assert Ore.interp_file 'ore/examples/aoc/2015/04/part1.ore'
 	# assert Ore.interp_file 'ore/examples/aoc/2015/04/part2.ore'
 	# end
+
+	def test_2015_05
+		assert Ore.interp_file 'ore/examples/aoc/2015/05/part1.ore'
+		assert Ore.interp_file 'ore/examples/aoc/2015/05/part2.ore'
+	end
+
 end

@@ -406,4 +406,9 @@ class Regression_Test < Base_Test
 		assert_instance_of Ore::String_Expr, Ore.parse("'('").first
 		assert_instance_of Ore::String_Expr, Ore.parse("'['").first
 	end
+
+	def test_ranges_with_expression
+		assert_instance_of Ore::Range, Ore.interp("x=1; 0..x")
+		assert_instance_of Ore::Range, Ore.interp("x=1; y=2; 0..(x + y)")
+	end
 end

@@ -1360,9 +1360,13 @@ module Ore
 				key = interpret expr.expression.expressions.first
 				receiver[key]
 			when Ore::Nil
+				# todo: What should happen when subscripting nil? A warning of some kind maybe?
 				nil
+			when Ore::String
+				index = interpret expr.expression.expressions.first
+				receiver.value[index]
 			else
-				raise Ore::Invalid_Subscript_Left_Operand.new(expr.receiver, runtime)
+				raise Ore::Invalid_Subscript_Receiver.new(expr.receiver, runtime)
 			end
 		end
 

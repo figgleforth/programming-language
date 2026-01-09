@@ -81,7 +81,7 @@ module Ore
 	class Too_Many_Subscript_Expressions < Error
 	end
 
-	class Invalid_Subscript_Left_Operand < Error
+	class Invalid_Subscript_Receiver < Error
 	end
 
 	class Cannot_Call_Private_Instance_Member < Error

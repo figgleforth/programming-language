@@ -619,7 +619,7 @@ module Ore
 					it          = Ore::Infix_Expr.new
 					it.left     = expr
 					it.operator = eat.value
-					it.right    = parse_number_expr
+					it.right    = parse_expression
 
 					copy_location it, expr
 					return complete_expression it, precedence
