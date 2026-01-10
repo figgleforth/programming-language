@@ -1451,7 +1451,7 @@ class Interpreter_Test < Base_Test
 			}
 		}
 
-		add { @vec;
+		add { @@vec;
 			x + y
 		}
 

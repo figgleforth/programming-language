@@ -545,7 +545,7 @@ module Ore
 					end
 				end
 			else
-				if expr.left.value == UNPACK_PREFIX
+				if expr.left.value == Ore::SCOPE_OBJECT
 					case expr.operator
 					when '+='
 						right = interpret expr.right

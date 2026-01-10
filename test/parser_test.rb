@@ -703,7 +703,7 @@ class Parser_Test < Base_Test
 	end
 
 	def test_unpack_prefix
-		out = Ore.parse 'funk { @with; }'
+		out = Ore.parse 'funk { @@with; }'
 		assert_kind_of Ore::Param_Expr, out.first.expressions.first
 		assert out.first.expressions.first.unpack
 	end
