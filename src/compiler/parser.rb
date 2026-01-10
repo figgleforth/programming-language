@@ -217,9 +217,8 @@ module Ore
 			until curr? Ore::FUNCTION_DELIMITER
 				param = Ore::Param_Expr.new
 
-				if curr? UNPACK_PREFIX
+				if curr? UNPACK_ARG_PREFIX and eat UNPACK_ARG_PREFIX
 					param.unpack = true
-					eat UNPACK_PREFIX
 				end
 
 				if curr? :identifier, :identifier
@@ -497,7 +496,7 @@ module Ore
 			elsif curr? %w(if while unless until)
 				parse_conditional_expr
 
-			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(UNPACK_PREFIX, :identifier) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER) || curr?(DIRECTIVE_PREFIX, :identifier)
+			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(UNPACK_ARG_PREFIX, :identifier) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER) || curr?(DIRECTIVE_PREFIX, :identifier)
 				parse_identifier_expr
 
 			elsif curr?('<', ANY_IDENTIFIER, '>')

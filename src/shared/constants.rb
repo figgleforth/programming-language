@@ -1,7 +1,7 @@
 module Ore
 	STANDARD_LIBRARY_PATH      = './ore/preload.ore'
-	UNPACK_PREFIX              = '@@'
-	SCOPE_OBJECT               = '@'
+	UNPACK_OPERAND             = '@'
+	UNPACK_ARG_PREFIX          = '@@'
 	DIRECTIVE_PREFIX           = '#'
 	FUNCTION_DELIMITER         = ';' # todo: Pick a different symbol or keyword
 	IMPORT_FILE_DIRECTIVE      = 'use'
