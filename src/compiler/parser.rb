@@ -57,7 +57,7 @@ module Ore
 		end
 
 		def reduce_newlines
-			eat while lexemes? && curr?(%W(\n \r))
+			eat while lexemes? && curr?(:delimiter) && %W(\n \r).include?(curr_lexeme.value)
 		end
 
 		def curr? * sequence
