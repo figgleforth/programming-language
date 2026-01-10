@@ -365,7 +365,7 @@ module Ore
 			if expr.right.is_a?(Ore::Directive_Expr) && expr.right.name.value == Ore::IMPORT_FILE_DIRECTIVE
 				filepath  = interpret expr.right.expression
 				new_scope = Ore::Scope.new expr.left.value
-				runtime.load_file filepath, new_scope
+				runtime.load_file_into_scope filepath, new_scope
 				right_value = new_scope
 			else
 				right_value = interpret expr.right
@@ -1336,8 +1336,8 @@ module Ore
 			when Ore::IMPORT_FILE_DIRECTIVE
 				# Standalone load is interpreted into current scope by passing the scope into runtime#load_file
 				filepath = interpret expr.expression
-				runtime.load_file filepath, runtime.stack.last
-				# note: #load_file returns the output but it's ignored. Assigning the value of a #use directive executres code in #interp_infix_expr
+				runtime.load_file_into_scope filepath, runtime.stack.last
+				# note: #load_file_into_scope returns the output but it's ignored. Assigning the value of a #use directive executres code in #interp_infix_expr
 			else
 				# todo: Allow builtins to be extended by the user. Requirements would be:
 				#   1) Create type in Ore

@@ -68,7 +68,7 @@ module Ore
 		# Creates a temporary Context to handle file loading
 		def load_file filepath
 			temp_runtime = Ore::Runtime.new
-			temp_runtime.load_file filepath, self
+			temp_runtime.load_file_into_scope filepath, self
 			self
 		end
 	end
