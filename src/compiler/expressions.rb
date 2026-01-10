@@ -66,7 +66,7 @@ module Ore
 				default = param.default ? "=#{param.default}" : ''
 				"#{label}#{param.name}#{default}"
 			end.join(',')
-			sig         += ';'
+			sig         += Ore::FUNCTION_DELIMITER
 			sig         += '}'
 			sig
 			# todo, Maybe bring back extra signature details.

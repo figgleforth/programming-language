@@ -214,7 +214,7 @@ module Ore
 			eat '{'
 			reduce_newlines
 
-			until curr? ';'
+			until curr? Ore::FUNCTION_DELIMITER
 				param = Ore::Param_Expr.new
 
 				if curr? UNPACK_PREFIX
@@ -242,7 +242,7 @@ module Ore
 				reduce_newlines
 			end
 
-			eat ';' if curr? ';'
+			eat Ore::FUNCTION_DELIMITER if curr? Ore::FUNCTION_DELIMITER
 			reduce_newlines
 
 			until curr? '}'
@@ -479,10 +479,10 @@ module Ore
 			if curr? :route
 				parse_route_expr
 
-			elsif curr?(ANY_IDENTIFIER, ';') || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER, ';')
+			elsif curr?(ANY_IDENTIFIER, Ore::FUNCTION_DELIMITER) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER, Ore::FUNCTION_DELIMITER)
 				parse_nil_init_expr
 
-			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{') || curr?(SCOPE_OPERATORS, :identifier, '{')) && peek_contains?(';', '}')
+			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{') || curr?(SCOPE_OPERATORS, :identifier, '{')) && peek_contains?(Ore::FUNCTION_DELIMITER, '}')
 				parse_func precedence, named: curr?(:identifier)
 
 			elsif curr?(:Identifier, '{') || curr?(:Identifier, TYPE_COMPOSITION_OPERATORS) || curr?(:IDENTIFIER, TYPE_COMPOSITION_OPERATORS) || curr?(:IDENTIFIER, '{')
@@ -524,7 +524,7 @@ module Ore
 				# elsif curr? SCOPE_OPERATORS
 				# 	parse_operator_expr
 
-			elsif curr? [';', ',']
+			elsif curr? [Ore::FUNCTION_DELIMITER, ',']
 				eat and nil
 
 			elsif curr? :delimiter
