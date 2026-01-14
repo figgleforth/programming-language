@@ -1175,13 +1175,13 @@ module Ore
 
 		def interp_conditional expr
 			# I'm being very explicit with the "== true" checks of the condition. It's easy to misread this to mean that as long as it's not nil. While the distinction in this case may not matter (in Ruby), I still haven't decided how this language will handle truthiness.
-			case expr.type
+			case expr.type.value
 			when 'while', 'until', 'elwhile'
 				result    = nil
 				condition = interpret expr.condition
 
 				index = 0
-				if expr.type == 'until'
+				if expr.type.value == 'until'
 					catch :stop do
 						until condition == true
 							catch :skip do

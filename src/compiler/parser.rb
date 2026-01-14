@@ -142,7 +142,7 @@ module Ore
 
 		def parse_conditional_expr
 			it            = Ore::Conditional_Expr.new
-			it.type       = eat.value # One of %w(if while unless until)
+			it.type       = eat # One of %w(if while unless until)
 			it.condition  = parse_expression
 			it.when_true  = []
 			it.when_false = []
@@ -685,10 +685,10 @@ module Ore
 				end
 
 				it           = Ore::Conditional_Expr.new
-				it.type      = eat.value # One of %w(if while unless until)
-				it_prec      = precedence_for it.type
+				it.type      = eat # One of %w(if while unless until)
+				it_prec      = precedence_for it.type.value
 				it.condition = parse_expression
-				if %w(unless until).include? it.type
+				if %w(unless until).include? it.type.value
 					it.when_false = [expr]
 				else
 					it.when_true = [expr]

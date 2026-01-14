@@ -508,7 +508,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse 'do_this unless the_condition'
 		assert_kind_of Ore::Conditional_Expr, out.first
 		assert_kind_of Ore::Identifier_Expr, out.first.condition
-		assert_equal 'unless', out.first.type
+		assert_equal 'unless', out.first.type.value
 		assert_equal 'the_condition', out.first.condition.value
 		assert_kind_of Ore::Identifier_Expr, out.first.when_false.first
 		assert_equal 'do_this', out.first.when_false.first.value
@@ -518,7 +518,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse 'repeat_this until the_condition'
 		assert_kind_of Ore::Conditional_Expr, out.first
 		assert_kind_of Ore::Identifier_Expr, out.first.condition
-		assert_equal 'until', out.first.type
+		assert_equal 'until', out.first.type.value
 		assert_equal 'the_condition', out.first.condition.value
 		assert_kind_of Ore::Identifier_Expr, out.first.when_false.first
 		assert_equal 'repeat_this', out.first.when_false.first.value
@@ -538,19 +538,19 @@ class Parser_Test < Base_Test
 		'
 		while_case = out.first
 		assert_kind_of Ore::Conditional_Expr, while_case
-		assert_equal 'while', while_case.type
+		assert_equal 'while', while_case.type.value
 		assert_kind_of Ore::Number_Expr, while_case.when_true.first
 		assert_equal 1, while_case.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, while_case.when_false
 
 		elwhile = while_case.when_false
-		assert_equal 'elwhile', elwhile.type
+		assert_equal 'elwhile', elwhile.type.value
 		assert_kind_of Ore::Number_Expr, elwhile.when_true.first
 		assert_equal 2, elwhile.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, elwhile.when_false
 
 		elwhile = elwhile.when_false
-		assert_equal 'elwhile', elwhile.type
+		assert_equal 'elwhile', elwhile.type.value
 		assert_kind_of Ore::Number_Expr, elwhile.when_true.first
 		assert_equal 3, elwhile.when_true.first.value
 		assert_kind_of Ore::Number_Expr, elwhile.when_false.first
@@ -574,19 +574,19 @@ class Parser_Test < Base_Test
 		# elif elif else
 		if_case = out.first
 		assert_kind_of Ore::Conditional_Expr, if_case
-		assert_equal 'if', if_case.type
+		assert_equal 'if', if_case.type.value
 		assert_kind_of Ore::Number_Expr, if_case.when_true.first
 		assert_equal 1, if_case.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, if_case.when_false
 
 		elif_case = if_case.when_false
-		assert_equal 'elif', elif_case.type
+		assert_equal 'elif', elif_case.type.value
 		assert_kind_of Ore::Number_Expr, elif_case.when_true.first
 		assert_equal 2, elif_case.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, elif_case.when_false
 
 		elif_case = elif_case.when_false
-		assert_equal 'elif', elif_case.type
+		assert_equal 'elif', elif_case.type.value
 		assert_kind_of Ore::Number_Expr, elif_case.when_true.first
 		assert_equal 3, elif_case.when_true.first.value
 		assert_kind_of Ore::Number_Expr, elif_case.when_false.first

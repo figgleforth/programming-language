@@ -1,9 +1,14 @@
 module Ore
 	class Expression
-		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file
+		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file, :lexeme
 
-		def initialize value = nil
-			@value = value if value
+		def initialize lexeme = nil
+			@lexeme = lexeme
+			@value  = if lexeme && lexeme.is_a?(Ore::Lexeme)
+				lexeme.value
+			else
+				lexeme
+			end
 		end
 
 		def is compare
