@@ -3,6 +3,7 @@ module Ore
 	UNPACK_OPERAND             = '@'
 	UNPACK_ARG_PREFIX          = '@@'
 	DIRECTIVE_PREFIX           = '#'
+	NIL_INIT_POSTFIX           = ';'
 	FUNCTION_DELIMITER         = ';' # todo: Pick a different symbol or keyword
 	IMPORT_FILE_DIRECTIVE      = 'use'
 	HTML_ATTRS                 = %w(id class href)

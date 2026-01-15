@@ -484,7 +484,7 @@ module Ore
 			if curr? :route
 				parse_route_expr
 
-			elsif curr?(ANY_IDENTIFIER, Ore::FUNCTION_DELIMITER) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER, Ore::FUNCTION_DELIMITER)
+			elsif curr?(ANY_IDENTIFIER, Ore::NIL_INIT_POSTFIX) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER, Ore::NIL_INIT_POSTFIX)
 				parse_nil_init_expr
 
 			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{') || curr?(SCOPE_OPERATORS, :identifier, '{')) && peek_contains?(Ore::FUNCTION_DELIMITER, '}')
@@ -529,7 +529,8 @@ module Ore
 				# elsif curr? SCOPE_OPERATORS
 				# 	parse_operator_expr
 
-			elsif curr? [Ore::FUNCTION_DELIMITER, ',']
+			elsif curr? [';', ',']
+				# todo: Don't just discard the comma, make tuples implied when commas are found in #complete_expression
 				eat and nil
 
 			elsif curr? :delimiter

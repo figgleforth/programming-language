@@ -50,7 +50,7 @@ module Ore
 		def css_attrs_string
 			css_attrs.map do |attr, value|
 				"#{attr}:#{value}"
-			end.join(Ore::FUNCTION_DELIMITER)
+			end.join(';')
 		end
 
 		def to_html_string
