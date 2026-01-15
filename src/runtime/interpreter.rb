@@ -810,18 +810,18 @@ module Ore
 		end
 
 		def interp_func expr
-			func                 = Ore::Func.new expr.name&.value # note: Intentionally String not Lexeme. Also, could be an anonymous func
+			func                 = Ore::Func.new expr.lexeme # note: Intentionally String not Lexeme. Also, could be an anonymous func
 			func.enclosing_scope = runtime.stack.last
 			func.expressions     = expr.expressions
 
-			if func.name
-				runtime.stack.last.declare func.name, func
+			if func.name&.value
+				runtime.stack.last.declare func.name.value, func
 
 				# Track static functions (functions defined with ..)
 				# Get the original name expression to check for scope operator
 				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator&.value == '..'
 					runtime.stack.last.static_declarations ||= Set.new
-					runtime.stack.last.static_declarations.add func.name.to_s
+					runtime.stack.last.static_declarations.add func.name.value
 				end
 			end
 
@@ -1017,7 +1017,7 @@ module Ore
 				_1.empty?
 			end
 
-			route_key = if func.name != 'Ore::Func'
+			route_key = if func.name
 				func.name
 			else
 				# Anonymous route with auto-generated key: "method:path"
@@ -1271,7 +1271,7 @@ module Ore
 				end
 
 				func_name        = func_scope.name
-				proxy_method     = "proxy_#{func_name}"
+				proxy_method     = "proxy_#{func_name.value}"
 				instance_or_type = func_scope.enclosing_scope # An instance or type that should have the ruby method declared
 
 				# note: For static proxies on Types (like Record.find), create a temporary instance of the Ruby class. This allows the proxy method to access the Type's declarations.

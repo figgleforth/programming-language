@@ -67,14 +67,14 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp '{;}'
 		assert_instance_of Ore::Func, out
 		assert_empty out.expressions
-		assert_equal 'Ore::Func', out.name
+		refute out.name
 	end
 
 	def test_empty_func_declaration
 		out = Ore.interp 'open {;}'
 		assert_instance_of Ore::Func, out
 		assert_empty out.expressions
-		assert_equal 'open', out.name
+		assert_equal 'open', out.name.value
 	end
 
 	def test_basic_func_declaration
@@ -1087,7 +1087,6 @@ class Interpreter_Test < Base_Test
 		}'
 
 		assert_instance_of Ore::Route, out
-		assert_equal 'Ore::Func', out.name
 		assert_equal 'get', out.http_method.value
 		assert_equal 'some/thing/:id', out.path
 		assert_equal 2, out.handler.expressions.count

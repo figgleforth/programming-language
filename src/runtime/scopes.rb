@@ -5,7 +5,7 @@ module Ore
 		attr_accessor :enclosing_scope, :sibling_scopes, :declarations, :name
 
 		def initialize name = nil
-			@name           = name || self.class.name
+			@name           = name
 			@declarations   = {}
 			@sibling_scopes = []
 		end
