@@ -1,8 +1,17 @@
 module Ore
 	class Expression
-		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file, :lexeme
+		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file
+		attr_reader :lexeme
 
 		def initialize lexeme = nil
+			self.lexeme = lexeme
+			# todo: Uncomment this to continue tracking down.
+			# if lexeme && !lexeme.is_a?(Lexeme)
+			# warn "#{self} init'd with nil non-Lexeme (#{lexeme})"
+			# end
+		end
+
+		def lexeme= lexeme
 			@lexeme = lexeme
 			@value  = if lexeme && lexeme.is_a?(Ore::Lexeme)
 				lexeme.value
@@ -40,25 +49,10 @@ module Ore
 
 	class Param_Expr < Expression
 		attr_accessor :name, :label, :type, :default, :unpack
-
-		def initialize
-			super
-			@unpack  = false
-			@default = nil
-			@name    = nil
-			@label   = nil
-			@type    = nil
-		end
-
-		alias_method :expression, :default # todo, Replace @default with this
 	end
 
 	class Func_Expr < Expression
 		attr_accessor :name, :expressions, :signature
-
-		def initialize
-			@expressions = []
-		end
 
 		def signature
 			sig         = name&.value || ''
@@ -67,9 +61,9 @@ module Ore
 				expr.is_a? Param_Expr
 			end
 			sig         += param_decls.map do |param|
-				label   = param.label ? "#{param.label}:" : ''
-				default = param.default ? "=#{param.default}" : ''
-				"#{label}#{param.name}#{default}"
+				label   = param.label ? "#{param.label.value}:" : ''
+				default = param.default ? "=#{param.default.value}" : ''
+				"#{label}#{param.name.value}#{default}"
 			end.join(',')
 			sig         += Ore::FUNCTION_DELIMITER
 			sig         += '}'
@@ -96,11 +90,6 @@ module Ore
 
 	class Type_Expr < Expression
 		attr_accessor :name, :expressions
-
-		def initialize
-			super
-			@expressions = []
-		end
 	end
 
 	# Useful reading.
@@ -115,9 +104,9 @@ module Ore
 	class String_Expr < Expression
 		attr_accessor :interpolated
 
-		def initialize string
-			super string
-			@interpolated = string.include? INTERPOLATE_CHAR
+		def initialize lexeme
+			super lexeme
+			@interpolated = value.include? INTERPOLATE_CHAR
 			# todo, This is a naive check. What if there is only one | char? Then it can't be a valid interpolation.
 		end
 	end
@@ -136,11 +125,6 @@ module Ore
 
 	class Circumfix_Expr < Expression
 		attr_accessor :grouping, :expressions
-
-		def initialize grouping = '()'
-			@expressions = []
-			@grouping    = grouping
-		end
 	end
 
 	class Operator_Expr < Expression
@@ -157,12 +141,6 @@ module Ore
 
 	class Conditional_Expr < Expression
 		attr_accessor :condition, :when_true, :when_false
-
-		def initialize
-			super
-			@when_true  = []
-			@when_false = []
-		end
 	end
 
 	class Return_Expr < Prefix_Expr
@@ -171,11 +149,6 @@ module Ore
 
 	class Call_Expr < Expression
 		attr_accessor :receiver, :arguments
-
-		def initialize
-			super
-			@arguments = []
-		end
 	end
 
 	class Subscript_Expr < Expression
@@ -200,10 +173,5 @@ module Ore
 		# }
 		# 11/2/25, TODO: Maybe this class should inherit from Type_Expr since this is just a type/class anyway? :html_vs_type_expr
 		attr_accessor :expressions, :element
-
-		def initialize element
-			super element
-			@element = element
-		end
 	end
 end

@@ -98,13 +98,13 @@ class Interpreter_Test < Base_Test
 		assert_equal 5, out.expressions.count
 
 		a = out.expressions[0]
-		assert_equal 'a', a.name
+		assert_equal 'a', a.name.value
 		refute a.label
 		refute a.default
 
 		b = out.expressions[1]
 		assert b.label
-		assert_equal 'labeled', b.label
+		assert_equal 'labeled', b.label.value
 		refute b.default
 
 		c = out.expressions[2]
@@ -170,7 +170,7 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp 'func { assign_to_nil; }'
 		assert_instance_of Ore::Func, out
 		assert_instance_of Ore::Param_Expr, out.expressions.first
-		assert_equal 'assign_to_nil', out.expressions.first.name
+		assert_equal 'assign_to_nil', out.expressions.first.name.value
 	end
 
 	def test_infix_arithmetic
@@ -497,7 +497,7 @@ class Interpreter_Test < Base_Test
 		assert_kind_of Ore::Composition_Expr, out.expressions.first
 		assert_kind_of Ore::Composition_Expr, out.expressions.last
 		assert_equal 'Rotation', out.expressions.last.identifier.value
-		assert_equal '~', out.expressions.last.operator
+		assert_equal '~', out.expressions.last.operator.value
 	end
 
 	def test_composed_type_declaration_before_body
@@ -508,7 +508,7 @@ class Interpreter_Test < Base_Test
 		assert_kind_of Ore::Composition_Expr, out.expressions.first
 		assert_kind_of Ore::Composition_Expr, out.expressions.last
 		assert_equal 'Physics', out.expressions.last.identifier.value
-		assert_equal '~', out.expressions.last.operator
+		assert_equal '~', out.expressions.last.operator.value
 	end
 
 	def test_complex_type_declaration
@@ -1087,7 +1087,7 @@ class Interpreter_Test < Base_Test
 		}'
 
 		assert_instance_of Ore::Route, out
-		assert_equal 'Ore::Route', out.name
+		assert_equal 'Ore::Func', out.name
 		assert_equal 'get', out.http_method.value
 		assert_equal 'some/thing/:id', out.path
 		assert_equal 2, out.handler.expressions.count

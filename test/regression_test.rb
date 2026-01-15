@@ -31,7 +31,7 @@ class Regression_Test < Base_Test
 
 		ds = Ore.parse '.abc'
 		assert_kind_of Ore::Identifier_Expr, ds.last
-		assert_equal '.', ds.last.scope_operator
+		assert_equal '.', ds.last.scope_operator.value
 		assert_equal 'abc', ds.last.value
 	end
 
@@ -55,10 +55,10 @@ class Regression_Test < Base_Test
 	def test_dot_slash_within_infix_regression
 		out = Ore.parse '.x? = 123'
 		assert_kind_of Ore::Infix_Expr, out.first
-		assert_equal '=', out.first.operator
+		assert_equal '=', out.first.operator.value
 		assert_equal 'x?', out.first.left.value
 		assert_kind_of Ore::Identifier_Expr, out.first.left
-		assert_equal '.', out.first.left.scope_operator
+		assert_equal '.', out.first.left.scope_operator.value
 	end
 
 	def test_scope_operators_regression

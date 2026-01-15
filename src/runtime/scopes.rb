@@ -2,8 +2,7 @@ require_relative '../ore'
 
 module Ore
 	class Scope
-		attr_accessor :enclosing_scope, :sibling_scopes, :declarations
-		attr_reader :name
+		attr_accessor :enclosing_scope, :sibling_scopes, :declarations, :name
 
 		def initialize name = nil
 			@name           = name || self.class.name

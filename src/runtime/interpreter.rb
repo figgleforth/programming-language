@@ -26,7 +26,7 @@ module Ore
 				return runtime.stack.last
 			end
 
-			case expr.scope_operator
+			case expr.scope_operator&.value
 			when '~/' # global
 				runtime.stack.first
 			when '.' # instance within context
@@ -236,9 +236,9 @@ module Ore
 				end
 			else
 				# When scope is nil, errors must be raised
-				if expr.scope_operator == '..'
+				if expr.scope_operator&.value == '..'
 					raise Ore::Cannot_Use_Type_Scope_Operator_Outside_Type.new(expr, runtime)
-				elsif expr.scope_operator == '.'
+				elsif expr.scope_operator&.value == '.'
 					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
 				else
 					raise Ore::Undeclared_Identifier.new(expr, runtime)
@@ -289,7 +289,7 @@ module Ore
 
 		def interp_prefix expr
 			# note: See constants.rb PREFIX for exhaustive list of language-defined prefixes
-			case expr.operator
+			case expr.operator.value
 			when '-'
 				-interpret(expr.expression)
 			when '+'
@@ -312,7 +312,7 @@ module Ore
 
 			# If using a scope operator but the scope doesn't exist, raise an error
 			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator && assignment_scope.nil?
-				case expr.left.scope_operator
+				case expr.left.scope_operator.value
 				when '.'
 					raise Ore::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr, runtime)
 				when '..'
@@ -351,7 +351,7 @@ module Ore
 			end
 
 			# Handle dot assignment
-			if expr.left.is_a?(Ore::Infix_Expr) && expr.left.operator == '.'
+			if expr.left.is_a?(Ore::Infix_Expr) && expr.left.operator.value == '.'
 				receiver = interpret expr.left.left
 				property = expr.left.right
 
@@ -389,7 +389,7 @@ module Ore
 			assignment_scope.declare expr.left.value, right_value
 
 			# Track static declarations (members assigned with ..)
-			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '..'
+			if expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator&.value == '..'
 				assignment_scope.static_declarations ||= Set.new
 				assignment_scope.static_declarations.add expr.left.value.to_s
 			end
@@ -523,7 +523,7 @@ module Ore
 
 		# @param expr [Ore::Infix_Expr]
 		def interp_infix expr
-			case expr.operator
+			case expr.operator.value
 			when '='
 				interp_infix_equals expr
 			when '.'
@@ -538,7 +538,7 @@ module Ore
 				else
 					begin
 						# todo: I don't like generic approach because the type of `left` is unknown at this moment.
-						left.send expr.operator, right
+						left.send expr.operator.value, right
 					rescue
 						# todo: Proper error
 						raise "Unsupported << operator for #{expr.inspect}"
@@ -546,7 +546,7 @@ module Ore
 				end
 			else
 				if expr.left.value == Ore::UNPACK_OPERAND
-					case expr.operator
+					case expr.operator.value
 					when '+='
 						right = interpret expr.right
 						raise Ore::Invalid_Unpack_Infix_Right_Operand.new(expr, runtime) unless right.is_a? Ore::Scope
@@ -558,34 +558,32 @@ module Ore
 					else
 						raise Invalid_Unpack_Infix_Operator.new(expr, runtime)
 					end
-				elsif INFIX_ARITHMETIC_OPERATORS.include? expr.operator
+				elsif INFIX_ARITHMETIC_OPERATORS.include? expr.operator.value
 					left  = maybe_instance interpret expr.left
 					right = maybe_instance interpret expr.right
-					left.send expr.operator, right
+					left.send expr.operator.value, right
 
-				elsif COMPARISON_OPERATORS.include? expr.operator
+				elsif COMPARISON_OPERATORS.include? expr.operator.value
 					left  = interpret expr.left
 					right = interpret expr.right
-					left.send expr.operator, right
+					left.send expr.operator.value, right
 
-				elsif COMPOUND_OPERATORS.include? expr.operator
+				elsif COMPOUND_OPERATORS.include? expr.operator.value
 					# (a += b)  ==>  (a = (a + b))
-					assignment_infix          = Ore::Infix_Expr.new
-					assignment_infix.left     = expr.left
-					assignment_infix.operator = '='
+					# Compute the arithmetic operation directly
+					base_op = expr.operator.value[..-2] # Trim the = from +=, -=, etc.
+					left    = maybe_instance interpret expr.left
+					right   = maybe_instance interpret expr.right
+					result  = left.send base_op, right
 
-					right_side_infix          = Ore::Infix_Expr.new
-					right_side_infix.left     = expr.left
-					right_side_infix.operator = expr.operator[..-2] # This just trims the = from compound operators +=, -=, etc.
-					right_side_infix.right    = expr.right
+					# Assign back to left side
+					assignment_scope = scope_for_identifier expr.left
+					assignment_scope.declare expr.left.value, result
 
-					assignment_infix.right = right_side_infix
-					interpret assignment_infix
-
-				elsif RANGE_OPERATORS.include? expr.operator
+				elsif RANGE_OPERATORS.include? expr.operator.value
 					start  = interpret expr.left
 					finish = interpret expr.right
-					case expr.operator
+					case expr.operator.value
 					when '..'
 						Ore::Range.new start, finish
 					when '.<'
@@ -596,8 +594,8 @@ module Ore
 						Ore::Range.new start + 1, finish, exclude_end: true
 					end
 
-				elsif LOGICAL_OPERATORS.include? expr.operator
-					case expr.operator
+				elsif LOGICAL_OPERATORS.include? expr.operator.value
+					case expr.operator.value
 					when '&&', 'and'
 						interpret(expr.left) && interpret(expr.right)
 					when '||', 'or'
@@ -653,7 +651,7 @@ module Ore
 					if it.is_a? Ore::Identifier_Expr
 						dict[it.value.to_sym] = nil
 					elsif it.is_a? Ore::Infix_Expr
-						case it.operator
+						case it.operator.value
 						when ':', '='
 							if it.left.is_a?(Ore::Identifier_Expr) || it.left.is_a?(Ore::Symbol_Expr) || it.left.is_a?(Ore::String_Expr)
 								dict[it.left.value.to_sym] = interpret it.right
@@ -678,14 +676,14 @@ module Ore
 			receiver = interpret expr.receiver
 
 			case receiver
-			when Ore::Instance, Ore::Type, Ore::Html_Element
-				interp_type_call receiver, expr
-
 			when Ore::Route
 				interp_func_call receiver.handler, expr
 
 			when Ore::Func
 				interp_func_call receiver, expr
+
+			when Ore::Instance, Ore::Type, Ore::Html_Element
+				interp_type_call receiver, expr
 
 			else
 				raise Ore::Cannot_Initialize_Non_Type_Identifier.new expr.receiver, runtime
@@ -774,13 +772,13 @@ module Ore
 				runtime.push_then_pop instance do |scope|
 					type.expressions.each do |expr|
 						# Skip static declarations - they were already executed during type definition and shouldn't be re-executed for each instance
-						if expr.is_a?(Ore::Infix_Expr) && expr.operator == '=' &&
-						   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator == '..'
+						if expr.is_a?(Ore::Infix_Expr) && expr.operator&.value == '=' &&
+						   expr.left.is_a?(Ore::Identifier_Expr) && expr.left.scope_operator&.value == '..'
 							next
 						end
 
 						if expr.is_a?(Ore::Func_Expr) && expr.name.is_a?(Ore::Identifier_Expr) &&
-						   expr.name.scope_operator == '..'
+						   expr.name.scope_operator&.value == '..'
 							next
 						end
 
@@ -803,7 +801,7 @@ module Ore
 			else
 				if expr.arguments.count > 0
 					# todo: Proper error
-					raise "Given #{expr.arguments.count} arguments, but new{;} was not declared for #{type.inspect}"
+					raise "Given #{expr.arguments.count} arguments, but new{;} was not declared for #{type.name}"
 				end
 			end
 
@@ -812,7 +810,7 @@ module Ore
 		end
 
 		def interp_func expr
-			func                 = Ore::Func.new expr.name&.value
+			func                 = Ore::Func.new expr.name&.value # note: Intentionally String not Lexeme. Also, could be an anonymous func
 			func.enclosing_scope = runtime.stack.last
 			func.expressions     = expr.expressions
 
@@ -821,7 +819,7 @@ module Ore
 
 				# Track static functions (functions defined with ..)
 				# Get the original name expression to check for scope operator
-				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator == '..'
+				if expr.name.is_a?(Ore::Identifier_Expr) && expr.name.scope_operator&.value == '..'
 					runtime.stack.last.static_declarations ||= Set.new
 					runtime.stack.last.static_declarations.add func.name.to_s
 				end
@@ -860,7 +858,7 @@ module Ore
 					raise Ore::Missing_Argument.new(expr, runtime)
 				end
 
-				runtime.stack.last.declare param.name, value
+				runtime.stack.last.declare param.name.value, value
 
 				if param.unpack && value.is_a?(Ore::Instance)
 					func.sibling_scopes << value
@@ -911,13 +909,13 @@ module Ore
 
 			# Bind URL parameters as function arguments. For example, get://:abc/:def { abc, def; }
 			params.each do |param|
-				value = url_params[param.name] || url_params[param.name.to_sym]
+				value = url_params[param.name.value] || url_params[param.name.value.to_sym]
 
 				if value.nil?
-					if route.param_names.include? param.name
+					if route.param_names.include? param.name.value
 						# todo: I haven't triggered this yet to ensure this works.
 						# todo: Proper error
-						raise "Route parameter '#{param.name}' expected but not found in URL"
+						raise "Route parameter '#{param.name.value}' expected but not found in URL"
 					end
 
 					# Use default value or raise
@@ -929,7 +927,7 @@ module Ore
 					end
 				end
 
-				call_scope.declare param.name, value
+				call_scope.declare param.name.value, value
 			end
 
 			body   = handler.expressions - params
@@ -1007,6 +1005,7 @@ module Ore
 			func = interpret expr.expression
 
 			route                 = Ore::Route.new
+			route.name            = func.name
 			route.enclosing_scope = runtime.stack.last
 			route.handler         = func
 			route.http_method     = expr.http_method
@@ -1018,7 +1017,7 @@ module Ore
 				_1.empty?
 			end
 
-			route_key = if func.name && func.name != 'Ore::Func'
+			route_key = if func.name != 'Ore::Func'
 				func.name
 			else
 				# Anonymous route with auto-generated key: "method:path"
@@ -1050,7 +1049,7 @@ module Ore
 			end
 			curr_scope = runtime.stack.last
 
-			case expr.operator
+			case expr.operator.value
 			when '|'
 				# Union with Ore::Type
 				right.declarations.each do |key, value|
@@ -1118,7 +1117,7 @@ module Ore
 				end
 			else
 				# todo: Proper error
-				raise "Unknown composition operator #{expr.operator}"
+				raise "Unknown composition operator #{expr.operator.value}"
 			end
 		end
 
