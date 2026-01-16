@@ -166,7 +166,7 @@ class Lexer_Test < Base_Test
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
 
-		out = Ore.lex '..class_scope'
+		out = Ore.lex './class_scope'
 		assert_equal %I(operator identifier), out.map(&:type)
 		assert_equal 2, out.count
 	end
@@ -182,28 +182,28 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_functions
-		out = Ore.lex '{::}'
+		out = Ore.lex '{...}'
 		assert_equal [:delimiter, :delimiter, :delimiter], out.map(&:type)
 
-		out = Ore.lex 'named_function {::}'
+		out = Ore.lex 'named_function {...}'
 		assert_equal [:identifier, :delimiter, :delimiter, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ input :: }'
+		out = Ore.lex '{ input ... }'
 		assert_equal [:delimiter, :identifier, :delimiter, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ labeled input :: }'
+		out = Ore.lex '{ labeled input ... }'
 		assert_equal [:delimiter, :identifier, :identifier, :delimiter, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ value = 123 :: }'
+		out = Ore.lex '{ value = 123 ... }'
 		assert_equal [:delimiter, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ labeled value = 123 :: }'
+		out = Ore.lex '{ labeled value = 123 ... }'
 		assert_equal [:delimiter, :identifier, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ mixed, labeled value = 456 :: }'
+		out = Ore.lex '{ mixed, labeled value = 456 ... }'
 		assert_equal [:delimiter, :identifier, :delimiter, :identifier, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
 
-		out = Ore.lex 'square { input ::
+		out = Ore.lex 'square { input ...
 		 		input * input
 		 	 }'
 		assert_equal [
@@ -211,7 +211,7 @@ class Lexer_Test < Base_Test
 			             :identifier, :operator, :identifier, :delimiter, :delimiter
 		             ], out.map(&:type)
 
-		out = Ore.lex 'wrap { number, limit ::
+		out = Ore.lex 'wrap { number, limit ...
 		 		if number > limit
 		 			number = 0
 		 		end

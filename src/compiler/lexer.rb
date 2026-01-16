@@ -295,9 +295,9 @@ module Ore
 							it.type = :operator
 						end
 
-					elsif curr == ':' && peek == ':'
+					elsif curr == '.' && peek == '.' && peek(2) == '.'
 						it.type  = :delimiter
-						it.value = "#{eat}#{eat}"
+						it.value = "#{eat}#{eat}#{eat}"
 
 					elsif curr == '.' && peek == '/'
 						it.type  = :operator
