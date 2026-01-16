@@ -122,4 +122,7 @@ module Ore
 
 	class Database_Not_Set_For_Record_Instance < Error
 	end
+
+	class Type_Checking_Failed < Error
+	end
 end

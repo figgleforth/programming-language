@@ -10,6 +10,7 @@ require_relative 'compiler/expressions'
 require_relative 'compiler/lexer'
 require_relative 'compiler/parser'
 require_relative 'compiler/documenter'
+require_relative 'compiler/type_checker'
 
 # Runtime (AST to execution)
 require_relative 'runtime/errors'

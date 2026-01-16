@@ -16,9 +16,10 @@ module Ore
 				stage = if it.is_a? Class
 					it.new result
 				else
-					it.input = result
 					it
 				end
+				
+				stage.input = result
 				next if stage.skip
 
 				result = stage.output

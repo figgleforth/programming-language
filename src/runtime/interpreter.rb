@@ -1476,7 +1476,7 @@ module Ore
 			when Ore::Call_Expr
 				interp_call expr
 
-			when For_Loop_Expr
+			when Ore::For_Loop_Expr
 				interp_for_loop expr
 
 			when Ore::Conditional_Expr

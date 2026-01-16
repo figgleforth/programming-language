@@ -29,4 +29,8 @@ class Pipeline_Test < Base_Test
 		pipe = Ore::Pipeline.new Ore::Lexer, Ore::Parser, Ore::Documenter
 		assert_equal ['a comment', 'another comment', 'a fence!'], pipe.run(code)
 	end
+
+	def test_type_checker
+		Ore::Pipeline.new Ore::Lexer, Ore::Parser, Ore::Type_Checker
+	end
 end
