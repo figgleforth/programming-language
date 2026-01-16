@@ -9,14 +9,14 @@ Number {
 	}
 
 	clamp { min, max ... #super }
-	to_s {... #super }
-	abs {... #super }
-	floor {... #super }
-	ceil {... #super }
-	round {... #super }
-	sqrt {... #super }
-	even? {... #super }
-	odd? {... #super }
-	to_i {... #super }
-	to_f {... #super }
+	to_s { ... #super }
+	abs { ... #super }
+	floor { ... #super }
+	ceil { ... #super }
+	round { ... #super }
+	sqrt { ... #super }
+	even? { ... #super }
+	odd? { ... #super }
+	to_i { ... #super }
+	to_f { ... #super }
 }

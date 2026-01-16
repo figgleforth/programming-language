@@ -1342,7 +1342,7 @@ module Ore
 				#   1) Create type in Ore
 				#   2) Create equivalent type in scopes.rb or similar
 				#   3) Make sure functions which use the #super expression in its body are named in to match the Ore::Type "proxy_#{func_name}"
-				# For example, `String { upcase{... #super } }` maps to `Ore::String#super_upcase`
+				# For example, `String { upcase{ ... #super } }` maps to `Ore::String#super_upcase`
 				raise Ore::Invalid_Directive_Usage.new(expr, runtime)
 			end
 		end

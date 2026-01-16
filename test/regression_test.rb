@@ -130,7 +130,7 @@ class Regression_Test < Base_Test
 				.kind = new_kind
 			}
 
-			to_s {...
+			to_s { ...
 				"|kind|-box"
 			}
 		}
@@ -148,7 +148,7 @@ class Regression_Test < Base_Test
 
 	def test_identifier_lookup_regression
 		out = Ore.interp "x = 123
-		funk {...
+		funk { ...
 			../x + 2
 		}
 		funk()"
@@ -292,7 +292,7 @@ class Regression_Test < Base_Test
 		    		.name = name
 		    	}
 
-		    	make_inner {...
+		    	make_inner { ...
 		    		Inner("inner_value")
 		    	}
 		    }
@@ -304,7 +304,7 @@ class Regression_Test < Base_Test
 		    		.name = name
 		    	}
 
-		    	get_name {...
+		    	get_name { ...
 		    		name
 		    	}
 		    }

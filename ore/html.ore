@@ -7,7 +7,7 @@ Dom {
 		.children = children
 	}
 
-	render {... children }
+	render { ... children }
 }
 
 ```Predefined Dom elements```
@@ -31,7 +31,7 @@ Title | Dom {
 		.title = title
 	}
 
-	render {... title }
+	render { ... title }
 }
 
 `Headings
@@ -82,7 +82,7 @@ A | Dom {
 		.title = title
 	}
 
-	render {... title }
+	render { ... title }
 }
 
 Strong | Dom {

@@ -5,7 +5,7 @@ Greet {
 		.subject = subject
 	}
 
-	greeting {...
+	greeting { ...
 		"Hello, |subject|!"
 	}
 }

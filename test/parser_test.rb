@@ -293,7 +293,7 @@ class Parser_Test < Base_Test
 		assert_empty out.first.expressions
 		refute out.first.name
 
-		out = Ore.parse '{...
+		out = Ore.parse '{ ...
 		}'
 		assert_empty out.first.expressions
 		refute out.first.name
@@ -375,11 +375,11 @@ class Parser_Test < Base_Test
 			end
 
 			slice = remainder.slice(0, sequence.count)
-			slice.{...
+			slice.{ ...
 				expected = sequence[at]
 
 				if expected === Array
-					expected.any? {...
+					expected.any? { ...
 						it == it2
 					}
 				else
@@ -782,7 +782,7 @@ class Parser_Test < Base_Test
 			class = 'my_class'
 			data_something = 'some data attribute'
 
-			render {...
+			render { ...
 				'Text content of this div'
 			}
 		}"

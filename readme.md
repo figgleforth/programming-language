@@ -24,7 +24,7 @@ Greet {
 		.subject = subject
 	}
 
-	greeting {...
+	greeting { ...
 		"Hello, |subject|!"
 	}
 }
@@ -135,7 +135,7 @@ dict = { v=version, l=lines }   `{v: "0.0.0", l: 4815}
 
 noop_function {...}
 
-best_show {...
+best_show { ...
 	"Lost"  `Last expression is return value
 }
 
@@ -167,7 +167,7 @@ Repo {
 		.name = name
 	}
 
-	to_s {...
+	to_s { ...
 		"|user|/|name|"
 	}
 }
@@ -318,7 +318,7 @@ Post.delete(2)
 `Create servers by composing with built-in Server type
 Web_App | Server {
 	`Define routes using HTTP method and path
-	get:// {...
+	get:// { ...
 		"<h1>Welcome to Ore!</h1>"
 	}
 
@@ -326,13 +326,13 @@ Web_App | Server {
 		"<h1>Hello, |name|!</h1>"
 	}
 
-	post://submit {...
+	post://submit { ...
 		"Form submitted"
 	}
 }
 
 API_Server | Server {
-	get://api/users {...
+	get://api/users { ...
 		"[{\"id\": 1, \"name\": \"Alice\"}]"
 	}
 }
@@ -360,7 +360,7 @@ Layout | Dom {
 		.body_content = body_content
 	}
 
-	render {...
+	render { ...
 		`Use built-in Html, Head, Title, and Body types
 		Html([
 			Head(Title(title)),
@@ -376,7 +376,7 @@ Using strings with HTML:
 #use 'ore/html.ore'
 
 Layout | Dom {
-	render {...
+	render { ...
 		"<html><head><title>My page</title></head><body>Hello!</body></html>"
 	}
 }

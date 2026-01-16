@@ -32,7 +32,7 @@ class Server_Test < Base_Test
 		    }
 
 		    Web_App | Server {
-		    	get:// {...
+		    	get:// { ...
 		    		"Hello World"
 		    	}
 		    }
@@ -55,7 +55,7 @@ class Server_Test < Base_Test
 		    }
 
 		    Web_App | Server {
-		    	get://hello {...
+		    	get://hello { ...
 		    		"Hi there!"
 		    	}
 
@@ -107,11 +107,11 @@ class Server_Test < Base_Test
 		    }
 
 		    Web_App | Server {
-		    	get:// {...
+		    	get:// { ...
 		    		"Home"
 		    	}
 
-		    	post://submit {...
+		    	post://submit { ...
 		    		"Submitted"
 		    	}
 		    }

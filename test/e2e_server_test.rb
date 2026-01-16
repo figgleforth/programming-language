@@ -27,7 +27,7 @@ class E2E_Server_Test < Minitest::Test
 		    }
 
 		    Web_App | Server {
-		    	get:// {...
+		    	get:// { ...
 		    		"Hello from Ore!"
 		    	}
 
@@ -76,7 +76,7 @@ class E2E_Server_Test < Minitest::Test
 		    }
 
 		    Web_App | Server {
-		    	get://search {...
+		    	get://search { ...
 		    		"Query: |request.query|"
 		    	}
 		    }
@@ -109,7 +109,7 @@ class E2E_Server_Test < Minitest::Test
 		    }
 
 		    Web_App | Server {
-		    	post://submit {...
+		    	post://submit { ...
 		    		"Form submitted"
 		    	}
 		    }
@@ -145,13 +145,13 @@ class E2E_Server_Test < Minitest::Test
 		    }
 
 		    Server_A | Server {
-		    	get://a {...
+		    	get://a { ...
 		    		"Response from Server A"
 		    	}
 		    }
 
 		    Server_B | Server {
-		    	get://b {...
+		    	get://b { ...
 		    		"Response from Server B"
 		    	}
 		    }

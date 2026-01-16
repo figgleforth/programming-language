@@ -23,7 +23,7 @@ Layout | Html {
 		.body_content = body_content
 	}
 
-	render {...
+	render { ...
 		[
 			Head(Title(title)),
 			Page_Body(body_content)
@@ -32,7 +32,7 @@ Layout | Html {
 }
 
 Hero | Section {
-	render {...
+	render { ...
 		[
 			H1("Ore"),
 			P("Programming Language For Web Development")
@@ -61,7 +61,7 @@ Feature_Section | Dom {
 		.items = items
 	}
 
-	render {...
+	render { ...
 		Div([
 			H2(heading),
 			Ul(items)
@@ -77,7 +77,7 @@ Feature_Item | Dom {
 		.text = text
 	}
 
-	render {...
+	render { ...
 		Li(text)
 	}
 }
@@ -90,7 +90,7 @@ Page_Content | Div {
 		.snippet = snippet
 	}
 
-	render {...
+	render { ...
 		naming = Feature_Section(
 			"Naming conventions replace keywords",
 			[
@@ -163,7 +163,7 @@ readme_snippet = "Hello {
 		.subject = subject
 	}
 
-	output {...
+	output { ...
 		'Hi, \|subject\|'
 	}
 }
@@ -173,7 +173,7 @@ Hello('World').output() `Hi, World!"
 
 ```The app serving this HTML```
 App | Server {
-	get:// {...
+	get:// { ...
 		Layout("Ore - Programming Language", Page_Content(readme_snippet))
 	}
 }

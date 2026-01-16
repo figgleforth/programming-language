@@ -143,11 +143,11 @@ Type-level (static) members are declared using the `..` scope operator:
 Person {
     ./count = 0  `Static variable shared across all instances
 
-    ./increment {...  `Static method
+    ./increment { ...  `Static method
         count += 1
     }
 
-    init {...
+    init { ...
         ./count += 1  `Access static from instance method
     }
 }
@@ -244,8 +244,8 @@ Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that 
 
 ```ore
 String {
-    upcase {... #super }
-    downcase {... #super }
+    upcase { ... #super }
+    downcase { ... #super }
 }
 ```
 
@@ -533,7 +533,7 @@ Ore has built-in web server support:
 - `response.body = content` - Set response body
 
 ```ore
-post://login {...
+post://login { ...
     if authenticate(request.body.username, request.body.password)
         response.redirect("/dashboard")
     else

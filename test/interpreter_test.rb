@@ -519,7 +519,7 @@ class Interpreter_Test < Base_Test
 			x = 0
 			y = 0
 
-			to_s {...
+			to_s { ...
 				"Transform!"
 			}
 		}'
@@ -556,7 +556,7 @@ class Interpreter_Test < Base_Test
 			x = 4
 			y = 8
 
-			to_s {...
+			to_s { ...
 				"Transform!"
 			}
 
@@ -732,7 +732,7 @@ class Interpreter_Test < Base_Test
 
 	def test_function_scope
 		out = Ore.interp 'x = 123
-		double {... x * 2 }
+		double { ... x * 2 }
 		double()'
 		assert_equal 246, out
 	end
@@ -741,7 +741,7 @@ class Interpreter_Test < Base_Test
 		out = Ore.interp 'x = 108
 
 		Doubler {
-			double {... x * 2 }
+			double { ... x * 2 }
 		}
 
 		Doubler().double()'
@@ -754,7 +754,7 @@ class Interpreter_Test < Base_Test
 		assert_equal 1, out.value
 
 		out = Ore.interp '
-		eject {...
+		eject { ...
 			if true
 				return "true!"
 			end
@@ -906,7 +906,7 @@ class Interpreter_Test < Base_Test
 				y = position.y
 			}
 
-			to_s {...
+			to_s { ...
 				'Transform(|x|,|y|)'
 			}
 
@@ -1100,7 +1100,7 @@ class Interpreter_Test < Base_Test
 			class = 'my_class'
 			data_something = 'some data attribute'
 
-			render {...
+			render { ...
 				'Text content of this div'
 			}
 		}
@@ -1471,7 +1471,7 @@ class Interpreter_Test < Base_Test
 			}
 		}
 
-		calc {...
+		calc { ...
 			p = Point(10, 20)
 			@ += p
 			a + b
@@ -1515,11 +1515,11 @@ class Interpreter_Test < Base_Test
 			}
 		}
 
-		outer {...
+		outer { ...
 			p = Point(23, 42)
 			@ += p
 
-			inner {...
+			inner { ...
 				a + b
 			}
 
@@ -1561,12 +1561,12 @@ class Interpreter_Test < Base_Test
 		    	./static = 15
 		    	./_static_private = 16
 
-				calling_private_through_instance {... _private }
-		    	calling_static_through_instance {... static }
-		    	calling_static_private_through_instance {... _static_private }
+				calling_private_through_instance { ... _private }
+		    	calling_static_through_instance { ... static }
+		    	calling_static_private_through_instance { ... _static_private }
 
-		    	./calling_static_through_static {... static }
-		    	./calling_static_private_througb_static {... _static_private }
+		    	./calling_static_through_static { ... static }
+		    	./calling_static_private_througb_static { ... _static_private }
 		    }
 		CODE
 
@@ -1986,7 +1986,7 @@ class Interpreter_Test < Base_Test
 	def test_using_pound_proxy_as_expression
 		code = <<~CODE
 		    String | String {
-		        upcase {...
+		        upcase { ...
 		        	#super + " (SWIZZLED)"
 		        }
 		    }

@@ -5,7 +5,7 @@ Database {
 
 	create_table { name, columns_dict ... #super }
 	delete_table { name ... #super }
-	tables {... #super }
+	tables { ... #super }
 	table_exists? { name ... #super }
 }
 
