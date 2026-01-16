@@ -97,46 +97,46 @@ Greet('Ore').greeting()
 #### Variables
 
 ```
-`Comments start with a backtick
+# Comments start with a backtick
 
-nothing;            `Syntactic sugar for "nothing = nil"
+nothing;            # Syntactic sugar for "nothing = nil"
 something = true
 
-`Strings can be single or double quoted, and interpolated with "|"
+# Strings can be single or double quoted, and interpolated with "|"
 LANG_NAME = "ore-lang"
 version   = '0.0.0'
 lines     = 4_815
-header    = "|LANG_NAME| v|version|"   `"ore-lang v0.0.0"
-footer    = 'Lines of code: |lines|'   `"Lines of code: 4815"
+header    = "|LANG_NAME| v|version|"   # "ore-lang v0.0.0"
+footer    = 'Lines of code: |lines|'   # "Lines of code: 4815"
 
-`Ranges
+# Ranges
 inclusive_range   = 0..2
 exclusive_range   = 2><5
 l_exclusive_range = 5>.7
 r_exclusive_range = 7.<9
 
-`Data containers
+# Data containers
 tuples = (header, footer)
 arrays = [inclusive_range, exclusive_range]
 
-`Dictionaries can be initialized in multiple ways, commas and values are optional
-dict = {}                       `{}
-dict = {x y}                    `{x: nil, y: nil}
-dict = {u, v}                   `{u: nil, v: nil}
-dict = { a:0 b=1 c}             `{a: 0, b: 1, c: nil}
-dict = { x:4, y=8, z}           `{x: 4, y: 8, z: nil}
-dict = { v=version, l=lines }   `{v: "0.0.0", l: 4815}
+# Dictionaries can be initialized in multiple ways, commas and values are optional
+dict = {}                       # {}
+dict = {x y}                    # {x: nil, y: nil}
+dict = {u, v}                   # {u: nil, v: nil}
+dict = { a:0 b=1 c}             # {a: 0, b: 1, c: nil}
+dict = { x:4, y=8, z}           # {x: 4, y: 8, z: nil}
+dict = { v=version, l=lines }   # {v: "0.0.0", l: 4815}
 ```
 
 #### Functions
 
 ```
-`Syntax: <function_name> { <params, etc> -> <body> }, where "->" is the delimiter between params and body.
+# Syntax: <function_name> { <params, etc> -> <body> }, where "->" is the delimiter between params and body.
 
 noop_function {->}
 
 best_show { ->
-	"Lost"  `Last expression is return value
+	"Lost"  # Last expression is return value
 }
 
 fizz_buzz { n ->
@@ -148,20 +148,20 @@ fizz_buzz { n ->
 		'Buzz'
 	else
 		'|n|'
-	end           `Control flows close with `end`
-}                 `Code blocks close with `}`
+	end           # Control flows close with `end`
+}                 # Code blocks close with `}`
 ```
 
 #### Classes
 
 ```
-`Syntax: <class_name> { <body> }
+# Syntax: <class_name> { <body> }
 
 Repo {
 	user;
 	name;
 
-	`"new" is reserved for constructors
+	# "new" is reserved for constructors
 	new { user, name ->
 		.user = user
 		.name = name
@@ -172,52 +172,52 @@ Repo {
 	}
 }
 
-Repo('figgleforth', 'ore-lang').to_s() `"figgleforth/ore-lang"
+Repo('figgleforth', 'ore-lang').to_s() # "figgleforth/ore-lang"
 ```
 
 #### Loops
 
 ```ore
-`For loops iterate over arrays, ranges, and other iterables
+# For loops iterate over arrays, ranges, and other iterables
 result = []
 for [1, 2, 3, 4, 5]
-	result << it  `it is the current iteration value
+	result << it  # it is the current iteration value
 end
-`result = [1, 2, 3, 4, 5]
+# result = [1, 2, 3, 4, 5]
 
-`Ranges work too
+# Ranges work too
 sum = 0
 for 1..10
 	sum += it
 end
-`sum = 55
+# sum = 55
 
-`Stride support with "by" keyword
+# Stride support with "by" keyword
 chunks = []
 for [1, 2, 3, 4, 5, 6] by 2
-	chunks << it  `it contains array of 2 items
+	chunks << it  # it contains array of 2 items
 end
-`chunks = [[1, 2], [3, 4], [5, 6]]
+# chunks = [[1, 2], [3, 4], [5, 6]]
 
-`Access iteration index with "at"
+# Access iteration index with "at"
 indexed = []
 for ['a', 'b', 'c']
 	indexed << "|at|: |it|"
 end
-`indexed = ["0: a", "1: b", "2: c"]
+# indexed = ["0: a", "1: b", "2: c"]
 
-`Loop control with skip and stop
+# Loop control with skip and stop
 evens = []
 for 1..10
 	if it % 2 != 0
-		skip  `Continue to next iteration
+		skip  # Continue to next iteration
 	end
 	evens << it
 	if it == 6
-		stop  `Break out of loop
+		stop  # Break out of loop
 	end
 end
-`evens = [2, 4, 6]
+# evens = [2, 4, 6]
 ```
 
 #### Instance Unpacking
@@ -233,38 +233,38 @@ Vector {
 	}
 }
 
-`Auto-unpack in function parameters with @
+# Auto-unpack in function parameters with @
 add { @vec ->
-	x + y  `Access vec.x and vec.y directly without vec. prefix
+	x + y  # Access vec.x and vec.y directly without vec. prefix
 }
 
 v = Vector(3, 4)
-add(v)  `7
+add(v)  # 7
 
-`Manual sibling scope control
+# Manual sibling scope control
 multiply { factor ->
 	v1 = Vector(5, 10)
-	@ += v1  `Add v1's members to sibling scope
+	@ += v1  # Add v1's members to sibling scope
 
-	result_x = x * factor  `Access x directly
-	result_y = y * factor  `Access y directly
+	result_x = x * factor  # Access x directly
+	result_y = y * factor  # Access y directly
 
-	@ -= v1  `Remove v1 from sibling scope
+	@ -= v1  # Remove v1 from sibling scope
 
 	Vector(result_x, result_y)
 }
 
-multiply(2)  `Vector(10, 20)
+multiply(2)  # Vector(10, 20)
 ```
 
 #### File Loading
 
 ```ore
-`Load external Ore files with @use directive
+# Load external Ore files with @use directive
 @use './some_formatter.ore'
 @use './some_dir/users.ore'
 
-`Use loaded classes and functions
+# Use loaded classes and functions
 user = User('Alice', 'alice@example.com')
 formatted = format_name(user.name)
 ```
@@ -275,36 +275,36 @@ formatted = format_name(user.name)
 @use 'ore/database.ore'
 @use 'ore/record.ore'
 
-`Create and connect to database
+# Create and connect to database
 db = Sqlite('./temp/blog.db')
 @connect db
 
-`Create table with schema
+# Create table with schema
 db.create_table('posts', {
 	id: 'primary_key',
 	title: 'String',
 	body: 'String'
 })
 
-`Define model by composing with Record
+# Define model by composing with Record
 Post | Record {
-	./database = ../db     `Link to static ..database declaration
+	./database = ../db     # Link to static ..database declaration
 	table_name = 'posts'
 }
 
-`Create records
+# Create records
 Post.create({title: "Hello Ore", body: "Building web apps is fun!"})
 Post.create({title: "Databases", body: "SQLite integration works!"})
 
-`Query records
-posts = Post.all()         `Fetch all posts
-post = Post.find(1)        `Find by ID
+# Query records
+posts = Post.all()         # Fetch all posts
+post = Post.find(1)        # Find by ID
 
-`Access record data (returns Dictionary)
-post[:title]               `"Hello Ore"
-post[:body]                `"Building web apps is fun!"
+# Access record data (returns Dictionary)
+post[:title]               # "Hello Ore"
+post[:body]                # "Building web apps is fun!"
 
-`Delete records
+# Delete records
 Post.delete(2)
 ```
 
@@ -315,9 +315,9 @@ Post.delete(2)
 ```ore
 @use 'ore/server.ore'
 
-`Create servers by composing with built-in Server type
+# Create servers by composing with built-in Server type
 Web_App | Server {
-	`Define routes using HTTP method and path
+	# Define routes using HTTP method and path
 	get:// { ->
 		"<h1>Welcome to Ore!</h1>"
 	}
@@ -337,7 +337,7 @@ API_Server | Server {
 	}
 }
 
-`Both servers run concurrently in background threads
+# Both servers run concurrently in background threads
 app = Web_App(8080)
 api = API_Server(3000)
 @start app
@@ -361,7 +361,7 @@ Layout | Dom {
 	}
 
 	render { ->
-		`Use built-in Html, Head, Title, and Body types
+		# Use built-in Html, Head, Title, and Body types
 		Html([
 			Head(Title(title)),
 			Body(body_content)
@@ -408,7 +408,7 @@ My_Div | Dom {
 	css_color = 'white'
 }
 
-`=> <p class='my_class' id='my_id' style='background-color:black;color:white;'></p>
+# => <p class='my_class' id='my_id' style='background-color:black;color:white;'></p>
 ```
 
 Note: Rendering HTML only works when `render{->}` is called by a Server instance. See [html.ore](ore/html.ore) for predefined `Dom` elements. See [web1.ore](ore/examples/web1.ore) for Server and HTML usage.
