@@ -77,9 +77,9 @@ module Ore
 		end
 	end
 
-	# get:// {;}
-	# put://whatever/:id {id;}
-	# post://book/:id/publish {id;}
+	# get:// {::}
+	# put://whatever/:id {id::}
+	# post://book/:id/publish {id::}
 	class Route_Expr < Func_Expr
 		attr_accessor :http_method, :path, :expression, :param_names # The expression can be a function or an identifier
 	end
@@ -169,7 +169,7 @@ module Ore
 	class Html_Element_Expr < Expression
 		# <element> {
 		#     ...attributes
-		#     render {;}
+		#     render {::}
 		# }
 		# 11/2/25, TODO: Maybe this class should inherit from Type_Expr since this is just a type/class anyway? :html_vs_type_expr
 		attr_accessor :expressions, :element

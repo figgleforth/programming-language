@@ -4,7 +4,7 @@ module Ore
 	UNPACK_ARG_PREFIX          = '@@'
 	DIRECTIVE_PREFIX           = '#'
 	NIL_INIT_POSTFIX           = ';'
-	FUNCTION_DELIMITER         = ';' # todo: Pick a different symbol or keyword
+	FUNCTION_DELIMITER         = '::' # todo: Pick a different symbol or keyword
 	IMPORT_FILE_DIRECTIVE      = 'use'
 	HTML_ATTRS                 = %w(id class href)
 	HTTP_VERBS                 = %w(get put patch post delete head options connect trace)

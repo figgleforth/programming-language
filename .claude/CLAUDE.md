@@ -143,11 +143,11 @@ Type-level (static) members are declared using the `..` scope operator:
 Person {
     ..count = 0  `Static variable shared across all instances
 
-    ..increment {;  `Static method
+    ..increment {::  `Static method
         count += 1
     }
 
-    init {;
+    init {::
         ..count += 1  `Access static from instance method
     }
 }
@@ -173,16 +173,32 @@ The language enforces naming conventions through the helper functions:
 - **Capitalized** (type_identifier?) - Classes/types
 - **lowercase** (member_identifier?) - Variables and functions
 
+## Function Conventions
+
+Lowercase identifier, followed by a `{}` grouped block which contains `::` which separates the params and body.
+
+```ore
+<identifier> { <args> :: <body> }
+```
+
+## Class Conventions
+
+A capitalized identifier followed by a `{}` grouped block
+
+```ore
+<Identifier> { <body> }
+```
+
 ## Unpack Feature
 
-The `@` operator allows unpacking instance members into sibling scopes for cleaner access:
+The `@` operator allows unpacking instance members into sibling scopes for cleaner access in two ways:
 
 ### Auto-unpack in Function Parameters
 
-`@` behaes as a prefix operator here.
+`@@` behaes as a prefix operator here.
 
 ```ore
-add { @vec;
+add { @@vec ::
     x + y  `Access vec.x and vec.y directly
 }
 
@@ -195,16 +211,24 @@ add(v)  `Returns 7
 `@` behaves as a standalone left hand operand operator
 
 ```ore
+Island {
+	name;
+}
+
 island = Island()
 @ += island  `Add island's members to sibling scope
 x = island_member  `Access members directly
 
 @ -= island  `Remove island from sibling scope
+
+thingy { @@island ::
+	`use island.name here unpacked
+}
 ```
 
 **Implementation details:**
 
-- `@param` in function signature automatically unpacks parameter into sibling scope
+- `@@param` in function signature automatically unpacks parameter into sibling scope
 - `@ += instance` and `@ -= instance` provide manual control in any scope
 - Sibling scopes are checked first during identifier lookup (before current scope declarations)
 - Only works with Instance types; errors with `Invalid_Unpack_Infix_Right_Operand` for non-instances
@@ -220,8 +244,8 @@ Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that 
 
 ```ore
 String {
-    upcase {; #super }
-    downcase {; #super }
+    upcase {:: #super }
+    downcase {:: #super }
 }
 ```
 
@@ -341,7 +365,7 @@ end
 The `return` keyword exits a function and returns a value. It properly propagates even when used inside loops:
 
 ```ore
-find { func;
+find { func ::
     for values
         if func(it)
             return it  `Exits the function, not just the loop
@@ -350,7 +374,9 @@ find { func;
     nil
 }
 
-[1, 2, 3].find({ x; x > 1 })  `Returns 2
+[1, 2, 3].find({ x ::
+    x > 1
+})  `Returns 2
 ```
 
 **Implementation:**
@@ -507,7 +533,7 @@ Ore has built-in web server support:
 - `response.body = content` - Set response body
 
 ```ore
-post://login {;
+post://login {::
     if authenticate(request.body.username, request.body.password)
         response.redirect("/dashboard")
     else
