@@ -90,9 +90,9 @@ module Ore
 		end
 
 		def lex_many length = 1, expected_chars = nil
-			it = ''
+			it = ::String.new
 			while chars? && length > 0
-				it     += eat
+				it << eat
 				length -= 1
 			end
 
@@ -112,7 +112,7 @@ module Ore
 				break if valid.include?(curr) && !numeric?(peek)
 				break if it[-1] == '_' && !numeric?(curr)
 
-				it += eat
+				it << eat
 				eat '_' while curr == '_' && numeric?(peek)
 			end
 			it
@@ -131,12 +131,12 @@ module Ore
 		end
 
 		def lex_oneline_comment
-			it = ''
+			it = ::String.new
 			eat Ore::COMMENT_CHAR
 			eat while whitespace?
 
 			while chars? && !newline?
-				it += eat
+				it << eat
 
 			end
 			it
@@ -144,14 +144,14 @@ module Ore
 
 		def lex_multiline_comment
 			marker = lex_many Ore::COMMENT_MULTILINE_CHAR.length, Ore::COMMENT_MULTILINE_CHAR
-			it     = ''
+			it     = ::String.new
 
 			eat while whitespace? || newline?
 
 			while chars? && peek(0, 3) != marker
-				it += eat
+				it << eat
 				if newline? # preserve one newline
-					it += eat
+					it << eat
 					eat while newline?
 				end
 			end
@@ -161,7 +161,7 @@ module Ore
 		end
 
 		def lex_string
-			it    = ''
+			it    = ::String.new
 			quote = eat
 
 			# todo: Refactor this, maybe? I was trying to use interpolation pipes in multiline text (see ./ore/examples/basic_page.ore) and realized that I wasn't escaping those, which led to the interpreter trying to actually interpolate the string.
@@ -171,19 +171,20 @@ module Ore
 					if chars?
 						escaped = eat
 						case escaped
-						when 'n' then it += "\n"
-						when 't' then it += "\t"
-						when 'r' then it += "\r"
-						when '\\' then it += "\\"
-						when quote then it += quote
+						when 'n' then it << "\n"
+						when 't' then it << "\t"
+						when 'r' then it << "\r"
+						when '\\' then it << "\\"
+						when quote then it << quote
 						else
-							it += '\\' + escaped
+							# it << '\\' + escaped
+							it << "\\#{escaped}"
 						end
 					else
 						raise Ore::Unterminated_String_Literal.new
 					end
 				else
-					it += eat
+					it << eat
 				end
 			end
 
