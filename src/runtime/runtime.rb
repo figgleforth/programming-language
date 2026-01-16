@@ -48,8 +48,8 @@ module Ore
 				code = File.read resolved_path
 				register_source resolved_path, code
 
-				lexemes                     = Ore::Lexer.new(code, filepath: resolved_path).output
-				expressions                 = Ore::Parser.new(lexemes, source_file: resolved_path).output
+				lexemes                     = Ore::Lexer.new(code).output
+				expressions                 = Ore::Parser.new(lexemes).output
 				loaded_files[resolved_path] = expressions
 			end
 

@@ -164,7 +164,7 @@ module Ore
 		end
 
 		def get_source_file
-			expression&.source_file || error.source_file
+			expression&.source_file
 		end
 	end
 end

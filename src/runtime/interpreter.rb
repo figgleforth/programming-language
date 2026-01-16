@@ -1,15 +1,20 @@
 require_relative '../ore'
 
 module Ore
-	class Interpreter
-		attr_accessor :i, :input, :runtime
+	class Interpreter < Stage
+		attr_accessor :i, :runtime, :load_standard_library
 
 		def initialize input = [], runtime = nil
-			@input   = input
-			@runtime = runtime || Ore::Runtime.new
+			super input
+			@runtime               = runtime
+			@load_standard_library = true
 		end
 
 		def output & block
+			if load_standard_library
+				@runtime ||= Ore::Runtime.new(Ore::Global.with_standard_library)
+			end
+
 			result = input.each.inject nil do |result, expr|
 				interpret expr
 			end

@@ -1,21 +1,19 @@
 module Ore
-	class Parser
-		attr_accessor :i, :input, :source_file
+	class Parser < Stage
+		attr_accessor :i
 
-		def initialize input = [], source_file: nil
-			@input       = input
-			@i           = 0 # index of current lexeme
-			@source_file = source_file ? File.expand_path(source_file) : '<inline>'
+		def initialize input = []
+			super input
+			@i = 0 # index of current lexeme
 		end
 
 		def copy_location expr, from_lexeme_or_expr
 			return expr unless from_lexeme_or_expr
 
-			expr.l0          = from_lexeme_or_expr.l0
-			expr.c0          = from_lexeme_or_expr.c0
-			expr.l1          = from_lexeme_or_expr.l1
-			expr.c1          = from_lexeme_or_expr.c1
-			expr.source_file = source_file
+			expr.l0 = from_lexeme_or_expr.l0
+			expr.c0 = from_lexeme_or_expr.c0
+			expr.l1 = from_lexeme_or_expr.l1
+			expr.c1 = from_lexeme_or_expr.c1
 
 			expr
 		end
