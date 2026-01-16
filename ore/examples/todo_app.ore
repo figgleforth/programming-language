@@ -89,7 +89,7 @@ db = Sqlite('./temp/task_app.db') `Sqlite composes with Database
 #connect db  `=> calls Database#create_connection!
 
 Task | Record {
-	..database = ~/db `Must set the database in order for Task query methods to work
+	./database = ../db `Must set the database in order for Task query methods to work
 	table_name = 'tasks'
 }
 

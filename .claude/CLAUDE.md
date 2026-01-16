@@ -114,16 +114,16 @@ Each scope can have **sibling scopes
 
 Ore provides three scope operators for explicit scope access:
 
-- `~/identifier` - Access global scope
+- `../identifier` - Access global scope
 - `.identifier` - Access current instance scope only
-- `..identifier` - Access current type scope only
+- `./identifier` - Access current type scope only
 
 **Identifier Search Behavior:**
 
 - `identifier` (no operator) - Searches through all scopes in the stack from current to global, including checking for proxies methods
 - `.identifier` - Only searches the current instance scope (does not fall back to global)
-- `..identifier` - Only searches the current type scope
-- `~/identifier` - Only searches the global scope
+- `./identifier` - Only searches the current type scope
+- `../identifier` - Only searches the global scope
 
 **Privacy Convention:**
 
@@ -133,7 +133,7 @@ Identifiers starting with `_` are considered private by convention (e.g., `_priv
 
 - Scope operators cannot be followed by literals (e.g., `..123` is a parse error)
 - Using `.` outside an instance context raises `Cannot_Use_Instance_Scope_Operator_Outside_Instance`
-- Using `..` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
+- Using `./` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
 
 ## Static Declarations
 
@@ -141,14 +141,14 @@ Type-level (static) members are declared using the `..` scope operator:
 
 ```ore
 Person {
-    ..count = 0  `Static variable shared across all instances
+    ./count = 0  `Static variable shared across all instances
 
-    ..increment {::  `Static method
+    ./increment {::  `Static method
         count += 1
     }
 
     init {::
-        ..count += 1  `Access static from instance method
+        ./count += 1  `Access static from instance method
     }
 }
 
@@ -449,7 +449,7 @@ The `Record` type provides ActiveRecord-style ORM functionality:
 #use 'ore/record.ore'
 
 User | Record {
-    ..database = ~/db      `Set database (static declaration)
+    ./database = ../db      `Set database (static declaration)
     table_name = 'users'
 }
 ```
@@ -491,7 +491,7 @@ db.create_table('posts', {
 
 `Define model
 Post | Record {
-    ..database = ~/db
+    ./database = ../db
     table_name = 'posts'
 }
 

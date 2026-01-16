@@ -282,9 +282,9 @@ class Parser_Test < Base_Test
 		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal '.', out.first.scope_operator.value
 
-		out = Ore.parse '~/global_scope'
+		out = Ore.parse '../global_scope'
 		assert_kind_of Ore::Identifier_Expr, out.first
-		assert_equal '~/', out.first.scope_operator.value
+		assert_equal '../', out.first.scope_operator.value
 	end
 
 	def test_functions

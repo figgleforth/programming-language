@@ -115,7 +115,8 @@ Page_Content | Div {
 			[
 				Feature_Item("array.1.0.8 accesses nested structures"),
 				Feature_Item(".identifier accesses instance scope"),
-				Feature_Item("..identifier accesses global scope"),
+				Feature_Item("./identifier accesses static scope"),
+				Feature_Item("../identifier accesses global scope"),
 			]
 		)
 

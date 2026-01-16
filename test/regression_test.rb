@@ -25,7 +25,7 @@ class Regression_Test < Base_Test
 
 	def test_dot_slashes_regression
 		ds  = Ore.parse '.abc'
-		dds = Ore.parse '..def'
+		dds = Ore.parse './def'
 		assert_kind_of Ore::Identifier_Expr, ds.first
 		assert_kind_of Ore::Identifier_Expr, dds.first
 
@@ -41,14 +41,14 @@ class Regression_Test < Base_Test
 	end
 
 	def test_look_up_tilde_slash_without_dot_slash_regression
-		out = Ore.interp '~/x = 456
+		out = Ore.interp '../x = 456
 		x'
 		assert_equal 456, out
 	end
 
 	def test_look_up_tilde_slash_with_dot_slash_regression
-		out = Ore.interp '~/y = 789
-		~/y'
+		out = Ore.interp '../y = 789
+		../y'
 		assert_equal 789, out
 	end
 
@@ -66,7 +66,7 @@ class Regression_Test < Base_Test
 		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal 1, out.count
 
-		out = Ore.parse '..class_scope'
+		out = Ore.parse './class_scope'
 		assert_kind_of Ore::Identifier_Expr, out.first
 		assert_equal 1, out.count
 	end
@@ -149,14 +149,14 @@ class Regression_Test < Base_Test
 	def test_identifier_lookup_regression
 		out = Ore.interp "x = 123
 		funk {::
-			~/x + 2
+			../x + 2
 		}
 		funk()"
 		assert_equal 125, out
 
 		out = Ore.interp "y = 0
 		add { amount_to_add = 1 ::
-			~/y + amount_to_add
+			../y + amount_to_add
 		}
 		(a = add(4))
 
@@ -366,8 +366,8 @@ class Regression_Test < Base_Test
 		refute_raises Ore::Missing_Super_Proxy_Declaration do
 			Ore.interp <<~ORE
 			    Thing {
-			    	..abc;
-			    	..def {::}
+			    	./abc;
+			    	./def {::}
 			    }
 
 			    	Thing.abc

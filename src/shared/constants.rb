@@ -30,7 +30,7 @@ module Ore
 	COMPARISON_OPERATORS       = %w(<=> == === != !== <= >= < > =~ !~)
 	INFIX_ARITHMETIC_OPERATORS = %w(+ - * ** / % << >> ^ & |)
 	RANGE_OPERATORS            = %w(.. .< >. ><)
-	SCOPE_OPERATORS            = %w(. .. ~/)
+	SCOPE_OPERATORS            = %w(. ./ ../)
 	DOT_ACCESS_OPERATORS       = %w(. .?)
 	TYPE_COMPOSITION_OPERATORS = %w(| & ~ ^) # Union, Intersection, Removal, Symmetric Difference
 	ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
@@ -46,14 +46,14 @@ module Ore
 
 	# It's been a while, but I believe this RESERVED list must be maintained. The other declarations above are helpers for comparisons while this contains every reserved symbols and identifiers.
 	RESERVED = %w(
-		[ { ( , _ . .. ) } ]
+		[ { ( , _ . .. ... ) } ]
 		: ;
 		+ - * ** / % ~
 		= ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=
 		== === != !== <= >= < >
 		! ? ?? !! && || & | << >>
 		.. >. .< >< <=>
-		@ ~/
+		@ ../ ./
 		``` `
 
 		for

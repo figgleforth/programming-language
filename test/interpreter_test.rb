@@ -605,13 +605,13 @@ class Interpreter_Test < Base_Test
 
 	def test_look_up_dot_slash_without_dot_slash
 		assert_raises Ore::Cannot_Use_Type_Scope_Operator_Outside_Type do
-			Ore.interp '..x = 123'
+			Ore.interp './x = 123'
 		end
 	end
 
 	def test_look_up_dot_slash_with_dot_slash
-		out = Ore.interp '~/y = 543
-		~/y'
+		out = Ore.interp '../y = 543
+		../y'
 		assert_equal 543, out
 	end
 
@@ -1557,16 +1557,16 @@ class Interpreter_Test < Base_Test
 		    	_private = 8
 
 				`Static declarations`
-				..nilled;
-		    	..static = 15
-		    	.._static_private = 16
+				./nilled;
+		    	./static = 15
+		    	./_static_private = 16
 
 				calling_private_through_instance {:: _private }
 		    	calling_static_through_instance {:: static }
 		    	calling_static_private_through_instance {:: _static_private }
 
-		    	..calling_static_through_static {:: static }
-		    	..calling_static_private_througb_static {:: _static_private }
+		    	./calling_static_through_static {:: static }
+		    	./calling_static_private_througb_static {:: _static_private }
 		    }
 		CODE
 
@@ -1645,19 +1645,19 @@ class Interpreter_Test < Base_Test
 		end
 
 		assert_raises Ore::Cannot_Use_Type_Scope_Operator_Outside_Type do
-			Ore.interp "..whatever"
+			Ore.interp "./whatever"
 		end
 
 		assert_raises Ore::Invalid_Scope_Syntax do
-			Ore.interp "..123"
+			Ore.interp "./123"
 		end
 
 		assert_raises Ore::Undeclared_Identifier do
-			Ore.interp "Type { ..whatever }"
+			Ore.interp "Type { ./whatever }"
 		end
 
 		assert_raises Ore::Invalid_Scope_Syntax do
-			x Ore.interp "Type { ..123 }"
+			x Ore.interp "Type { ./123 }"
 		end
 	end
 
@@ -1699,16 +1699,16 @@ class Interpreter_Test < Base_Test
 		    	base_instance_public = 1
 		    	_base_instance_private = 2
 
-		    	..base_static_public = 10
-		    	.._base_static_private = 20
+		    	./base_static_public = 10
+		    	./_base_static_private = 20
 		    }
 
 		    Other {
 		    	other_instance = 3
 		    	_other_private = 4
 
-		    	..other_static_public = 30
-		    	.._other_static_private = 40
+		    	./other_static_public = 30
+		    	./_other_static_private = 40
 		    }
 		CODE
 
@@ -1806,9 +1806,9 @@ class Interpreter_Test < Base_Test
 		    	_shared_private = 2
 		    	left_only = 3
 
-		    	..shared_static = 10
-		    	.._shared_static_private = 20
-		    	..left_static_only = 30
+		    	./shared_static = 10
+		    	./_shared_static_private = 20
+		    	./left_static_only = 30
 		    }
 
 		    Right {
@@ -1816,9 +1816,9 @@ class Interpreter_Test < Base_Test
 		    	_shared_private = 5
 		    	right_only = 6
 
-		    	..shared_static = 40
-		    	.._shared_static_private = 50
-		    	..right_static_only = 60
+		    	./shared_static = 40
+		    	./_shared_static_private = 50
+		    	./right_static_only = 60
 		    }
 		CODE
 
