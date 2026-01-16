@@ -1,7 +1,7 @@
 module Ore
 	STANDARD_LIBRARY_PATH      = './ore/preload.ore'
 	UNPACK_OPERAND             = '@'
-	UNPACK_ARG_PREFIX          = '@@'
+	UNPACK_ARG_PREFIX          = '@'
 	DIRECTIVE_PREFIX           = '#'
 	NIL_INIT_POSTFIX           = ';'
 	FUNCTION_DELIMITER         = '::' # todo: Pick a different symbol or keyword

@@ -195,10 +195,10 @@ The `@` operator allows unpacking instance members into sibling scopes for clean
 
 ### Auto-unpack in Function Parameters
 
-`@@` behaes as a prefix operator here.
+`@` behaes as a prefix operator here.
 
 ```ore
-add { @@vec ::
+add { @vec ::
     x + y  `Access vec.x and vec.y directly
 }
 
@@ -221,14 +221,14 @@ x = island_member  `Access members directly
 
 @ -= island  `Remove island from sibling scope
 
-thingy { @@island ::
+thingy { @island ::
 	`use island.name here unpacked
 }
 ```
 
 **Implementation details:**
 
-- `@@param` in function signature automatically unpacks parameter into sibling scope
+- `@param` in function signature automatically unpacks parameter into sibling scope
 - `@ += instance` and `@ -= instance` provide manual control in any scope
 - Sibling scopes are checked first during identifier lookup (before current scope declarations)
 - Only works with Instance types; errors with `Invalid_Unpack_Infix_Right_Operand` for non-instances

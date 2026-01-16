@@ -350,7 +350,7 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_at_at_prefix
-		out = Ore.lex '@@count'
+		out = Ore.lex '@count'
 		assert_equal :operator, out.first.type
 	end
 
@@ -365,7 +365,7 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_unpack_prefix
-		out = Ore.lex '@@instance_to_unpack'
+		out = Ore.lex '@instance_to_unpack'
 		assert_equal :operator, out.first.type
 		assert_equal Ore::UNPACK_ARG_PREFIX, out.first.value
 		assert_equal :identifier, out.last.type
