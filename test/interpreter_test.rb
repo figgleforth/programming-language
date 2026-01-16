@@ -1492,6 +1492,16 @@ class Interpreter_Test < Base_Test
 		assert_equal [2, 4, 6], out.values
 	end
 
+	def test_for_loop_verbs_do_not_mutate
+		out = Ore.interp "
+		original = [1, 2, 3, 4, 5]
+		doubled = for original map
+			it * 2
+		end
+		original"
+		assert_equal [1, 2, 3, 4, 5], out.values
+	end
+
 	def test_while_loop_skip
 		out = Ore.interp "
 		result = []

@@ -175,7 +175,7 @@ The language enforces naming conventions through the helper functions:
 
 ## Function Conventions
 
-Lowercase identifier, followed by a `{}` grouped block which contains `::` which separates the params and body.
+Lowercase identifier, followed by a `{}` grouped block which contains `->` which separates the params and body.
 
 ```ore
 <identifier> { <args> -> <body> }
@@ -320,6 +320,17 @@ Methods: `to_s()`, `abs()`, `floor()`, `ceil()`, `round()`, `sqrt()`, `even?()`,
 
 Defined in: `ore/number.ore`, implemented in `scopes.rb` as `Ore::Number`
 
+### Inout (File I/O)
+
+Static methods for reading and writing files:
+
+```ore
+content = Inout.read('./path/to/file.txt')  `Read file contents as string
+Inout.write_string_to_file('./path/to/file.txt', 'Hello, World!')  `Write string to file
+```
+
+Defined in: `ore/inout.ore`, implemented in `scopes.rb` as `Ore::Inout`
+
 ## Loop Control Flow
 
 ### For Loops
@@ -342,6 +353,51 @@ end
 
 - `it` - Current iteration value
 - `at` - Current iteration index
+
+### For Loop Verbs
+
+For loops support transformation verbs that return values: `map`, `select`, `reject`, `count`.
+
+```ore
+`Transform each element
+doubled = for [1, 2, 3, 4, 5] map
+    it * 2
+end  `=> [2, 4, 6, 8, 10]
+
+`Filter elements where body is truthy
+evens = for [1, 2, 3, 4, 5, 6] select
+    it % 2 == 0
+end  `=> [2, 4, 6]
+
+`Filter elements where body is falsy
+odds = for [1, 2, 3, 4, 5, 6] reject
+    it % 2 == 0
+end  `=> [1, 3, 5]
+
+`Count elements where body is truthy
+count = for [1, 2, 3, 4, 5, 6] count
+    it % 2 == 0
+end  `=> 3
+```
+
+**With stride:**
+
+```ore
+`Map chunks of 2
+sums = for [1, 2, 3, 4, 5, 6] map by 2
+    it.0 + it.1
+end  `=> [3, 7, 11]
+```
+
+**With stop (partial results):**
+
+```ore
+`Stop returns partial results for map/select/reject
+partial = for [1, 2, 3, 4, 5] map
+    stop if it == 4
+    it * 2
+end  `=> [2, 4, 6]
+```
 
 ### Loop Control Keywords
 

@@ -1,7 +1,7 @@
-![Status of project Ruby tests](https://github.com/figgleforth/ore-lang/actions/workflows/tests.yml/badge.svg)
-![Version](https://img.shields.io/badge/version-0.1.0-2B7FFF.svg)
+![Version](https://img.shields.io/badge/version-0.0.0-2B7FFF.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-2B7FFF.svg)
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
+![Status of project Ruby tests](https://github.com/figgleforth/ore-lang/actions/workflows/tests.yml/badge.svg)
 
 ### Quick Start
 
