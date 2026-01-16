@@ -244,8 +244,8 @@ Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that 
 
 ```ore
 String {
-    upcase { -> #super }
-    downcase { -> #super }
+    upcase { -> @super }
+    downcase { -> @super }
 }
 ```
 
@@ -474,10 +474,10 @@ Ore includes built-in database support with an ActiveRecord-style ORM using Sequ
 ### Database Connection
 
 ```ore
-#use 'ore/database.ore'
+@use 'ore/database.ore'
 
 db = Sqlite('./data/myapp.db')
-#connect db  `Establishes connection
+@connect db  `Establishes connection
 ```
 
 **Database methods:**
@@ -502,7 +502,7 @@ db.tables()                `=> ['users']
 The `Record` type provides ActiveRecord-style ORM functionality:
 
 ```ore
-#use 'ore/record.ore'
+@use 'ore/record.ore'
 
 User | Record {
     ./database = ../db      `Set database (static declaration)
@@ -532,11 +532,11 @@ User.delete(1)
 ### Full Example
 
 ```ore
-#use 'ore/database.ore'
-#use 'ore/record.ore'
+@use 'ore/database.ore'
+@use 'ore/record.ore'
 
 db = Sqlite('./temp/blog.db')
-#connect db
+@connect db
 
 `Create schema
 db.create_table('posts', {
@@ -556,7 +556,7 @@ Post.create({title: "Hello", body: "World"})
 posts = Post.all()
 
 for posts
-    #puts "|it[:title]|: |it[:body]|"
+    @puts "|it[:title]|: |it[:body]|"
 end
 ```
 
@@ -577,7 +577,7 @@ Ore has built-in web server support:
 - **Request/Response objects** - Automatically available in route handlers (from `scopes.rb`)
 - **HTTP redirects** - `response.redirect(url)` for POST/Redirect/GET pattern (uses 303 See Other)
 - **Form data** - POST body available via `request.body` dictionary
-- **`#start` directive** - Non-blocking server startup, allows multiple concurrent servers
+- **`@start` directive** - Non-blocking server startup, allows multiple concurrent servers
 - **Graceful shutdown** - Servers stop when program exits
 - **WEBrick backend** - HTTP server implementation in `server_runner.rb`
 
@@ -601,7 +601,7 @@ post://login { ->
 
 ## File Loading
 
-The `#use` directive allows importing Ore files:
+The `@use` directive allows importing Ore files:
 
 - Context tracks loaded files to prevent duplicate parsing
 - Files are loaded into specified scope via `Runtime#load_file`

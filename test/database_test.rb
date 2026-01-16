@@ -7,8 +7,8 @@ require 'sequel'
 require 'securerandom'
 
 class Database_Test < Base_Test
-	DATABASE = "#use 'ore/database.ore'"
-	RECORD   = "#use 'ore/record.ore'"
+	DATABASE = "@use 'ore/database.ore'"
+	RECORD   = "@use 'ore/record.ore'"
 
 	def before_setup
 		@filepath = "./temp#{SecureRandom.hex}.db"
@@ -43,7 +43,7 @@ class Database_Test < Base_Test
 		out = Ore.interp <<~ORE
 		    #{DATABASE}
 		    db = Sqlite('#{@filepath}')
-		    #connect db
+		    @connect db
 			db.connection
 		ORE
 		refute_nil out
@@ -54,8 +54,8 @@ class Database_Test < Base_Test
 		out = Ore.interp <<~ORE
 		    #{DATABASE}
 		    db = Sqlite('#{@filepath}')
-		    c1 = #connect db
-		    c2 = #connect db
+		    c1 = @connect db
+		    c2 = @connect db
 		    (c1, c2)
 		ORE
 		assert_equal out.values[0].object_id, out.values[1].object_id
@@ -87,7 +87,7 @@ class Database_Test < Base_Test
 		out = Ore.interp <<~ORE
 		    #{DATABASE}
 		    db = Sqlite('#{@filepath}')
-			#connect db
+			@connect db
 			db.connection
 		ORE
 		assert_instance_of Sequel::SQLite::Database, out
@@ -97,7 +97,7 @@ class Database_Test < Base_Test
 		out = Ore.interp <<~ORE
 		    #{DATABASE}
 		    db = Sqlite('#{@filepath}')
-			#connect db
+			@connect db
 
 			pre_tables = db.tables()
 			db.create_table('users' { id: 'primary_key' })
@@ -111,7 +111,7 @@ class Database_Test < Base_Test
 	def test_record_database_reference
 		out = Ore.interp <<~ORE
 		    #{DATABASE}, #{RECORD}
-		    db = #connect Sqlite('#{@filepath}')
+		    db = @connect Sqlite('#{@filepath}')
 
 			db.create_table('users' { id: 'primary_key', name: 'String' })
 

@@ -353,7 +353,7 @@ module Ore
 
 			expr = Ore::Identifier_Expr.new
 
-			if curr? DIRECTIVE_PREFIX and eat DIRECTIVE_PREFIX
+			if curr? RUNTIME_SCOPE_OPERATOR and eat RUNTIME_SCOPE_OPERATOR
 				expr.directive = true
 			elsif curr? SCOPE_OPERATORS
 				expr.scope_operator = parse_scope_operator
@@ -516,7 +516,7 @@ module Ore
 			elsif curr? %w(if while unless until)
 				parse_conditional_expr
 
-			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(Ore::RUNTIME_SCOPE_OPERATOR, :identifier) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER) || curr?(DIRECTIVE_PREFIX, :identifier)
+			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(Ore::RUNTIME_SCOPE_OPERATOR, :identifier) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER) || curr?(RUNTIME_SCOPE_OPERATOR, :identifier)
 				parse_identifier_expr
 
 			elsif curr?('<', ANY_IDENTIFIER, '>')
@@ -582,7 +582,7 @@ module Ore
 			return expr unless expr && lexemes?
 
 			if expr.is_a?(Ore::Identifier_Expr) && expr.directive && expr.value != 'super'
-				# note: I'm intentionally skipping `super` here because a Directive_Expr assumes an expression will follow it. But in the case of #super, I want it to be a standalone expression. Maybe this warrants rewriting how directives work? Or maybe this can just stay as an implementation detail. For now it's fine.
+				# note: I'm intentionally skipping `super` here because a Directive_Expr assumes an expression will follow it. But in the case of @super, I want it to be a standalone expression. Maybe this warrants rewriting how directives work? Or maybe this can just stay as an implementation detail. For now it's fine.
 				directive            = Ore::Directive_Expr.new
 				directive.name       = expr
 				directive.expression = parse_expression

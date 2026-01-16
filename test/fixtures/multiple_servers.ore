@@ -9,5 +9,5 @@ Server_B | Server {
 a = Server_A(8080)
 b = Server_B(8081)
 
-#start a
-#start b
+@start a
+@start b

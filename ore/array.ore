@@ -5,23 +5,23 @@ Array {
 		.values = values
 	}
 
-	push { item -> #super }
-	pop { -> #super }
-	shift { -> #super }
-	unshift { item -> #super }
-	length { -> #super }
-	first { count -> #super }
-	last { count -> #super }
-	slice { from, to -> #super }
-	reverse { -> #super }
-	join { separator -> #super }
-	concat { other -> #super }
-	flatten { -> #super }
-	sort { -> #super }
-	uniq { -> #super }
-	include? { item -> #super }
-	empty? { -> #super }
-	get { index -> #super }
+	push { item -> @super }
+	pop { -> @super }
+	shift { -> @super }
+	unshift { item -> @super }
+	length { -> @super }
+	first { count -> @super }
+	last { count -> @super }
+	slice { from, to -> @super }
+	reverse { -> @super }
+	join { separator -> @super }
+	concat { other -> @super }
+	flatten { -> @super }
+	sort { -> @super }
+	uniq { -> @super }
+	include? { item -> @super }
+	empty? { -> @super }
+	get { index -> @super }
 
 	find { func ->
 		for values

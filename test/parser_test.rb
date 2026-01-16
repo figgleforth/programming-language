@@ -718,10 +718,10 @@ class Parser_Test < Base_Test
 	end
 
 	def test_directive_identifier
-		out = Ore.parse '#whatever'
+		out = Ore.parse '@whatever'
 		refute_instance_of Ore::Directive_Expr, out.first
 
-		out = Ore.parse '#whatever(a, b)'
+		out = Ore.parse '@whatever(a, b)'
 		assert_instance_of Ore::Directive_Expr, out.first
 		assert_instance_of Ore::Identifier_Expr, out.first.name
 		assert_instance_of Ore::Circumfix_Expr, out.first.expression
@@ -758,7 +758,7 @@ class Parser_Test < Base_Test
 		# 	Ore.parse_code '#post "whatever/:id" 1234'
 		# end
 
-		out = Ore.parse '#pretend_method "endpoint" {->}'
+		out = Ore.parse '@pretend_method "endpoint" {->}'
 		assert_equal 2, out.count
 		refute_instance_of Ore::Route_Expr, out.first
 		assert_instance_of Ore::Directive_Expr, out[0]

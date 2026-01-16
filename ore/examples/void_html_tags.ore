@@ -1,5 +1,5 @@
-#use 'ore/html.ore'
-#use 'ore/server.ore'
+@use 'ore/html.ore'
+@use 'ore/server.ore'
 
 Inverted_Html | Html {
 	css_filter = 'invert()'
@@ -11,4 +11,4 @@ App | Server {
 	}
 }
 
-#start App()
+@start App()

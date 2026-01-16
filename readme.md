@@ -78,7 +78,7 @@ Greet('Ore').greeting()
 	- URL parameters via `:param` syntax
 	- Query string and form data access via `request.query` and `request.body`
 	- HTTP redirects with `response.redirect(url)`
-	- Non-blocking `#start` directive allows running multiple servers
+	- Non-blocking `@start` directive allows running multiple servers
 	- Graceful shutdown handling when program exits
 - Database ORM with SQLite
 	- Base composable `Record` type with `all()`, `find()`, `create()`, `delete()` methods
@@ -260,9 +260,9 @@ multiply(2)  `Vector(10, 20)
 #### File Loading
 
 ```ore
-`Load external Ore files with #use directive
-#use './some_formatter.ore'
-#use './some_dir/users.ore'
+`Load external Ore files with @use directive
+@use './some_formatter.ore'
+@use './some_dir/users.ore'
 
 `Use loaded classes and functions
 user = User('Alice', 'alice@example.com')
@@ -272,12 +272,12 @@ formatted = format_name(user.name)
 #### Database & ORM
 
 ```ore
-#use 'ore/database.ore'
-#use 'ore/record.ore'
+@use 'ore/database.ore'
+@use 'ore/record.ore'
 
 `Create and connect to database
 db = Sqlite('./temp/blog.db')
-#connect db
+@connect db
 
 `Create table with schema
 db.create_table('posts', {
@@ -313,7 +313,7 @@ Post.delete(2)
 #### Web Servers
 
 ```ore
-#use 'ore/server.ore'
+@use 'ore/server.ore'
 
 `Create servers by composing with built-in Server type
 Web_App | Server {
@@ -340,8 +340,8 @@ API_Server | Server {
 `Both servers run concurrently in background threads
 app = Web_App(8080)
 api = API_Server(3000)
-#start app
-#start api
+@start app
+@start api
 ```
 
 #### HTML Rendering
@@ -349,7 +349,7 @@ api = API_Server(3000)
 Using built-in `Dom` composition:
 
 ```ore
-#use 'ore/html.ore'
+@use 'ore/html.ore'
 
 Layout | Dom {
 	title;
@@ -373,7 +373,7 @@ Layout | Dom {
 Using strings with HTML:
 
 ```ore
-#use 'ore/html.ore'
+@use 'ore/html.ore'
 
 Layout | Dom {
 	render { ->
@@ -398,7 +398,7 @@ Both examples will produce an HTML response as long as the class composes with `
 Adding HTML and CSS attributes:
 
 ```ore
-#use 'ore/html.ore'
+@use 'ore/html.ore'
 
 My_Div | Dom {
 	html_element = 'p'

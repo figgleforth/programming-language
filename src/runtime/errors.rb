@@ -94,18 +94,18 @@ module Ore
 	end
 
 	class Invalid_Directive_Usage < Error
-		# `#ident` without
+		# `@ident` without
 	end
 
 	class Missing_Super_Proxy_Declaration < Error
 	end
 
 	class Invalid_Super_Proxy_Directive_Usage < Error
-		# #super directive only supports function and variable declarations in the body of a Type declaration
+		# @super directive only supports function and variable declarations in the body of a Type declaration
 	end
 
 	class Invalid_Static_Directive_Declaration < Error
-		# #static directive only supports function and variable declarations in the body of a Type declaration
+		# @static directive only supports function and variable declarations in the body of a Type declaration
 	end
 
 	class Unterminated_String_Literal < Error

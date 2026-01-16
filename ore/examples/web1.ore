@@ -1,5 +1,5 @@
-#use 'ore/html.ore'
-#use 'ore/server.ore'
+@use 'ore/html.ore'
+@use 'ore/server.ore'
 
 Heading | H2 {
 	css_background_color = 'blue'
@@ -41,4 +41,4 @@ App | Server {
 	}
 }
 
-#start App()
+@start App()

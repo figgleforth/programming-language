@@ -1,9 +1,8 @@
 module Ore
 	STANDARD_LIBRARY_PATH      = './ore/preload.ore'
 	RUNTIME_SCOPE_OPERATOR     = '@'
-	DIRECTIVE_PREFIX           = '#'
 	NIL_INIT_POSTFIX           = ';'
-	FUNCTION_DELIMITER         = '->' # todo: Pick a different symbol or keyword
+	FUNCTION_DELIMITER         = '->'
 	IMPORT_FILE_DIRECTIVE      = 'use'
 	FOR_VERBS                  = %w(each map select reject count)
 	HTML_ATTRS                 = %w(id class href)

@@ -1,5 +1,5 @@
-#use 'ore/html.ore'
-#use 'ore/server.ore'
+@use 'ore/html.ore'
+@use 'ore/server.ore'
 
 Layout | Html {
 	css_filter = 'invert()'
@@ -29,4 +29,4 @@ App_One {
 	}
 }
 
-#start App_One()
+@start App_One()

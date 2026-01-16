@@ -376,7 +376,7 @@ class Regression_Test < Base_Test
 
 		assert_raises Ore::Database_Not_Set_For_Record_Instance do
 			Ore.interp <<~ORE
-			    #use 'ore/record.ore'
+			    @use 'ore/record.ore'
 
 			    Record.find(1)
 			ORE

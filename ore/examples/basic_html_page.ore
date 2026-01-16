@@ -1,5 +1,5 @@
-#use 'ore/html.ore'
-#use 'ore/server.ore'
+@use 'ore/html.ore'
+@use 'ore/server.ore'
 
 Page_Body | Body {
   css_display = 'flex'
@@ -179,4 +179,4 @@ App | Server {
 }
 
 app = App()
-#start app
+@start app

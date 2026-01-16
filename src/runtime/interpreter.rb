@@ -1328,7 +1328,7 @@ module Ore
 				puts value # note: Don't remove this like I did, it is supposed to print out. todo: Be able to set your own output stream
 				value
 			when 'super'
-				# The #super directive evaluates to the result of calling the ruby Ruby method
+				# The @super directive evaluates to the result of calling the ruby Ruby method
 				func_scope = runtime.stack.last
 				unless func_scope.is_a? Ore::Func
 					raise Ore::Invalid_Super_Proxy_Directive_Usage.new func_scope, runtime
@@ -1400,13 +1400,13 @@ module Ore
 				# Standalone load is interpreted into current scope by passing the scope into runtime#load_file
 				filepath = interpret expr.expression
 				runtime.load_file_into_scope filepath, runtime.stack.last
-				# note: #load_file_into_scope returns the output but it's ignored. Assigning the value of a #use directive executres code in #interp_infix_expr
+				# note: #load_file_into_scope returns the output but it's ignored. Assigning the value of a @use directive executres code in #interp_infix_expr
 			else
 				# todo: Allow builtins to be extended by the user. Requirements would be:
 				#   1) Create type in Ore
 				#   2) Create equivalent type in scopes.rb or similar
-				#   3) Make sure functions which use the #super expression in its body are named in to match the Ore::Type "proxy_#{func_name}"
-				# For example, `String { upcase { -> #super } }` maps to `Ore::String#super_upcase`
+				#   3) Make sure functions which use the @super expression in its body are named in to match the Ore::Type "proxy_#{func_name}"
+				# For example, `String { upcase { -> @super } }` maps to `Ore::String@super_upcase`
 				raise Ore::Invalid_Directive_Usage.new(expr, runtime)
 			end
 		end

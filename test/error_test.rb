@@ -67,14 +67,14 @@ class Error_Test < Base_Test
 	def test_invalid_start_directive_argument
 		# todo: Doesn't display code and location
 		assert_raises Ore::Invalid_Start_Diretive_Argument do
-			Ore.interp '#start 5'
+			Ore.interp '@start 5'
 		end
 	end
 
 	def test_invalid_directive_usage
 		# todo: Doesn't display code and location
 		assert_raises Ore::Invalid_Directive_Usage do
-			Ore.interp '#unknown 123'
+			Ore.interp '@unknown 123'
 		end
 	end
 
