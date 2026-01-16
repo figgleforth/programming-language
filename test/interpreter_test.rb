@@ -1378,6 +1378,120 @@ class Interpreter_Test < Base_Test
 		assert_equal ["START 0", 0, 1, 2, "STOP 0", "START 2", 0, 1, 2, "STOP 2", "START 6", 0, 1, 2, "STOP 6"], out.values
 	end
 
+	def test_for_loop_map
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5] map
+			it * 2
+		end"
+		assert_equal [2, 4, 6, 8, 10], out.values
+	end
+
+	def test_for_loop_map_with_index
+		out = Ore.interp "
+		for ['a', 'b', 'c'] map
+			'|at|:|it|'
+		end"
+		assert_equal ['0:a', '1:b', '2:c'], out.values
+	end
+
+	def test_for_loop_map_with_stride
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5, 6] map by 2
+			it.0 + it.1
+		end"
+		assert_equal [3, 7, 11], out.values
+	end
+
+	def test_for_loop_select
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5, 6] select
+			it % 2 == 0
+		end"
+		assert_equal [2, 4, 6], out.values
+	end
+
+	def test_for_loop_select_with_index
+		out = Ore.interp "
+		for ['a', 'b', 'c', 'd', 'e'] select
+			at < 3
+		end"
+		assert_equal ['a', 'b', 'c'], out.values
+	end
+
+	def test_for_loop_select_with_stride
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5, 6, 7, 8] select by 2
+			it.0 + it.1 > 5
+		end"
+		assert_equal [[3, 4], [5, 6], [7, 8]], out.values
+	end
+
+	def test_for_loop_reject
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5, 6] reject
+			it % 2 == 0
+		end"
+		assert_equal [1, 3, 5], out.values
+	end
+
+	def test_for_loop_reject_with_index
+		out = Ore.interp "
+		for ['a', 'b', 'c', 'd', 'e'] reject
+			at < 2
+		end"
+		assert_equal ['c', 'd', 'e'], out.values
+	end
+
+	def test_for_loop_reject_with_stride
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5, 6, 7, 8] reject by 2
+			it.0 + it.1 > 5
+		end"
+		assert_equal [[1, 2]], out.values
+	end
+
+	def test_for_loop_count
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5, 6] count
+			it % 2 == 0
+		end"
+		assert_equal 3, out
+	end
+
+	def test_for_loop_count_with_index
+		out = Ore.interp "
+		for ['a', 'b', 'c', 'd', 'e'] count
+			at >= 2
+		end"
+		assert_equal 3, out
+	end
+
+	def test_for_loop_count_with_stride
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5, 6, 7, 8] count by 2
+			it.0 + it.1 > 5
+		end"
+		assert_equal 3, out
+	end
+
+	def test_for_loop_map_with_skip
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5] map
+			skip if it == 3
+			it * 2
+		end"
+		assert_equal [2, 4, nil, 8, 10], out.values
+	end
+
+	def test_for_loop_map_with_stop
+		out = Ore.interp "
+		for [1, 2, 3, 4, 5] map
+			stop if it == 4
+			it * 2
+		end"
+		assert_equal [2, 4, 6], out.values
+	end
+
 	def test_while_loop_skip
 		out = Ore.interp "
 		result = []

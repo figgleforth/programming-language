@@ -1121,15 +1121,21 @@ module Ore
 			end
 		end
 
-		def interp_for_loop expr
-			collection = interpret expr.collection
-			stride     = interpret(expr.stride) if expr.stride
+		def truthy? value
+			!(value == nil || value == 0 || value == false) # todo? does this need to check truthiness of ore constructs?
+		end
+
+		# @param for_loop_expr [Ore::For_Loop_Expr]
+		def interp_for_loop for_loop_expr
+			collection = interpret for_loop_expr.collection
+			stride     = interpret(for_loop_expr.stride) if for_loop_expr.stride
 
 			Ore.assert stride.nil? || stride.is_a?(Integer), "Stride must be an integer" if stride
 
-			result = nil
+			loop_type = for_loop_expr.type&.value || 'each' # one of Ore::FOR_VERBS
+			result    = nil
+
 			runtime.push_then_pop Scope.new('for_loop') do |scope|
-				# todo: I don't like this entire case/when, there's probably a better way
 				values = case collection
 				when Ore::Range
 					collection
@@ -1141,34 +1147,92 @@ module Ore
 					collection
 				end
 
-				result = if stride
-					catch :stop do
-						values.each_slice(stride).with_index do |elements, index|
-							scope.declare 'it', elements
-							scope.declare 'at', index
-							catch :skip do
-								expr.body.each do |e|
-									result = interpret e
-									throw(:stop, result) if result.is_a? Ore::Return
-								end
-							end
+				# New for-loop verbs, to be handled with stride and without
+				#
+				#   for <collection> [verb: map/select/reject] [by <stride>]
+				#   end
+				#
+				iterate_body = -> (element, index) do
+					scope.declare 'it', element
+					scope.declare 'at', index
+					body_result = nil
+					catch :skip do
+						for_loop_expr.body.each do |e|
+							body_result = interpret e
+							throw(:stop, body_result) if body_result.is_a? Ore::Return
 						end
 					end
-				else
-					catch :stop do
-						values.each_with_index do |element, index|
-							scope.declare 'it', element
-							scope.declare 'at', index
-							catch :skip do
-								expr.body.each do |e|
-									result = interpret e
-									throw(:stop, result) if result.is_a? Ore::Return
-								end
-							end
-						end
-					end
+					body_result
 				end
-			end
+
+				# Initialize collection variables outside catch block so they persist after stop
+				collected = []
+				count_val = 0
+
+				stop_value = catch :stop do
+					if stride
+						slices = values.each_slice(stride).to_a
+
+						case loop_type
+						when 'each'
+							slices.each_with_index do |elements, index|
+								result = iterate_body.call elements, index
+							end
+						when 'map'
+							slices.each_with_index do |elements, index|
+								collected << iterate_body.call(elements, index)
+							end
+						when 'select'
+							slices.each_with_index do |elements, index|
+								collected << elements if truthy? iterate_body.call(elements, index)
+							end
+						when 'reject'
+							slices.each_with_index do |elements, index|
+								collected << elements unless truthy? iterate_body.call(elements, index)
+							end
+						when 'count'
+							slices.each_with_index do |elements, index|
+								count_val += 1 if truthy? iterate_body.call(elements, index)
+							end
+						end
+					else
+						case loop_type
+						when 'each'
+							values.each_with_index do |element, index|
+								result = iterate_body.call element, index
+							end
+						when 'map'
+							values.each_with_index do |element, index|
+								collected << iterate_body.call(element, index)
+							end
+						when 'select'
+							values.each_with_index do |element, index|
+								collected << element if truthy? iterate_body.call(element, index)
+							end
+						when 'reject'
+							values.each_with_index do |element, index|
+								collected << element unless truthy? iterate_body.call(element, index)
+							end
+						when 'count'
+							values.each_with_index do |element, index|
+								count_val += 1 if truthy? iterate_body.call(element, index)
+							end
+						end
+					end
+					nil
+				end
+
+				# Assign results after catch block so partial results are preserved on stop
+				case loop_type
+				when 'map', 'select', 'reject'
+					result = Ore::Array.new(collected)
+				when 'count'
+					result = count_val
+				end
+
+				result     = stop_value if stop_value.is_a? Ore::Return
+			end # of runtime.push_then_pop
+
 			result
 		end
 

@@ -117,10 +117,24 @@ module Ore
 			end
 		end
 
+		# Currently `stride` doesn't support option to overlap elements
+		#
+		#   for <collection> [map/select/reject] [by <stride>]
+		#   end
+		#
+		#   for items map by 2
+		#       it `[items.0, items.1], [items.2, items.3], ...
+		#   end
+		#
 		def parse_for_loop_expr
-			eat 'for'
 			it            = Ore::For_Loop_Expr.new
+			it.lexeme     = eat 'for'
 			it.collection = parse_expression
+
+			if curr? Ore::FOR_VERBS and verb = eat
+				it.type   = verb
+				it.lexeme = verb
+			end
 
 			if curr? 'by' and eat 'by'
 				it.stride = begin_expression
