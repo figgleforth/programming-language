@@ -83,13 +83,13 @@ Submit_Button | Button {
 }
 
 ```Database```
-db = Sqlite('./temp/task_app.db') `Sqlite composes with Database
+db = Sqlite('./temp/task_app.db') # Sqlite composes with Database
 
-`db = @connect Sqlite(...) is also valid
-@connect db  `=> calls Database#create_connection!
+# db = @connect Sqlite(...) is also valid
+@connect db  # => calls Database#create_connection!
 
 Task | Record {
-	./database = ../db `Must set the database in order for Task query methods to work
+	./database = ../db # Must set the database in order for Task query methods to work
 	table_name = 'tasks'
 }
 
@@ -132,12 +132,12 @@ App | Server {
 
 	post://new { ->
 		id = Task.create({text: request.body.task })
-		`You can call response.redirect("/") to manually set the destination, or call the named route functions:
-		`home()
+		# You can call response.redirect("/") to manually set the destination, or call the named route functions:
+		# home()
 		get_task(id)
 	}
 
-	`note: The following routes prevent 500 errors since we're handling all routes here, nothing is filtered.
+	# note: The following routes prevent 500 errors since we're handling all routes here, nothing is filtered.
 	get://favicon.ico { ->
 		response.status = 404
 		''

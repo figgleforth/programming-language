@@ -10,7 +10,7 @@ This file demonstrates the four class composition operators in Ore:
 Example 1: User Roles and Permissions
 ```
 
-`Basic permission sets
+# Basic permission sets
 Read_Permissions {
 	can_view = true
 	can_list = true
@@ -34,63 +34,63 @@ Audit_Permissions {
 }
 
 ```
-`Using | (Union) - Combine permissions
+# Using | (Union) - Combine permissions
 ```
 
-`A viewer can read but not write
+# A viewer can read but not write
 Viewer | Read_Permissions {
 	user_type = 'viewer'
 }
 
-`An editor can both read and write
+# An editor can both read and write
 Editor | Read_Permissions | Write_Permissions {
 	user_type = 'editor'
 }
 
-`An admin has all permissions
+# An admin has all permissions
 Administrator | Read_Permissions | Write_Permissions | Admin_Permissions {
 	user_type = 'admin'
 }
 
 ```
-`Using ~ (Removal) - Restrict permissions
+# Using ~ (Removal) - Restrict permissions
 ```
 
-`A limited editor can create and update but not delete
-`First define what to remove
+# A limited editor can create and update but not delete
+# First define what to remove
 Delete_Permission {
 	can_delete = true
 }
 
 Limited_Editor | Write_Permissions ~ Delete_Permission {
 	user_type = 'limited_editor'
-	`Has can_create and can_update, but not can_delete
+	# Has can_create and can_update, but not can_delete
 }
 
-`A read-only admin can manage users but not modify data
+# A read-only admin can manage users but not modify data
 Read_Only_Admin | Admin_Permissions | Read_Permissions ~ Write_Permissions {
 	user_type = 'read_only_admin'
 }
 
 ```
-`Using & (Intersection) - Find common permissions
+# Using & (Intersection) - Find common permissions
 ```
 
-`An auditor only has the overlapping permissions between Admin and Audit
+# An auditor only has the overlapping permissions between Admin and Audit
 Auditor | Admin_Permissions & Audit_Permissions {
 	user_type = 'auditor'
-	`Only has: can_view_logs (the shared property)
+	# Only has: can_view_logs (the shared property)
 }
 
 ```
-`Using ^ (Symmetric Difference) - Get unique permissions
+# Using ^ (Symmetric Difference) - Get unique permissions
 ```
 
-`A specialist has unique perms from both Admin and Audit (but not shared ones)
+# A specialist has unique perms from both Admin and Audit (but not shared ones)
 Specialist | Admin_Permissions ^ Audit_Permissions {
 	user_type = 'specialist'
-	`Has: can_manage_users, can_configure_system, can_export_data
-	`Does NOT have: can_view_logs (because it's shared)
+	# Has: can_manage_users, can_configure_system, can_export_data
+	# Does NOT have: can_view_logs (because it's shared)
 }
 
 ```
@@ -122,30 +122,30 @@ Electric_Features {
 	has_electric_motor = true
 }
 
-`Standard sedan with basic features
+# Standard sedan with basic features
 Sedan | Basic_Car {
 	model = 'sedan'
 }
 
-`Luxury sedan combines basic + luxury features
+# Luxury sedan combines basic + luxury features
 Luxury_Sedan | Basic_Car | Luxury_Features {
 	model = 'luxury_sedan'
 }
 
-`Sports car with basic + sport features, but remove standard engine for turbo
+# Sports car with basic + sport features, but remove standard engine for turbo
 Sports_Car | Basic_Car | Sport_Features {
 	model = 'sports_car'
 	has_engine = 'turbocharged'
 }
 
-`Electric vehicle has electric features but no traditional engine
+# Electric vehicle has electric features but no traditional engine
 Electric_Car | Basic_Car | Electric_Features {
 	model = 'electric'
 	has_engine = false
-	`Overrides engine with electric motor
+	# Overrides engine with electric motor
 }
 
-`Luxury electric has everything except gas engine
+# Luxury electric has everything except gas engine
 Luxury_Electric | Basic_Car | Luxury_Features | Electric_Features {
 	model = 'luxury_electric'
 	has_engine = false
@@ -178,23 +178,23 @@ Private_Fields {
 	address = ''
 }
 
-`Public API response - only non-sensitive fields
-`First create the intersection of user fields
+# Public API response - only non-sensitive fields
+# First create the intersection of user fields
 Public_User_Data | User_Fields & Public_Fields {}
 
-`Then combine with base response
+# Then combine with base response
 Public_User_Response | Base_Response | Public_User_Data {
 	response_type = 'public'
-	`Includes: status, timestamp, user_id, username (no email or avatar_url)
+	# Includes: status, timestamp, user_id, username (no email or avatar_url)
 }
 
-`Private API response - all user data
+# Private API response - all user data
 Private_User_Response | Base_Response | User_Fields | Private_Fields {
 	response_type = 'private'
 }
 
-`Limited response - user data without private fields
+# Limited response - user data without private fields
 Limited_User_Response | User_Fields ~ Private_Fields {
 	response_type = 'limited'
-	`Keeps user_id, username but removes email
+	# Keeps user_id, username but removes email
 }

@@ -4,7 +4,7 @@ require_relative 'base_test'
 
 class Lexer_Test < Base_Test
 	def test_single_linecomment
-		out = Ore.lex '`single line comment'
+		out = Ore.lex '# single line comment'
 		assert_equal :comment, out.first.type
 		assert_equal 'single line comment', out.first.value
 		assert_kind_of Ore::Lexeme, out.first

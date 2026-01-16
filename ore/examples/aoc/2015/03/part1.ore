@@ -16,11 +16,11 @@ For example:
 
 input = Inout.read('ore/examples/aoc/2015/03/input.txt')
 
-`"x.y": num_presents
+# "x.y": num_presents
 visited = {}
-visited["0.0"] = 1 `For the house Santa starts at
+visited["0.0"] = 1 # For the house Santa starts at
 
-`starting location
+# starting location
 x = 0
 y = 0
 

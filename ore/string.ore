@@ -1,10 +1,10 @@
-`todo: Document all members
+# todo: Document all members
 
 String {
 	value;
 
-	length; `Total number of characters
-	ord; `Integer ordinal of the first character
+	length; # Total number of characters
+	ord; # Integer ordinal of the first character
 
 	new { value = '' ->
 		.value = value
@@ -12,7 +12,7 @@ String {
 
 	downcase { -> @super }
 	upcase { -> @super }
-	split { delimiter = nil -> @super } `todo: Without the default nil value, .split() fails
+	split { delimiter = nil -> @super } # todo: Without the default nil value, .split() fails
     slice { substr -> @super }
     trim { -> @super }
 	trim_left { -> @super }

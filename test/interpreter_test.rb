@@ -130,7 +130,7 @@ class Interpreter_Test < Base_Test
 			computer = nil
 
 			enter { numbers ->
-				`do something with the numbers
+				# do something with the numbers
 			}
 		}'
 		assert_instance_of Ore::Type, out
@@ -683,7 +683,7 @@ class Interpreter_Test < Base_Test
 		add { amount = 1, to = 4 ->
 			to + amount
 		}
-		inc = add() `should return 5
+		inc = add() # should return 5
 		add(inc, 1)'
 		assert_equal 6, out
 	end
@@ -838,7 +838,7 @@ class Interpreter_Test < Base_Test
 	def test_control_flows_as_expressions
 		out = Ore.interp '
 		condition = false
-		x = unless condition `Equivalent to "if !condition"
+		x = unless condition # Equivalent to "if !condition"
 			4
 		else
 			-4
@@ -921,7 +921,7 @@ class Interpreter_Test < Base_Test
 		t.scale!(3)
 		b = t.to_s()
 
-		`Let's remove Vec2 from a type that composes with Transform
+		# Let's remove Vec2 from a type that composes with Transform
 		Xform | Transform ~ Vec2 {}
 
 		(a, b, t)"
@@ -1072,7 +1072,7 @@ class Interpreter_Test < Base_Test
 		Aa { a = 15 }
 		Bb { a = 16; b; }
 		Union {
-			`With or without space is valid
+			# With or without space is valid
 			| Aa
 			|Bb
 		}
@@ -1676,11 +1676,11 @@ class Interpreter_Test < Base_Test
 	def test_privacy_and_binding
 		shared_code = <<~CODE
 		    Type {
-				`Instance declarations`
+				# Instance declarations
 		    	number = 4
 		    	_private = 8
 
-				`Static declarations`
+				# Static declarations
 				./nilled;
 		    	./static = 15
 		    	./_static_private = 16

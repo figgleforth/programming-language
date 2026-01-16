@@ -203,7 +203,7 @@ class Regression_Test < Base_Test
 				}
 			}
 
-			t = Thing() `This will raise
+			t = Thing() # This will raise
 			(t.id, t.name)"
 			assert_equal [456, "Thingus"], out.values
 		end
@@ -213,7 +213,7 @@ class Regression_Test < Base_Test
 	        funk { it ->
 				it == true
 			}
-			funk() `This will raise
+			funk() # This will raise
 			"
 		end
 
@@ -386,7 +386,7 @@ class Regression_Test < Base_Test
 	def test_commented_closing_brace_causing_infinite_loop
 		Ore.interp <<~ORE
 		    Thing {
-		    `}
+		    #}
 		    }
 		ORE
 	end

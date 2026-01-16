@@ -22,7 +22,7 @@ surface_area { sides ->
 	2*l*w + 2*w*h + 2*h*l
 }
 
-`Place the sides into an array, sort by size leaving us with the two smallest sides at the front of the array
+# Place the sides into an array, sort by size leaving us with the two smallest sides at the front of the array
 smallest_side_area { sides ->
 	sorted = sides.sort()
 	sorted.0 * sorted.1
@@ -32,7 +32,7 @@ total_wrapping_paper_needed { sides ->
 	surface_area(sides) + smallest_side_area(sides)
 }
 
-`Input is a string that looks like "15x2x9". Split the string by x to get an array of the three numbers, then call #to_i on all numbers
+# Input is a string that looks like "15x2x9". Split the string by x to get an array of the three numbers, then call #to_i on all numbers
 input_to_array_of_sides { input ->
 	input.split('x').map({ it, at ->
 		it.to_i()

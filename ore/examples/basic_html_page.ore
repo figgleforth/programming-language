@@ -168,8 +168,8 @@ readme_snippet = "Hello {
 	}
 }
 
-Hello().output()        `Hi, !
-Hello('World').output() `Hi, World!"
+Hello().output()        # Hi, !
+Hello('World').output() # Hi, World!"
 
 ```The app serving this HTML```
 App | Server {

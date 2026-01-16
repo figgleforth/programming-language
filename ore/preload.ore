@@ -1,4 +1,4 @@
-`Builtin types I'm experimenting with, very much incomplete. Each of these should have an equivalent Ore::Type in src/runtime/scopes.rb
+# Builtin types I'm experimenting with, very much incomplete. Each of these should have an equivalent Ore::Type in src/runtime/scopes.rb
 
 @use 'ore/inout.ore'
 @use 'ore/number.ore'
@@ -6,7 +6,7 @@
 @use 'ore/dictionary.ore'
 @use 'ore/string.ore'
 
-Iterable { `todo: This is unused, but here to remind me to think about how to make composing with Iterable behave like Protocols in Swift.
+Iterable { # todo: This is unused, but here to remind me to think about how to make composing with Iterable behave like Protocols in Swift.
 	next {->}
 }
 

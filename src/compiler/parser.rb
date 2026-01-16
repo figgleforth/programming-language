@@ -123,7 +123,7 @@ module Ore
 		#   end
 		#
 		#   for items map by 2
-		#       it `[items.0, items.1], [items.2, items.3], ...
+		#       it #[items.0, items.1], [items.2, items.3], ...
 		#   end
 		#
 		def parse_for_loop_expr

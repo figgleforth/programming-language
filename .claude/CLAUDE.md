@@ -11,8 +11,7 @@ Ore is an educational programming language for web development, implemented in R
 - Dot notation for accessing nested structures and scopes (., ..)
 - First-class functions and classes
 - Built-in web server support with routing
-- When writing .ore source, use backtick (\`) character for comments (no space after backtick: "\`comment" not "\` comment")
-- When writing .rb source, use # for comments
+- When writing .ore source, use backtick (#) character for comments, with a space before the content
 
 ## Common Commands
 
@@ -141,20 +140,20 @@ Type-level (static) members are declared using the `..` scope operator:
 
 ```ore
 Person {
-    ./count = 0  `Static variable shared across all instances
+    ./count = 0       # Static variable shared across all instances
 
-    ./increment { ->  `Static method
+    ./increment { ->  # Static method
         count += 1
     }
 
     init { ->
-        ./count += 1  `Access static from instance method
+        ./count += 1  # Access static from instance method
     }
 }
 
 Person().init()
 Person().init()
-Person.increment()  `Call static method on type => 2
+Person.increment()   # Call static method on type => 2
 ```
 
 **Implementation Details:**
@@ -199,11 +198,11 @@ The `@` operator allows unpacking instance members into sibling scopes for clean
 
 ```ore
 add { @vec ->
-    x + y  `Access vec.x and vec.y directly
+    x + y  "# Access vec.x and vec.y directly
 }
 
 v = Vector(3, 4)
-add(v)  `Returns 7
+add(v)  "# Returns 7
 ```
 
 ### Manual Sibling Scope Control
@@ -216,13 +215,13 @@ Island {
 }
 
 island = Island()
-@ += island  `Add island's members to sibling scope
-x = island_member  `Access members directly
+@ += island  # Add island's members to sibling scope
+x = island_member  # Access members directly
 
-@ -= island  `Remove island from sibling scope
+@ -= island  # Remove island from sibling scope
 
 thingy { @island ->
-	`use island.name here unpacked
+	# use island.name here unpacked
 }
 ```
 
@@ -298,12 +297,12 @@ Methods: `keys()`, `values()`, `has_key?(key)`, `delete(key)`, `merge(other)`, `
 
 ```ore
 dict = {x: 4, y: 8}
-dict[:x]           `Access by key => 4
-dict[:z] = 15      `Assignment
-dict.keys()        `[:x, :y, :z]
-dict.values()      `[4, 8, 15]
-dict.empty?()      `false
-dict.count()       `3
+dict[:x]           # Access by key => 4
+dict[:z] = 15      # Assignment
+dict.keys()        # [:x, :y, :z]
+dict.values()      # [4, 8, 15]
+dict.empty?()      # false
+dict.count()       # 3
 ```
 
 **Features:**
@@ -325,8 +324,8 @@ Defined in: `ore/number.ore`, implemented in `scopes.rb` as `Ore::Number`
 Static methods for reading and writing files:
 
 ```ore
-content = Inout.read('./path/to/file.txt')  `Read file contents as string
-Inout.write_string_to_file('./path/to/file.txt', 'Hello, World!')  `Write string to file
+content = Inout.read('./path/to/file.txt')  # Read file contents as string
+Inout.write_string_to_file('./path/to/file.txt', 'Hello, World!')  # Write string to file
 ```
 
 Defined in: `ore/inout.ore`, implemented in `scopes.rb` as `Ore::Inout`
@@ -340,12 +339,12 @@ for [1, 2, 3, 4, 5]
     result << it
 end
 
-for 1..10  `Range support
+for 1..10  # Range support
     sum += it
 end
 
-for items by 2  `Stride support
-    process it  `it contains chunks of 2 items
+for items by 2  # Stride support
+    process it  # it contains chunks of 2 items
 end
 ```
 
@@ -362,22 +361,22 @@ For loops support transformation verbs that return values: `map`, `select`, `rej
 `Transform each element
 doubled = for [1, 2, 3, 4, 5] map
     it * 2
-end  `=> [2, 4, 6, 8, 10]
+end  # => [2, 4, 6, 8, 10]
 
 `Filter elements where body is truthy
 evens = for [1, 2, 3, 4, 5, 6] select
     it % 2 == 0
-end  `=> [2, 4, 6]
+end  # => [2, 4, 6]
 
 `Filter elements where body is falsy
 odds = for [1, 2, 3, 4, 5, 6] reject
     it % 2 == 0
-end  `=> [1, 3, 5]
+end  # => [1, 3, 5]
 
 `Count elements where body is truthy
 count = for [1, 2, 3, 4, 5, 6] count
     it % 2 == 0
-end  `=> 3
+end  # => 3
 ```
 
 **With stride:**
@@ -386,7 +385,7 @@ end  `=> 3
 `Map chunks of 2
 sums = for [1, 2, 3, 4, 5, 6] map by 2
     it.0 + it.1
-end  `=> [3, 7, 11]
+end  # => [3, 7, 11]
 ```
 
 **With stop (partial results):**
@@ -396,7 +395,7 @@ end  `=> [3, 7, 11]
 partial = for [1, 2, 3, 4, 5] map
     stop if it == 4
     it * 2
-end  `=> [2, 4, 6]
+end  # => [2, 4, 6]
 ```
 
 ### Loop Control Keywords
@@ -404,10 +403,10 @@ end  `=> [2, 4, 6]
 ```ore
 for items
     if condition
-        skip  `Continue to next iteration
+        skip  # Continue to next iteration
     end
     if other_condition
-        stop  `Break out of loop
+        stop  # Break out of loop
     end
 end
 ```
@@ -424,7 +423,7 @@ The `return` keyword exits a function and returns a value. It properly propagate
 find { func ->
     for values
         if func(it)
-            return it  `Exits the function, not just the loop
+            return it  # Exits the function, not just the loop
         end
     end
     nil
@@ -432,7 +431,7 @@ find { func ->
 
 [1, 2, 3].find({ x ->
     x > 1
-})  `Returns 2
+})  # Returns 2
 ```
 
 **Implementation:**
@@ -477,7 +476,7 @@ Ore includes built-in database support with an ActiveRecord-style ORM using Sequ
 @use 'ore/database.ore'
 
 db = Sqlite('./data/myapp.db')
-@connect db  `Establishes connection
+@connect db  # Establishes connection
 ```
 
 **Database methods:**
@@ -493,8 +492,8 @@ db.create_table('users', {
     email: 'String'
 })
 
-db.table_exists?('users')  `=> true
-db.tables()                `=> ['users']
+db.table_exists?('users')  # => true
+db.tables()                # => ['users']
 ```
 
 ### Record ORM
@@ -505,7 +504,7 @@ The `Record` type provides ActiveRecord-style ORM functionality:
 @use 'ore/record.ore'
 
 User | Record {
-    ./database = ../db      `Set database (static declaration)
+    ./database = ../db      # Set database (static declaration)
     table_name = 'users'
 }
 ```
@@ -522,8 +521,8 @@ User.create({name: "Alice", email: "alice@example.com"})
 User.create({name: "Bob", email: "bob@example.com"})
 
 `Query records
-users = User.all()         `=> Array of Dictionary instances
-user = User.find(1)        `=> Dictionary with {id: 1, name: "Alice", ->}
+users = User.all()         # => Array of Dictionary instances
+user = User.find(1)        # => Dictionary with {id: 1, name: "Alice", ->}
 
 `Delete records
 User.delete(1)
@@ -538,20 +537,20 @@ User.delete(1)
 db = Sqlite('./temp/blog.db')
 @connect db
 
-`Create schema
+# Create schema
 db.create_table('posts', {
     id: 'primary_key',
     title: 'String',
     body: 'String'
 })
 
-`Define model
+# Define model
 Post | Record {
     ./database = ../db
     table_name = 'posts'
 }
 
-`Use ORM
+# Use ORM
 Post.create({title: "Hello", body: "World"})
 posts = Post.all()
 

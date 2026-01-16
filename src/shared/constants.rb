@@ -10,7 +10,7 @@ module Ore
 	VOID_HTML_TAGS             = %w(area base br col command embed hr img input keygen link meta param source track wbr)
 	HTTP_VERB_SEPARATOR        = '://'
 	INTERPOLATE_CHAR           = '|'
-	COMMENT_CHAR               = '`'
+	COMMENT_CHAR               = '#'
 	COMMENT_MULTILINE_CHAR     = '```'
 	PREFIX                     = %w(! - + ~ not return)
 	INFIX                      = %w(
@@ -53,7 +53,7 @@ module Ore
 		! ? ?? !! && || & | << >>
 		.. >. .< >< <=>
 		@ ../ ./
-		``` `
+		``` #
 
 		for
 		if elif else
