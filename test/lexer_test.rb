@@ -182,42 +182,42 @@ class Lexer_Test < Base_Test
 	end
 
 	def test_functions
-		out = Ore.lex '{...}'
-		assert_equal [:delimiter, :delimiter, :delimiter], out.map(&:type)
+		out = Ore.lex '{->}'
+		assert_equal [:delimiter, :operator, :delimiter], out.map(&:type)
 
-		out = Ore.lex 'named_function {...}'
-		assert_equal [:identifier, :delimiter, :delimiter, :delimiter], out.map(&:type)
+		out = Ore.lex 'named_function {->}'
+		assert_equal [:identifier, :delimiter, :operator, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ input ... }'
-		assert_equal [:delimiter, :identifier, :delimiter, :delimiter], out.map(&:type)
+		out = Ore.lex '{ input -> }'
+		assert_equal [:delimiter, :identifier, :operator, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ labeled input ... }'
-		assert_equal [:delimiter, :identifier, :identifier, :delimiter, :delimiter], out.map(&:type)
+		out = Ore.lex '{ labeled input -> }'
+		assert_equal [:delimiter, :identifier, :identifier, :operator, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ value = 123 ... }'
-		assert_equal [:delimiter, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
+		out = Ore.lex '{ value = 123 -> }'
+		assert_equal [:delimiter, :identifier, :operator, :number, :operator, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ labeled value = 123 ... }'
-		assert_equal [:delimiter, :identifier, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
+		out = Ore.lex '{ labeled value = 123 -> }'
+		assert_equal [:delimiter, :identifier, :identifier, :operator, :number, :operator, :delimiter], out.map(&:type)
 
-		out = Ore.lex '{ mixed, labeled value = 456 ... }'
-		assert_equal [:delimiter, :identifier, :delimiter, :identifier, :identifier, :operator, :number, :delimiter, :delimiter], out.map(&:type)
+		out = Ore.lex '{ mixed, labeled value = 456 -> }'
+		assert_equal [:delimiter, :identifier, :delimiter, :identifier, :identifier, :operator, :number, :operator, :delimiter], out.map(&:type)
 
-		out = Ore.lex 'square { input ...
+		out = Ore.lex 'square { input ->
 		 		input * input
 		 	 }'
 		assert_equal [
-			             :identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			             :identifier, :delimiter, :identifier, :operator, :delimiter,
 			             :identifier, :operator, :identifier, :delimiter, :delimiter
 		             ], out.map(&:type)
 
-		out = Ore.lex 'wrap { number, limit ...
+		out = Ore.lex 'wrap { number, limit ->
 		 		if number > limit
 		 			number = 0
 		 		end
 		 	 }'
 		assert_equal [
-			             :identifier, :delimiter, :identifier, :delimiter, :identifier, :delimiter, :delimiter,
+			             :identifier, :delimiter, :identifier, :delimiter, :identifier, :operator, :delimiter,
 			             :identifier, :identifier, :operator, :identifier, :delimiter,
 			             :identifier, :operator, :number, :delimiter,
 			             :identifier, :delimiter, :delimiter
