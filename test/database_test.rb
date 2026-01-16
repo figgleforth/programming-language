@@ -34,7 +34,7 @@ class Database_Test < Base_Test
 		assert_nil out.values.first.get 'connection'
 		assert_nil out.values.last.get 'connection'
 
-		# These are set in Sqlite.new{;}
+		# These are set in Sqlite.new{...}
 		refute_nil out.values.last.get 'adapter'
 		refute_nil out.values.last.get 'url'
 	end
@@ -116,7 +116,7 @@ class Database_Test < Base_Test
 			db.create_table('users' { id: 'primary_key', name: 'String' })
 
 			User | Record {
-				..database = db
+				./database = db
 				table_name = 'users'
 			}
 

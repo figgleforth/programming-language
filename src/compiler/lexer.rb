@@ -13,15 +13,15 @@ module Ore
 		end
 
 		def whitespace? char = curr
-			WHITESPACES.include? char
+			Ore::WHITESPACES.include? char
 		end
 
 		def newline? char = curr
-			NEWLINES.include? char
+			Ore::NEWLINES.include? char
 		end
 
 		def delimiter? char = curr
-			DELIMITERS.include? char
+			Ore::DELIMITERS.include? char
 		end
 
 		def identifier? char = curr
@@ -29,15 +29,15 @@ module Ore
 		end
 
 		def numeric? char = curr
-			char&.match? NUMERIC_REGEX
+			char&.match? Ore::NUMERIC_REGEX
 		end
 
 		def alpha? char = curr
-			char&.match? ALPHA_REGEX
+			char&.match? Ore::ALPHA_REGEX
 		end
 
 		def alphanumeric? char = curr
-			char&.match? ALPHANUMERIC_REGEX
+			char&.match? Ore::ALPHANUMERIC_REGEX
 		end
 
 		def symbol? char = curr
@@ -47,10 +47,10 @@ module Ore
 		def route_pattern?
 			return false unless identifier?
 
-			verb_match = HTTP_VERBS.any? { |verb| peek(0, verb.length) == verb }
+			verb_match = Ore::HTTP_VERBS.any? { |verb| peek(0, verb.length) == verb }
 			return false unless verb_match
 
-			verb_length = HTTP_VERBS.find { |verb| peek(0, verb.length) == verb }.length
+			verb_length = Ore::HTTP_VERBS.find { |verb| peek(0, verb.length) == verb }.length
 			peek(verb_length, 3) == '://'
 		end
 
@@ -132,7 +132,7 @@ module Ore
 
 		def lex_oneline_comment
 			it = ''
-			eat COMMENT_CHAR
+			eat Ore::COMMENT_CHAR
 			eat while whitespace?
 
 			while chars? && !newline?
@@ -143,7 +143,7 @@ module Ore
 		end
 
 		def lex_multiline_comment
-			marker = lex_many COMMENT_MULTILINE_CHAR.length, COMMENT_MULTILINE_CHAR
+			marker = lex_many Ore::COMMENT_MULTILINE_CHAR.length, Ore::COMMENT_MULTILINE_CHAR
 			it     = ''
 
 			eat while whitespace? || newline?
@@ -156,7 +156,7 @@ module Ore
 				end
 			end
 
-			lex_many COMMENT_MULTILINE_CHAR.length, COMMENT_MULTILINE_CHAR
+			lex_many Ore::COMMENT_MULTILINE_CHAR.length, Ore::COMMENT_MULTILINE_CHAR
 			it
 		end
 
@@ -205,9 +205,8 @@ module Ore
 			while chars? && symbol? && !%w(' " { } ( ) ).include?(curr)
 				it << eat
 
-				break if (SCOPE_OPERATORS - ['.']).include? it # note: This needs to break on all known operators except plain '.' because '.' is part of other identifiers like `..`, so we need to be able to capture other operators that include dot.
+				break if (Ore::SCOPE_OPERATORS - ['.']).include? it # note: This needs to break on all known operators except plain '.' because '.' is part of other identifiers like `..`, so we need to be able to capture other operators that include dot.
 			end
-
 			it
 		end
 
@@ -231,11 +230,11 @@ module Ore
 		def lex_route
 			verb = ::String.new
 			while chars? && (identifier? || alphanumeric?)
-				break unless HTTP_VERBS.any? { |v| v.start_with?(verb + curr) }
+				break unless Ore::HTTP_VERBS.any? { |v| v.start_with?(verb + curr) }
 				verb << eat
 			end
 
-			protocol_sep = lex_many 3, HTTP_VERB_SEPARATOR
+			protocol_sep = lex_many 3, Ore::HTTP_VERB_SEPARATOR
 
 			path = ::String.new
 			while chars? && !whitespace? && !newline? && curr != '{'
@@ -249,8 +248,8 @@ module Ore
 			tokens = []
 
 			while chars?
-				single    = curr == COMMENT_CHAR
-				multiline = peek(0, COMMENT_MULTILINE_CHAR.length) == COMMENT_MULTILINE_CHAR
+				single    = curr == Ore::COMMENT_CHAR
+				multiline = peek(0, Ore::COMMENT_MULTILINE_CHAR.length) == Ore::COMMENT_MULTILINE_CHAR
 
 				token = Ore::Lexeme.new.tap do
 					it.l0 = line
@@ -296,10 +295,18 @@ module Ore
 							it.type = :operator
 						end
 
-					elsif symbol?(curr)
+					elsif curr == '.' && peek == '.' && peek(2) == '.'
+						it.type  = :delimiter
+						it.value = "#{eat}#{eat}#{eat}"
+
+					elsif curr == '.' && peek == '/'
 						it.type  = :operator
-						it.value = if %w(. | & ).include? curr
-							case [curr, peek, peek(2)]
+						it.value = "#{eat}#{eat}"
+
+					elsif symbol?(curr)
+						it.type = :operator
+						if %w(. | & ).include? curr
+							it.value = case [curr, peek, peek(2)]
 							in ['.', p, _] if identifier?(p) && p != '_'
 								lex_operator
 							in ['.', '<', _] | ['.', '.', _]
@@ -321,7 +328,7 @@ module Ore
 								eat
 							end
 						else
-							lex_operator
+							it.value = lex_operator
 						end
 
 					else
@@ -334,7 +341,7 @@ module Ore
 
 				next if whitespace?(token.value)
 
-				token.reserved = RESERVED.include? token.value
+				token.reserved = Ore::RESERVED.include? token.value
 				tokens << token
 			end
 

@@ -2,7 +2,7 @@ module Helpers
 	extend self
 
 	def assert condition, message = "Expected condition to be truthy."
-		raise "#{message}\n---\n#{condition.inspect}\n---" unless condition
+		raise "---\n#{message}\n---" unless condition
 	end
 
 	def constant_identifier? ident

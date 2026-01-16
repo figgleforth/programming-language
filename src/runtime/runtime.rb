@@ -40,7 +40,7 @@ module Ore
 			@source_files[resolved] = source_code.lines.map(&:chomp)
 		end
 
-		def load_file filepath, into_scope
+		def load_file_into_scope filepath, into_scope
 			resolved_path = File.expand_path filepath
 			push_scope into_scope
 

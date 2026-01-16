@@ -114,16 +114,16 @@ Each scope can have **sibling scopes
 
 Ore provides three scope operators for explicit scope access:
 
-- `~/identifier` - Access global scope
+- `../identifier` - Access global scope
 - `.identifier` - Access current instance scope only
-- `..identifier` - Access current type scope only
+- `./identifier` - Access current type scope only
 
 **Identifier Search Behavior:**
 
 - `identifier` (no operator) - Searches through all scopes in the stack from current to global, including checking for proxies methods
 - `.identifier` - Only searches the current instance scope (does not fall back to global)
-- `..identifier` - Only searches the current type scope
-- `~/identifier` - Only searches the global scope
+- `./identifier` - Only searches the current type scope
+- `../identifier` - Only searches the global scope
 
 **Privacy Convention:**
 
@@ -133,7 +133,7 @@ Identifiers starting with `_` are considered private by convention (e.g., `_priv
 
 - Scope operators cannot be followed by literals (e.g., `..123` is a parse error)
 - Using `.` outside an instance context raises `Cannot_Use_Instance_Scope_Operator_Outside_Instance`
-- Using `..` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
+- Using `./` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
 
 ## Static Declarations
 
@@ -141,14 +141,14 @@ Type-level (static) members are declared using the `..` scope operator:
 
 ```ore
 Person {
-    ..count = 0  `Static variable shared across all instances
+    ./count = 0  `Static variable shared across all instances
 
-    ..increment {;  `Static method
+    ./increment {...  `Static method
         count += 1
     }
 
-    init {;
-        ..count += 1  `Access static from instance method
+    init {...
+        ./count += 1  `Access static from instance method
     }
 }
 
@@ -173,16 +173,32 @@ The language enforces naming conventions through the helper functions:
 - **Capitalized** (type_identifier?) - Classes/types
 - **lowercase** (member_identifier?) - Variables and functions
 
+## Function Conventions
+
+Lowercase identifier, followed by a `{}` grouped block which contains `::` which separates the params and body.
+
+```ore
+<identifier> { <args> ... <body> }
+```
+
+## Class Conventions
+
+A capitalized identifier followed by a `{}` grouped block
+
+```ore
+<Identifier> { <body> }
+```
+
 ## Unpack Feature
 
-The `@` operator allows unpacking instance members into sibling scopes for cleaner access:
+The `@` operator allows unpacking instance members into sibling scopes for cleaner access in two ways:
 
 ### Auto-unpack in Function Parameters
 
 `@` behaes as a prefix operator here.
 
 ```ore
-add { @vec;
+add { @vec ...
     x + y  `Access vec.x and vec.y directly
 }
 
@@ -195,11 +211,19 @@ add(v)  `Returns 7
 `@` behaves as a standalone left hand operand operator
 
 ```ore
+Island {
+	name;
+}
+
 island = Island()
 @ += island  `Add island's members to sibling scope
 x = island_member  `Access members directly
 
 @ -= island  `Remove island from sibling scope
+
+thingy { @island ...
+	`use island.name here unpacked
+}
 ```
 
 **Implementation details:**
@@ -220,8 +244,8 @@ Ore's built-in types (String, Array, Dictionary, Number) have ruby methods that 
 
 ```ore
 String {
-    upcase {; #super }
-    downcase {; #super }
+    upcase {... #super }
+    downcase {... #super }
 }
 ```
 
@@ -341,7 +365,7 @@ end
 The `return` keyword exits a function and returns a value. It properly propagates even when used inside loops:
 
 ```ore
-find { func;
+find { func ...
     for values
         if func(it)
             return it  `Exits the function, not just the loop
@@ -350,7 +374,9 @@ find { func;
     nil
 }
 
-[1, 2, 3].find({ x; x > 1 })  `Returns 2
+[1, 2, 3].find({ x ...
+    x > 1
+})  `Returns 2
 ```
 
 **Implementation:**
@@ -423,7 +449,7 @@ The `Record` type provides ActiveRecord-style ORM functionality:
 #use 'ore/record.ore'
 
 User | Record {
-    ..database = ~/db      `Set database (static declaration)
+    ./database = ../db      `Set database (static declaration)
     table_name = 'users'
 }
 ```
@@ -465,7 +491,7 @@ db.create_table('posts', {
 
 `Define model
 Post | Record {
-    ..database = ~/db
+    ./database = ../db
     table_name = 'posts'
 }
 
@@ -507,7 +533,7 @@ Ore has built-in web server support:
 - `response.body = content` - Set response body
 
 ```ore
-post://login {;
+post://login {...
     if authenticate(request.body.username, request.body.password)
         response.redirect("/dashboard")
     else

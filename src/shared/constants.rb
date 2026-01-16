@@ -1,9 +1,9 @@
 module Ore
 	STANDARD_LIBRARY_PATH      = './ore/preload.ore'
-	UNPACK_OPERAND             = '@'
-	UNPACK_ARG_PREFIX          = '@@'
+	RUNTIME_SCOPE_OPERATOR     = '@'
 	DIRECTIVE_PREFIX           = '#'
-	FUNCTION_DELIMITER         = ';' # todo: Pick a different symbol or keyword
+	NIL_INIT_POSTFIX           = ';'
+	FUNCTION_DELIMITER         = '...' # todo: Pick a different symbol or keyword
 	IMPORT_FILE_DIRECTIVE      = 'use'
 	HTML_ATTRS                 = %w(id class href)
 	HTTP_VERBS                 = %w(get put patch post delete head options connect trace)
@@ -29,7 +29,7 @@ module Ore
 	COMPARISON_OPERATORS       = %w(<=> == === != !== <= >= < > =~ !~)
 	INFIX_ARITHMETIC_OPERATORS = %w(+ - * ** / % << >> ^ & |)
 	RANGE_OPERATORS            = %w(.. .< >. ><)
-	SCOPE_OPERATORS            = %w(. .. ~/)
+	SCOPE_OPERATORS            = %w(. ./ ../)
 	DOT_ACCESS_OPERATORS       = %w(. .?)
 	TYPE_COMPOSITION_OPERATORS = %w(| & ~ ^) # Union, Intersection, Removal, Symmetric Difference
 	ANY_IDENTIFIER             = %i(identifier Identifier IDENTIFIER)
@@ -45,14 +45,14 @@ module Ore
 
 	# It's been a while, but I believe this RESERVED list must be maintained. The other declarations above are helpers for comparisons while this contains every reserved symbols and identifiers.
 	RESERVED = %w(
-		[ { ( , _ . .. ) } ]
+		[ { ( , _ . .. ... ) } ]
 		: ;
 		+ - * ** / % ~
 		= ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=
 		== === != !== <= >= < >
 		! ? ?? !! && || & | << >>
 		.. >. .< >< <=>
-		@ ~/
+		@ ../ ./
 		``` `
 
 		for

@@ -1,5 +1,13 @@
 module Ore
 	Lexeme = Struct.new(:type, :value, :reserved, :l0, :c0, :l1, :c1) do
+		def == other
+			if other.is_a? Lexeme
+				value == other.value
+			else
+				super other
+			end
+		end
+
 		def is compare
 			if compare.is_a? Symbol
 				compare == type

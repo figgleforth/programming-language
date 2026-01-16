@@ -142,7 +142,7 @@ module Ore
 
 		def parse_conditional_expr
 			it            = Ore::Conditional_Expr.new
-			it.type       = eat.value # One of %w(if while unless until)
+			it.type       = eat # One of %w(if while unless until)
 			it.condition  = parse_expression
 			it.when_true  = []
 			it.when_false = []
@@ -185,6 +185,7 @@ module Ore
 			reduce_newlines
 			closing = it.grouping[1]
 
+			it.expressions = []
 			until curr? closing
 				it.expressions << parse_expression
 				break if curr? closing
@@ -200,8 +201,9 @@ module Ore
 		end
 
 		def parse_func precedence = STARTING_PRECEDENCE, named: false
-			start = curr_lexeme
-			func  = Ore::Func_Expr.new
+			start            = curr_lexeme
+			func             = Ore::Func_Expr.new
+			func.expressions = []
 
 			if curr?(:identifier) || curr?(SCOPE_OPERATORS)
 				func.name = parse_identifier_expr
@@ -211,22 +213,24 @@ module Ore
 				end
 			end
 
+			func.lexeme = func.name
 			eat '{'
 			reduce_newlines
 
 			until curr? Ore::FUNCTION_DELIMITER
-				param = Ore::Param_Expr.new
+				param        = Ore::Param_Expr.new
 
-				if curr? UNPACK_ARG_PREFIX and eat UNPACK_ARG_PREFIX
+				if curr? Ore::RUNTIME_SCOPE_OPERATOR and eat Ore::RUNTIME_SCOPE_OPERATOR
 					param.unpack = true
 				end
 
 				if curr? :identifier, :identifier
-					param.label = eat(:identifier).value
-					param.name  = eat(:identifier).value
+					param.label = eat(:identifier)
+					param.name  = eat(:identifier)
 				else
-					param.name = eat(:identifier).value
+					param.name = eat(:identifier)
 				end
+				param.lexeme = param.name
 
 				if curr? ':' and eat ':'
 					param.type = eat(:Identifier)
@@ -257,7 +261,7 @@ module Ore
 		end
 
 		def parse_type_decl
-			# bug, When parsing `Identifier {;}`. :Identifier_function
+			# bug, When parsing `Identifier {...}`. :Identifier_function
 			# todo, The | TYPE_COMPOSITION_OPERATOR is currently only working in #parse_type_decl. I can peek until end of line, if I see another | then it's a circumfix. However if there are more |s then maybe we can presume the expression type like this:
 			#
 			#   1 | = composition
@@ -268,10 +272,11 @@ module Ore
 			#   :absolute_value_circumfix
 			#
 
-			start        = curr_lexeme
-			valid_idents = %I(Identifier IDENTIFIER)
-			it           = Ore::Type_Expr.new
-			it.name      = eat
+			start          = curr_lexeme
+			valid_idents   = %I(Identifier IDENTIFIER)
+			it             = Ore::Type_Expr.new
+			it.name        = eat
+			it.expressions = []
 
 			until curr? '{'
 				if curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER)
@@ -301,7 +306,8 @@ module Ore
 
 			start = curr_lexeme
 			eat '<'
-			it = Ore::Html_Element_Expr.new eat
+			it         = Ore::Html_Element_Expr.new eat
+			it.element = it.lexeme
 			eat '>'
 
 			eat '{'
@@ -320,11 +326,9 @@ module Ore
 		end
 
 		def parse_composition_expr
-			start = curr_lexeme
-			expr  = Ore::Composition_Expr.new
-
-			# You might notice that whenever I eat(:identifier), I don't extract just the value because I want to store the Token. But in the case of an operator, the string is probably fine?
-			expr.operator   = eat(:operator).value
+			start           = curr_lexeme
+			expr            = Ore::Composition_Expr.new
+			expr.operator   = eat(:operator)
 			expr.identifier = parse_identifier_expr
 			expr
 			copy_location expr, start
@@ -341,7 +345,7 @@ module Ore
 				expr.scope_operator = parse_scope_operator
 			end
 
-			expr.value   = eat.value
+			expr.lexeme  = eat
 			expr.privacy = Ore.privacy_of_ident expr.value
 
 			# 7/20/25, I'm storing the type as well, even though I haven't written any code to support types yet.
@@ -356,7 +360,7 @@ module Ore
 		end
 
 		def parse_scope_operator
-			scope = eat.value
+			scope = eat
 
 			if curr? SCOPE_OPERATORS
 				# There should not be any more scope operators at this point. We've implicitly handled . and ..
@@ -369,7 +373,8 @@ module Ore
 		def parse_symbol_expr
 			start = curr_lexeme
 			eat ':'
-			it = Ore::Symbol_Expr.new eat.value.to_sym
+			it       = Ore::Symbol_Expr.new eat
+			it.value = it.value.to_sym
 			copy_location it, start
 		end
 
@@ -397,6 +402,7 @@ module Ore
 			handler_params = func.expressions
 			                 .select { |expr| expr.is_a?(Ore::Param_Expr) }
 			                 .map(&:name)
+			                 .map(&:value)
 
 			missing_params = param_names - handler_params
 			unless missing_params.empty?
@@ -421,10 +427,10 @@ module Ore
 			start = curr_lexeme
 			# A method just for this might seem silly, but I thought the same when I decided #make_expr should be a giant method. This will help in the long run, and consistency is key to keeping this maintainable.
 
-			operator_value = eat(:operator).value
+			operator_lexeme = eat(:operator)
 
 			# Scope operators can't be followed by literals like numbers or strings
-			if SCOPE_OPERATORS.include? operator_value
+			if SCOPE_OPERATORS.include? operator_lexeme.value
 				if curr? :number
 					raise Ore::Invalid_Scope_Syntax.new
 				elsif curr? :string
@@ -432,17 +438,17 @@ module Ore
 				end
 			end
 
-			it = Ore::Operator_Expr.new operator_value
+			it = Ore::Operator_Expr.new operator_lexeme
 			copy_location it, start
 		end
 
 		def parse_number_expr
-			start      = curr_lexeme
-			expr       = Ore::Number_Expr.new
-			expr.value = eat(:number).value
+			start       = curr_lexeme
+			expr        = Ore::Number_Expr.new
+			expr.lexeme = eat(:number)
 			if expr.value.count('.') > 1
-				expr                  = Ore::Array_Index_Expr.new expr.value
-				expr.indices_in_order = expr.value.split '.'
+				expr                  = Ore::Array_Index_Expr.new expr
+				expr.indices_in_order = expr.lexeme.value.split '.'
 				expr.indices_in_order = expr.indices_in_order.map &:to_i
 				# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2].
 			elsif expr.value.include? '.'
@@ -461,7 +467,7 @@ module Ore
 
 			expr          = Ore::Infix_Expr.new
 			expr.left     = parse_identifier_expr
-			expr.operator = '='
+			expr.operator = Lexeme.new(:operator, '=')
 
 			nil_expr         = Ore::Identifier_Expr.new
 			nil_expr.value   = 'nil'
@@ -478,7 +484,7 @@ module Ore
 			if curr? :route
 				parse_route_expr
 
-			elsif curr?(ANY_IDENTIFIER, Ore::FUNCTION_DELIMITER) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER, Ore::FUNCTION_DELIMITER)
+			elsif curr?(ANY_IDENTIFIER, Ore::NIL_INIT_POSTFIX) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER, Ore::NIL_INIT_POSTFIX)
 				parse_nil_init_expr
 
 			elsif (curr?('{') || curr?(:identifier, '{') || curr?(:identifier, ':', :Identifier, '{') || curr?(SCOPE_OPERATORS, :identifier, '{')) && peek_contains?(Ore::FUNCTION_DELIMITER, '}')
@@ -496,7 +502,7 @@ module Ore
 			elsif curr? %w(if while unless until)
 				parse_conditional_expr
 
-			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(UNPACK_ARG_PREFIX, :identifier) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER) || curr?(DIRECTIVE_PREFIX, :identifier)
+			elsif curr?(:identifier, ':', :Identifier) || curr?(ANY_IDENTIFIER) || curr?(Ore::RUNTIME_SCOPE_OPERATOR, :identifier) || curr?(SCOPE_OPERATORS, ANY_IDENTIFIER) || curr?(DIRECTIVE_PREFIX, :identifier)
 				parse_identifier_expr
 
 			elsif curr?('<', ANY_IDENTIFIER, '>')
@@ -517,13 +523,14 @@ module Ore
 
 			elsif curr? :string
 				start = curr_lexeme
-				expr  = Ore::String_Expr.new eat(:string).value
+				expr  = Ore::String_Expr.new eat(:string)
 				copy_location expr, start
 
 				# elsif curr? SCOPE_OPERATORS
 				# 	parse_operator_expr
 
-			elsif curr? [Ore::FUNCTION_DELIMITER, ',']
+			elsif curr? [';', ',', '...']
+				# todo: Don't just discard the comma, make tuples implied when commas are found in #complete_expression
 				eat and nil
 
 			elsif curr? :delimiter
@@ -591,12 +598,12 @@ module Ore
 
 			if prefix
 				expr = Ore::Prefix_Expr.new.tap do |it|
-					it.operator   = expr.value
-					it.expression = parse_expression precedence_for(it.operator)
+					it.operator   = expr
+					it.expression = parse_expression precedence_for(it.operator.value)
 				end
 
 				unless expr.expression
-					raise "Ore::Prefix_Expr expected an expression after `#{expr.operator}`"
+					raise "Ore::Prefix_Expr expected an expression after `#{expr.operator.value}`"
 				end
 
 				return complete_expression expr, precedence
@@ -609,15 +616,15 @@ module Ore
 
 					it          = Ore::Infix_Expr.new
 					it.left     = expr
-					it.operator = eat.value
-					it.right    = parse_expression precedence_for it.operator
+					it.operator = eat
+					it.right    = parse_expression precedence_for it.operator.value
 
 					copy_location it, expr
 					return complete_expression it, precedence
 				elsif RANGE_OPERATORS.include? curr_lexeme.value
 					it          = Ore::Infix_Expr.new
 					it.left     = expr
-					it.operator = eat.value
+					it.operator = eat
 					it.right    = parse_expression
 
 					copy_location it, expr
@@ -635,14 +642,14 @@ module Ore
 						left          = expr
 						expr          = Ore::Infix_Expr.new
 						expr.left     = left
-						expr.operator = eat(curr_lexeme.value).value
+						expr.operator = eat(curr_lexeme.value)
 						expr.right    = parse_expression curr_operator_prec
 						copy_location expr, left
 
-						if expr.left.is(Ore::Identifier_Expr) && expr.operator == '.' && expr.right.is(Ore::Number_Expr) && expr.right.type == :float
+						if expr.left.is(Ore::Identifier_Expr) && expr.operator.value == '.' && expr.right.is(Ore::Number_Expr) && expr.right.type == :float
 							# @copypaste from above #parse_expression when :number.
-							number                  = Ore::Array_Index_Expr.new expr.right.value.to_s
-							number.indices_in_order = number.value.split '.'
+							number                  = Ore::Array_Index_Expr.new expr.right
+							number.indices_in_order = expr.right.value.to_s.split '.'
 							number.indices_in_order = number.indices_in_order.map &:to_i
 							expr.right              = number
 						end
@@ -654,7 +661,7 @@ module Ore
 			elsif postfix
 				expr = Ore::Postfix_Expr.new.tap do |it|
 					it.expression = expr
-					it.operator   = eat(:operator).value
+					it.operator   = eat(:operator)
 				end
 			end
 
@@ -684,11 +691,13 @@ module Ore
 					return expr
 				end
 
-				it           = Ore::Conditional_Expr.new
-				it.type      = eat.value # One of %w(if while unless until)
-				it_prec      = precedence_for it.type
-				it.condition = parse_expression
-				if %w(unless until).include? it.type
+				it            = Ore::Conditional_Expr.new
+				it.when_true  = []
+				it.when_false = []
+				it.type       = eat # One of %w(if while unless until)
+				it_prec       = precedence_for it.type.value
+				it.condition  = parse_expression
+				if %w(unless until).include? it.type.value
 					it.when_false = [expr]
 				else
 					it.when_true = [expr]

@@ -2,11 +2,10 @@ require_relative '../ore'
 
 module Ore
 	class Scope
-		attr_accessor :enclosing_scope, :sibling_scopes, :declarations
-		attr_reader :name
+		attr_accessor :enclosing_scope, :sibling_scopes, :declarations, :name
 
 		def initialize name = nil
-			@name           = name || self.class.name
+			@name           = name
 			@declarations   = {}
 			@sibling_scopes = []
 		end
@@ -68,7 +67,7 @@ module Ore
 		# Creates a temporary Context to handle file loading
 		def load_file filepath
 			temp_runtime = Ore::Runtime.new
-			temp_runtime.load_file filepath, self
+			temp_runtime.load_file_into_scope filepath, self
 			self
 		end
 	end

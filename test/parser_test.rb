@@ -32,7 +32,7 @@ class Parser_Test < Base_Test
 
 		out = Ore.parse '+4.2'
 		assert_kind_of Ore::Prefix_Expr, out.first
-		assert_equal '+', out.first.operator
+		assert_equal '+', out.first.operator.value
 		assert_equal 4.2, out.first.expression.value
 		assert_kind_of Ore::Number_Expr, out.first.expression
 	end
@@ -121,21 +121,21 @@ class Parser_Test < Base_Test
 		assert_kind_of Ore::Infix_Expr, out.first.left
 		assert_kind_of Ore::Number_Expr, out.first.left.left
 		assert_equal 1, out.first.left.left.value
-		assert_equal '+', out.first.left.operator
+		assert_equal '+', out.first.left.operator.value
 		assert_kind_of Ore::Infix_Expr, out.first.left.right
 		assert_kind_of Ore::Infix_Expr, out.first.left.right.left
 		assert_kind_of Ore::Number_Expr, out.first.left.right.left.left
 		assert_equal 2, out.first.left.right.left.left.value
 		assert_kind_of Ore::Number_Expr, out.first.left.right.left.right
 		assert_equal 3, out.first.left.right.left.right.value
-		assert_equal '/', out.first.left.right.operator
+		assert_equal '/', out.first.left.right.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.left.right.right
 		assert_equal 4, out.first.left.right.right.value
-		assert_equal '-', out.first.operator
+		assert_equal '-', out.first.operator.value
 		assert_kind_of Ore::Infix_Expr, out.first.right
 		assert_kind_of Ore::Number_Expr, out.first.right.left
 		assert_equal 5, out.first.right.left.value
-		assert_equal '%', out.first.right.operator
+		assert_equal '%', out.first.right.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.right.right
 		assert_equal 6, out.first.right.right.value
 	end
@@ -144,23 +144,23 @@ class Parser_Test < Base_Test
 		out = Ore.parse '1 + ((2*3) / 4) - (5 % 6)'
 		assert_kind_of Ore::Infix_Expr, out.first
 		assert_kind_of Ore::Infix_Expr, out.first.left
-		assert_equal '+', out.first.left.operator
+		assert_equal '+', out.first.left.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.left.left
 		assert_equal 1, out.first.left.left.value
 		assert_kind_of Ore::Circumfix_Expr, out.first.left.right
 		assert_kind_of Ore::Infix_Expr, out.first.left.right.expressions.first
-		assert_equal '/', out.first.left.right.expressions.first.operator
+		assert_equal '/', out.first.left.right.expressions.first.operator.value
 		assert_kind_of Ore::Circumfix_Expr, out.first.left.right.expressions.first.left
 		assert_equal 2, out.first.left.right.expressions.first.left.expressions.first.left.value
-		assert_equal '*', out.first.left.right.expressions.first.left.expressions.first.operator
+		assert_equal '*', out.first.left.right.expressions.first.left.expressions.first.operator.value
 		assert_equal 3, out.first.left.right.expressions.first.left.expressions.first.right.value
 		assert_kind_of Ore::Number_Expr, out.first.left.right.expressions.first.right
 		assert_equal 4, out.first.left.right.expressions.first.right.value
-		assert_equal '-', out.first.operator
+		assert_equal '-', out.first.operator.value
 		assert_kind_of Ore::Circumfix_Expr, out.first.right
 		assert_kind_of Ore::Number_Expr, out.first.right.expressions.first.left
 		assert_equal 5, out.first.right.expressions.first.left.value
-		assert_equal '%', out.first.right.expressions.first.operator
+		assert_equal '%', out.first.right.expressions.first.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.right.expressions.first.right
 		assert_equal 6, out.first.right.expressions.first.right.value
 	end
@@ -174,7 +174,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse 'numbers;'
 		assert_kind_of Ore::Infix_Expr, out.first
 		assert_kind_of Ore::Identifier_Expr, out.first.left
-		assert_equal '=', out.first.operator
+		assert_equal '=', out.first.operator.value
 
 		out = Ore.parse 'Type = {}'
 		assert_kind_of Ore::Infix_Expr, out.first
@@ -222,7 +222,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse '1..2'
 		assert_kind_of Ore::Infix_Expr, out.first
 		assert_kind_of Ore::Number_Expr, out.first.left
-		assert_equal '..', out.first.operator
+		assert_equal '..', out.first.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.right
 		assert_equal 1, out.first.left.value
 		assert_equal 2, out.first.right.value
@@ -230,7 +230,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse '3.0..4.0'
 		assert_kind_of Ore::Number_Expr, out.first.left
 		assert_kind_of Ore::Infix_Expr, out.first
-		assert_equal '..', out.first.operator
+		assert_equal '..', out.first.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.right
 		assert_equal 3.0, out.first.left.value
 		assert_equal 4.0, out.first.right.value
@@ -238,7 +238,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse '3.<4'
 		assert_kind_of Ore::Number_Expr, out.first.left
 		assert_kind_of Ore::Infix_Expr, out.first
-		assert_equal '.<', out.first.operator
+		assert_equal '.<', out.first.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.right
 		assert_equal 3, out.first.left.value
 		assert_equal 4, out.first.right.value
@@ -246,7 +246,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse '5>.6'
 		assert_kind_of Ore::Number_Expr, out.first.left
 		assert_kind_of Ore::Infix_Expr, out.first
-		assert_equal '>.', out.first.operator
+		assert_equal '>.', out.first.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.right
 		assert_equal 5, out.first.left.value
 		assert_equal 6, out.first.right.value
@@ -254,7 +254,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse '7><8'
 		assert_kind_of Ore::Number_Expr, out.first.left
 		assert_kind_of Ore::Infix_Expr, out.first
-		assert_equal '><', out.first.operator
+		assert_equal '><', out.first.operator.value
 		assert_kind_of Ore::Number_Expr, out.first.right
 		assert_equal 7, out.first.left.value
 		assert_equal 8, out.first.right.value
@@ -280,36 +280,36 @@ class Parser_Test < Base_Test
 	def test_scope_operators
 		out = Ore.parse '.this_instance'
 		assert_kind_of Ore::Identifier_Expr, out.first
-		assert_equal '.', out.first.scope_operator
+		assert_equal '.', out.first.scope_operator.value
 
-		out = Ore.parse '~/global_scope'
+		out = Ore.parse '../global_scope'
 		assert_kind_of Ore::Identifier_Expr, out.first
-		assert_equal '~/', out.first.scope_operator
+		assert_equal '../', out.first.scope_operator.value
 	end
 
 	def test_functions
-		out = Ore.parse '{;}'
+		out = Ore.parse '{...}'
 		assert_kind_of Ore::Func_Expr, out.first
 		assert_empty out.first.expressions
 		refute out.first.name
 
-		out = Ore.parse '{;
+		out = Ore.parse '{...
 		}'
 		assert_empty out.first.expressions
 		refute out.first.name
 
-		out = Ore.parse 'named_function {;}'
+		out = Ore.parse 'named_function {...}'
 		assert_equal 'named_function', out.first.name.value
 	end
 
 	def test_function_params
-		out = Ore.parse '{ with_param; }'
+		out = Ore.parse '{ with_param ... }'
 		assert_equal 1, out.first.expressions.count
 		out.first.expressions.each do
 			assert_kind_of Ore::Param_Expr, it
 		end
 
-		out = Ore.parse 'named { with_param; }'
+		out = Ore.parse 'named { with_param ... }'
 		assert_equal 'named', out.first.name.value
 		assert_equal 1, out.first.expressions.count
 		out.first.expressions.each do
@@ -319,41 +319,41 @@ class Parser_Test < Base_Test
 		refute out.first.expressions.first.default
 		refute out.first.expressions.first.type
 
-		out = Ore.parse '{ labeled param; }'
+		out = Ore.parse '{ labeled param ... }'
 		assert_kind_of Ore::Param_Expr, out.first.expressions.first
-		assert_equal 'labeled', out.first.expressions.first.label
+		assert_equal 'labeled', out.first.expressions.first.label.value
 		assert out.first.expressions.first.label
 		refute out.first.expressions.first.default
 		refute out.first.expressions.first.type
 
-		out = Ore.parse '{ default_values = 4; }'
+		out = Ore.parse '{ default_values = 4 ... }'
 		assert_kind_of Ore::Param_Expr, out.first.expressions.first
 		assert out.first.expressions.first.default
 		assert_kind_of Ore::Number_Expr, out.first.expressions.first.default
 
-		out = Ore.parse 'named { and_labeled with_default = 8; }'
+		out = Ore.parse 'named { and_labeled with_default = 8 ... }'
 		assert_kind_of Ore::Param_Expr, out.first.expressions.first
-		assert_equal 'and_labeled', out.first.expressions.first.label
-		assert_equal 'with_default', out.first.expressions.first.name
+		assert_equal 'and_labeled', out.first.expressions.first.label.value
+		assert_equal 'with_default', out.first.expressions.first.name.value
 		assert_equal 'named', out.first.name.value
 
-		out = Ore.parse 'named { with, multiple, even labeled = 4, params = 5; }'
+		out = Ore.parse 'named { with, multiple, even labeled = 4, params = 5 ... }'
 		assert_equal 4, out.first.expressions.count
-		assert_equal out.first.expressions.map(&:label), [nil, nil, 'even', nil]
-		assert_equal out.first.expressions.map(&:name), %w(with multiple labeled params)
+		assert_equal out.first.expressions.map(&:label), [nil, nil, Ore::Lexeme.new(:identifier, 'even'), nil]
+		assert_equal out.first.expressions.map(&:name), %w(with multiple labeled params).map { Ore::Lexeme.new(:identifier, _1) }
 		assert_equal out.first.expressions.map(&:default).map(&:nil?), [true, true, false, false]
 	end
 
 	def test_function_bodies
 		out = Ore.parse '
-		square { input;
+		square { input ...
 			input * input
 		}'
 		refute_empty out.first.expressions
 		assert_kind_of Ore::Infix_Expr, out.first.expressions[1]
 
 		out = Ore.parse '
-		nothing { input;
+		nothing { input ...
 			return input
 		}'
 		assert_kind_of Ore::Prefix_Expr, out.first.expressions[1]
@@ -361,25 +361,25 @@ class Parser_Test < Base_Test
 	end
 
 	def test_function_signatures
-		out = Ore.parse 'nothing { input;
+		out = Ore.parse 'nothing { input ...
 			return input
 		}'
-		assert_equal 'nothing{input;}', out.first.signature
+		assert_equal 'nothing{input...}', out.first.signature
 	end
 
 	def test_complex_function
 		out = Ore.parse '
-		curr? { sequence;
+		curr? { sequence ...
 			if not remainder or not lexemes?
 				return false
 			end
 
 			slice = remainder.slice(0, sequence.count)
-			slice.{;
+			slice.{...
 				expected = sequence[at]
 
 				if expected === Array
-					expected.any? {;
+					expected.any? {...
 						it == it2
 					}
 				else
@@ -394,7 +394,7 @@ class Parser_Test < Base_Test
 		early_return = out.first.expressions[1]
 		assert_kind_of Ore::Conditional_Expr, early_return
 		assert_kind_of Ore::Infix_Expr, early_return.condition
-		assert_equal 'or', early_return.condition.operator
+		assert_equal 'or', early_return.condition.operator.value
 		assert_kind_of Ore::Prefix_Expr, early_return.condition.left
 		assert_kind_of Ore::Prefix_Expr, early_return.condition.right
 		assert_equal 1, early_return.when_true.count # todo One for return and one for false in `return false`. Maybe I should make it a prefix keyword.
@@ -411,7 +411,7 @@ class Parser_Test < Base_Test
 
 		conditional = tap.right.expressions.last
 		assert_kind_of Ore::Infix_Expr, conditional.condition
-		assert_equal '===', conditional.condition.operator
+		assert_equal '===', conditional.condition.operator.value
 		assert_equal 1, conditional.when_true.count # todo I don't think when_true and when_false convey that they return an array
 		assert_equal 1, conditional.when_false.count
 
@@ -424,16 +424,16 @@ class Parser_Test < Base_Test
 	end
 
 	def test_function_calls
-		out = Ore.parse '{;}()'
+		out = Ore.parse '{...}()'
 		assert_kind_of Ore::Call_Expr, out.first
 		assert_kind_of Ore::Func_Expr, out.first.receiver
 		assert_empty out.first.arguments
 
-		out = Ore.parse '{;}(true)'
+		out = Ore.parse '{...}(true)'
 		refute_empty out.first.arguments
 		assert_kind_of Ore::Identifier_Expr, out.first.arguments.first
 
-		out = Ore.parse '{;}(1, 2, 3)'
+		out = Ore.parse '{...}(1, 2, 3)'
 		out.first.arguments.each do
 			assert_kind_of Ore::Number_Expr, it
 		end
@@ -454,20 +454,20 @@ class Parser_Test < Base_Test
 			|Transform
 		}'
 		assert_kind_of Ore::Composition_Expr, out.first.expressions.first
-		assert_equal '|', out.first.expressions.first.operator
+		assert_equal '|', out.first.expressions.first.operator.value
 		assert_equal 'Transform', out.first.expressions.first.identifier.value
 	end
 
 	def test_mixed_inline_compositions
 		out = Ore.parse 'Xform | Transform ~ Vec2 & This ^ That {}'
 		assert_kind_of Ore::Composition_Expr, out.first.expressions.first
-		assert_equal '|', out.first.expressions[0].operator
+		assert_equal '|', out.first.expressions[0].operator.value
 		assert_equal 'Transform', out.first.expressions[0].identifier.value
-		assert_equal '~', out.first.expressions[1].operator
+		assert_equal '~', out.first.expressions[1].operator.value
 		assert_equal 'Vec2', out.first.expressions[1].identifier.value
-		assert_equal '&', out.first.expressions[2].operator
+		assert_equal '&', out.first.expressions[2].operator.value
 		assert_equal 'This', out.first.expressions[2].identifier.value
-		assert_equal '^', out.first.expressions[3].operator
+		assert_equal '^', out.first.expressions[3].operator.value
 		assert_equal 'That', out.first.expressions[3].identifier.value
 	end
 
@@ -478,7 +478,7 @@ class Parser_Test < Base_Test
 		assert_kind_of Ore::Conditional_Expr, out.first
 		assert_kind_of Ore::Call_Expr, out.first.when_true.first
 
-		out = Ore.parse 'wrap { number, limit;
+		out = Ore.parse 'wrap { number, limit ...
 			if number > limit
 				number = 0
 			end
@@ -508,7 +508,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse 'do_this unless the_condition'
 		assert_kind_of Ore::Conditional_Expr, out.first
 		assert_kind_of Ore::Identifier_Expr, out.first.condition
-		assert_equal 'unless', out.first.type
+		assert_equal 'unless', out.first.type.value
 		assert_equal 'the_condition', out.first.condition.value
 		assert_kind_of Ore::Identifier_Expr, out.first.when_false.first
 		assert_equal 'do_this', out.first.when_false.first.value
@@ -518,7 +518,7 @@ class Parser_Test < Base_Test
 		out = Ore.parse 'repeat_this until the_condition'
 		assert_kind_of Ore::Conditional_Expr, out.first
 		assert_kind_of Ore::Identifier_Expr, out.first.condition
-		assert_equal 'until', out.first.type
+		assert_equal 'until', out.first.type.value
 		assert_equal 'the_condition', out.first.condition.value
 		assert_kind_of Ore::Identifier_Expr, out.first.when_false.first
 		assert_equal 'repeat_this', out.first.when_false.first.value
@@ -538,19 +538,19 @@ class Parser_Test < Base_Test
 		'
 		while_case = out.first
 		assert_kind_of Ore::Conditional_Expr, while_case
-		assert_equal 'while', while_case.type
+		assert_equal 'while', while_case.type.value
 		assert_kind_of Ore::Number_Expr, while_case.when_true.first
 		assert_equal 1, while_case.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, while_case.when_false
 
 		elwhile = while_case.when_false
-		assert_equal 'elwhile', elwhile.type
+		assert_equal 'elwhile', elwhile.type.value
 		assert_kind_of Ore::Number_Expr, elwhile.when_true.first
 		assert_equal 2, elwhile.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, elwhile.when_false
 
 		elwhile = elwhile.when_false
-		assert_equal 'elwhile', elwhile.type
+		assert_equal 'elwhile', elwhile.type.value
 		assert_kind_of Ore::Number_Expr, elwhile.when_true.first
 		assert_equal 3, elwhile.when_true.first.value
 		assert_kind_of Ore::Number_Expr, elwhile.when_false.first
@@ -574,19 +574,19 @@ class Parser_Test < Base_Test
 		# elif elif else
 		if_case = out.first
 		assert_kind_of Ore::Conditional_Expr, if_case
-		assert_equal 'if', if_case.type
+		assert_equal 'if', if_case.type.value
 		assert_kind_of Ore::Number_Expr, if_case.when_true.first
 		assert_equal 1, if_case.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, if_case.when_false
 
 		elif_case = if_case.when_false
-		assert_equal 'elif', elif_case.type
+		assert_equal 'elif', elif_case.type.value
 		assert_kind_of Ore::Number_Expr, elif_case.when_true.first
 		assert_equal 2, elif_case.when_true.first.value
 		assert_kind_of Ore::Conditional_Expr, elif_case.when_false
 
 		elif_case = elif_case.when_false
-		assert_equal 'elif', elif_case.type
+		assert_equal 'elif', elif_case.type.value
 		assert_kind_of Ore::Number_Expr, elif_case.when_true.first
 		assert_equal 3, elif_case.when_true.first.value
 		assert_kind_of Ore::Number_Expr, elif_case.when_false.first
@@ -652,18 +652,18 @@ class Parser_Test < Base_Test
 	end
 
 	def test_identifier_dot_float_is_an_infix
-		out = Ore.parse 'not_gonna_work.4.2'
+		out = Ore.parse 'not_gonna_work.4.8.15'
 		assert_kind_of Ore::Infix_Expr, out.first
 		assert_kind_of Ore::Identifier_Expr, out.first.left
 		assert_kind_of Ore::Array_Index_Expr, out.first.right
-		assert_equal '4.2', out.first.right.value
-		assert_equal [4, 2], out.first.right.indices_in_order
+		assert_equal '4.8.15', out.first.right.value.value
+		assert_equal [4, 8, 15], out.first.right.indices_in_order
 	end
 
 	def test_multidot_number_lexeme
 		out = Ore.parse '4.8.15.16.23.42'
 		assert_kind_of Ore::Array_Index_Expr, out.first
-		assert_equal '4.8.15.16.23.42', out.first.value
+		assert_equal '4.8.15.16.23.42', out.first.value.value
 		assert_equal [4, 8, 15, 16, 23, 42], out.first.indices_in_order
 	end
 
@@ -688,10 +688,10 @@ class Parser_Test < Base_Test
 	end
 
 	def test_infinite_loop_bug
-		out = Ore.parse 'Identifier {;}'
+		out = Ore.parse 'Identifier {...}'
 		assert_kind_of Ore::Type_Expr, out.first
 
-		out = Ore.parse 'x; , y; , z;'
+		# out = Ore.parse 'x; , y; , z;'
 		# assert_kind_of Ore::Postfix_Expr, out.first
 		# assert_kind_of Ore::Postfix_Expr, out[1]
 		# assert_kind_of Ore::Postfix_Expr, out.last
@@ -703,7 +703,7 @@ class Parser_Test < Base_Test
 	end
 
 	def test_unpack_prefix
-		out = Ore.parse 'funk { @@with; }'
+		out = Ore.parse 'funk { @with ... }'
 		assert_kind_of Ore::Param_Expr, out.first.expressions.first
 		assert out.first.expressions.first.unpack
 	end
@@ -729,19 +729,19 @@ class Parser_Test < Base_Test
 
 	def test_all_http_methods
 		Ore::HTTP_VERBS.each do |verb|
-			assert_instance_of Ore::Route_Expr, Ore.parse("#{verb}://path {;}").first
+			assert_instance_of Ore::Route_Expr, Ore.parse("#{verb}://path {...}").first
 		end
 	end
 
 	def test_route_declaration_with_http_method_directives
 		refute_raises Ore::Invalid_Http_Directive_Handler do
-			out = Ore.parse 'get://something {;}'
+			out = Ore.parse 'get://something {...}'
 			assert_equal 1, out.count
 			assert_instance_of Ore::Route_Expr, out.first
 			assert_equal 'get', out.first.http_method.value
 			assert_equal "something", out.first.path
 
-			# out = Ore.parse_code 'put://"book/:id" replace_book {id;}'
+			# out = Ore.parse_code 'put://"book/:id" replace_book {id >}'
 			# assert_equal 1, out.count
 			# assert_instance_of Ore::Route_Expr, out.first
 			# assert_equal 'put', out.first.http_method.value
@@ -758,7 +758,7 @@ class Parser_Test < Base_Test
 		# 	Ore.parse_code '#post "whatever/:id" 1234'
 		# end
 
-		out = Ore.parse '#pretend_method "endpoint" {;}'
+		out = Ore.parse '#pretend_method "endpoint" {...}'
 		assert_equal 2, out.count
 		refute_instance_of Ore::Route_Expr, out.first
 		assert_instance_of Ore::Directive_Expr, out[0]
@@ -782,7 +782,7 @@ class Parser_Test < Base_Test
 			class = 'my_class'
 			data_something = 'some data attribute'
 
-			render {;
+			render {...
 				'Text content of this div'
 			}
 		}"
