@@ -1489,8 +1489,8 @@ module Ore
 			when Ore::Directive_Expr
 				interp_directive expr
 
-			when Ore::Comment_Expr
-				# todo: Something?
+			when Ore::Comment_Expr, Ore::Fence_Expr
+				# No use for comments or fences
 
 			when Ore::Operator_Expr
 				case expr.value

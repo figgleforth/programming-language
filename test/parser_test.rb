@@ -800,4 +800,26 @@ class Parser_Test < Base_Test
 		out = Ore.parse 'stop'
 		assert_instance_of Ore::Operator_Expr, out.first
 	end
+
+	def test_single_line_comments
+		out = Ore.parse '# abc'
+		assert_instance_of Ore::Comment_Expr, out.first
+
+		out = Ore.parse '# abc
+		# def'
+		assert_instance_of Ore::Comment_Expr, out.first
+		assert_instance_of Ore::Comment_Expr, out.last
+		assert out.first != out.last
+	end
+
+	def test_fence_blocks
+		out = Ore.parse '```abc```'
+		assert_instance_of Ore::Fence_Expr, out.first
+
+		out = Ore.parse '```abc
+		def```'
+		assert_instance_of Ore::Fence_Expr, out.first
+		assert_instance_of Ore::Fence_Expr, out.last
+		assert out.first == out.last
+	end
 end

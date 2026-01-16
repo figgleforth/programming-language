@@ -550,13 +550,17 @@ module Ore
 			elsif curr? :delimiter
 				reduce_newlines and nil
 
+			elsif curr? :fence
+				lexeme       = eat
+				comment      = Ore::Fence_Expr.new lexeme.value
+				comment.type = lexeme.type
+				comment
+
 			elsif curr? :comment
-				# 8/6/25, Returning the comment here means that it will count as an expression in, for example, a case where a comment is the last thing inside a function body. So this breaks expressions with comments at the end. I'll leave this here, commented out, because I do want to do something with these comments in the future.
-				# token        = eat
-				# comment      = Ore::Comment_Expr.new token.value
-				# comment.type = token.type
-				# comment
-				eat and nil
+				lexeme       = eat
+				comment      = Ore::Comment_Expr.new lexeme.value
+				comment.type = lexeme.type
+				comment
 
 			else
 				raise "Unhandled lexeme: #{curr_lexeme.inspect}"

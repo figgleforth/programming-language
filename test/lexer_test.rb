@@ -10,10 +10,18 @@ class Lexer_Test < Base_Test
 		assert_kind_of Ore::Lexeme, out.first
 	end
 
-	def test_multiline_comment
-		out = Ore.lex '```many line comment```'
-		assert_equal :comment, out.first.type
-		assert_equal 'many line comment', out.first.value
+	def test_fence_blocks
+		out = Ore.lex '```single line fence block```'
+		assert_equal :fence, out.first.type
+		assert_equal 'single line fence block', out.first.value
+		assert_kind_of Ore::Lexeme, out.first
+
+		out = Ore.lex '```multi
+		line
+		fence
+		block```'
+		assert_equal :fence, out.first.type
+		assert out.first.value.start_with? 'multi'
 		assert_kind_of Ore::Lexeme, out.first
 	end
 

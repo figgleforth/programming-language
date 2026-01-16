@@ -142,7 +142,7 @@ module Ore
 			it
 		end
 
-		def lex_multiline_comment
+		def lex_fence_block
 			marker = lex_many Ore::COMMENT_MULTILINE_CHAR.length, Ore::COMMENT_MULTILINE_CHAR
 			it     = ::String.new
 
@@ -257,11 +257,12 @@ module Ore
 					it.c0 = col
 
 					if single || multiline
-						it.type  = :comment
-						it.value = if multiline
-							lex_multiline_comment
+						if multiline
+							it.type  = :fence
+							it.value = lex_fence_block
 						else
-							lex_oneline_comment
+							it.type  = :comment
+							it.value = lex_oneline_comment
 						end
 
 					elsif delimiter? curr

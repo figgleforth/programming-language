@@ -163,6 +163,9 @@ module Ore
 		attr_accessor :collection, :stride, :body
 	end
 
+	class Fence_Expr < Expression
+	end
+
 	class Comment_Expr < Expression
 	end
 
