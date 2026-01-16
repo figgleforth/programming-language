@@ -70,6 +70,16 @@ module Ore
 			temp_runtime.load_file_into_scope filepath, self
 			self
 		end
+
+		def inspect
+			filtered = instance_variables.reject { |v| v == :@enclosing_scope }
+			vars     = filtered.map { |v| "#{v}=#{instance_variable_get(v).inspect}" }
+			"#<#{self.class.name} #{vars.join(', ')}>"
+		end
+
+		def to_s
+			"#<#{self.class.name} name=#{@name.inspect} declarations=#{@declarations.keys.inspect}>"
+		end
 	end
 
 	class Global < Scope
