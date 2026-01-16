@@ -19,4 +19,14 @@ class Pipeline_Test < Base_Test
 		assert_instance_of ::Array, pipe.run("42")
 		assert_instance_of Ore::Number_Expr, pipe.run("42").first
 	end
+
+	def test_documenter
+		code = <<~CODE
+		    # a comment
+		    1 + 1 # another comment
+		    ```a fence!```
+		CODE
+		pipe = Ore::Pipeline.new Ore::Lexer, Ore::Parser, Ore::Documenter
+		assert_equal ['a comment', 'another comment', 'a fence!'], pipe.run(code)
+	end
 end

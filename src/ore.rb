@@ -9,6 +9,7 @@ require_relative 'compiler/lexeme'
 require_relative 'compiler/expressions'
 require_relative 'compiler/lexer'
 require_relative 'compiler/parser'
+require_relative 'compiler/documenter'
 
 # Runtime (AST to execution)
 require_relative 'runtime/errors'
