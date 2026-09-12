@@ -5,10 +5,20 @@ module Code
 	# partial state to reconcile. The server's port is reused across reloads.
 	#
 	# A file that never starts a server behaves exactly as before: run once, return, no watching.
+	#
+	# Opt-in `reload:` mode (for developing the engine itself, not ordinary `.code` programs): also
+	# watches every `.rb` file under `source/`, and restarts the whole process on any change instead
+	# of reloading in place -- a changed `.rb` file is already loaded into this process, so nothing
+	# short of a real restart picks up the new Ruby source.
 	class Hot_Reloader
-		def initialize entry_filepath
-			@entry  = File.expand_path entry_filepath
-			@events = Queue.new # fed [:change] by Listen and [:shutdown] by the INT/TERM trap
+		# @param [Boolean] reload opt-in dev mode: also watch `.rb` files across all of `source/`, and
+		#   on any change, restart the whole process (`exec`) instead of just re-running the entry file
+		#   in place. Needed for a `.rb` edit to matter at all -- see the comment on `run`'s `:change`
+		#   branch below.
+		def initialize entry_filepath, reload: false
+			@entry   = ::File.expand_path entry_filepath
+			@reload = reload
+			@events  = Queue.new # fed [:change] by Listen and [:shutdown] by the INT/TERM trap
 		end
 
 		# @return [[Code::Interpreter, Object]] the interpreter and its last output, for a one-shot
@@ -37,8 +47,20 @@ module Code
 					return [nil, nil]
 				when :change
 					interpreter&.shutdown_all_servers
-					Code::Interpreter.reset_file_caches!
-					puts Code::Ascii.dim '↻ reloading'
+					if @reload
+						# A changed `.rb` file is already `require`d and cached in $LOADED_FEATURES --
+						# re-running the entry file in place (the else branch below) would still execute
+						# against the *old* class definitions. Only a real process restart picks up new
+						# Ruby source. `[$0, $0]` is the two-element exec form (skips a subshell);
+						# `ARGV` is the original top-level argv this process itself was started with, so
+						# the new process gets the same file/flags and re-enters reload mode too.
+						@listener&.stop
+						puts Code::Ascii.dim '↻ restarting process'
+						exec [$0, $0], *ARGV
+					else
+						Code::Interpreter.reset_file_caches!
+						puts Code::Ascii.dim '↻ reloading'
+					end
 				end
 			end
 		end
@@ -53,7 +75,7 @@ module Code
 			#                                         each cycle's fresh Interpreter carries a new token,
 			#                                         which is what tells the browser to refresh
 
-			source = File.read @entry
+			source = ::File.read @entry
 			interpreter.register_source @entry, source
 			interpreter.run source
 			[interpreter, interpreter.last_output, nil]
@@ -65,7 +87,11 @@ module Code
 			interpreter.servers.each do |server|
 				puts "Code server `#{server.name}` on http://localhost:#{server.port}"
 			end
-			puts Code::Ascii.dim 'watching .code files — ^C to stop (browser auto-refreshes on save)'
+			if @reload
+				puts Code::Ascii.dim 'watching .code and .rb files — ^C to stop (any change restarts the process)'
+			else
+				puts Code::Ascii.dim 'watching .code files — ^C to stop (browser auto-refreshes on save)'
+			end
 		end
 
 		def report_error error
@@ -85,18 +111,23 @@ module Code
 		def start_watching
 			return if @listener
 			require 'listen'
-			@listener = Listen.to(*watch_dirs, only: /\.code\z/) do |modified, added, removed|
+			pattern   = @reload ? /\.(code|rb)\z/ : /\.code\z/
+			@listener = Listen.to(*watch_dirs, only: pattern) do |modified, added, removed|
 				@events << [:change] unless (modified + added + removed).empty?
 			end
 			@listener.start
 		end
 
-		# The stdlib dir (the user edits `source/programs/*.code` too) plus the entry file's own dir when that sits outside it. Listen watches recursively.
+		# Default: the stdlib dir (the user edits `source/programs/*.code` too) plus the entry file's
+		# own dir when that sits outside it. `reload`: the whole `source/` tree instead (`.rb` included
+		# there, see `start_watching`'s pattern) -- still plus the entry file's own dir, same as
+		# default, since a program outside `source/` (the common case) needs its own edits watched too.
+		# Listen watches recursively either way.
 		def watch_dirs
-			prog_dir  = File.join(Code::ROOT_PATH, 'source', 'programs')
-			entry_dir = File.dirname(@entry)
-			dirs      = [prog_dir]
-			dirs << entry_dir unless entry_dir == prog_dir || entry_dir.start_with?("#{prog_dir}/")
+			base_dir  = ::File.join(Code::ROOT_PATH, 'source', *(@reload ? [] : ['programs']))
+			entry_dir = ::File.dirname(@entry)
+			dirs      = [base_dir]
+			dirs << entry_dir unless entry_dir == base_dir || entry_dir.start_with?("#{base_dir}/")
 			dirs
 		end
 	end

@@ -33,9 +33,9 @@ All_Tasks_Page | Div {
 
 	render (;
 		list := tasks_table.all().map((it;
-			# An unset `type`/`done` reads back as its own declared type (Task_Type/Bool), not nil --
-			# guard against that placeholder before displaying it.
-			type_display := if it.type == Task_Type
+			# An unset `type` reads back as `nil` (a task created before a type was ever assigned) --
+			# guard against that before displaying it.
+			type_display := if it.type == nil
 				''
 			else
 				" -- `it.type`"
@@ -86,17 +86,17 @@ Single_Task_Page | Div {
 		self.task   = tasks_table.find(task_id)
 
 		# Both constructed here, not as bare fields above -- both need `task`, which only exists once
-		# Self(;)'s own params are bound. Task_Type.keys (a plain Array value, not a method -- no `()`)
+		# Self(;)'s own params are bound. Task_Type.@keys (a plain Array value, not a method -- no `()`)
 		# stays in sync with the enum's own declared members automatically, unlike a hardcoded list.
-		self.type_select = Select(Task_Type.keys.map(( it; Task_Type_Option(it, it == task.type) )))
+		self.type_select = Select(Task_Type.@keys.map(( it; Task_Type_Option(it, it == task.type) )))
 
 		# Passing task.text as the constructor arg renders it as the textarea's own inner text,
 		# pre-filling it visibly (`.value` is a separate, browser-only thing the client JS reads at
 		# submit time -- unrelated to what actually renders).
 		self.text_input = Textarea(task.text)
 
-		# `task.done` reads back as the plain Bool type itself (truthy!) for any task where `done` was
-		# never explicitly set -- never check it bare, always normalize to a real true/false first.
+		# `done := false` gives every task a real default, and the DB layer coerces a Bool column back
+		# to a proper true/false on read -- so this is just cheap insurance, not a required guard.
 		task.done = task.done == true
 		done_button.children = [if task.done "Mark Not Done" else "Mark Done" end]
 
@@ -108,12 +108,12 @@ Single_Task_Page | Div {
 
 		save_button.onclick = (;
 			# type_select.value is the plain String the dropdown shows ("BUG"). Array has no
-			# index-of-a-value method, so this walks Task_Type.keys/.values (parallel Arrays, same
+			# index-of-a-value method, so this walks Task_Type.@keys/.@values (parallel Arrays, same
 			# order) with the loop's own `at` to recover the enum's actual member value.
 			new_type := nil
-			for Task_Type.keys
+			for Task_Type.@keys
 				if it == type_select.value
-					new_type = Task_Type.values.get(at)
+					new_type = Task_Type.@values.get(at)
 					stop
 				end
 			end
@@ -129,7 +129,7 @@ Single_Task_Page | Div {
 			# updating the database alone doesn't change what they already rendered. Without rebuilding
 			# them here too, the response sent back after Save would still show the old selection/text
 			# for half a second, until the next full reload caught up.
-			self.type_select = Select(Task_Type.keys.map(( it; Task_Type_Option(it, it == type_select.value) )))
+			self.type_select = Select(Task_Type.@keys.map(( it; Task_Type_Option(it, it == type_select.value) )))
 			self.text_input  = Textarea(task.text)
 		)
 	)
@@ -153,7 +153,7 @@ Inverted_Html | Html {
 }
 
 App | Server {
-	DB := @connect Sqlite.local()
+	DB := @connect Sqlite.memory()
 	tasks := DB.find_or_create_table(Task)
 
 	# root path /

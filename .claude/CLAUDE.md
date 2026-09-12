@@ -1425,7 +1425,8 @@ The language includes built-in database support with an ActiveRecord-style ORM u
 
 db := @connect Sqlite('./data/myapp.db')   # a real path
 db := @connect Sqlite.memory()             # ':memory:', nothing hits prog
-db := @connect Sqlite.local('demo')        # <@root_path>/.temporary/demo.db (adds `.db` if missing)
+db := @connect Sqlite.local('_sandbox/demo.db')  # your own path, verbatim (adds `.db` if missing) --
+                                                  # the parent directory must already exist
 ```
 
 - `Sqlite(url)` builds an unconnected `Database` (`adapter`/`url` set, `connection` still nil). `@connect` interprets its argument, links it to the `Database` type, and lazily builds + caches the Sequel connection on it (`#interp_intrinsic`'s `connect` case). A second `@connect` on the same `Database` returns the same cached `Sequel::SQLite::Database`.

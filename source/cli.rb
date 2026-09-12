@@ -1,41 +1,45 @@
 module Code
 	class CLI
 		INSTRUCTIONS = <<~INST
-		    --- Usage
-		        bin/program <file>           Short for `bin/program run <file>`
-		        bin/program [COMMAND]        Run command from COMMANDS below
+			--- Usage
+				bin/program <file>          Short for `bin/program run <file>`
+				bin/program [COMMAND]       Run command from COMMANDS below
 
-		        bin/program -h | --help      Show help instructions
-		        bin/program -v | --version   Show version number
+				bin/program -h | --help     Show help instructions
+				bin/program -v | --version  Show version number
 
-		    --- COMMANDS
-		        run <file>                   Execute file with hot-reload 
-		        check <file>                 Run basic type check on file
+			--- COMMANDS
+				run <file>                  Run file with hot-reload 
+				check <file>                Run basic type check on file
 
-		        repl                         [Very WIP] Enter repl mode
+				repl                        [Very WIP] Enter repl mode
 
-		        interp <code>                Execute code string once, no hot reload
-		        interpf <file>               Execute file once, no hot reload
+				interp <code>               Run code string without hot reload
+				interpf <file>              Run file once without hot reload
 
-		        parse <code>                 Show AST for code
-		        parsef <file>                Show AST for file
+				parse <code>                Puts AST for code
+				parsef <file>               Puts AST for file
 
-		        declare <code>               Show forward declarations for code
-		        declaref <file>              Show forward declarations for file
+				declare <code>              Show forward declarations for code
+				declaref <file>             Show forward declarations for file
 
-		        lex <code>                   Show lexer tokens for code
-		        lexf <file>                  Show lexer tokens for file
+				lex <code>                  Puts lexer tokens for code
+				lexf <file>                 Puts lexer tokens for file
 
 
-		    --- SUFFIX OPTIONS
-		        -p                           Print output created by program
+			--- SUFFIX OPTIONS
+				-p | --puts                 Prints output created by program
 
-		    --- EXAMPLES
-		        bin/program guides/hello_world.code -p
-		        bin/program lex "x = 5 + 3" -p
+				-r | --reload               Hot reload for .(rb|code) and cwd
+				                            + Restarts process on any change,
+				                              instead of reloading in place
 
-		        bin/program parsef guides/hello_world.code -p
-		        bin/program interp "4815" -p
+			--- EXAMPLES
+				bin/program guides/hello_world.code -p
+				bin/program lex "x = 5 + 3" -p
+
+				bin/program parsef guides/hello_world.code -p
+				bin/program interp "4815" -p
 
 		INST
 
@@ -47,7 +51,8 @@ module Code
 			@argv         = argv
 			@command      = argv[0]
 			@arg          = argv[1]
-			@print_output = argv.last == '-p'
+			@print_output = argv.include?('-p') || argv.include?('--puts')
+			@reload       = argv.include?('-r') || argv.include?('--reload')
 		end
 
 		def run
@@ -117,7 +122,7 @@ module Code
 		end
 
 		def hot_reload filepath
-			interpreter, result = Code::Hot_Reloader.new(filepath).run
+			interpreter, result = Code::Hot_Reloader.new(filepath, reload: @reload).run
 			puts interpreter.stringify_for_display(result) if @print_output && interpreter
 		end
 	end

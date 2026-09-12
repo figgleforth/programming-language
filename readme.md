@@ -1137,7 +1137,7 @@ get://api/data (;
 
 1. `@load 'programs/database.code'` -- this pulls in `programs/table.code` too
 2. `Sqlite(url)` builds a database; `@connect` opens it and **returns it**
-3. `Sqlite.memory()` for an in-memory db, `Sqlite.local('name')` for `.temporary/name.db`
+3. `Sqlite.memory()` for an in-memory db, `Sqlite.local('a/path.db')` for a file at that path verbatim -- the parent directory has to already exist
 
 ```code
 @load 'programs/database.code'

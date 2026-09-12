@@ -55,9 +55,9 @@ task_type_option ( label, selected := false;
 
 render_tasks_list ( tasks_table;
 	task_rows := tasks_table.all().map((it;
-		# An unset `type`/`done` reads back as its own declared type (Task_Type/Bool), not nil --
-		# guard against that placeholder before displaying it.
-		type_display := if it.type == Task_Type "" else " -- `it.type`" end
+		# An unset `type` reads back as `nil` (a task created before a type was ever assigned) --
+		# guard against that before displaying it.
+		type_display := if it.type == nil "" else " -- `it.type`" end
 		status       := if it.done == true " (done)" else "" end
 		li([href("/`it.id`", it.text), type_display, status])
 	))
@@ -78,9 +78,9 @@ render_tasks_list ( tasks_table;
 # -----------------------------------------------------------------------------
 
 render_task_page ( tasks_table, task;
-	# Task_Type.keys (a plain Array value, not a method -- no `()`) stays in sync with the enum's
+	# Task_Type.@keys (a plain Array value, not a method -- no `()`) stays in sync with the enum's
 	# own declared members automatically, unlike a hardcoded list.
-	type_options := Task_Type.keys.map(( it; task_type_option(it, it == task.type) ))
+	type_options := Task_Type.@keys.map(( it; task_type_option(it, it == task.type) ))
 	# `task.done` reads back as the plain Bool type itself (truthy!) for any task where `done` was
 	# never explicitly set -- never check it bare, always normalize to a real true/false first.
 	done_label   := if task.done == true "Mark Not Done" else "Mark Done" end
@@ -106,7 +106,7 @@ render_task_page ( tasks_table, task;
 # -----------------------------------------------------------------------------
 
 App | Server {
-	DB    := @connect Sqlite.local()
+	DB    := @connect Sqlite.memory()
 	tasks := DB.find_or_create_table(Task)
 
 	# root path /
@@ -136,13 +136,13 @@ App | Server {
 		task          := tasks.find(id)
 		submitted_type := request.body[:type]
 
-		# Array has no index-of-a-value method, so this walks Task_Type.keys/.values (parallel
+		# Array has no index-of-a-value method, so this walks Task_Type.@keys/.@values (parallel
 		# Arrays, same order) with the loop's own `at` to recover the enum's actual member value
 		# from the plain String the <select> submitted.
 		new_type := nil
-		for Task_Type.keys
+		for Task_Type.@keys
 			if it == submitted_type
-				new_type = Task_Type.values.get(at)
+				new_type = Task_Type.@values.get(at)
 				stop
 			end
 		end

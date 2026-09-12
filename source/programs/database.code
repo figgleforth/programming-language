@@ -26,9 +26,8 @@ Sqlite | Database {
 		self.url = url
 	)
 
-	Self.local (named filename := 'demo.db';
-		filename += '.db' unless filename.end_with?('.db')
-		path := "`@root_path`/.temporary/`filename`"
+	Self.local (at_path path := 'demo.db';
+		path += '.db' unless path.end_with?('.db')
 		Sqlite(path)
 	)
 

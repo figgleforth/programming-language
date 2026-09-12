@@ -415,20 +415,18 @@ class Database_Test < Base_Test
 		assert_equal ':memory:', out
 	end
 
-	def sqlite_local_defaults_to_temp_dir # skipping because it requires file system write
-		filename = "local_test_#{SecureRandom.hex}"
-		filepath = File.expand_path("../.temporary/#{filename}.db", __dir__)
-		File.delete(filepath) if File.exist? filepath
-
+	# Sqlite.local now takes the caller's own path verbatim (no more auto-prefixing under a fixed
+	# .temporary/ dir), so this needs nothing special beyond the @filepath before_setup/after_teardown
+	# already sets up for every other test here -- no longer "requires file system write" as some kind
+	# of special exception, since that's exactly what those two already do for the whole class.
+	def test_sqlite_local_writes_to_the_given_path
 		out = Code.interp <<~CODE
 		    #{DATABASE}
-		    db := @connect Sqlite.local('#{filename}')
+		    db := @connect Sqlite.local('#{@filepath}')
 		    db.url
 		CODE
-		assert_equal filepath, out
-		assert File.exist?(filepath), 'Sqlite.local should create the db file under .temporary/'
-	ensure
-		File.delete(filepath) if filepath && File.exist?(filepath)
+		assert_equal @filepath, out
+		assert File.exist?(@filepath), 'Sqlite.local should create the db file at the given path'
 	end
 
 	def test_table_find_returns_nil_when_missing
