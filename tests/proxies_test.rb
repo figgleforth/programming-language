@@ -259,7 +259,7 @@ class ProxiesTest < Base_Test
 	# Set has no literal syntax and no Ruby-stdlib behavior worth re-verifying here -- these cover
 	# only the seams our layer adds: `@ruby` proxy dispatch, `Set(...)` construction + dedup,
 	# operator dispatch (#interp_logical_infix / #interp_arithmetic_infix) with #maybe_instance
-	# re-linking the result, `for` iteration, and the prog-level methods in backend/set.prog.
+	# re-linking the result, `for` iteration, and the prog-level methods in backend/set.code.
 	def test_set_proxies
 		# construction dedups; values() is an Array snapshot
 		assert_equal [1, 2, 3], Backend.interp("Set([1, 2, 2, 3, 1]).values()").values
@@ -301,7 +301,7 @@ class ProxiesTest < Base_Test
 		refute Backend.interp("Set([1, 2, 3]).all?((n; n > 2))")
 	end
 
-	# `@operator ==` in backend/set.prog compares elements through the interpreter, so a custom
+	# `@operator ==` in backend/set.code compares elements through the interpreter, so a custom
 	# element type's own `==` overload is honored (a bare Ruby Set#== would miss it).
 	def test_set_equality_respects_custom_equality_overload
 		src = <<~CODE
@@ -383,7 +383,7 @@ class ProxiesTest < Base_Test
 		assert_equal 2, Backend.interp("2.5.denominator()")
 	end
 
-	# `Int` / `Flo` / `Dec` are plain aliases in backend/number.prog (`Int := Integer`, not
+	# `Int` / `Flo` / `Dec` are plain aliases in backend/number.code (`Int := Integer`, not
 	# `Int | Integer {}`), so each *is* its full type -- same type-set, not a narrower one.
 	def test_numeric_type_shorthands
 		# construction + coercion, identical to the full names

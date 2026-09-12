@@ -11,7 +11,7 @@ class Error_Test < Base_Test
 
 	def test_undeclared_identifier_in_file
 		error = assert_raises Prog::Undeclared_Identifier do
-			Backend.interp_file 'tests/fixtures/undeclared_identifier.prog'
+			Backend.interp_file 'tests/fixtures/undeclared_identifier.code'
 		end
 	end
 
@@ -184,7 +184,7 @@ class Error_Test < Base_Test
 
 	def test_error_location_tracking_file
 		assert_raises Prog::Undeclared_Identifier do
-			Backend.interp_file 'tests/fixtures/undeclared_identifier.prog'
+			Backend.interp_file 'tests/fixtures/undeclared_identifier.code'
 		end
 	end
 

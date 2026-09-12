@@ -49,7 +49,7 @@ class Hot_Reload_Test < Base_Test
 	end
 
 	def test_reset_file_caches_clears_every_parse_cache
-		Backend.interp "@load 'tests/fixtures/test_module.prog'"
+		Backend.interp "@load 'tests/fixtures/test_module.code'"
 		refute_empty Backend::Interpreter.cached_expressions_by_filepath
 
 		Backend::Interpreter.reset_file_caches!
@@ -146,8 +146,8 @@ class Hot_Reload_Test < Base_Test
 	end
 
 	def test_reset_file_caches_with_paths_only_drops_those_paths
-		fixture = File.expand_path 'tests/fixtures/test_module.prog'
-		Backend.interp "@load 'tests/fixtures/test_module.prog'" # caches stdlib + the fixture
+		fixture = File.expand_path 'tests/fixtures/test_module.code'
+		Backend.interp "@load 'tests/fixtures/test_module.code'" # caches stdlib + the fixture
 		stdlib = Backend::STANDARD_LIBRARY_PATH
 
 		assert Backend::Interpreter.cached_expressions_by_filepath.key?(stdlib)

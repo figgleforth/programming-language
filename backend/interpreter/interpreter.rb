@@ -11,7 +11,7 @@ module Backend
 		# Source lines by filepath, keyed the same way #register_source always has -- kept class-level (not per-instance) so Error_Formatter can read a snippet without holding a live Interpreter, which used to be the only reason errors.rb needed a `runtime` reference at all.
 		cache_by_path :cached_source_by_filename # {filepath: [String]}
 
-		# Parsed ASTs by resolved filepath, kept class-level (not per-instance) for the same reason: `backend/global.prog` (and everything it transitively @loads) is immutable source, identical for every Interpreter in the process, so re-lexing/re-parsing it fresh on every `Backend.interp` call was pure waste -- it used to be instance-level, meaning a brand-new Interpreter (which every `Backend.interp` call constructs) never saw a warm cache. Doesn't cache the *interpretation* of that AST (each Interpreter still builds its own fresh Standard_Library scope from it), only the lex+parse step, so per-instance isolation (mutating a builtin in one test can't leak into another) is unaffected.
+		# Parsed ASTs by resolved filepath, kept class-level (not per-instance) for the same reason: `backend/global.code` (and everything it transitively @loads) is immutable source, identical for every Interpreter in the process, so re-lexing/re-parsing it fresh on every `Backend.interp` call was pure waste -- it used to be instance-level, meaning a brand-new Interpreter (which every `Backend.interp` call constructs) never saw a warm cache. Doesn't cache the *interpretation* of that AST (each Interpreter still builds its own fresh Standard_Library scope from it), only the lex+parse step, so per-instance isolation (mutating a builtin in one test can't leak into another) is unaffected.
 		cache_by_path :cached_expressions_by_filepath # {filepath: [Prog::Expression]}
 
 		# Resolved filepaths whose AST has already passed type-checking at least once, kept class-level alongside the cache above. Type-checking is a pure function of the AST (no interpreter state involved) -- a cached, never-changing file that already passed once will always pass, so re-walking it on every subsequent load is pure waste, same as re-parsing was.
@@ -69,7 +69,7 @@ module Backend
 			top_level_source_file = current_source_file
 
 			if @stack.empty?
-				# todo; Global should be created by interping backend/global.prog, which is what I want to rename backend/global.prog to
+				# todo; Global should be created by interping backend/global.code, which is what I want to rename backend/global.code to
 				global  = Global.new
 				@global = global # kept separately from @stack -- #interp_member_access temporarily swaps @stack out for dot-access resolution, so `stack.first` isn't reliably Global the way this needs
 				@stack << global
@@ -198,7 +198,7 @@ module Backend
 		# @param [Prog::Scope] scope to load code into
 		# @return The output of the interpreted file
 		def load_file_into_scope filepath, into_scope
-			filepath.insert(-1, '.prog') unless filepath.end_with? '.prog' # note; I feel like this isn't the smartestest way to achieve this.
+			filepath.insert(-1, '.code') unless filepath.end_with? '.code' # note; I feel like this isn't the smartestest way to achieve this.
 
 			resolved_path = if filepath.start_with? 'backend/'
 				::File.join ROOT_PATH, filepath
@@ -287,7 +287,7 @@ module Backend
 		# is what let handlers move out of new() and into render(). `render_scope` is `{ anchor:, slot: }`
 		# seeded in #render_dom_to_html; the slot counter advances in depth-first render order.
 		#
-		# An `element_key` (the element's own `key := '...'`, see backend/html.prog) pins the token by
+		# An `element_key` (the element's own `key := '...'`, see backend/html.code) pins the token by
 		# name instead of position and does not touch the slot counter -- so a conditional element
 		# appearing or vanishing between renders can't shift its siblings' tokens.
 		def next_render_token render_scope, element_key = nil
@@ -1080,7 +1080,7 @@ module Backend
 
 		# A render() result can be a String, a single Dom-composing Instance, or an Prog::Array of
 		# either (or of further-nested Arrays -- e.g. `things.map((it; A(...)))` embedded inline among
-		# other children, same as `Form([input, button, list])` in examples/*.prog's Dom examples).
+		# other children, same as `Form([input, button, list])` in examples/*.code's Dom examples).
 		# Recurses into a nested Array rather than requiring exactly one flat level, so a mapped
 		# collection of elements renders each element individually instead of being silently dropped
 		# (neither a String nor a Dom Instance on its own) or, if handled some other way, rendered as
@@ -1435,7 +1435,7 @@ module Backend
 				raise_missing_scope_operator_target! expr, expr.left.scope_operator.value
 			end
 
-			# For plain identifiers (no scope operator) inside an Instance/Type body, new declarations should go to that Instance/Type, not to an enclosing scope that happens to have the same identifier. This fixes a bug that prevented HTML Layout's `title` from capturing Title's `title` declaration in examples/basic_html_page.prog.
+			# For plain identifiers (no scope operator) inside an Instance/Type body, new declarations should go to that Instance/Type, not to an enclosing scope that happens to have the same identifier. This fixes a bug that prevented HTML Layout's `title` from capturing Title's `title` declaration in examples/basic_html_page.code.
 			if expr.left.is_a?(Prog::Identifier_Expr) && !expr.left.scope_operator
 				current_scope = stack.last
 
@@ -2103,7 +2103,7 @@ module Backend
 			end
 		end
 
-		# The literal `Any` type (backend/global.prog), a universal wildcard -- see #interp_comparison_infix.
+		# The literal `Any` type (backend/global.code), a universal wildcard -- see #interp_comparison_infix.
 		def any_type? value
 			value.is_a?(Prog::Type) && value.name == 'Any'
 		end
@@ -2175,7 +2175,7 @@ module Backend
 				# note; ==, !=, <, >, <=, >=, <=> aren't given fixed set-comparison semantics above, so — same as arithmetic — check for a user-declared @operator overload (on left itself, or falling back to left.enclosing_scope for shorthand-constructed instances, or a same-named global operator) before falling back to Ruby's own #==/#<=>/etc.
 				overload = find_operator_overload expr.operator.value, left
 
-				# note; A type declaring `@operator ==` but no `@operator !=` of its own (the common case backend/struct.prog's Member/Struct are exactly this) used to fall straight through to Ruby's own #!= for `!=`, which is identity-based and ignores the custom == entirely, two structurally-equal Members compared unequal with `!=` even though `==` correctly said they were equal. `!=` now derives from a declared `==` overload (negated) when it has no overload of its own, matching how most languages auto-derive != from ==.
+				# note; A type declaring `@operator ==` but no `@operator !=` of its own (the common case backend/struct.code's Member/Struct are exactly this) used to fall straight through to Ruby's own #!= for `!=`, which is identity-based and ignores the custom == entirely, two structurally-equal Members compared unequal with `!=` even though `==` correctly said they were equal. `!=` now derives from a declared `==` overload (negated) when it has no overload of its own, matching how most languages auto-derive != from ==.
 				if !overload.is_a?(Prog::Func) && expr.operator.value == '!='
 					overload      = find_operator_overload '==', left
 					negate_result = true
@@ -2531,7 +2531,7 @@ module Backend
 			type
 		end
 
-		# A plain, untagged declaration (`String { ... }`) -- reopens/extends the same shared Type object across multiple declarations of the same bare name, e.g. how global.prog's files each contribute to the same base String/Array/etc.
+		# A plain, untagged declaration (`String { ... }`) -- reopens/extends the same shared Type object across multiple declarations of the same bare name, e.g. how global.code's files each contribute to the same base String/Array/etc.
 		def interp_bare_type_declaration expr
 			existing = stack.last.has?(expr.name) && stack.last[expr.name]
 			# Prog::Struct < Instance < Type, so a plain `existing.is_a?(Prog::Type)` check also matches a Bare
@@ -2758,7 +2758,7 @@ module Backend
 			"#{scope.name}#{Prog::TAG_OPERATOR}#{qualifier}"
 		end
 
-		# Makes `.tag` readable via Backend dot-access on a Type, Instance, or type reference, and marks it static so it's also readable straight off a bare Type (not just an instance). Only adds the declaration when this particular one actually has a tag, so plain untagged types don't pick up a stray `tag` member. Also refreshes `.display_name` (see Type#initialize) to fold the tag into the type's own displayable name, so a consumer like backend/member.prog's `to_s` never needs to know `.tag` exists at all.
+		# Makes `.tag` readable via Backend dot-access on a Type, Instance, or type reference, and marks it static so it's also readable straight off a bare Type (not just an instance). Only adds the declaration when this particular one actually has a tag, so plain untagged types don't pick up a stray `tag` member. Also refreshes `.display_name` (see Type#initialize) to fold the tag into the type's own displayable name, so a consumer like backend/member.code's `to_s` never needs to know `.tag` exists at all.
 		def declare_tag scope
 			return unless scope.tag_instance
 
@@ -3371,7 +3371,7 @@ module Backend
 			# own value, so `@puts`ing a fence printed an object dump instead of its text. Interpret it
 			# first, same as any other String_Expr, to get the real Ruby string.
 			#
-			# `Fence | String {}` (backend/fence.prog, loaded by backend/global.prog) is the real declared
+			# `Fence | String {}` (backend/fence.code, loaded by backend/global.code) is the real declared
 			# Backend-level type for this -- link to it, not 'String' directly, mirroring Prog::Fence <
 			# Prog::String on the Ruby side. Without linking to *some* declared type here, #stringify_
 			# for_display's `to_s`/`to_string` lookup finds nothing and falls back to returning the
@@ -3582,7 +3582,7 @@ module Backend
 				collection.value.chars
 
 			when Prog::Struct
-				# `@.members` (an `Prog::Array` of `Prog::Member`, the `@members` ivar) is only populated when the opt-in `backend/struct.prog` layer is loaded (see #build_struct) -- a bare Struct with no matching declared `Struct` type has nothing to iterate.
+				# `@.members` (an `Prog::Array` of `Prog::Member`, the `@members` ivar) is only populated when the opt-in `backend/struct.code` layer is loaded (see #build_struct) -- a bare Struct with no matching declared `Struct` type has nothing to iterate.
 				collection.members&.values || []
 
 			else
@@ -4005,7 +4005,7 @@ module Backend
 			adopt_type Prog::Array.new(list), 'Array'
 		end
 
-		# What a variadic param binds -- a Prog::Array linked to the `Arguments` type (see backend/array.prog).
+		# What a variadic param binds -- a Prog::Array linked to the `Arguments` type (see backend/array.code).
 		def wrap_arguments_array list
 			adopt_type Prog::Array.new(list), 'Arguments'
 		end
@@ -4165,7 +4165,7 @@ module Backend
 			raise Prog::Undeclared_Tagged_Type.new(expr)
 		end
 
-		# A value built directly from a string literal gets wrapped into a real Prog::String carrying the literal's own `quotation_style`, instead of staying the bare Ruby string #interp_string normally returns. Struct/Member's to_s(;) (backend/member.prog) and Array/Dictionary/Tuple's to_s(;) (backend/array.prog, backend/dictionary.prog, backend/global.prog) read `.quotation_style` straight off the value to decide how to quote it for display.
+		# A value built directly from a string literal gets wrapped into a real Prog::String carrying the literal's own `quotation_style`, instead of staying the bare Ruby string #interp_string normally returns. Struct/Member's to_s(;) (backend/member.code) and Array/Dictionary/Tuple's to_s(;) (backend/array.code, backend/dictionary.code, backend/global.code) read `.quotation_style` straight off the value to decide how to quote it for display.
 		def wrap_string_literal_value source_expr, value
 			return value unless source_expr.is_a?(Prog::String_Expr) && value.is_a?(::String)
 			finish_intrinsic_instance Prog::String.new(value, source_expr.quotation_style), 'String'
@@ -4188,7 +4188,7 @@ module Backend
 			run_type_body_on_instance struct_type, struct
 
 			# `@.members` -- Prog::Member instances, one per member, when the `Member`/`Struct` prog layer
-			# is loaded (`backend/struct.prog`). The plain quartet (`@names`/`@type_names`/`@type_objects`/
+			# is loaded (`backend/struct.code`). The plain quartet (`@names`/`@type_names`/`@type_objects`/
 			# `@values`) is already on the struct from Struct#initialize.
 			member_type = find_in_stack 'Member'
 			if member_type.is_a?(Prog::Type)

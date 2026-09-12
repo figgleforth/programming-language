@@ -356,7 +356,7 @@ class Regression_Test < Base_Test
 
 		assert_raises Prog::Database_Not_Set_For_Table_Instance do
 			Backend.interp <<~CODE
-			    @load 'frontend/table.prog'
+			    @load 'frontend/table.code'
 
 			    Table().find(1)
 			CODE
@@ -408,10 +408,10 @@ class Regression_Test < Base_Test
 		assert_equal '1..5',    Backend.interp('(1..5).to_s()')
 	end
 
-	# Regression: types loaded via `variable = @load 'file.prog'` were missing enclosing_scope in interp_type
+	# Regression: types loaded via `variable = @load 'file.code'` were missing enclosing_scope in interp_type
 	def test_use_with_variable_can_reference_sibling_types
 		out = Backend.interp <<~CODE
-		    lib := @load 'tests/fixtures/use_with_variable_sibling_types.prog'
+		    lib := @load 'tests/fixtures/use_with_variable_sibling_types.code'
 		    m := lib.Main_Type()
 		    m.get_sibling_value()
 		CODE
@@ -421,7 +421,7 @@ class Regression_Test < Base_Test
 	# Regression: sibling types should also be accessible from within functions (not just type body)
 	def test_use_with_variable_can_reference_sibling_types_in_function
 		out = Backend.interp <<~CODE
-		    lib := @load 'tests/fixtures/use_with_variable_sibling_types.prog'
+		    lib := @load 'tests/fixtures/use_with_variable_sibling_types.code'
 		    m := lib.Main_Type()
 		    m.create_sibling_in_func()
 		CODE
@@ -435,8 +435,8 @@ class Regression_Test < Base_Test
 	def test_double_load_into_same_scope_only_runs_once
 		out = Backend.interp <<~CODE
 		    counter := 0
-		    @load 'tests/fixtures/increment_counter.prog'
-		    @load 'tests/fixtures/increment_counter.prog'
+		    @load 'tests/fixtures/increment_counter.code'
+		    @load 'tests/fixtures/increment_counter.code'
 		CODE
 		# 1, not 2 -- the second @load must not re-run the file (which would increment `counter` again).
 		# 1, not nil -- the second @load's own result must still be what the file produced, not nil, even
@@ -647,7 +647,7 @@ class Regression_Test < Base_Test
 
 	def test_calling_a_bare_struct_literal_constructs_an_instance_regression
 		out = Backend.interp <<~CODE
-		    @load 'frontend/struct.prog'
+		    @load 'frontend/struct.code'
 		    s := <name: String, age: Number>('Alice', 30)
 		    s.@members.0.value.value
 		CODE
@@ -878,7 +878,7 @@ class Regression_Test < Base_Test
 
 	def test_comparing_two_type_objects_does_not_dispatch_instance_operator_overload_regression
 		out = Backend.interp <<~CODE
-		    @load 'frontend/struct.prog'
+		    @load 'frontend/struct.code'
 		    a := Member('id', nil, String)
 		    b := Member('id', nil, String)
 		    a == b
@@ -886,7 +886,7 @@ class Regression_Test < Base_Test
 		assert_equal true, out
 
 		out = Backend.interp <<~CODE
-		    @load 'frontend/struct.prog'
+		    @load 'frontend/struct.code'
 		    sa := <name: String, age: Number>('Alice', 30)
 		    sb := <name: String, age: Number>('Alice', 30)
 		    sc := <name: String, age: Number>('Alice', 99)
@@ -896,7 +896,7 @@ class Regression_Test < Base_Test
 	end
 
 	def test_compound_assignment_on_dot_member_target_regression
-		# `instance.member += value` used to silently no-op: #interp_compound_infix resolved its assignment target via #scope_for_identifier, which only understands plain Identifier_Exprs -- a dot-target fell through to `stack.last` and declared a bogus `nil`-named identifier there instead of touching the actual member. Found via examples/aoc/2015/3b.prog computing the wrong answer (Vec2 members mutated with `+=` inside nested if/elif never actually moved).
+		# `instance.member += value` used to silently no-op: #interp_compound_infix resolved its assignment target via #scope_for_identifier, which only understands plain Identifier_Exprs -- a dot-target fell through to `stack.last` and declared a bogus `nil`-named identifier there instead of touching the actual member. Found via examples/aoc/2015/3b.code computing the wrong answer (Vec2 members mutated with `+=` inside nested if/elif never actually moved).
 		out = Backend.interp <<~CODE
 		    Vec2 {
 		        x,
@@ -1057,7 +1057,7 @@ class Regression_Test < Base_Test
 
 		assert_equal '@Global', Backend.interp('@.to_s()')
 
-		# Only the members declared in backend/context.prog show -- not the short-alias function stand-ins
+		# Only the members declared in backend/context.code show -- not the short-alias function stand-ins
 		# (`add_readable`, `readable`, ...) that #fill_context also puts on the instance.
 		refute_includes dump, 'readable: Any'
 		refute_includes dump, 'add_readable:'

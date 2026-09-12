@@ -22,8 +22,8 @@ class Advent_Of_Code_Test < Base_Test
 
 	SOLVED.each do |day|
 		define_method "test_2015_#{day}" do
-			assert Backend.interp_file("examples/aoc/2015/#{day}.prog"),
-			       "examples/aoc/2015/#{day}.prog did not return a truthy answer check"
+			assert Backend.interp_file("examples/aoc/2015/#{day}.code"),
+			       "examples/aoc/2015/#{day}.code did not return a truthy answer check"
 		end
 	end
 

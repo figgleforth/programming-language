@@ -1,6 +1,6 @@
 # Implemented by Claude
 #
-# Same surface as frontend/raylib.prog, backed by backend/proxies/raylib_ffi.rb instead -- a hand-rolled
+# Same surface as frontend/raylib.code, backed by backend/proxies/raylib_ffi.rb instead -- a hand-rolled
 # FFI binding straight against the system-installed `libraylib` (plain `ffi` gem, `attach_function`
 # per C function) rather than the `raylib-bindings` gem. Two examples of binding an external library,
 # side by side. Not part of the standard library -- opt in with `@load 'frontend/raylib_ffi'`. Requires

@@ -58,7 +58,7 @@ Member {
 	)
 
 	@operator == @infix ( left: Member, right;
-		# `right: Member` isn't runtime-enforced -- `.?name`/`.?type`/`.?value` (rather than bare `.`) keep this from raising when `right` isn't Member-shaped at all (e.g. `!=` derives from `==` when a type has no `!=` of its own, see interp_infix), same fix as backend/string.prog's own `==`.
+		# `right: Member` isn't runtime-enforced -- `.?name`/`.?type`/`.?value` (rather than bare `.`) keep this from raising when `right` isn't Member-shaped at all (e.g. `!=` derives from `==` when a type has no `!=` of its own, see interp_infix), same fix as backend/string.code's own `==`.
 		left.name == right.?name and left.type == right.?type and left.value == right.?value
 	)
 }

@@ -1,6 +1,6 @@
 module Backend
-	# Runs a `.prog` entry file and, if it starts a server, keeps the process alive and re-runs the
-	# whole file whenever any watched `.prog` changes on prog. Each cycle is a brand-new Interpreter
+	# Runs a `.code` entry file and, if it starts a server, keeps the process alive and re-runs the
+	# whole file whenever any watched `.code` changes on prog. Each cycle is a brand-new Interpreter
 	# (all instance state reset for free) plus a drop of the class-level lex/parse caches -- no
 	# partial state to reconcile. The server's port is reused across reloads.
 	#
@@ -66,7 +66,7 @@ module Backend
 			interpreter.servers.each do |server|
 				puts "Backend server `#{server.name}` on http://localhost:#{server.port}"
 			end
-			puts Prog::Ascii.dim 'watching .prog files — ^C to stop (browser auto-refreshes on save)'
+			puts Prog::Ascii.dim 'watching .code files — ^C to stop (browser auto-refreshes on save)'
 		end
 
 		def report_error error
@@ -86,13 +86,13 @@ module Backend
 		def start_watching
 			return if @listener
 			require 'listen'
-			@listener = Listen.to(*watch_dirs, only: /\.prog\z/) do |modified, added, removed|
+			@listener = Listen.to(*watch_dirs, only: /\.code\z/) do |modified, added, removed|
 				@events << [:change] unless (modified + added + removed).empty?
 			end
 			@listener.start
 		end
 
-		# The stdlib dir (the user edits `backend/*.prog` too) plus the entry file's own dir when that
+		# The stdlib dir (the user edits `backend/*.code` too) plus the entry file's own dir when that
 		# sits outside it. Listen watches recursively.
 		def watch_dirs
 			prog_dir  = File.join(Backend::ROOT_PATH, 'frontend')

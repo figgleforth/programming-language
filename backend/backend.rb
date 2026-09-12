@@ -15,7 +15,7 @@ require_relative 'shared/error_formatter'
 require_relative 'shared/documenter'
 
 # proxies/ is the Prog vocabulary: the AST, the scopes, the errors, and the Ruby class behind
-# each built-in .prog type. Base types first -- the value types subclass Instance from scopes.
+# each built-in .code type. Base types first -- the value types subclass Instance from scopes.
 require_relative 'proxies/errors'
 require_relative 'proxies/lexeme'
 require_relative 'proxies/expressions'
@@ -55,7 +55,7 @@ require_relative 'cli'
 
 module Backend
 	ROOT_PATH             = ::File.expand_path('../', __dir__)
-	STANDARD_LIBRARY_PATH = ::File.join(ROOT_PATH, 'frontend', 'global.prog')
+	STANDARD_LIBRARY_PATH = ::File.join(ROOT_PATH, 'frontend', 'global.code')
 
 	extend Helpers
 

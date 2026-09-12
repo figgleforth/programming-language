@@ -2,14 +2,14 @@ require 'minitest/autorun'
 require_relative '../backend/backend'
 require_relative 'base_test'
 
-# `backend/context.prog` is the human-readable mirror of Prog::Context::MEMBERS (see the note there).
+# `backend/context.code` is the human-readable mirror of Prog::Context::MEMBERS (see the note there).
 # The two drift apart the moment someone adds a member to one and forgets the other -- exactly the
 # bug that shipped `splatr`/`splatw` half-wired. Keep them locked together.
 class Context_Test < Base_Test
 	def context_prog_member_names
-		path   = File.join(Backend::ROOT_PATH, 'frontend', 'context.prog')
+		path   = File.join(Backend::ROOT_PATH, 'frontend', 'context.code')
 		struct = Backend.parse_file(path).find { |expr| expr.is_a?(Prog::Struct_Expr) }
-		refute_nil struct, 'expected a `Context <...>` struct declaration in backend/context.prog'
+		refute_nil struct, 'expected a `Context <...>` struct declaration in backend/context.code'
 		struct.names.compact
 	end
 

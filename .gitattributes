@@ -1,1 +1,1 @@
-*.prog linguist-language=Crystal linguist-detectable=true
+*.code linguist-language=Crystal linguist-detectable=true

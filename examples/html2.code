@@ -1,8 +1,8 @@
 ### Introduction
 
-`backend/html2.prog` isn't loaded by default -- it needs an explicit `@load`. Same spirit as `backend/css.prog` (`examples/css.prog`): markup is one plain struct (`Element`), and a single `Html_Formatter_Visitor` walks whatever tree you built and turns it into an HTML string. This coexists with `backend/html.prog` (`examples/html.prog`) -- a Div/P/H1/... per-tag Type with `html_*`/`css_*` declarations -- rather than replacing it; this one only builds a string, it doesn't hook into the server's live-render pipeline.
+`backend/html2.code` isn't loaded by default -- it needs an explicit `@load`. Same spirit as `backend/css.code` (`examples/css.code`): markup is one plain struct (`Element`), and a single `Html_Formatter_Visitor` walks whatever tree you built and turns it into an HTML string. This coexists with `backend/html.code` (`examples/html.code`) -- a Div/P/H1/... per-tag Type with `html_*`/`css_*` declarations -- rather than replacing it; this one only builds a string, it doesn't hook into the server's live-render pipeline.
 ###
-@load 'frontend/html2.prog'
+@load 'frontend/html2.code'
 
 page := div([h1('Welcome to the beach'), p('Found supplies')])
 @assert Html_Render.render(page) == '<div><h1>Welcome to the beach</h1><p>Found supplies</p></div>', 'Html_Render (compact) should render the tree as one unbroken string'
@@ -34,12 +34,12 @@ labeled := h1('Do not drink the water', [Attribute('id', 'warning'), Attribute('
 
 ### css attaches a real Style_Rule tree, rendered as an embedded <style>
 
-The third constructor argument, `css`, takes any css.prog struct (`examples/css.prog`) -- not a Dictionary of inline properties. Wherever it's attached, the formatter renders it as one more child: an embedded `<style>` block, right there in the tree:
+The third constructor argument, `css`, takes any css.code struct (`examples/css.code`) -- not a Dictionary of inline properties. Wherever it's attached, the formatter renders it as one more child: an embedded `<style>` block, right there in the tree:
 ###
-@load 'frontend/css.prog'
+@load 'frontend/css.code'
 
 styled := div('Found supplies', [], Style_Rule(['.box'], [Property('color', 'red')]))
-@assert Html_Render.render(styled) == '<div>Found supplies<style>.box{color:red;}</style></div>', 'a css.prog rule attached via css should render as an embedded <style> child'
+@assert Html_Render.render(styled) == '<div>Found supplies<style>.box{color:red;}</style></div>', 'a css.code rule attached via css should render as an embedded <style> child'
 
 
 ### Html_Stats_Visitor

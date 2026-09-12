@@ -2,10 +2,10 @@ require 'minitest/autorun'
 require_relative '../backend/backend'
 require_relative 'base_test'
 
-# backend/css.prog: the AST node structs, Css_Formatter_Visitor (format + minify), and
+# backend/css.code: the AST node structs, Css_Formatter_Visitor (format + minify), and
 # Css_Lint_Visitor (duplicate properties, vendor prefixes, redundant zero-units).
 class Css_Test < Base_Test
-	CSS = "@load 'frontend/css.prog'"
+	CSS = "@load 'frontend/css.code'"
 
 	# --- Css_Formatter_Visitor -------------------------------------------------
 
@@ -158,7 +158,7 @@ class Css_Test < Base_Test
 	end
 
 	# The shorthand branch (`node.hex.has_all_same_characters?()` true) relies on String positional
-	# dot-index (`node.hex.0`) -- regression coverage from the css.prog side, now that #interp_dot_string
+	# dot-index (`node.hex.0`) -- regression coverage from the css.code side, now that #interp_dot_string
 	# makes `.N` on a String work (see test/interpreter_test.rb for the interpreter-level tests).
 	def test_format_color_single_repeated_character_shorthand
 		out = Backend.interp "#{CSS}\nCss_Formatter_Visitor().format(Color('f'))"

@@ -54,7 +54,7 @@ Integer | Number {}
 Float | Number {}
 Decimal | Number {}
 
-# Short aliases -- Ruby has no equivalent, but the temporal structs (backend/date.prog etc) and DB
+# Short aliases -- Ruby has no equivalent, but the temporal structs (backend/date.code etc) and DB
 # schema columns lean on the brevity. `Int` is-a `Integer` is-a `Number`.
 Int := Integer
 Flo := Float

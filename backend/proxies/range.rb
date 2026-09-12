@@ -26,7 +26,7 @@ module Prog
 		proxy :min
 		proxy :max
 		proxy :sum
-		proxy :cover?, as: :include? # `covers?` is a prog-level alias (backend/range.prog)
+		proxy :cover?, as: :include? # `covers?` is a prog-level alias (backend/range.code)
 
 		# A fresh Array of every element.
 		def proxy_values

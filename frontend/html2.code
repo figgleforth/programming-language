@@ -1,8 +1,8 @@
-# Struct-and-render take on backend/html.prog, same spirit as backend/css.prog: markup is plain,
+# Struct-and-render take on backend/html.code, same spirit as backend/css.code: markup is plain,
 # immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag
 # Type, no `| Dom` composition, no method-override polymorphism. The two coexist; this one doesn't
 # hook into the server-side rendering pipeline (route responses, onclick wiring, dom.js) the way
-# backend/html.prog's Dom types do -- it only builds an HTML string.
+# backend/html.code's Dom types do -- it only builds an HTML string.
 
 @load 'frontend/visitor'
 @load 'frontend/css'
@@ -11,24 +11,24 @@
 # 1. The one node shape
 # -----------------------------------------------------------------------------
 
-# One HTML attribute -- mirrors css.prog's `Property <name, value>` exactly, same reason: a plain
+# One HTML attribute -- mirrors css.code's `Property <name, value>` exactly, same reason: a plain
 # name/value struct instead of a Dictionary entry, so attributes list/reorder/duplicate the same way
 # css declarations do (see Html_Lint_Visitor's duplicate-attribute check below, impossible on a
 # Dictionary but a real risk now that attributes are an ordered Array).
 Attribute <name: String, value: Any>
 
 # `children` holds a mix of Element structs and plain Strings (text nodes) -- Html_Renderer tells
-# them apart by `=== Element`, same as css.prog's visitors tell rule kinds apart by `=== Style_Rule`.
+# them apart by `=== Element`, same as css.code's visitors tell rule kinds apart by `=== Style_Rule`.
 # `attributes` is an ordered Array\Attribute, not a Dictionary -- same reasoning as `css` below: build
-# it with the same struct-literal style css.prog declarations already use (`Attribute("class", "card")`).
-# `css` is a real css.prog rule tree (`Css`'s own union -- Style_Css/At_Css/Scope_Css/...), not a
+# it with the same struct-literal style css.code declarations already use (`Attribute("class", "card")`).
+# `css` is a real css.code rule tree (`Css`'s own union -- Style_Css/At_Css/Scope_Css/...), not a
 # flat Dictionary of properties -- see Html_Formatter_Visitor#render_element, which renders it as an
 # embedded <style> child wherever it's attached, so `@scope`-based rules work the way you'd expect.
 Element <tag: String, attributes: Array\Attribute = [], css: Css = nil, children: Array = []>
 
 # -----------------------------------------------------------------------------
 # 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as
-#	 backend/css.prog's Css_Formatter_Visitor)
+#	 backend/css.code's Css_Formatter_Visitor)
 # -----------------------------------------------------------------------------
 
 Html_Formatter_Visitor {
@@ -36,7 +36,7 @@ Html_Formatter_Visitor {
 	indent_size := DEFAULT_INDENT
 	minify := false
 
-	# Never given a closing tag, regardless of mode -- matches how backend/html.prog's own generic
+	# Never given a closing tag, regardless of mode -- matches how backend/html.code's own generic
 	# Dom#to_s already never self-closes anything either (no new inconsistency introduced there),
 	# it just means these never emit an *empty* `</tag>` at all, in either mode.
 	VOID_TAGS := %string(area base br col command embed hr img input keygen link meta param source track wbr)
@@ -86,7 +86,7 @@ Html_Formatter_Visitor {
 			"<`el.tag``attrs`>`inner`</`el.tag`>"
 		elif el.tag == "style" and full_children.length() == 1 and !(full_children.0 === Element)
 			# An embedded stylesheet -- block layout, its formatted CSS indented one level past the tag.
-			# The lone child is either already-formatted CSS text or a raw css.prog node to format now.
+			# The lone child is either already-formatted CSS text or a raw css.code node to format now.
 			css_text := if full_children.0 === String
 				full_children.0
 			else
@@ -275,8 +275,8 @@ Html_Lint_Visitor | Warnings_Visitor {
 }
 
 # -----------------------------------------------------------------------------
-# 3. Element constructors (recovers the ergonomics backend/html.prog gets from per-tag Types)
-# note; lowercase, not capitalized like backend/html.prog's Div/Title/etc -- these are ordinary
+# 3. Element constructors (recovers the ergonomics backend/html.code gets from per-tag Types)
+# note; lowercase, not capitalized like backend/html.code's Div/Title/etc -- these are ordinary
 # functions, and a capitalized name before `(` routes to type-reference parsing instead of a
 # function declaration (found the hard way writing this file).
 # -----------------------------------------------------------------------------

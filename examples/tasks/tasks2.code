@@ -1,7 +1,7 @@
-# Second version of tasks.prog: identical functionality, built on backend/css.prog + backend/html2.prog
-# (struct-and-visitor) instead of backend/html.prog's Dom types. One real, unavoidable difference:
-# backend/html2.prog deliberately doesn't hook into the server-side live-render pipeline (onclick
-# wiring, dom.js, X-Backend-Target-Id partial updates) the way backend/html.prog's Dom does -- it only
+# Second version of tasks.code: identical functionality, built on backend/css.code + backend/html2.code
+# (struct-and-visitor) instead of backend/html.code's Dom types. One real, unavoidable difference:
+# backend/html2.code deliberately doesn't hook into the server-side live-render pipeline (onclick
+# wiring, dom.js, X-Backend-Target-Id partial updates) the way backend/html.code's Dom does -- it only
 # builds an HTML string (see its own header comment). So every "click a button, something changes"
 # interaction here is a plain HTML form POST + redirect instead of an onclick handler -- same
 # capabilities (add a task, toggle done, edit type/text, see it reflected), just a full page
@@ -24,7 +24,7 @@ Task <
 >
 
 # -----------------------------------------------------------------------------
-# Page-wide styling -- real css.prog structs, attached to each page's <body> via its `css` param
+# Page-wide styling -- real css.code structs, attached to each page's <body> via its `css` param
 # (rather than an inline `style=` attribute) since that's the whole point of the new mechanism.
 # -----------------------------------------------------------------------------
 
@@ -36,7 +36,7 @@ INVERT_FILTER := Style_Rule(["body"], [Property("filter", "invert()")])
 
 # `Option` has no way to omit `selected` other than not including the attribute at all -- a boolean
 # HTML attribute is "on" just by being present, regardless of its value, so a stray
-# `selected="false"` would still mark that option selected. Mirrors backend/html.prog's own
+# `selected="false"` would still mark that option selected. Mirrors backend/html.code's own
 # Task_Type_Option, just built from a plain Array\Attribute instead of a composed Dom type.
 # note; the single-line `if COND [...] else [...] end` form parses `COND[...]` as a subscript into
 # COND, always -- even with parens around COND (bugs.md) -- so this needs the block form instead.

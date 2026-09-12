@@ -1,8 +1,8 @@
 ### Introduction
 
-`backend/server.prog` isn't loaded by default -- it needs an explicit `@load`. Compose a type with `Server` and give it a `port`; a route is a lowercase HTTP method followed by `://` and a path, and its body runs on every request to that path.
+`backend/server.code` isn't loaded by default -- it needs an explicit `@load`. Compose a type with `Server` and give it a `port`; a route is a lowercase HTTP method followed by `://` and a path, and its body runs on every request to that path.
 ###
-@load 'frontend/server.prog'
+@load 'frontend/server.code'
 
 Camp | Server {
 	Self (;
@@ -73,7 +73,7 @@ camp := Camp()
 
 ### Hot reload
 
-Run a server file with `bin/prog <file>` and it keeps watching. Editing that file, or any `.prog` it loads, tears the server down, re-runs the whole program, and restarts it on the same port -- just refresh the page. Ctrl+C stops it. There is nothing to enable; it is how `bin/prog` runs any file that starts a server.
+Run a server file with `bin/prog <file>` and it keeps watching. Editing that file, or any `.code` it loads, tears the server down, re-runs the whole program, and restarts it on the same port -- just refresh the page. Ctrl+C stops it. There is nothing to enable; it is how `bin/prog` runs any file that starts a server.
 ###
 
 

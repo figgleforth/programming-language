@@ -3,7 +3,7 @@
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 
-![The icon I use for .prog files](assets/icon@2x.svg)
+![The icon I use for .code files](assets/icon@2x.svg)
 
 Learn about the language below, or [in the learn section](examples/readme.md), or *[click here to get started using it](getting_started.md)*.
 
@@ -14,7 +14,7 @@ Learn about the language below, or [in the learn section](examples/readme.md), o
 1. Must start with a lowercase letter or `_`.
 2. Can end with `!` or `?`
 
-```prog
+```code
 nothing := nil
 something: Number = 123
 _private_thing := "Yes"
@@ -30,7 +30,7 @@ tested? := false
 5. The last expression is the return value
 6. Return early using `return` keyword
 
-```prog
+```code
 # func_name ( [args]; [body] )
 
 func_with_args ( arg1, arg2 := 1, etc := true;
@@ -57,7 +57,7 @@ _privately_do ( x, y, z; )
 
 **Labels** — a param declared as two identifiers in a row (`label name`) can be called `label: value`. Matches by position, never reorders. Opt-in per call; wrong label raises `Argument_Label_Mismatch`.
 
-```prog
+```code
 send_message ( to person, saying text;
     "To `person`: `text`"
 )
@@ -68,7 +68,7 @@ send_message('Sayid', 'Meet at the caves')
 
 **Named arguments** — `name := value` at a call site binds by the callee's declared param name, order-independent. Positional args (bare or labeled) must come first; once you name one, the rest must be named too.
 
-```prog
+```code
 sub ( a, b; a - b )
 
 sub(a := 1, b := 2)   # -1
@@ -83,7 +83,7 @@ sub(1, b := 2)        # -1 positional then named is fine
 
 **Struct-typed params** — `: <...>` instead of a plain type name checks *structurally*, not by name: any argument that has each listed member, with a compatible type, is accepted. `Any` matches any member type. Checked on every call, raising `Type_Contract_Violation` on a mismatch.
 
-```prog
+```code
 f ( right: <name: String, type: Any, value: Any>; right.name )
 
 m := Member('x', String, 4)
@@ -95,7 +95,7 @@ f(nil)   # raises Type_Contract_Violation
 
 A named function is registered in its enclosing scope as it's declared, so it can call itself.
 
-```prog
+```code
 factorial ( n;
     if n == 0 or n == 1
         1
@@ -135,7 +135,7 @@ end
 
 Calling a function, or referencing a type, works even before its own declaration is reached in the file — including mutual recursion between two functions declared in either order.
 
-```prog
+```code
 result := main()   # `main` hasn't been declared yet, but this still works
 
 main (; helper() )
@@ -144,7 +144,7 @@ helper (; 42 )
 result  # 42
 ```
 
-```prog
+```code
 is_even ( n;
     if n == 0
         true
@@ -166,7 +166,7 @@ is_even(4)  # true
 
 A class-styled alias (`This := That {}`) hoists the same way, since it's declaring a type just spelled through an assignment:
 
-```prog
+```code
 p := This()
 
 This := That {}
@@ -177,27 +177,27 @@ p.greet()  # 'hi'
 
 A bare `@load` hoists too, so imports can live at the bottom of the file instead of the top:
 
-```prog
+```code
 sign := Div([P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-@load 'frontend/html.prog'
+@load 'frontend/html.code'
 ```
 
 `Ident := @load 'file'` / `IDENT := @load 'file'` work the same way — only a Capitalized or UPPERCASE left-hand name opts in, since that's what marks it as a namespace rather than an ordinary variable:
 
-```prog
+```code
 sign := Html_Lib.Div([Html_Lib.P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-Html_Lib := @load 'frontend/html.prog'
+Html_Lib := @load 'frontend/html.code'
 
-# html_lib := @load 'frontend/html.prog'   -- lowercase stays a plain variable, not hoisted
+# html_lib := @load 'frontend/html.code'   -- lowercase stays a plain variable, not hoisted
 ```
 
 Plain variable assignments are never hoisted this way — reading one before its own line has actually run still raises `Undeclared_Identifier`, same as any language with top-to-bottom execution:
 
-```prog
+```code
 @puts "`a`"   # raises Undeclared_Identifier
 a := 123
 ```
@@ -207,7 +207,7 @@ a := 123
 1. Must start with an uppercase character
 2. Can have an initializer `Self`
 
-```prog
+```code
 My_Class {
     input,
     
@@ -225,7 +225,7 @@ instance := My_Class('some input')  # Initted with "some input"
 1. Must be UPPERCASE
 2. Cannot be reassigned after initial declaration
 
-```prog
+```code
 PI := 3.14159
 MAX_SIZE := 100
 APP_NAME := 'My App'
@@ -233,7 +233,7 @@ APP_NAME := 'My App'
 
 ## Comments
 
-```prog
+```code
 # This is a single-line comment
 # Stack a few of these for a multi-line comment
 
@@ -256,7 +256,7 @@ still inside the outer comment
 1. Use backticks inside strings to interpolate expressions
 2. Escape with backslash to prevent interpolation
 
-```prog
+```code
 name := 'World'
 greeting := "Hello, `name`!"  # "Hello, World!"
 math := "2 + 2 = `2 + 2`"    # "2 + 2 = 4"
@@ -271,7 +271,7 @@ escaped := "Literal \`backticks\`"
 2. `Self` — the current type only (where statics live)
 3. `Global` — the global scope only
 
-```prog
+```code
 My_Class {
     Self.count := 0   # Type-level (static) variable
     value,
@@ -293,7 +293,7 @@ My_Class {
 2. Shared across all instances
 3. Accessed on the type itself: `Type.member`
 
-```prog
+```code
 Counter {
     Self.count := 0
 
@@ -320,7 +320,7 @@ Counter.count  # 2
 
 These four meanings only apply to an actual `Type | Other { }` composition. A `: Type` annotation (`x: Int | Nil`) reuses the same four symbols to mean plain OR, whichever one is written — see [Runtime Type Contracts](#runtime-type-contracts).
 
-```prog
+```code
 Movable {
     x := 0
     y := 0
@@ -347,7 +347,7 @@ s.draw()
 
 Composition chains, so `~` can remove a trait that was mixed in earlier in the same chain:
 
-```prog
+```code
 Flying { can_fly := true }
 Swimming { can_swim := true }
 
@@ -364,7 +364,7 @@ o.can_fly     # raises Prog::Undeclared_Identifier
 
 A type can even compose with itself, to extend or override a built-in type's own behavior:
 
-```prog
+```code
 Array | Array {
     each ( func;
         for self.values   # self.values reaches the original Array's own values, despite `each` itself now being redefined
@@ -383,7 +383,7 @@ doubled  # [2, 4, 6]
 
 A [struct](#structs) value works as a composition operand too — its named members compose in as ordinary members:
 
-```prog
+```code
 p := <a := 5, b := 'x'>
 
 Combined | p {
@@ -400,7 +400,7 @@ c.foo()   # 5
 
 In a chain, the *leftmost* operand that declares a given member wins a name collision — including `Self`, the constructor:
 
-```prog
+```code
 A { Self (; self.label := 'A' ) }
 B { Self (; self.label := 'B' ) }
 
@@ -414,7 +414,7 @@ A type's own `{}` body always wins over anything pulled in by composition, no ma
 
 There are two ways to give a type a second name, and they behave differently under the [type comparison operators](#comparison):
 
-```prog
+```code
 Whole | Integer {}    # subtype — Whole is a NEW type that composes Integer
 Int32 := Integer      # alias   — Int32 IS Integer, the same type object
 
@@ -435,7 +435,7 @@ Use `:=` when you just want a synonym (`Int := Integer` in the standard library)
 3. Can be used as inline modifiers
 4. Any value works as a condition -- truthiness follows Ruby's own rules: only `nil`/`false` are falsy, everything else (`0`/`0.0` included) is truthy
 
-```prog
+```code
 if x > 10
     'big'
 elif x > 5
@@ -459,7 +459,7 @@ end
 2. `until` loops until condition becomes true
 3. `elwhile` chains another loop when prior condition becomes false
 
-```prog
+```code
 i := 0
 while i < 5
     @puts i
@@ -490,7 +490,7 @@ end
 2. `it` is the current element
 3. `at` is the current index
 
-```prog
+```code
 for [1, 2, 3]
     @puts it      # Current element
     @puts at      # Current index
@@ -513,7 +513,7 @@ end
 3. `reject` filters where body is falsy
 4. `count` counts where body is truthy
 
-```prog
+```code
 doubled := for [1, 2, 3] map
     it * 2
 end  # [2, 4, 6]
@@ -537,7 +537,7 @@ end  # 3
 2. `stop` breaks out of loop
 3. `return` exits the function (propagates through loops)
 
-```prog
+```code
 for items
     skip if it.this     # Continue to next
     stop if it.that     # Break out
@@ -560,7 +560,7 @@ Every scope keeps two extra fallback places identifier lookup checks, after its 
 3. Both sets are held *weakly* — a splatted instance isn't kept alive; once nothing else refers to it it's collectible on its own, so `@unsplat` is only for cutting something off early, not for avoiding a leak.
 4. The standard library lives this way — `String`/`Array`/etc. are reachable through Global's own read-only splat, not declared on Global directly. Reassigning a built-in (`Array = Mine`) can't mutate the real one; it just shadows the name for the rest of your program.
 
-```prog
+```code
 Vector {
     x := 0
     y := 0
@@ -589,7 +589,7 @@ doubled := double(v)  # doubled.x: 6, doubled.y: 8
 @unsplat some_instance
 ```
 
-```prog
+```code
 # The standard library works the same way -- Array is reachable through
 # Global's own read-only splat, not declared on Global directly
 Mine | Array { extra := true }
@@ -600,7 +600,7 @@ Array = Mine          # shadows the name -- the real Array is untouched
 
 An unpacked instance stays visible to functions defined after the unpack, even nested ones:
 
-```prog
+```code
 Point {
     a := 0
     b := 0
@@ -630,7 +630,7 @@ outer()  # 65
 2. `@pop_scope <same target>` pops back to the previous scope — it asserts (by identity) that you're popping what you actually pushed, raising instead of popping the wrong thing
 3. Unlike a splat, `@push_scope` mutates its target — reopening a Type extends every instance of it, reopening a specific instance changes only that one
 
-```prog
+```code
 Button {
     label := 'default'
 }
@@ -655,7 +655,7 @@ c.onclick   # raises Prog::Undeclared_Identifier — only b was modified
 1. Created with `[]` brackets
 2. Access elements with subscript or dot notation
 
-```prog
+```code
 arr := [1, 2, 3, 4, 5]
 arr[0]              # 1
 arr.0               # 1 (dot notation)
@@ -679,7 +679,7 @@ arr.filter(x; x > 2)    # (equivalent to arr.filter((x; x > 2)))
 2. Keys can be symbols, strings, or identifiers
 3. Access with subscript `dict[:key]`
 
-```prog
+```code
 dict := {x: 10, y: 20}
 dict[:x]            # 10
 dict[:z] = 30       # Assignment
@@ -699,7 +699,7 @@ dict.fetch(:missing, 'default')
 1. An unordered collection of unique items -- no literal, build one with `Set(...)`
 2. Seed it from an array, a range, or another set
 
-```prog
+```code
 s := Set([1, 2, 2, 3])   # {1, 2, 3} -- dedups
 s.add(4)                  # mutating methods return self, so they chain
 s.include?(2)             # true
@@ -721,7 +721,7 @@ end
 
 ## Strings
 
-```prog
+```code
 s := 'Hello, World!'
 s.length            # 13
 s.0                 # 'H' (dot notation, indexes by character -- same as Array's own .0)
@@ -747,7 +747,7 @@ s.empty?()          # false
 4. Items split only on whitespace, not on punctuation — `1px` and `file.ext` each stay one item
 5. A `` `expr` `` item (see Statement Expressions below) is evaluated immediately, like string interpolation, and folded through the same casing treatment as everything else
 
-```prog
+```code
 %string(boo Hoo COOL)      # [boo, Hoo, COOL]
 %symbol(BOO hoo Cool)      # [:BOO, :hoo, :Cool]
 
@@ -776,7 +776,7 @@ cool := 2342
 4. `.memoize = true` caches the first call's result instead of re-running every time
 5. `.use_caller_scope = true` does the opposite of remembering -- resolves fresh against wherever `()` is actually called from
 
-```prog
+```code
 `1+2`()                    # 3 -- evaluated right away
 
 x := `1+2`
@@ -796,11 +796,11 @@ cached()                   # 4
 cached()                   # 4 -- didn't run again
 ```
 
-See `examples/statements.prog` for the full picture, including `.use_caller_scope`.
+See `examples/statements.code` for the full picture, including `.use_caller_scope`.
 
 ## Numbers
 
-```prog
+```code
 n := 42
 n.abs()             # Absolute value
 n.floor()           # Round down
@@ -817,7 +817,7 @@ n.clamp(0, 100)     # Clamp to range
 
 `Date`, `Time`, and `Date_Time` are always available -- no `@load`.
 
-```prog
+```code
 Date.today()                # today
 Date.parse('2020-03-15')
 Time.now()
@@ -848,7 +848,7 @@ Base is two dots `..`; the others add a `<` or `>` to trim an end. (`...` is not
 3. `>..` exclusive start
 4. `>..<` exclusive both
 
-```prog
+```code
 1..5    #   1, 2, 3, 4, 5    (inclusive)
 1..<5   #   1, 2, 3, 4       (exclusive end)
 1>..5   #      2, 3, 4, 5    (exclusive start)
@@ -861,7 +861,7 @@ end
 
 A range is a real value with its own methods:
 
-```prog
+```code
 r := 1..5
 r.start()          # 1
 r.finish()         # 5
@@ -878,7 +878,7 @@ x: Range = 1..5    # a `: Range` contract holds
 
 A range also works as an Array or String subscript — each operator keeps its own end/start rule, so `[1..3]` is one element longer than `[1..<3]`. Endless and beginless forms slice too; a negative endpoint counts from the end:
 
-```prog
+```code
 xs := [10, 20, 30, 40, 50]
 xs[1..3]     # [20, 30, 40]      inclusive
 xs[1..<3]    # [20, 30]          exclusive end
@@ -890,7 +890,7 @@ xs[..-1]     # [10, 20, 30, 40, 50]   -1 is the last index
 
 ## File & Dir
 
-```prog
+```code
 content := File.read('./file.txt')
 File.write_string_to_file('./out.txt', 'Hello!')
 File.list_directory('./src')          # sorted child names
@@ -910,7 +910,7 @@ Both are always loaded — no `@load`.
 
 `@` is the current scope's *context* — reflective facts about wherever it's written, plus a set of built-in functions. Every scope has one: Global, a Type, an instance, a function body. The functions live on one shared context; the facts are computed on demand against the scope you reach `@` from. There's no separate "directive" concept — `@word` is just `@.word`.
 
-```prog
+```code
 @ === Context      # true
 @.name             # 'Global' at the top level
 @.to_s()           # '@Global'
@@ -922,7 +922,7 @@ Both are always loaded — no `@load`.
 
 Read-only facts about the scope, computed live on every access — read `@.name` again after a retag and it reflects the change:
 
-```prog
+```code
 Flying { airborne := true }
 Duck | Flying {}
 
@@ -936,7 +936,7 @@ nil.@type               # 'Nil'
 
 Reflection lives on `@` only. Plain `.` is reserved for a scope's own members, so a struct member named `name` or `types` never collides with the reflective accessor of the same name:
 
-```prog
+```code
 Row <name: String, types: Number>
 r := Row('cooper', 3)
 
@@ -950,7 +950,7 @@ r.@names       # ['name', 'types']
 
 `@puts`, `@assert`, `@refute`, `@sleep`, `@load`, `@declare`, `@push_scope` / `@pop_scope`, `@connect`, `@start_server` / `@stop_server`, and the scope functions `@splat` / `@splatr` / `@unsplat` all live on the context. A bare `@puts` (no call) is the function itself, so it can be captured:
 
-```prog
+```code
 kept := @puts('logged')   # prints 'logged', returns it unchanged (a passthrough)
 p := @puts
 p('again')                # 'again'
@@ -960,7 +960,7 @@ p('again')                # 'again'
 
 Inside a `Type { }` body you can hang your own members off the type's context. They show up under `@`, never in plain `.` access, so they can't collide with the type's real members. A built-in name (`@name`, `@types`, ...) is reserved and raises.
 
-```prog
+```code
 Widget {
     @version := 2
     @author: String = 'me'
@@ -979,19 +979,19 @@ w.@version        # 2 — an instance reads through to its type's context
 2. A file is only run once per scope it's loaded into — loading the same file into the same scope again returns the first run's result instead of re-running it
 3. Imports may be scoped by assigning the @load to a variable
 
-```prog
-@load 'frontend/string.prog'
-@load 'frontend/array.prog'
-@load './my_module.prog'
-my_mod := @load './my_module.prog'
+```code
+@load 'frontend/string.code'
+@load 'frontend/array.code'
+@load './my_module.code'
+my_mod := @load './my_module.code'
 my_mod.Some_Type()
 
-@load './my_module.prog'   # already loaded into this scope -- returns the same result again, doesn't re-run
+@load './my_module.code'   # already loaded into this scope -- returns the same result again, doesn't re-run
 ```
 
 ## @puts
 
-```prog
+```code
 @puts 'Hello, World!'
 @puts variable
 @puts "Value: `expression`"
@@ -999,7 +999,7 @@ my_mod.Some_Type()
 
 `@puts` is a passthrough: it prints, then returns the original value unchanged, so it can sit inline anywhere an expression is expected:
 
-```prog
+```code
 double ( n; n * 2 )
 double(@puts 5)   # prints 5, returns 10 -- the call still gets the real 5
 ```
@@ -1008,7 +1008,7 @@ double(@puts 5)   # prints 5, returns 10 -- the call still gets the real 5
 
 Backend's built-in collection types each wrap their printed contents in a different bracket, so you can tell what you're looking at at a glance:
 
-```prog
+```code
 @puts [1, 2, 3]      # [1, 2, 3]      -- Array
 @puts (1, 2, 3)      # (1, 2, 3)      -- Tuple
 @puts {x: 1, y: 2}   # {x: 1, y: 2}   -- Dictionary
@@ -1017,7 +1017,7 @@ Backend's built-in collection types each wrap their printed contents in a differ
 
 A custom type prints as raw internals until it defines its own `to_s(;)` — see [Classes](#classes):
 
-```prog
+```code
 Point {
     x := 1
     greet (; 'hi' )
@@ -1033,7 +1033,7 @@ Nothing enforces a bracket convention for your own types, but picking one that d
 2. `@declare name` declares `nil`; `@declare name, value` and `@declare name, value, type` add a value and, optionally, a type
 3. Passed a Struct instead of a name, spreads every *named* member onto the current scope in one go — each member's own name, value, and declared type carry over directly
 
-```prog
+```code
 @declare 'flare_count'          # flare_count == nil
 @declare 'flare_count', 3       # flare_count == 3
 @declare 'ration', 2, Number    # same as `ration: Number = 2`
@@ -1048,8 +1048,8 @@ supplies := <water: Number = 40, wood: Number = 12>
 2. Define routes with HTTP method syntax
 3. Boot with `@start_server` (background thread; `@stop_server` to shut one down)
 
-```prog
-@load 'frontend/server.prog'
+```code
+@load 'frontend/server.code'
 
 App | Server {
     Self (;
@@ -1074,7 +1074,7 @@ App | Server {
 2. URL parameters with `:param` syntax
 3. Query params via `request.query`
 
-```prog
+```code
 App | Server {
     # Static route
     get://users (;
@@ -1101,7 +1101,7 @@ App | Server {
 
 ## Request & Response
 
-```prog
+```code
 post://login (;
     username := request.body[:username]
     password := request.body[:password]
@@ -1122,19 +1122,19 @@ get://api/data (;
 
 ## Database
 
-1. `@load 'frontend/database.prog'` -- this pulls in `backend/table.prog` too
+1. `@load 'frontend/database.code'` -- this pulls in `backend/table.code` too
 2. `Sqlite(url)` builds a database; `@connect` opens it and **returns it**
 3. `Sqlite.memory()` for an in-memory db, `Sqlite.local('name')` for `.temporary/name.db`
 
-```prog
-@load 'frontend/database.prog'
+```code
+@load 'frontend/database.code'
 
 db := @connect Sqlite('./data/app.db')
 ```
 
 A schema is a **named Struct** -- one member per column, its type deciding the column type. The table name comes from the struct's name (`User` -> `users`), so the struct has to be named.
 
-```prog
+```code
 User <
     id: Primary_Key
     name: String
@@ -1155,7 +1155,7 @@ Column types: `Primary_Key`, `String`/`Text`, `Int`, `Number`, `Bool`, `Date`, `
 
 `db.find_or_create_table(schema)` returns a `Table`. CRUD lives on that object -- no model composition, no statics.
 
-```prog
+```code
 users := db.find_or_create_table(User)
 
 cooper := users.create(<name := 'Cooper'>)   # attrs are a `:=`-member Struct
@@ -1176,13 +1176,13 @@ users.count()
 
 ## HTML Elements
 
-1. Compose with HTML element types from `backend/html.prog`
+1. Compose with HTML element types from `backend/html.code`
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
 4. `.to_s()` renders an element and its children to string directly
 
-```prog
-@load 'frontend/html.prog'
+```code
+@load 'frontend/html.code'
 
 Card | Div {
     css_padding := '1rem'
@@ -1213,13 +1213,13 @@ page := Html([
 
 ## CSS
 
-1. `@load 'frontend/css.prog'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
+1. `@load 'frontend/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
 2. `Css_Formatter_Visitor` walks a tree of those structs and turns it into a real CSS string -- pretty by default, `minify := true` for one line
 3. A rule nested inside another rule's own `rules` gets a synthesized `&` prefix (real CSS nesting); a rule merely sitting inside an `At_Rule`/`Scope_Rule` body does not, since there's no parent selector for `&` to refer to there
 4. `Css_Lint_Visitor` walks the same kind of tree checking for duplicate properties, hardcoded vendor prefixes, and redundant zero-units (`0px` -> `0`) instead of formatting it. Handed a whole `Stylesheet`, it also warns when a state rule (`.card:hover`, `:focus`, ...) sets `transform` while the base selector runs a keyframe `animation` that also animates `transform` — the running animation recomputes it every frame, so the hover value never shows
 
-```prog
-@load 'frontend/css.prog'
+```code
+@load 'frontend/css.code'
 
 rule := Style_Rule(['.card'], [Property('color', 'red'), Property('padding', '8px')])
 
@@ -1235,15 +1235,15 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 
 ## Struct-Based HTML
 
-1. `@load 'frontend/html2.prog'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `backend/html.prog`'s `Dom` types above rather than replacing them -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline (onclick wiring, `dom.js`)
+1. `@load 'frontend/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `backend/html.code`'s `Dom` types above rather than replacing them -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline (onclick wiring, `dom.js`)
 2. `attributes` is an ordered `Array\Attribute` (`Attribute(name, value)`, built the same way `Property` builds a CSS declaration) -- not a Dictionary, so attributes keep their given order and can even collide (see `Html_Lint_Visitor` below)
-3. `css` takes any css.prog struct directly -- `Html_Formatter_Visitor` renders it as one more child, an embedded `<style>` block, wherever it's attached
+3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as one more child, an embedded `<style>` block, wherever it's attached
 4. `Html_Render`/`Html_Format` are two shared `Html_Formatter_Visitor` instances (compact/pretty); void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
-5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attribute names) walk the same tree for their own purposes -- `Html_Lint_Visitor` and `Css_Lint_Visitor` both compose `backend/visitor.prog`'s `Warnings_Visitor` mixin for their shared `warnings`/`warn` machinery
+5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attribute names) walk the same tree for their own purposes -- `Html_Lint_Visitor` and `Css_Lint_Visitor` both compose `backend/visitor.code`'s `Warnings_Visitor` mixin for their shared `warnings`/`warn` machinery
 
-```prog
-@load 'frontend/html2.prog'
-@load 'frontend/css.prog'
+```code
+@load 'frontend/html2.code'
+@load 'frontend/css.code'
 
 page := div([
     h1('Welcome'),
@@ -1258,7 +1258,7 @@ Html_Render.render(page)
 
 ### Arithmetic
 
-```prog
+```code
 + - * / %     # Basic math
 **            # Exponentiation
 << >>         # Bitwise shift / Array append
@@ -1266,7 +1266,7 @@ Html_Render.render(page)
 
 ### Comparison
 
-```prog
+```code
 == !=             # Equality
 < <= > >=         # Relational
 <=>               # Spaceship (three-way)
@@ -1278,7 +1278,7 @@ Html_Render.render(page)
 
 `===`, `=!=`, `=>=`, `=<=`, and `=/=` compare a type or instance's *composed types* — its own name plus everything it's picked up via `|`/`&`/`~`/`^` — rather than comparing values:
 
-```prog
+```code
 Flying { can_fly := true }
 Swimming { can_swim := true }
 
@@ -1299,7 +1299,7 @@ Flying =/= Swimming    # true  (share nothing)
 
 All five comparison operators also take [Structs](#structs) into account. An untagged type is treated as having no members, so plain comparisons like the ones above are unaffected:
 
-```prog
+```code
 Abc\<Number> {}
 Abc\<Number> === Abc\<String>   # false — same composed type, different tag
 Abc === Abc                     # true  — neither side tagged
@@ -1307,7 +1307,7 @@ Abc === Abc                     # true  — neither side tagged
 
 `Any` is a universal wildcard for `==`/`!=`/`===`/`=!=`: anything that isn't `nil` counts as equal to it, no composition needed.
 
-```prog
+```code
 String === Any    # true
 4 == Any          # true
 nil == Any        # false — the one exception
@@ -1315,7 +1315,7 @@ nil == Any        # false — the one exception
 
 A String compares equal (`==`/`!=` only) to a bare Type whose `@name` it spells — so a collection of type-name strings can be scanned with a real type:
 
-```prog
+```code
 Flying { can_fly := true }
 Duck | Flying {}
 
@@ -1325,7 +1325,7 @@ Duck.@composed_types.include?(Flying)    # true — the set holds the string 'Fl
 
 ### Logical
 
-```prog
+```code
 && and        # Logical AND
 || or         # Logical OR
 ! not         # Logical NOT
@@ -1333,7 +1333,7 @@ Duck.@composed_types.include?(Flying)    # true — the set holds the string 'Fl
 
 ### Assignment
 
-```prog
+```code
 :=            # Declaration — introduces a new identifier, infers and locks its type
 =             # Assignment — requires the identifier to already be declared
 += -= *= /=   # Compound assignment
@@ -1348,7 +1348,7 @@ Duck.@composed_types.include?(Flying)    # true — the set holds the string 'Fl
 3. Precedence controls how overloaded operators combine with each other and with built-ins
 4. If a type declares its own overload for an operator, that always wins over a same-named overload declared elsewhere — dispatch is by the left operand's type first, falling back to whatever's in scope only if the operand doesn't have its own
 
-```prog
+```code
 # Redefine + only inside this function — everywhere else, + still adds
 scoped := compute (;
     @operator + @infix 700 ( left, right;
@@ -1422,7 +1422,7 @@ a ~> 1          # 42 — Wrapped's own ~> wins
 2. Subsequent `=` assignments are checked against that locked type; `:=` again re-infers and re-locks
 3. A mismatch raises `Prog::Type_Contract_Violation`, not the static type checker's `Type_Mismatch`
 
-```prog
+```code
 x := 4        # declares x, infers Number, locks x to that type
 x = 8         # ok — same type
 x = 'hello'   # raises Prog::Type_Contract_Violation ("expected Number, got String")
@@ -1436,7 +1436,7 @@ y = 4         # raises Prog::Cannot_Assign_Undeclared_Identifier — y was never
 
 A `: Type` annotation can list more than one alternative type, joined by `|`, `&`, `^`, or `~` — all four mean the exact same thing here: the value must match at least one of the listed types (OR). The operator's usual [type composition](#type-composition) meaning (merge, keep-shared, remove, keep-unique) does not apply to a type annotation — an annotation only lists names to check against, it does not build a new composed type.
 
-```prog
+```code
 x: Int | Nil = 1     # ok — matches Int
 x: Int & Nil = nil   # ok — matches Nil (& means the same OR check as | here)
 x: Int ^ Nil = true  # raises Prog::Type_Contract_Violation — matches neither Int nor Nil
@@ -1447,7 +1447,7 @@ This holds everywhere a `: Type` annotation appears: a first assignment, a later
 
 Declaring the combined type first and annotating with its name does *not* give you a reusable version of this OR check:
 
-```prog
+```code
 Int_Or_Nil | Int | Nil {}
 x: Int_Or_Nil = 4     # raises Prog::Type_Contract_Violation, even though 4 is an Int
 ```
@@ -1456,7 +1456,7 @@ A single named type in annotation position checks the value against that *one* t
 
 Declaring a combined type first *is* the right move for the other direction — a value that must actually be, or extend, that whole combined type:
 
-```prog
+```code
 Combined | A | B {}
 c := Combined()
 x: Combined = c    # ok — c really is a Combined
@@ -1469,7 +1469,7 @@ x: Combined = c    # ok — c really is a Combined
 3. Assigning a function to a signature-typed identifier checks its actual shape, not just a name — mismatches raise `Prog::Type_Contract_Violation`, the same runtime type contract `:=` uses
 4. Any function with a declared return type is checked on every call — what it actually returns has to match, signature or not
 
-```prog
+```code
 Currency_Formatter := (Number -> String;)    # takes a Number, returns a String
 
 format_usd ( cents: Number -> String;
@@ -1491,7 +1491,7 @@ formatter = ( cents; cents )  # raises Prog::Type_Contract_Violation — wrong s
 
 A declared return type is enforced on its own, with no signature involved:
 
-```prog
+```code
 lying ( a -> Number; 'not a number' )
 lying(5)   # raises Prog::Type_Contract_Violation — declared Number, actually returned String
 ```
@@ -1507,7 +1507,7 @@ lying(5)   # raises Prog::Type_Contract_Violation — declared Number, actually 
 7. Naming an *undeclared* identifier with bare `<...>` (no `\`, e.g. `Named<...>`) builds a plain, named struct instead of raising — a name that's already taken by a real Type still takes priority and behaves as above
 8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`) — and two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring an already-filled struct with a *different* shape raises `Prog::Undeclared_Tagged_Type`
 
-```prog
+```code
 String\<dict: Dictionary> {
     to_s (; "dict: `tag.dict`" )
 }
@@ -1537,7 +1537,7 @@ Tree <
 
 ## Enums (not finalized — don't rely on yet)
 
-```prog
+```code
 Task_Type [
 	TODO
 	BUG,
@@ -1553,7 +1553,7 @@ Task_Type.@count    # 5
 
 Self-declaring, like `Type { }` and a named `func (;)` — no `:=`. `Name [ ... ]` is an enum when the brackets hold a comma, two-plus items, a member form, or nothing; a lone bare item (`Name [ ONE ]`) reads as an ordinary subscript instead. Force a one-option enum with a trailing comma or an annotation:
 
-```prog
+```code
 Suit [ HEARTS DIAMONDS CLUBS SPADES ]   # space-separated is fine
 Solo [ ONLY, ]                          # trailing comma -- a one-option enum
 Level: Enum\Int [ LOW, HIGH ]           # annotated: always an enum; Int is the backing type
@@ -1566,7 +1566,7 @@ Enums are syntactically present but not finalized: each member's `: Type` annota
 
 Trailing comma declares variable as nil if undefined. 
 
-```prog
+```code
 Type {
 	undefined_var,      # equivalent to `undefined_var := nil`	
 }
@@ -1576,7 +1576,7 @@ here_too,               # here_too := nil
 
 A bare annotated identifier with nothing assigned behaves the same way — no need to write `= nil` just to make an already-self-declaring annotation (`x: Number`, or a struct annotation) actually declare something:
 
-```prog
+```code
 thing: <String, Number>   # same as thing: <String, Number> = nil
 thing                     # nil
 

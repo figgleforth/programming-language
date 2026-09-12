@@ -143,7 +143,7 @@ class Declarator_Test < Base_Test
 		    sign := Div([P('hi')])
 		    result := sign.to_s()
 
-		    @load 'frontend/html.prog'
+		    @load 'frontend/html.code'
 
 		    result
 		CODE
@@ -159,7 +159,7 @@ class Declarator_Test < Base_Test
 		    sign := Div([P('hi')])
 		    result := sign.to_s()
 
-		    @load 'frontend/html.prog'
+		    @load 'frontend/html.code'
 		CODE
 		assert_equal '<div><p>hi</p></div>', out
 	end
@@ -171,7 +171,7 @@ class Declarator_Test < Base_Test
 		    sign := Html_Lib.Div([Html_Lib.P('hi')])
 		    result := sign.to_s()
 
-		    Html_Lib := @load 'frontend/html.prog'
+		    Html_Lib := @load 'frontend/html.code'
 
 		    result
 		CODE
@@ -183,7 +183,7 @@ class Declarator_Test < Base_Test
 			Backend.interp <<~CODE
 			    sign := html_lib.Div([html_lib.P('hi')])
 
-			    html_lib := @load 'frontend/html.prog'
+			    html_lib := @load 'frontend/html.code'
 			CODE
 		end
 	end
@@ -245,7 +245,7 @@ class Declarator_Test < Base_Test
 
 	def test_load_into_isolated_scope_is_not_leaked_by_forward_resolution
 		assert_raises Prog::Undeclared_Identifier do
-			Backend.interp "mod := @load 'tests/fixtures/test_module.prog'\nMODULE_NAME"
+			Backend.interp "mod := @load 'tests/fixtures/test_module.code'\nMODULE_NAME"
 		end
 	end
 

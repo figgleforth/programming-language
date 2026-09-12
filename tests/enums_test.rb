@@ -167,7 +167,7 @@ class Enums_Test < Base_Test
 	# The same bug, as it actually surfaced: a struct member typed with a user-declared enum displayed its type as "Instance" instead of the real enum name.
 	def test_struct_member_typed_with_an_enum_displays_the_real_enum_name_regression
 		out = Backend.interp <<~CODE
-		    @load 'frontend/struct.prog'
+		    @load 'frontend/struct.code'
 		    Task_Type [ TODO, BUG ]
 		    s := <kind: Task_Type = Task_Type.TODO>
 		    s.to_s()

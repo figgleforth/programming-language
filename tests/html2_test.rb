@@ -2,11 +2,11 @@ require 'minitest/autorun'
 require_relative '../backend/backend'
 require_relative 'base_test'
 
-# backend/html2.prog: the Element/Attribute structs, Html_Formatter_Visitor (render + minify, void
+# backend/html2.code: the Element/Attribute structs, Html_Formatter_Visitor (render + minify, void
 # tags, embedded css), Html_Stats_Visitor, Html_Sanitizer_Visitor, Html_Lint_Visitor, and the
 # lowercase element constructors.
 class Html2_Test < Base_Test
-	HTML = "@load 'frontend/html2.prog'"
+	HTML = "@load 'frontend/html2.code'"
 
 	# --- Html_Formatter_Visitor: render -----------------------------------------
 

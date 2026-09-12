@@ -338,7 +338,7 @@ class Structs_Test < Base_Test
 
 	# An empty `Name <>` is a forward declaration -- a later `Name <...>` fills it in rather than
 	# raising the different-shape error (which still applies to two genuinely non-empty shapes). This
-	# is the spelling that lets `enclosing_scope: Scope` resolve inside `backend/scopes.prog` without
+	# is the spelling that lets `enclosing_scope: Scope` resolve inside `backend/scopes.code` without
 	# the one-shot self-reference above.
 	def test_empty_bare_named_struct_is_a_forward_declaration
 		out = Backend.interp <<~CODE
@@ -641,7 +641,7 @@ class Structs_Test < Base_Test
 
 	def test_tagged_reference_has_members_populated
 		out = Backend.interp <<~CODE
-		    @load 'frontend/struct.prog'
+		    @load 'frontend/struct.code'
 		    Abc\\<dict: Dictionary> {
 		    	Self (;)
 		    }
@@ -655,7 +655,7 @@ class Structs_Test < Base_Test
 
 	def test_members_array_stays_positionally_aligned_with_unnamed_members
 		out = Backend.interp <<~CODE
-		    @load 'frontend/struct.prog'
+		    @load 'frontend/struct.code'
 		    s := <name: String, Number>('Alice', 42)
 		    s.@members
 		CODE
@@ -674,7 +674,7 @@ class Structs_Test < Base_Test
 			x').values
 	end
 
-	# `for` over a Struct iterates its `.members` (Prog::Member instances, populated via `backend/struct.prog`, loaded by default) -- regression: used to call a nonexistent method and raise NoMethodError unconditionally.
+	# `for` over a Struct iterates its `.members` (Prog::Member instances, populated via `backend/struct.code`, loaded by default) -- regression: used to call a nonexistent method and raise NoMethodError unconditionally.
 	def test_for_loop_over_struct_iterates_members
 		out = Backend.interp <<~CODE
 		    s := <name: String, age: Number>('Alice', 30)
@@ -685,7 +685,7 @@ class Structs_Test < Base_Test
 		CODE
 		assert_equal ['name', 'age'], out.values
 
-		# With the standard library not loaded at all, a bare Struct has no `.members` to read (`backend/struct.prog` never ran) -- iterates zero elements rather than raising.
+		# With the standard library not loaded at all, a bare Struct has no `.members` to read (`backend/struct.code` never ran) -- iterates zero elements rather than raising.
 		refute_raises do
 			out = Backend.interp(<<~CODE, load_standard_library: false)
 			    s := <1, 2, 3>
@@ -746,7 +746,7 @@ class Structs_Test < Base_Test
 
 	def test_struct_typed_param_accepts_structurally_compatible_argument
 		refute_raises do
-			out = Backend.interp "@load 'frontend/member.prog'
+			out = Backend.interp "@load 'frontend/member.code'
 				f ( right: <name: String, type: Any, value: Any>; right.name )
 				m := Member('x', String, 4)
 				f(m)"
@@ -783,7 +783,7 @@ class Structs_Test < Base_Test
 
 	def test_struct_typed_param_works_on_operator_overloads
 		refute_raises do
-			out = Backend.interp "@load 'frontend/member.prog'
+			out = Backend.interp "@load 'frontend/member.code'
 				Thing {
 					@operator ~ @infix ( left, right: <name: String>; right.name )
 				}

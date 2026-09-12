@@ -3,11 +3,11 @@ module Backend
 		include Prog
 		INSTRUCTIONS = <<~INST
 		    Usage:
-		        bundle exec bin/prog <file>          Execute a .prog file and keep running until interrupt
+		        bundle exec bin/prog <file>          Execute a .code file and keep running until interrupt
 		        bundle exec bin/prog [command]       Run command
 
 		    COMMANDS:
-		        run <file>            Execute a .prog file and keep running until interrupt
+		        run <file>            Execute a .code file and keep running until interrupt
 		        check <file>          Run basic type check on file
 
 		        repl                  Enter repl mode, type code press enter
@@ -29,9 +29,9 @@ module Backend
 		        -h | --help           Show help instructions
 
 		    EXAMPLES:
-		        prog examples/hello_world.prog -p
+		        prog examples/hello_world.code -p
 		        prog lex "x = 5 + 3" -p
-		        prog parsef examples/hello_world.prog -p
+		        prog parsef examples/hello_world.code -p
 		        prog interp "4815" -p
 		INST
 

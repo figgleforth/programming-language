@@ -223,7 +223,7 @@ module Prog
 		FALSE = new(false)
 	end
 
-	# Prog::Range is an Instance wrapping a Ruby ::Range -- see backend/proxies/range.rb + backend/range.prog.
+	# Prog::Range is an Instance wrapping a Ruby ::Range -- see backend/proxies/range.rb + backend/range.code.
 
 	class Server < Instance
 		DEFAULT_PORT = 8080

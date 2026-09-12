@@ -2,10 +2,10 @@ require 'minitest/autorun'
 require_relative '../backend/backend'
 require_relative 'base_test'
 
-# backend/visitor.prog's Warnings_Visitor mixin -- composed into backend/css.prog's Css_Lint_Visitor and
-# backend/html2.prog's Html_Lint_Visitor. See test/css_test.rb and test/html2_test.rb for those.
+# backend/visitor.code's Warnings_Visitor mixin -- composed into backend/css.code's Css_Lint_Visitor and
+# backend/html2.code's Html_Lint_Visitor. See test/css_test.rb and test/html2_test.rb for those.
 class Visitor_Test < Base_Test
-	VISITOR = "@load 'frontend/visitor.prog'"
+	VISITOR = "@load 'frontend/visitor.code'"
 
 	def test_warn_pushes_onto_warnings
 		out = Backend.interp "

@@ -6,11 +6,11 @@ in vec4 fragColor;
 
 out vec4 finalColor;
 
-// Whatever's already been rendered behind this rectangle -- see raylib_shaders.prog, which renders
+// Whatever's already been rendered behind this rectangle -- see raylib_shaders.code, which renders
 // the plain background into its own texture first, purely so this shader has something to read.
 uniform sampler2D background;
 
-// Must match SCREEN_WIDTH/SCREEN_HEIGHT in raylib_shaders.prog -- there's no vec2 uniform setter in
+// Must match SCREEN_WIDTH/SCREEN_HEIGHT in raylib_shaders.code -- there's no vec2 uniform setter in
 // the Backend binding yet, so this is a plain constant rather than something passed in per-frame.
 const vec2 SCREEN_SIZE = vec2(800.0, 600.0);
 

@@ -32,7 +32,7 @@ module Ruby_Proxies
 
 	# For an Backend method with multiple param-typed declarations (`find_table (struct: Struct;)`, `find_table (name: String;)`) --
 	# Backend itself doesn't support overload dispatch (a repeated name just overwrites the earlier declaration), so only declare
-	# ONE `find_table (; @ruby)` in the .prog file. This dispatches by the first argument's own Ruby class instead, in mapping
+	# ONE `find_table (; @ruby)` in the .code file. This dispatches by the first argument's own Ruby class instead, in mapping
 	# order (first match wins, same as a `case`/`when` chain), to the matching Ruby method:
 	#
 	#   proxy_overload :find_table,

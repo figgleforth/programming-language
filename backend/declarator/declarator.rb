@@ -25,7 +25,7 @@ module Backend
 		# Mirrors Interpreter#load_file_into_scope's own path resolution exactly -- kept here too since Declarator has to resolve a load target itself, ahead of the real interpreter ever reaching that @load.
 		def self.resolve_load_filepath filepath
 			filepath = filepath.dup
-			filepath << '.prog' unless filepath.end_with? '.prog'
+			filepath << '.code' unless filepath.end_with? '.code'
 			if filepath.start_with? 'backend/'
 				::File.join Backend::ROOT_PATH, filepath
 			else

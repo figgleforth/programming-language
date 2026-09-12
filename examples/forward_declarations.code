@@ -44,9 +44,9 @@ Warning_Sign {
 A top-level `@load` merges its file's own declarations the same declarative way, so code above it can already use whatever it brings in -- handy for keeping your own code up top and imports out of the way at the bottom:
 ###
 sign2 := Div([P('Do not drink the water')])
-@assert sign2.to_s() == '<div><p>Do not drink the water</p></div>', 'Div should already be usable, even though backend/html.prog is loaded below'
+@assert sign2.to_s() == '<div><p>Do not drink the water</p></div>', 'Div should already be usable, even though backend/html.code is loaded below'
 
-@load 'frontend/html.prog'
+@load 'frontend/html.code'
 
 
 ### Variables are the one exception

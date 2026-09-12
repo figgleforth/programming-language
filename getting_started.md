@@ -6,7 +6,7 @@
 git clone https://github.com/figgleforth/programming-language.git
 cd programming-language
 bundle install
-bundle exec bin/program examples/hello_world.prog -p # => Hello, Backend!
+bundle exec bin/program examples/hello_world.code -p # => Hello, Backend!
 ```
 
 ### Table of Contents
@@ -55,10 +55,10 @@ Worked examples: percent literals (`#parse_percent_literal_expr`/`#interp_percen
 
 Two files, independently optional — pure-Backend types skip #2, rare Ruby-only types skip #1:
 
-1. **`backend/foo.prog`** — the Backend-level declaration (`Foo { ... }`). A method that defers to Ruby is just `some_method (; @ruby )`.
+1. **`backend/foo.code`** — the Backend-level declaration (`Foo { ... }`). A method that defers to Ruby is just `some_method (; @ruby )`.
 2. **`backend/proxies/foo.rb`** — `class Foo < Prog::Instance` (or `< Prog::Type`), inside `module Backend`. `extend Ruby_Proxies` + `proxy :method_name` for 1:1 delegation ([`ruby_proxies.rb`](backend/shared/ruby_proxies.rb)), or hand-write `def proxy_method_name(...)` for custom logic. `@ruby` calls `proxy_#{method_name}` on the proxy instance.
 3. **Register the Ruby file** — `require_relative 'proxies/foo'` in [`backend/backend.rb`](backend/backend.rb)'s "proxies" block (after `proxies/scopes`).
-4. **Load the Backend file** — `@load 'frontend/foo.prog'` in [`backend/global.prog`](backend/global.prog) for always-on, or leave opt-in for the user's own program to `@load` (e.g. `backend/database.prog`).
+4. **Load the Backend file** — `@load 'frontend/foo.code'` in [`backend/global.code`](backend/global.code) for always-on, or leave opt-in for the user's own program to `@load` (e.g. `backend/database.code`).
 5. Nothing else — matching Backend type ↔ Ruby class is by name, dynamic at construction time (next section).
 
 #### Linking an instance to its runtime type
@@ -76,7 +76,7 @@ Two files, independently optional — pure-Backend types skip #2, rare Ruby-only
 3. Only `@ruby` breaks:
    - Outside a `Func` scope → `Prog::Invalid_Ruby_Proxy_Directive_Usage`.
    - Instance doesn't `respond_to?("proxy_#{method_name}")` (no Ruby class, or Ruby class missing that one `proxy_*` method) → `Prog::Missing_Ruby_Proxy_Declaration`.
-4. So: forgetting the Ruby class is safe unless the `.prog` body calls `@ruby` — then it's a runtime error on first call, not at declaration time.
+4. So: forgetting the Ruby class is safe unless the `.code` body calls `@ruby` — then it's a runtime error on first call, not at declaration time.
 
 #### Quick file map
 
@@ -93,5 +93,5 @@ Two files, independently optional — pure-Backend types skip #2, rare Ruby-only
 | Runtime errors | [`backend/proxies/errors.rb`](backend/proxies/errors.rb) |
 | Ruby-backed built-in types | [`backend/proxies/`](proxies) |
 | `proxy`/`proxy_delegate` helpers | [`backend/shared/ruby_proxies.rb`](backend/shared/ruby_proxies.rb) |
-| Standard library (`.prog` side of built-ins) | [`backend/`](frontend), auto-loaded via [`backend/global.prog`](backend/global.prog) |
+| Standard library (`.code` side of built-ins) | [`backend/`](frontend), auto-loaded via [`backend/global.code`](backend/global.code) |
 | Entry points (`Backend.lex`/`.parse`/`.interp`, `+_file` variants) | [`backend/backend.rb`](backend/backend.rb) |

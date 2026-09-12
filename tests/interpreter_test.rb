@@ -7,7 +7,7 @@ require_relative 'base_test'
 class Interpreter_Test < Base_Test
 	def test_global_program
 		refute_raises RuntimeError do
-			Backend.interp_file './frontend/global.prog'
+			Backend.interp_file './frontend/global.code'
 		end
 	end
 
@@ -1547,7 +1547,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_loading_external_source_files
-		out = Backend.interp "@load 'frontend/global.prog'
+		out = Backend.interp "@load 'frontend/global.code'
 		(Bool, Bool())"
 
 		assert_instance_of Prog::Type, out.values[0]
@@ -1556,7 +1556,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_standalone_load_into_current_scope
-		out = Backend.interp "@load 'tests/fixtures/test_module.prog'
+		out = Backend.interp "@load 'tests/fixtures/test_module.code'
 		(MODULE_NAME, MODULE_VALUE, module_func(10))"
 
 		assert_instance_of Prog::Tuple, out
@@ -1566,7 +1566,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_load_assignment_into_variable_identifier
-		out = Backend.interp "mod := @load 'tests/fixtures/test_module.prog'
+		out = Backend.interp "mod := @load 'tests/fixtures/test_module.code'
 		(mod, mod.MODULE_NAME, mod.MODULE_VALUE, mod.module_func(10))"
 
 		assert_instance_of Prog::Tuple, out
@@ -1577,13 +1577,13 @@ class Interpreter_Test < Base_Test
 
 		# Verify declarations are NOT in current scope
 		assert_raises Prog::Undeclared_Identifier do
-			Backend.interp "mod := @load 'tests/fixtures/test_module.prog'
+			Backend.interp "mod := @load 'tests/fixtures/test_module.code'
 			MODULE_NAME"
 		end
 	end
 
 	def test_load_assignment_into_class_identifier
-		out = Backend.interp "Module := @load 'tests/fixtures/test_module.prog'
+		out = Backend.interp "Module := @load 'tests/fixtures/test_module.code'
 		(Module, Module.MODULE_NAME, Module.MODULE_VALUE, Module.module_func(10))"
 
 		assert_instance_of Prog::Tuple, out
@@ -1594,13 +1594,13 @@ class Interpreter_Test < Base_Test
 
 		# Verify declarations are NOT in current scope
 		assert_raises Prog::Undeclared_Identifier do
-			Backend.interp "Module := @load 'tests/fixtures/test_module.prog'
+			Backend.interp "Module := @load 'tests/fixtures/test_module.code'
 			MODULE_NAME"
 		end
 	end
 
 	def test_load_assignment_into_constant_identifier
-		out = Backend.interp "MODULE := @load 'tests/fixtures/test_module.prog'
+		out = Backend.interp "MODULE := @load 'tests/fixtures/test_module.code'
 		(MODULE, MODULE.MODULE_NAME, MODULE.MODULE_VALUE, MODULE.module_func(10))"
 
 		assert_instance_of Prog::Tuple, out
@@ -1611,15 +1611,15 @@ class Interpreter_Test < Base_Test
 
 		# Verify declarations are NOT in current scope
 		assert_raises Prog::Undeclared_Identifier do
-			Backend.interp "MODULE := @load 'tests/fixtures/test_module.prog'
+			Backend.interp "MODULE := @load 'tests/fixtures/test_module.code'
 			MODULE_NAME"
 		end
 	end
 
 	def test_load_same_file_into_multiple_scopes
 		out = Backend.interp "
-		lib1 := @load 'tests/fixtures/test_module.prog'
-		lib2 := @load 'tests/fixtures/test_module.prog'
+		lib1 := @load 'tests/fixtures/test_module.code'
+		lib2 := @load 'tests/fixtures/test_module.code'
 
 		(lib1, lib2, lib1.MODULE_VALUE, lib2.MODULE_VALUE, lib1 != lib2)"
 
@@ -1637,7 +1637,7 @@ class Interpreter_Test < Base_Test
 	def test_double_loading_file
 		assert_raises Prog::Cannot_Reassign_Constant do
 			out = Backend.interp "
-			@load 'tests/fixtures/constants.prog'
+			@load 'tests/fixtures/constants.code'
 			CODE = 123"
 		end
 	end
@@ -2474,7 +2474,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_static_declarations_fixture
-		out = Backend.interp_file 'tests/fixtures/static_declarations.prog'
+		out = Backend.interp_file 'tests/fixtures/static_declarations.code'
 		assert_equal true, out
 	end
 
@@ -2494,7 +2494,7 @@ class Interpreter_Test < Base_Test
 		assert_equal "'Walt!'\n", printed # strings always display single-quoted
 	end
 
-	# `@puts` is a Context method now (backend/context.prog) -- multiple args, parens optional, and
+	# `@puts` is a Context method now (backend/context.code) -- multiple args, parens optional, and
 	# it can be captured / aliased.
 	def test_puts_takes_multiple_args_and_returns_them
 		printed = nil
@@ -2756,7 +2756,7 @@ class Interpreter_Test < Base_Test
 
 	def test_html_fence_in_route_handler
 		out = Backend.interp "
-		@load 'frontend/server.prog'
+		@load 'frontend/server.code'
 
 		App | Server {
 			get:// home (;
@@ -3376,7 +3376,7 @@ class Interpreter_Test < Base_Test
 		assert_equal [true, false], out.values
 	end
 
-	# `Any` (backend/global.prog) is a universal wildcard -- everything except nil counts as Any via `==`/`===`, with no composition required (`Thing | Any {}` isn't needed).
+	# `Any` (backend/global.code) is a universal wildcard -- everything except nil counts as Any via `==`/`===`, with no composition required (`Thing | Any {}` isn't needed).
 	def test_any_type_is_universally_equal_via_double_and_triple_equals
 		out = Backend.interp <<~CODE
 		    Thing { x := 1 }
@@ -3818,7 +3818,7 @@ class Interpreter_Test < Base_Test
 	def test_struct_member_display_regression
 		%w(" ').each do |q|
 			out = Backend.interp <<~CODE
-			    @load 'frontend/struct.prog'
+			    @load 'frontend/struct.code'
 			    quad := <1, id := 2, ix: Number, String>(4, 8, 1, #{q}five#{q})
 			    quad.to_s()
 			CODE
@@ -3829,14 +3829,14 @@ class Interpreter_Test < Base_Test
 	def test_string_equality_regression
 		assert Backend.interp('String("Alice") == String("Alice")')
 		out = Backend.interp <<~CODE
-		    @load 'frontend/struct.prog'
+		    @load 'frontend/struct.code'
 		    s := <name: String>("Alice")
 		    s.@members.0.value == "Alice"
 		CODE
 		assert out
 	end
 
-	# `!=` derives from a declared `==` (see the `!=` note two entries up) -- backend/string.prog's own `==` overload used to assume its right operand was always another String and crashed reading `.value` off anything else. `!= nil` is the common case this broke (a String compared against something that turned out not to exist).
+	# `!=` derives from a declared `==` (see the `!=` note two entries up) -- backend/string.code's own `==` overload used to assume its right operand was always another String and crashed reading `.value` off anything else. `!= nil` is the common case this broke (a String compared against something that turned out not to exist).
 	def test_string_not_equal_to_nil_regression
 		refute_raises do
 			assert Backend.interp("String('hi') != nil")
@@ -3845,11 +3845,11 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	# Same class of bug in backend/member.prog/backend/struct.prog's own `==` overloads -- each assumed its right operand was already Member/Struct-shaped.
+	# Same class of bug in backend/member.code/backend/struct.code's own `==` overloads -- each assumed its right operand was already Member/Struct-shaped.
 	def test_member_and_struct_not_equal_to_nil_regression
 		refute_raises do
 			out = Backend.interp <<~CODE
-			    @load 'frontend/struct.prog'
+			    @load 'frontend/struct.code'
 			    m := Member('x', String, 4)
 			    s := <1, 2>
 			    (m != nil, m == nil, s != nil, s == nil)

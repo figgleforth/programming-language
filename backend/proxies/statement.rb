@@ -4,7 +4,7 @@ module Prog
 	#    sets captured_scope, since only interpreter-side code has a stack to read from.
 	# 2. `Statement(...)` -- goes through the normal Type-construction path, so #initialize only ever
 	#    sees a throwaway arg (same as every Ruby-backed Backend type, e.g. Prog::String/Prog::Array); real
-	#    argument binding happens in backend/statement.prog's `Self(;)` instead.
+	#    argument binding happens in backend/statement.code's `Self(;)` instead.
 	class Statement < Instance
 		attr_reader :expression #: Expression
 
@@ -12,7 +12,7 @@ module Prog
 		# Prog::Func#enclosing_scope's closure trick. Set only by Interpreter#interp_statement; nil
 		# otherwise, and Interpreter#invoke_statement then falls back to use_caller_scope behavior.
 		#
-		# use_caller_scope/memoize/memoized/_memoized_value live in backend/statement.prog as ordinary Backend
+		# use_caller_scope/memoize/memoized/_memoized_value live in backend/statement.code as ordinary Backend
 		# members instead (so plain dot-assignment works); read/written from Ruby via Scope#[]/#[]=.
 		attr_accessor :captured_scope
 

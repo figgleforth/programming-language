@@ -92,7 +92,7 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	# A route matching every segment literally wins over one that leaned on a `:param`, regardless of
-	# declaration order. This is what makes `backend/server.prog`'s `get://favicon.ico` route actually
+	# declaration order. This is what makes `backend/server.code`'s `get://favicon.ico` route actually
 	# shield an app's own `get://:id` from the browser's automatic icon probes.
 	def test_literal_route_beats_a_param_route_regardless_of_order
 		code = <<~CODE
@@ -231,7 +231,7 @@ class E2E_Server_Test < Minitest::Test
 
 	# `response.redirect` was completely unreachable: Response is a plain Scope, not a Prog::Instance,
 	# and #build_prog_response pokes `declarations` directly rather than running the Type's own body
-	# on it, so `redirect` (declared in backend/server.prog's `Response {}`) never got copied onto the
+	# on it, so `redirect` (declared in backend/server.code's `Response {}`) never got copied onto the
 	# instance -- and the Instance-fallback lookup that would normally rescue that is gated on
 	# `is_a?(Prog::Instance)`, so it never fired either. Every call raised `Undeclared_Identifier:
 	# redirect has not been declared`. Fixed with a real `Prog::Response#proxy_redirect` (scopes.rb).

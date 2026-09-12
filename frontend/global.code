@@ -21,8 +21,8 @@
 @load 'frontend/context'
 
 ### How to load programs.
-@load 'frontend/some.prog'  # backend/ is the stdlib found in ./backend/
-@load './this.prog'      # relative to wherever you ran bin/prog from (cwd)
-@load 'that.prog'        # relative to wherever you ran bin/prog from (cwd)
-@load 'and_this'         # no .prog extension required
+@load 'frontend/some.code'  # backend/ is the stdlib found in ./backend/
+@load './this.code'      # relative to wherever you ran bin/prog from (cwd)
+@load 'that.code'        # relative to wherever you ran bin/prog from (cwd)
+@load 'and_this'         # no .code extension required
 ###

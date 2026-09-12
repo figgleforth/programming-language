@@ -1,14 +1,14 @@
 ### Introduction
 
-`@` is the current scope's context (see examples/context.prog). Alongside its reflective vitals, the
+`@` is the current scope's context (see examples/context.code). Alongside its reflective vitals, the
 context carries a set of callable members -- `@puts`, `@assert`, `@declare`, `@push_scope` /
 `@pop_scope`, `@sleep`, and a few more. `@word` is shorthand for `@.word`, so `@puts x` is a call
 to the `puts` member with `x` as its argument -- an ordinary expression, not a special form.
 
 This file covers the general-purpose ones. The rest have their own walkthrough, next to the
-feature they belong to: `@load` (loading_code.prog), `@start_server` / `@stop_server`
-(web_servers.prog), `@connect` (databases.prog), and `@splat` / `@splatr` /
-`@unsplat` / `@push_scope` / `@pop_scope` (scopes.prog).
+feature they belong to: `@load` (loading_code.code), `@start_server` / `@stop_server`
+(web_servers.code), `@connect` (databases.code), and `@splat` / `@splatr` /
+`@unsplat` / `@push_scope` / `@pop_scope` (scopes.code).
 ###
 @puts '@word is shorthand for @.word -- an ordinary call on a context member'
 
@@ -17,7 +17,7 @@ feature they belong to: `@load` (loading_code.prog), `@start_server` / `@stop_se
 
 Prints a value and passes it straight back, so it drops into an expression without changing it.
 Anything Scope-shaped (an Array, a custom Instance, etc.) goes through its own declared `to_s`
-first, if it has one -- see strings.prog / arrays.prog for what each built-in type prints as.
+first, if it has one -- see strings.code / arrays.code for what each built-in type prints as.
 ###
 @puts 'Land ho!'    # Land ho!
 @puts 4 + 8          # 12
@@ -76,7 +76,7 @@ supplies := <water: Number = 40, wood := 12>
 reachable without a prefix, and any bare declaration made while "inside" lands on the pushed scope
 itself. `@pop_scope scope` pops back out -- you name the scope you're popping, and `@pop_scope`
 asserts it's identical to whatever `@push_scope` actually pushed; naming the wrong one raises
-instead of silently popping something else. scopes.prog goes further (Type-wide vs per-instance
+instead of silently popping something else. scopes.code goes further (Type-wide vs per-instance
 reopening).
 ###
 Camp {

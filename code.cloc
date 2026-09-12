@@ -11,7 +11,7 @@ Prog
     filter remove_between_general ### ###
     filter remove_matches ^\s*#
     filter remove_inline \s+#.*$
-    extension prog
+    extension code
     3rd_gen_scale 2.00
 JavaScript
     filter rm_comments_in_strings ' /* */
