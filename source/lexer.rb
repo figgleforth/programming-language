@@ -1,19 +1,18 @@
 module Code
 	class Lexer
-		attr_accessor :i, :col, :line, :source_file, :input
+		attr_accessor :source_file # set from outside. As is :input but that's got its own setter
+		attr_reader :index, :column, :line, :lexemes, :input
 
-		def initialize input = 'greeting = "hello world"'
-			@input = input
-			@i     = 0 # index of current char in input string
-			@col   = 1 # short for column
-			@line  = 1 # short for line
+		def initialize input = '@puts greeting := "Hello :)"'
+			self.input = input
 		end
 
-		def input= value
-			@input = value
-			@i     = 0
-			@col   = 1
-			@line  = 1
+		def input= string
+			@lexemes = []
+			@input   = string
+			@index   = 0 # index of current char in input string
+			@column  = 1 # short for column
+			@line    = 1 # short for line
 		end
 
 		def whitespace? char = curr
@@ -64,7 +63,7 @@ module Code
 		end
 
 		def preceded_by_at_load? tokens
-			non_whitespace         = tokens.reverse.reject { |t| t.type == :whitespace }
+			non_whitespace          = tokens.reverse.reject { |t| t.type == :whitespace }
 			load_tok, at_tok, prior = non_whitespace[0], non_whitespace[1], non_whitespace[2]
 
 			return false unless load_tok&.type == :identifier && load_tok.value == 'load'
@@ -74,20 +73,20 @@ module Code
 		end
 
 		def chars?
-			i < input.length
+			@index < @input.length
 		end
 
 		def prev
-			return nil if i <= 0
-			input[i - 1]
+			return nil if @index <= 0
+			@input[@index - 1]
 		end
 
 		def curr
-			input[i]
+			@input[@index]
 		end
 
 		def peek offset_from_curr = 1, length = 1
-			input[i + offset_from_curr, length]
+			@input[@index + offset_from_curr, length]
 		end
 
 		def eat expected = nil
@@ -95,14 +94,14 @@ module Code
 				raise Code::Lexed_Unexpected_Char.new(expected: expected, got: curr)
 			end
 
-			eaten = curr
-			@i    += 1
+			eaten  = curr
+			@index += 1
 
 			if newline? eaten
-				@line += 1
-				@col  = 1
+				@line   += 1
+				@column = 1
 			else
-				@col += 1
+				@column += 1
 			end
 
 			eaten
@@ -305,8 +304,8 @@ module Code
 			it = ::String.new
 			while chars? && !newline?
 				if curr == '\\' && whitespace?(peek)
-					eat        # the backslash itself, discarded
-					it << eat  # the escaped space, kept literally
+					eat # the backslash itself, discarded
+					it << eat # the escaped space, kept literally
 				elsif whitespace?
 					break
 				else
@@ -317,122 +316,121 @@ module Code
 		end
 
 		def output
-			tokens = []
+			@lexemes = []
 
 			while chars?
-				single = curr == Code::COMMENT_CHAR
+				single  = curr == Code::COMMENT_CHAR
 				blocked = peek(0, Code::BLOCK_COMMENT_CHARS.length) == Code::BLOCK_COMMENT_CHARS
-				fenced = peek(0, Code::FENCE_CHARS.length) == Code::FENCE_CHARS
+				fenced  = peek(0, Code::FENCE_CHARS.length) == Code::FENCE_CHARS
 
-				token = Code::Lexeme.new.tap do
-					it.source_file = source_file
-					it.l0          = line
-					it.c0          = col
+				lexeme             = Lexeme.new
+				lexeme.source_file = @source_file # set from outside before output is called
+				lexeme.l0          = @line
+				lexeme.c0          = @column
 
-					if single || blocked || fenced
-						if fenced
-							it.value = lex_fence_block
-							it.type  = if it.value.downcase.start_with? "html\n"
-								it.value = it.value[5..] # strips html and the newline
-								:html
-							else
-								:fence
-							end
-						elsif blocked
-							it.type  = :comment
-							it.value = lex_block_comment
+				if single || blocked || fenced
+					if fenced
+						lexeme.value = lex_fence_block
+						lexeme.type  = if lexeme.value.downcase.start_with? "html\n"
+							lexeme.value = lexeme.value[5..] # strips html and the newline
+							:html
 						else
-							it.type  = :comment
-							it.value = lex_oneline_comment
+							:fence
 						end
-
-					elsif delimiter? curr
-						it.type  = :delimiter
-						it.value = eat
-
-					elsif whitespace? curr
-						it.type  = :whitespace
-						it.value = eat
-
-					elsif curr == '-' && numeric?(peek) && should_lex_negative_number?(tokens)
-						it.type = :number
-						eat
-						it.value = '-' + lex_number
-
-					elsif numeric?
-						it.type  = :number
-						it.value = lex_number
-
-					elsif %w(' ").include? curr
-						it.type            = :string
-						it.quotation_style = curr == "'" ? :single : :double
-						it.value           = lex_string
-
-					elsif route_pattern?
-						it.type  = :route
-						it.value = lex_route
-
-					elsif identifier?
-						it.value = lex_identifier
-						it.type  = Code.type_of_identifier it.value
-						if %w(for skip stop).include?(it.value)
-							it.type = :operator
-						end
-
-					elsif load_path_pattern? tokens
-						# A bare, unquoted path right after `@load` -- `./x`, `../x`, `~/x` is lexed as an ordinary :string token (quotation_style set as if it were '...')
-						it.type            = :string
-						it.quotation_style = :single
-						it.value           = lex_load_path
-
-					elsif curr == '.' && peek == '?'
-						# Again I'm special casing for `.?` which is my version of Ruby's `&.`
-						it.type  = :operator
-						it.value = "#{eat}#{eat}"
-
-					elsif symbol?(curr)
-						it.type = :operator
-						if %w(. | & ).include? curr
-							it.value = case [curr, peek, peek(2)]
-							in ['.', p, _] if identifier?(p) && p != '_'
-								lex_operator
-							in ['.', '<', _] | ['.', '.', _]
-								lex_operator
-							in ['|', '|', '=']
-								lex_operator
-							in ['&', '&', '=']
-								lex_operator
-							in ['|', '=', _]
-								lex_operator
-							in ['&', '=', _]
-								lex_operator
-							in ['|', '|', _] | ['&', '&', _]
-								str = ::String.new
-								str << eat
-								str << eat
-								str
-							else
-								eat
-							end
-						else
-							it.value = lex_operator
-						end
-
+					elsif blocked
+						lexeme.type  = :comment
+						lexeme.value = lex_block_comment
 					else
-						raise Code::Lex_Char_Not_Implemented.new(char: curr)
+						lexeme.type  = :comment
+						lexeme.value = lex_oneline_comment
 					end
 
-					it.l1 = line
-					it.c1 = (line > it.l0) ? col : col - 1
+				elsif delimiter? curr
+					lexeme.type  = :delimiter
+					lexeme.value = eat
+
+				elsif whitespace? curr
+					lexeme.type  = :whitespace
+					lexeme.value = eat
+
+				elsif curr == '-' && numeric?(peek) && should_lex_negative_number?(@lexemes)
+					lexeme.type = :number
+					eat
+					lexeme.value = '-' + lex_number
+
+				elsif numeric?
+					lexeme.type  = :number
+					lexeme.value = lex_number
+
+				elsif %w(' ").include? curr
+					lexeme.type            = :string
+					lexeme.quotation_style = curr == "'" ? :single : :double
+					lexeme.value           = lex_string
+
+				elsif route_pattern?
+					lexeme.type  = :route
+					lexeme.value = lex_route
+
+				elsif identifier?
+					lexeme.value = lex_identifier
+					lexeme.type  = Code.type_of_identifier lexeme.value
+					if %w(for skip stop).include?(lexeme.value)
+						lexeme.type = :operator
+					end
+
+				elsif load_path_pattern? @lexemes
+					# A bare, unquoted path right after `@load` -- `./x`, `../x`, `~/x` is lexed as an ordinary :string token (quotation_style set as if it were '...')
+					lexeme.type            = :string
+					lexeme.quotation_style = :single
+					lexeme.value           = lex_load_path
+
+				elsif curr == '.' && peek == '?'
+					# Again I'm special casing for `.?` which is my version of Ruby's `&.`
+					lexeme.type  = :operator
+					lexeme.value = "#{eat}#{eat}"
+
+				elsif symbol?(curr)
+					lexeme.type = :operator
+					if %w(. | & ).include? curr
+						lexeme.value = case [curr, peek, peek(2)]
+						in ['.', p, _] if identifier?(p) && p != '_'
+							lex_operator
+						in ['.', '<', _] | ['.', '.', _]
+							lex_operator
+						in ['|', '|', '=']
+							lex_operator
+						in ['&', '&', '=']
+							lex_operator
+						in ['|', '=', _]
+							lex_operator
+						in ['&', '=', _]
+							lex_operator
+						in ['|', '|', _] | ['&', '&', _]
+							str = ::String.new
+							str << eat
+							str << eat
+							str
+						else
+							eat
+						end
+					else
+						lexeme.value = lex_operator
+					end
+
+				else
+					raise Code::Lex_Char_Not_Implemented.new(char: curr)
 				end
 
-				next if token.type == :whitespace
+				lexeme.l1 = @line
+				lexeme.c1 = (@line > lexeme.l0) ? @column : @column - 1
 
-				token.reserved = Code::RESERVED.include? token.value
-				tokens << token
+				next if lexeme.type == :whitespace
+
+				lexeme.reserved = Code::RESERVED.include? lexeme.value
+				@lexemes << lexeme
 			end
 
-			tokens.compact
+			@lexemes.compact
 		end
 	end
 end

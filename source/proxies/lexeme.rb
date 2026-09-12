@@ -1,5 +1,7 @@
 module Code
-	Lexeme = ::Struct.new(:type, :value, :reserved, :l0, :c0, :l1, :c1, :source_file, :quotation_style) do
+		Lexeme = ::Struct.new(:type, :value, :reserved, :l0, :c0, :l1, :c1, :source_file, :quotation_style) do
+		include Code_Location_Setter
+
 		def == other
 			if other.is_a? Lexeme
 				value == other.value
@@ -36,5 +38,6 @@ module Code
 		def line_col
 			"#{l0}:#{c0}..#{l1}:#{c1}"
 		end
+
 	end
 end

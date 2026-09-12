@@ -1,9 +1,10 @@
 module Code
 	class Expression
-		attr_accessor :lexemes # the entire span of lexemes that make up this expression
+		include Code_Location_Setter
 
-		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file
 		attr_reader :lexeme # todo; this should become #lexeme that returns @lexemes.first
+		attr_accessor :lexemes # the entire span of lexemes that make up this expression
+		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file
 
 		def initialize lexeme = nil
 			self.lexeme = lexeme
@@ -79,7 +80,6 @@ module Code
 	class Func_Signature_Expr < Expression
 		attr_accessor :signature, :params, :name
 	end
-
 
 	class Struct_Expr < Expression
 		attr_accessor :types, :names # names[i] is nil for unnamed members, e.g. `Type<String>` but has value for named members, e.g. `Type<str: String>`

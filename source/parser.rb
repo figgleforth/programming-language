@@ -1,3 +1,5 @@
+# todo; use Expression#set_location_span l0, c0, l1, c1 for every single expression
+
 module Code
 	class Parser
 		attr_accessor :i, :input, :precedences
@@ -19,6 +21,17 @@ module Code
 			@i     = 0
 		end
 
+		def output
+			scan_and_register_operator_overloads_before_parsing # This has to be done before parsing because overloaded operators have to set their precedence level, which if done at runtime would the behavior of #precedence_for that now depends on an updated prcedence table with new precedences added.
+
+			expressions = []
+			while lexemes?
+				expressions << parse_expression
+			end
+
+			expressions.compact
+		end
+
 		def copy_location expr, from_lexeme_or_expr
 			return expr unless from_lexeme_or_expr
 
@@ -29,17 +42,6 @@ module Code
 			expr.source_file = from_lexeme_or_expr.source_file
 
 			expr
-		end
-
-		def output
-			scan_and_register_operator_overloads_before_parsing # This has to be done before parsing because overloaded operators have to set their precedence level, which if done at runtime would the behavior of #precedence_for that now depends on an updated prcedence table with new precedences added.
-
-			expressions = []
-			while lexemes?
-				expressions << parse_expression
-			end
-
-			expressions.compact
 		end
 
 		def scan_and_register_operator_overloads_before_parsing
@@ -444,7 +446,7 @@ module Code
 				is_newline = tok.type == :delimiter && NEWLINES.include?(v)
 
 				if ['(', '[', '{'].include? v
-					depth += 1
+					depth      += 1
 					prev_ident = false
 				elsif [')', ']', '}'].include? v
 					depth -= 1
@@ -454,7 +456,7 @@ module Code
 					ident = %i[identifier Identifier IDENTIFIER].include?(tok.type) && !tok.reserved
 
 					return true if v == ',' || v == ':=' || v == '='
-					return true if prev_ident && (v == ':' || ident)  # `NAME:` annotation, or two members
+					return true if prev_ident && (v == ':' || ident) # `NAME:` annotation, or two members
 					return true if ident && input[j + 1]&.value == '[' # nested `NAME [`
 
 					saw_content = true
@@ -777,6 +779,7 @@ module Code
 		end
 
 		def parse_comment
+
 			lexeme   = eat
 			it       = Code::Comment_Expr.new lexeme
 			it.value = Code::String_Expr.new lexeme
@@ -1314,7 +1317,6 @@ module Code
 					return parse_context_call(expr, precedence) if Code::Context::FUNCTIONS.include?(expr.value)
 				end
 			end
-
 
 			# note; `PREFIX.include?(expr.value)` matches by VALUE, not by lexeme type -- deliberate, since
 			# keyword-like prefixes (`return`, `not`) are lexed as plain identifiers, not a dedicated
