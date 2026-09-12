@@ -50,7 +50,7 @@ Html_Formatter_Visitor {
 		if node === Element
 			render_element(node, depth)
 		else
-			node.to_s()
+			node.?to_s() or "`node`"
 		end
 	)
 
@@ -58,7 +58,7 @@ Html_Formatter_Visitor {
 	# stylesheet's formatted CSS up inside a pretty-printed page.
 	indent_block ( text, depth;
 		pad := indent_str(depth)
-		text.split("\n").map(line; "`pad``line`").join("\n")
+		(text.?split("\n") or [text]).map(line; "`pad``line`").join("\n")
 	)
 
 	render_element ( el, depth;
@@ -217,10 +217,11 @@ Html_Sanitizer_Visitor {
 	dangerous_attribute? ( attr;
 		if attr.name.start_with?("on")
 			true
-		elif (attr.name == "href" or attr.name == "src") and attr.value === String and attr.value.trim().start_with?("javascript:")
-			true
 		else
-			false
+			trimmed := if (attr.name == "href" or attr.name == "src") and attr.value === String
+				attr.value.?trim()
+			end
+			trimmed != nil and trimmed.start_with?("javascript:")
 		end
 	)
 }

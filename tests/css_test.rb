@@ -225,6 +225,31 @@ class Css_Test < Base_Test
 		assert_equal ["Unit unneeded for zero value in 'margin: 0px 10px'"], out.values
 	end
 
+	# `prop.value === String` is also true for the literal `Any` type (the universal wildcard) or a
+	# bare, uninstantiated `String` Type -- neither has a callable `split()`/`trim()`. Used to raise
+	# Undeclared_Identifier instead of just skipping the check (see Array#to_s for the same gotcha).
+	def test_lint_check_zero_units_does_not_crash_on_a_bare_type_value_regression
+		refute_raises(Prog::Undeclared_Identifier) do
+			Backend.interp "#{CSS}\nCss_Lint_Visitor().check_zero_units(Property('color', Any))"
+		end
+	end
+
+	def test_animation_name_of_does_not_crash_on_a_bare_type_value_regression
+		out = Backend.interp <<~CODE
+		    #{CSS}
+		    rule := Style_Rule(['.x'], [Property('animation-name', Any)])
+		    Css_Lint_Visitor().animation_name_of(rule)
+		CODE
+		assert_nil out
+
+		out = Backend.interp <<~CODE
+		    #{CSS}
+		    rule := Style_Rule(['.x'], [Property('animation-name', ' spin ')])
+		    Css_Lint_Visitor().animation_name_of(rule)
+		CODE
+		assert_equal 'spin', out
+	end
+
 	def test_lint_clean_rule_has_no_warnings
 		out = Backend.interp <<~CODE
 		    #{CSS}

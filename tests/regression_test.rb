@@ -1123,4 +1123,22 @@ class Regression_Test < Base_Test
 		# A genuine mismatch still raises.
 		assert_raises(Prog::Type_Contract_Violation) { Backend.interp("x: String = 'hi'\nx = 123") }
 	end
+
+	# Array/Dictionary/Tuple/Set's own `to_s` each check `it === String` to decide whether to call
+	# `it.to_string()` for quote-preserving display -- but `===` is deliberately true for the literal
+	# `Any` type (the universal wildcard, in either operand position) and for a bare, uninstantiated
+	# `String` Type reference (`String === String`), neither of which has a callable `to_string()`
+	# instance method. That used to raise Undeclared_Identifier (for Any) or
+	# Cannot_Call_Instance_Member_On_Type (for a bare String) instead of just falling back to the
+	# plain interpolated display, same as `member.code` already guards against for the same reason
+	# (`.?to_string() or ...`).
+	def test_collection_to_s_does_not_crash_on_a_bare_type_element_regression
+		refute_raises(Prog::Undeclared_Identifier) { Backend.interp('[Any].to_s()') }
+		refute_raises(Prog::Cannot_Call_Instance_Member_On_Type) { Backend.interp('[String].to_s()') }
+		refute_raises(Prog::Undeclared_Identifier) { Backend.interp('(Any, 1).to_s()') }
+		refute_raises(Prog::Undeclared_Identifier) { Backend.interp('Set([Any]).to_s()') }
+
+		# An actual String element still displays quoted, unaffected.
+		assert_equal "['hi']", Backend.interp("['hi'].to_s()")
+	end
 end

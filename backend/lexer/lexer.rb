@@ -59,6 +59,21 @@ module Backend
 			peek(verb_length, 3) == '://'
 		end
 
+		def load_path_pattern? tokens
+			return false unless preceded_by_at_load? tokens
+			peek(0, 2) == './' || peek(0, 3) == '../' || peek(0, 2) == '~/'
+		end
+
+		def preceded_by_at_load? tokens
+			non_whitespace         = tokens.reverse.reject { |t| t.type == :whitespace }
+			load_tok, at_tok, prior = non_whitespace[0], non_whitespace[1], non_whitespace[2]
+
+			return false unless load_tok&.type == :identifier && load_tok.value == 'load'
+			return false unless at_tok&.type == :operator && at_tok.value == '@'
+
+			!(prior&.type == :operator && prior.value == '.')
+		end
+
 		def chars?
 			i < input.length
 		end
@@ -228,27 +243,29 @@ module Backend
 
 		def lex_operator
 			# note; Operators cannot start with or end with: ' " { } ( ) [ ] and that is a strict rule.
-			it = ::String.new
+			str = ::String.new
 			# `..` is a prefix of `..<`/`...` and `>..` of `>..<`, so match longest, not first.
 			range_like = Prog::RANGE_OPERATORS + ['...']
 			while chars? && symbol?
 				# Keep `Type<Struct>.member` from lexing `>.` as one token and eating the closing `>`.
-				break if it == '>' && curr == '.' && peek != '.'
-				break if it == Prog::TAG_OPERATOR && curr == '<'
-				break if it == Prog::CONTEXT_OPERATOR && curr == '.'
-				break if it == '<' && curr == '>'
+				break if str == '>' && curr == '.' && peek != '.'
+				break if str == Prog::TAG_OPERATOR && curr == '<'
+				break if str == Prog::CONTEXT_OPERATOR && curr == '.'
+				break if str == '<' && curr == '>'
 
-				it << eat
+				str << eat
 
-				if range_like.include? it
-					next if range_like.any? { |op| op.length > it.length && op.start_with?(it) && op[it.length] == curr }
+				if range_like.include? str
+					next if range_like.any? do |op|
+						op.length > str.length && op.start_with?(str) && op[str.length] == curr
+					end
 					break
 				end
 
-				break if Prog::ILLEGAL_OPERATOR_CHARS.include? it
+				break if Prog::ILLEGAL_OPERATOR_CHARS.include? str
 				break if Prog::ILLEGAL_OPERATOR_CHARS.include? curr
 			end
-			it
+			str
 		end
 
 		def lex_identifier
@@ -283,6 +300,21 @@ module Backend
 			end
 
 			"#{verb}://#{path}"
+		end
+
+		def lex_load_path
+			it = ::String.new
+			while chars? && !newline?
+				if curr == '\\' && whitespace?(peek)
+					eat        # the backslash itself, discarded
+					it << eat  # the escaped space, kept literally
+				elsif whitespace?
+					break
+				else
+					it << eat
+				end
+			end
+			it
 		end
 
 		def output
@@ -348,9 +380,11 @@ module Backend
 							it.type = :operator
 						end
 
-					elsif curr == '.' && peek == '/'
-						it.type  = :operator
-						it.value = "#{eat}#{eat}"
+					elsif load_path_pattern? tokens
+						# A bare, unquoted path right after `@load` -- `./x`, `../x`, `~/x` is lexed as an ordinary :string token (quotation_style set as if it were '...')
+						it.type            = :string
+						it.quotation_style = :single
+						it.value           = lex_load_path
 
 					elsif curr == '.' && peek == '?'
 						# Again I'm special casing for `.?` which is my version of Ruby's `&.`

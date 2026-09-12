@@ -3,7 +3,7 @@
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 
-![The icon I use for .code files](assets/icon@2x.svg)
+![The icon I use for .code files](icon@2x.svg)
 
 Learn about the language below, or [in the learn section](examples/readme.md), or *[click here to get started using it](getting_started.md)*.
 
@@ -978,6 +978,7 @@ w.@version        # 2 — an instance reads through to its type's context
 1. Imports another Backend file
 2. A file is only run once per scope it's loaded into — loading the same file into the same scope again returns the first run's result instead of re-running it
 3. Imports may be scoped by assigning the @load to a variable
+4. The path can also be written bare (unquoted), as long as it starts with `./`, `../`, or `~/` — a `\ ` pair escapes a literal space, the same way a shell's own tab-completion writes one
 
 ```code
 @load 'frontend/string.code'
@@ -987,7 +988,19 @@ my_mod := @load './my_module.code'
 my_mod.Some_Type()
 
 @load './my_module.code'   # already loaded into this scope -- returns the same result again, doesn't re-run
+
+@load ../shared/thing.code
+@load ~/.config/backend/init.code
+@load ./tools/blah\ blah/hello.code   # -> tools/blah blah/hello.code
+
+@load asdf/asdf.code   # NOT a bare path -- no leading ./, ../, or ~/, so this parses as ordinary
+                        # division (asdf / asdf . code) same as it always has
 ```
+
+This genuinely behaves like a shell's own `.`/`..`/`~` — `./x` and `../x` resolve against the current directory, `~/x` against your home directory, and `../../x` climbs multiple levels correctly, the same as `cd ../..`. Two things to know:
+
+- "Current directory" means wherever you *ran* `bin/prog` from — not the folder the `.code` file with the `@load` line lives in. That matches a shell's own relative arguments (always resolved against your shell's cwd, never the command's own location), so it's consistent with terminal habits, just worth remembering it's "relative to where you launched from," not "relative to this file."
+- Only the current user's `~/` is supported — a real shell's `~otheruser/path` (someone else's home directory) isn't recognized as a bare path at all.
 
 ## @puts
 
@@ -1305,12 +1318,16 @@ Abc\<Number> === Abc\<String>   # false — same composed type, different tag
 Abc === Abc                     # true  — neither side tagged
 ```
 
-`Any` is a universal wildcard for `==`/`!=`/`===`/`=!=`: anything that isn't `nil` counts as equal to it, no composition needed.
+`Any` is a universal wildcard for `==`/`!=`/`=>=`/`=<=`/`=/=`: anything that isn't `nil` counts as equal (or a superset of/never-disjoint-from) it, no composition needed. `===`/`=!=` are the deliberate exception — they're exact type-set equality, which is what code uses as a structural "is this really an X" check, so a bare `Any` value only matches `Any` itself there, not everything.
 
 ```code
-String === Any    # true
+String == Any     # true
 4 == Any          # true
 nil == Any        # false — the one exception
+String =>= Any    # true — Any really is a superset of everything
+
+String === Any    # false — === doesn't wildcard; neither composes the other
+Any === Any       # true
 ```
 
 A String compares equal (`==`/`!=` only) to a bare Type whose `@name` it spells — so a collection of type-name strings can be scanned with a real type:

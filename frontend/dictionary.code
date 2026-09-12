@@ -21,7 +21,7 @@ Dictionary {
 		pieces := ks.map(( key, at;
 			v := vs.get(at)
 			displayed := if v === String
-				v.to_string()
+				v.?to_string() or "`v`"
 			else
 				"`v`"
 			end

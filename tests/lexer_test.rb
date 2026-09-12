@@ -489,4 +489,54 @@ class Lexer_Test < Base_Test
 	def test_debug
 		Backend.lex '{ a=1, b="two", c=three }'
 	end
+
+	# `@load` accepts a bare (unquoted) path when it starts with `./`, `../`, or `~/` -- lexed as an
+	# ordinary :string token, so `@load ./foo` produces the exact same three tokens `@load 'foo'`
+	# would (minus the quote characters themselves). See #load_path_pattern?/#lex_load_path/
+	# #preceded_by_at_load? in lexer.rb.
+	def test_load_bare_path_forms
+		{
+			'@load ./foo'                     => './foo',
+			'@load ../foo/bar'                => '../foo/bar',
+			'@load ~/foo'                     => '~/foo',
+			'@load ~/.config/nvim/init.code'  => '~/.config/nvim/init.code',
+		}.each do |src, expected_path|
+			out = Backend.lex src
+			assert_equal 3, out.length, src
+			assert_equal [:operator, '@'], [out[0].type, out[0].value], src
+			assert_equal [:identifier, 'load'], [out[1].type, out[1].value], src
+			assert_equal [:string, expected_path], [out[2].type, out[2].value], src
+		end
+	end
+
+	# A `\ ` pair is an escaped literal space (matching how a shell's own tab-completion writes a
+	# path with a space in it) instead of ending the path there.
+	def test_load_bare_path_unescapes_a_backslash_space_pair
+		out = Backend.lex '@load ./a\ b.code'
+		assert_equal :string, out.last.type
+		assert_equal './a b.code', out.last.value
+	end
+
+	# No leading ./, ../, or ~/ marker -- stays ordinary division, exactly as it parsed before this
+	# feature existed. This is what keeps `@load some_var` (an ordinary variable reference) and
+	# `@load some_scope.path` (an ordinary dot access) unambiguous and unaffected.
+	def test_load_without_a_marker_is_not_treated_as_a_path
+		out = Backend.lex '@load asdf/asdf.code'
+		assert_equal [
+			[:operator, '@'],
+			[:identifier, 'load'],
+			[:identifier, 'asdf'],
+			[:operator, '/'],
+			[:identifier, 'asdf'],
+			[:operator, '.'],
+			[:identifier, 'code'],
+		], out.map { |t| [t.type, t.value] }
+	end
+
+	# `x.@load` is a dot-qualified reference to the member itself, not the bare `@load` directive
+	# form -- must never be swallowed into path-lexing just because a `./`-shaped thing follows it.
+	def test_dot_qualified_at_load_does_not_trigger_bare_path_lexing
+		out = Backend.lex 'x.@load ./foo'
+		refute_includes out.map(&:type), :string
+	end
 end

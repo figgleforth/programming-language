@@ -449,20 +449,28 @@ Flying =/= Swimming    #=> true  (share nothing)
 
 Struct members (see below) factor into all five: `===`/`=!=` require both the composed-type-sets *and* the structures (`left.tag_instance&.type_objects == right.tag_instance&.type_objects`) to match; `=>=`/`=<=` additionally require the member-poor side's members to be entirely present in the member-rich side's; `=/=` additionally requires the members to share nothing either. An unstructured side is treated as having no members, so `Abc === Abc` (neither side structured) is unaffected and stays `true`. Two types still sharing a composed type (e.g. both being `Abc`) always blocks `=/=` regardless of their members — disjointness means sharing *nothing*, composed types included.
 
-### `Any` is a universal wildcard
+### `Any` is a universal wildcard — for `==`/`!=`/`=>=`/`=<=`/`=/=`, deliberately not `===`/`=!=`
 
-`Any` (`backend/global.code`) is a real declared type, but `==`/`!=`/`===`/`=!=` special-case it: any value or type that isn't `nil` counts as equal to `Any`, in either operand position, with no composition required — you don't need `Thing | Any {}` for `Thing` to satisfy it.
+`Any` (`backend/global.code`) is a real declared type, but `==`/`!=`/`=>=`/`=<=`/`=/=` special-case it: any value or type that isn't `nil` counts as equal-or-superset-of `Any`, in either operand position, with no composition required — you don't need `Thing | Any {}` for `Thing` to satisfy it.
 
 ```code
 Thing { x := 1 }
 
-String === Any      #=> true
-Thing() == Any       #=> true
-4 == Any             #=> true
-nil == Any           #=> false -- the one exception
+String == Any        #=> true
+Thing() == Any        #=> true
+4 == Any              #=> true
+nil == Any            #=> false -- the one exception
+String =>= Any        #=> true -- Any genuinely is a superset of everything
 ```
 
-Implemented once in `#interp_comparison_infix` (`interpreter.rb`), checked up front before the normal composed-type-set/overload-lookup logic — a new `#any_type?` helper identifies the literal `Any` type (by name, not by composed types), and the check covers `==`/`!=`/`===`/`=!=` together so the negations stay consistent with their positive forms.
+`===`/`=!=` are the one deliberate exception — they're exact composed-type-SET equality, and that's exactly what's used throughout the codebase as a structural type-dispatch check (`node === Element`, `prop === Property`, ...). Wildcarding `Any` through `===` too would mean a bare `Any` *value* (not a `Thing() | Any {}` subtype — the literal type itself, reachable e.g. when a struct member typed `Any`/`String` never got a real value) satisfied *every* such dispatch check instead of just its own, silently misrouting it into whatever branch happened to be checked first rather than into the intended "not a real value" fallback:
+
+```code
+String === Any        #=> false -- neither composes the other; Any =>= String, not Any === String
+Any === Any           #=> true  -- identical composed-type sets, ordinary case
+```
+
+Implemented once in `#interp_comparison_infix` (`interpreter.rb`) via `ANY_WILDCARD_COMPARISON_OPERATORS` (`constants.rb` — `== != =>= =<= =/=`, `===`/`=!=` pointedly absent), checked up front before the normal composed-type-set/overload-lookup logic — a new `#any_type?` helper identifies the literal `Any` type (by name, not by composed types). `===`/`=!=` fall through to the ordinary composed-type-set comparison below, where `Any`'s own set (`{"Any"}`) simply isn't a superset of (or subset of) anything else's, so they come out `false`/`true` respectively without any special-casing.
 
 ### A String equals a bare Type by name
 
@@ -734,7 +742,7 @@ Slacker {
 	count := 0
 	statement: Statement
 
-	Self ( statement; ./statement = statement )
+	Self ( statement; self.statement = statement )
 	live_count (-> Number; statement() )
 }
 
@@ -1634,3 +1642,22 @@ The `@load` directive allows importing Backend files:
 - The target scope depends on the call form:
   - Bare `@load 'file'` merges the file's top-level declarations directly into the current scope (`stack.last`) — `backend/global.code` uses this same mechanism, but `Interpreter#run`'s bootstrap passes a fresh `Standard_Library` scope as the target (not `global` itself), so e.g. `String` lands there, not as a direct Global declaration — see Splatting a Scope below
   - `some_lib := @load 'file'` instead creates a fresh `Prog::Scope` named after the left-hand identifier, loads the file into *that*, and assigns it — giving real namespace isolation, e.g. `some_lib.square(5)`
+
+### Bare (unquoted) paths
+
+`@load` also accepts a bare, unquoted path — but only when it starts with `./`, `../`, or `~/`:
+
+```code
+@load ./some/file.code
+@load ../utils/thing.code
+@load ~/.config/nvim/script.code
+@load ./tools/blah\ blah/hello.code   # a `\ ` pair is an escaped literal space, same as a shell's own tab-completion
+```
+
+- Implemented entirely in the lexer (`load_path_pattern?`/`lex_load_path`/`preceded_by_at_load?`, `backend/lexer/lexer.rb`) — it emits an ordinary `:string`-typed lexeme, so the parser and interpreter need no changes at all; `@load ./x` is indistinguishable from `@load './x'` past the lexer
+- The leading marker is mandatory and is what keeps this from colliding with an ordinary `@load some_var` / `@load some_scope.path` expression — a bare `@load asdf/asdf` (no marker) is deliberately left alone and still parses as ordinary division (`asdf / asdf`), exactly as before
+- `preceded_by_at_load?` looks *back* at already-lexed tokens (mirroring `#should_lex_negative_number?`'s own trick) rather than forward, since the decision hinges on what precedes the marker (`@load`), not just what follows it — it also excludes `x.@load` (a dot-qualified reference to the member itself, not the bare directive form)
+- `~`/`.`/`..` resolution is already handled for free by the existing `::File.expand_path` call in `Declarator.resolve_load_filepath` / `Interpreter#load_file_into_scope` — nothing new needed there. This genuinely matches shell semantics (not just the spelling) because `File.expand_path` *is* that resolution: `./x`/`../x` resolve against the process's current working directory, `~/x` against the real home directory, and a chain like `../../x` climbs multiple levels correctly, same as `cd ../..`
+- "Current directory" means the process's cwd when `bin/prog` was launched — **not** the directory containing the `.code` file that wrote the `@load` line. This is pre-existing behavior (the quoted form `@load './x'` always worked this way too, unaffected by this feature) and is exactly how a shell's own relative arguments already behave (resolved against your shell's cwd, never the invoked command's own location) — so it's consistent with terminal intuition, just worth remembering it's "relative to where you launched from," not "relative to this file"
+- Only the literal two characters `~/` are recognized — a real shell's `~otheruser/path` (another user's home) is NOT supported; that text doesn't match the marker at all, so it falls through to ordinary parsing (`~` as the difference-composition operator) and errors. Deliberate scope limit, not a bug: only the current user's own `~/` was ever in scope
+- This reused (and removed) a vestigial, non-functional lexer branch that used to special-case `.` immediately followed by `/` into a dead `:operator` token — it never had any parser-level meaning (a leftover from before `self`/`Self` replaced the old symbolic scope operators; see Scope Keywords above)

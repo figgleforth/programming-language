@@ -3376,21 +3376,31 @@ class Interpreter_Test < Base_Test
 		assert_equal [true, false], out.values
 	end
 
-	# `Any` (backend/global.code) is a universal wildcard -- everything except nil counts as Any via `==`/`===`, with no composition required (`Thing | Any {}` isn't needed).
-	def test_any_type_is_universally_equal_via_double_and_triple_equals
+	# `Any` (backend/global.code) is a universal wildcard for `==` -- everything except nil counts as
+	# Any, with no composition required (`Thing | Any {}` isn't needed).
+	def test_any_type_is_universally_equal_via_double_equals
 		out = Backend.interp <<~CODE
 		    Thing { x := 1 }
 		    t := Thing()
 		    (String == Any, Any == String, Number == Any, Thing == Any, t == Any, Any == t, 4 == Any, 'hi' == Any)
 		CODE
 		assert_equal [true, true, true, true, true, true, true, true], out.values
+	end
 
+	# `===` deliberately does NOT wildcard Any -- it's exact composed-type-SET equality, used
+	# throughout as a structural type-dispatch check (`node === Element`); if Any wildcarded it too,
+	# a bare Any value would satisfy every such dispatch check instead of just its own, misrouting it
+	# into whatever branch happened to run first. `Any === Any` still holds (identical sets), but Any
+	# against any *other* type is false in both directions -- neither composes the other.
+	def test_any_type_is_not_exactly_equal_to_other_types_via_triple_equals
 		out = Backend.interp <<~CODE
 		    Thing { x := 1 }
 		    t := Thing()
 		    (String === Any, Any === String, t === Any, Any === t)
 		CODE
-		assert_equal [true, true, true, true], out.values
+		assert_equal [false, false, false, false], out.values
+
+		assert_equal true, Backend.interp('Any === Any')
 	end
 
 	# nil is the one thing that doesn't count as Any -- "if you're not nil, you're Any at the very least" stops short of nil itself.
@@ -3423,9 +3433,12 @@ class Interpreter_Test < Base_Test
 		assert_equal [true, false], out.values
 	end
 
+	# `!=` mirrors `==`'s wildcard (stays false -- String IS "equal-ish" to Any either way). `=!=`
+	# mirrors `===`'s deliberate lack of one (see test_any_type_is_not_exactly_equal_to_other_types_via_triple_equals)
+	# -- true, since String and Any are genuinely different composed-type sets.
 	def test_any_type_negated_comparisons_stay_consistent
 		out = Backend.interp '(String != Any, Any != String, String =!= Any, Any =!= String)'
-		assert_equal [false, false, false, false], out.values
+		assert_equal [false, false, true, true], out.values
 
 		out = Backend.interp '(nil != Any, Any != nil, nil =!= Any, Any =!= nil)'
 		assert_equal [true, true, true, true], out.values

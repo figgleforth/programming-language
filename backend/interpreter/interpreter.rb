@@ -2113,7 +2113,7 @@ module Backend
 			if ANY_WILDCARD_COMPARISON_OPERATORS.include?(expr.operator.value) && (any_type?(left) || any_type?(right))
 				other = any_type?(left) ? right : left
 				equal = !other.nil?
-				return %w(== === =>= =<=).include?(expr.operator.value) ? equal : !equal
+				return %w(== =>= =<=).include?(expr.operator.value) ? equal : !equal
 			end
 
 			# `"Flying" == Flying` -- a String equals a bare Type (either operand order) when it spells

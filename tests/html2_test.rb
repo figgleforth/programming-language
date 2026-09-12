@@ -110,6 +110,21 @@ class Html2_Test < Base_Test
 		assert_equal "<div>\n    <p>one</p>\n</div>", out
 	end
 
+	# `render`'s plain-text fallback (`node.to_s()`) and `indent_block`'s `text.split("\n")` both used
+	# to raise instead of falling back to a plain display when handed a bare, uninstantiated Type
+	# value (a struct member typed `String`/`Any` that never got a real value) -- same root gotcha as
+	# Array#to_s (a bare String Type or the literal Any wildcard both satisfy `=== String`/`=== Element`
+	# without having the instance methods those branches assumed).
+	def test_render_does_not_crash_on_a_bare_type_text_child_regression
+		refute_raises(Prog::Undeclared_Identifier) { Backend.interp "#{HTML}\nHtml_Render.render(div([String]))" }
+		refute_raises(Prog::Cannot_Call_Instance_Member_On_Type) { Backend.interp "#{HTML}\nHtml_Format.render(div([String]))" }
+	end
+
+	def test_embedded_style_child_does_not_crash_on_a_bare_string_type_regression
+		refute_raises(Prog::Cannot_Call_Instance_Member_On_Type) { Backend.interp "#{HTML}\nHtml_Format.render(style([String]))" }
+		refute_raises(Prog::Cannot_Call_Instance_Member_On_Type) { Backend.interp "#{HTML}\nHtml_Render.render(style([String]))" }
+	end
+
 	# --- Html_Stats_Visitor -----------------------------------------------------
 
 	def test_stats_node_count_and_max_depth
@@ -182,6 +197,17 @@ class Html2_Test < Base_Test
 		    Html_Render.render(Html_Sanitizer_Visitor().sanitize(tree))
 		CODE
 		assert_equal '<a>bad</a>', out
+	end
+
+	# `attr.value === String` is also true for the literal `Any` type -- which has no callable
+	# `trim()` -- so this used to raise Undeclared_Identifier instead of just treating it as "not a
+	# javascript: URL" (same gotcha as Array#to_s).
+	def test_dangerous_attribute_does_not_crash_on_a_bare_type_value_regression
+		out = Backend.interp <<~CODE
+		    #{HTML}
+		    Html_Sanitizer_Visitor().dangerous_attribute?(Attribute('href', Any))
+		CODE
+		assert_equal false, out
 	end
 
 	def test_sanitize_keeps_safe_href

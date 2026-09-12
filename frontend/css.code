@@ -56,7 +56,7 @@ Css_Formatter_Visitor {
 				node.hex
 			end
 		else
-			node.to_s()
+			node.?to_s() or "`node`"
 		end
 	)
 
@@ -313,7 +313,7 @@ Css_Lint_Visitor | Warnings_Visitor {
 
 	check_zero_units ( prop;
 		if prop.value === String
-			for prop.value.split(" ")
+			for prop.value.?split(" ") or []
 				token := it
 				if token.start_with?("0") and self.ZERO_UNITS.any?(unit; token.end_with?(unit))
 					warn("Unit unneeded for zero value in '`prop.name`: `prop.value`'")
@@ -395,10 +395,13 @@ Css_Lint_Visitor | Warnings_Visitor {
 		for rule.declarations
 			prop := it
 			if prop === Property and prop.value === String
-				if prop.name == "animation-name"
-					name = prop.value.trim()
-				elif prop.name == "animation"
-					name = prop.value.trim().split(" ").0
+				trimmed := prop.value.?trim()
+				if trimmed != nil
+					if prop.name == "animation-name"
+						name = trimmed
+					elif prop.name == "animation"
+						name = trimmed.split(" ").0
+					end
 				end
 			end
 		end

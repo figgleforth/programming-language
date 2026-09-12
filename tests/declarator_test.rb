@@ -188,6 +188,29 @@ class Declarator_Test < Base_Test
 		end
 	end
 
+	# A bare (unquoted) `./`-prefixed path behaves identically to the same quoted path -- the lexer
+	# hands the parser an ordinary :string token either way, so every existing @load mechanism
+	# (bare merge, named isolation, forward-declaration hoisting) is unaffected.
+	def test_bare_path_load_works_the_same_as_a_quoted_path
+		out = Backend.interp <<~CODE
+		    @load ./frontend/html.code
+		    Div([P('hi')]).to_s()
+		CODE
+		assert_equal '<div><p>hi</p></div>', out
+	end
+
+	def test_bare_path_named_load_works_the_same_as_a_quoted_path
+		out = Backend.interp <<~CODE
+		    sign := Html_Lib.Div([Html_Lib.P('hi')])
+		    result := sign.to_s()
+
+		    Html_Lib := @load ./frontend/html.code
+
+		    result
+		CODE
+		assert_equal '<div><p>hi</p></div>', out
+	end
+
 	# The core guardrail: functions/types are declarative (order doesn't change what they mean), so forward-referencing one is fine -- but a plain `:=` is a step in the program's own imperative order, and reading it before that step runs is a real bug in the *program*. Forward-resolving it anyway would silently paper over exactly that bug.
 	def test_plain_variable_assignments_are_not_forward_referenceable
 		assert_raises Prog::Undeclared_Identifier do

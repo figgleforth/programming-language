@@ -5,8 +5,6 @@ module Prog
 	HTTP_VERBS                        = %w(get put patch post delete head options connect trace)
 	VOID_HTML_TAGS                    = %w(area base br col command embed hr img input keygen link meta param source track wbr)
 	HTTP_VERB_SEPARATOR               = '://'
-	# Every `@` (Context) member is defined once, on Prog::Context (see backend/proxies/context.rb):
-	# Context::MEMBERS, and the derived Context::FUNCTIONS / ::STACK_FUNCTIONS / ::VITALS.
 	CONTEXT_OPERATOR                  = '@'
 	CONTEXT_ARG_TERMINATORS           = %W( \n \r \) \} \] \, \; )
 	NIL_INIT_POSTFIX                  = ','
@@ -27,7 +25,7 @@ module Prog
 	LOGICAL_OPERATORS                 = %w(&& & || | and or)
 	COMPOUND_OPERATORS                = %w(||= &&= **= <<= >>= += -= *= |= /= %= &= ^=)
 	COMPARISON_OPERATORS              = %w(<=> == === =!= =>= =<= =/= != <= >= < > =~ !~)
-	ANY_WILDCARD_COMPARISON_OPERATORS = %w(== != === =!= =>= =<= =/=)
+	ANY_WILDCARD_COMPARISON_OPERATORS = %w(== != =>= =<= =/=)
 	INFIX_ARITHMETIC_OPERATORS        = %w(+ - * ** / % << >> ^ & |)
 	RANGE_OPERATORS                   = %w(.. ..< >.. >..<)
 	SELF_KEYWORDS                     = %w(self Self)          # instance / type scope -- context-restricted
