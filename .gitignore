@@ -1,6 +1,6 @@
 .idea/
 _assets/
-_sandbox/
+sandbox/
 
 .DS_Store
 *.db
