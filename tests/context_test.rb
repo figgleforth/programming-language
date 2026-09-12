@@ -1,45 +1,45 @@
 require 'minitest/autorun'
-require_relative '../backend/backend'
+require_relative '../source/main'
 require_relative 'base_test'
 
-# `backend/context.code` is the human-readable mirror of Prog::Context::MEMBERS (see the note there).
+# `source/programs/context.code` is the human-readable mirror of Code::Context::MEMBERS (see the note there).
 # The two drift apart the moment someone adds a member to one and forgets the other -- exactly the
 # bug that shipped `splatr`/`splatw` half-wired. Keep them locked together.
 class Context_Test < Base_Test
 	def context_prog_member_names
-		path   = File.join(Backend::ROOT_PATH, 'frontend', 'context.code')
-		struct = Backend.parse_file(path).find { |expr| expr.is_a?(Prog::Struct_Expr) }
-		refute_nil struct, 'expected a `Context <...>` struct declaration in backend/context.code'
+		path   = File.join(Code::ROOT_PATH, 'source', 'programs', 'context.code')
+		struct = Code.parse_file(path).find { |expr| expr.is_a?(Code::Struct_Expr) }
+		refute_nil struct, 'expected a `Context <...>` struct declaration in source/programs/context.code'
 		struct.names.compact
 	end
 
 	def test_context_prog_lists_exactly_the_members_in_the_constant
-		assert_equal Prog::Context::MEMBERS.keys.sort, context_prog_member_names.sort
+		assert_equal Code::Context::MEMBERS.keys.sort, context_prog_member_names.sort
 	end
 
 	def test_derived_lists_are_consistent
 		# STACK_FUNCTIONS is a subset of FUNCTIONS.
-		assert_empty Prog::Context::STACK_FUNCTIONS - Prog::Context::FUNCTIONS
+		assert_empty Code::Context::STACK_FUNCTIONS - Code::Context::FUNCTIONS
 
 		# A vital and a function are mutually exclusive; together they are every member.
-		assert_empty Prog::Context::VITALS & Prog::Context::FUNCTIONS
-		assert_equal Prog::Context::MEMBERS.keys.sort, (Prog::Context::VITALS + Prog::Context::FUNCTIONS).sort
+		assert_empty Code::Context::VITALS & Code::Context::FUNCTIONS
+		assert_equal Code::Context::MEMBERS.keys.sort, (Code::Context::VITALS + Code::Context::FUNCTIONS).sort
 	end
 
 	# ### architecture: one shared function Context, on-demand vitals, no per-scope caching ###
 
 	def interpreter_after code
-		Backend::Interpreter.new.tap { |i| i.run(code) }
+		Code::Interpreter.new.tap { |i| i.run(code) }
 	end
 
 	def test_there_is_one_shared_function_context
 		i = interpreter_after 'x := 1'
 		assert_same i.send(:shared_context), i.send(:shared_context)
-		assert_equal Prog::Context::FUNCTIONS.sort, i.send(:shared_context).declarations.keys.sort
+		assert_equal Code::Context::FUNCTIONS.sort, i.send(:shared_context).declarations.keys.sort
 	end
 
 	def test_no_context_is_cached_on_a_scope
-		refute_includes Prog::Scope.instance_methods, :context, '`Scope#context` should be gone -- nothing is cached per scope now'
+		refute_includes Code::Scope.instance_methods, :context, '`Scope#context` should be gone -- nothing is cached per scope now'
 
 		i = interpreter_after 'x := 1'
 		refute_same i.send(:context_for, i.global), i.send(:context_for, i.global),

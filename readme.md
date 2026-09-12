@@ -3,9 +3,9 @@
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 
-![The icon I use for .code files](icon@2x.svg)
+![The icon I use for .code files](assets/icon@2x.svg)
 
-Learn about the language below, or [in the learn section](examples/readme.md), or *[click here to get started using it](getting_started.md)*.
+Learn about the language below, or [in the learn section](guides/readme.md), or *[click here to get started using it](docs/getting_started.md)*.
 
 ---
 
@@ -181,7 +181,7 @@ A bare `@load` hoists too, so imports can live at the bottom of the file instead
 sign := Div([P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-@load 'frontend/html.code'
+@load 'programs/html.code'
 ```
 
 `Ident := @load 'file'` / `IDENT := @load 'file'` work the same way — only a Capitalized or UPPERCASE left-hand name opts in, since that's what marks it as a namespace rather than an ordinary variable:
@@ -190,9 +190,9 @@ sign.to_s()  # '<div><p>hi</p></div>'
 sign := Html_Lib.Div([Html_Lib.P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-Html_Lib := @load 'frontend/html.code'
+Html_Lib := @load 'programs/html.code'
 
-# html_lib := @load 'frontend/html.code'   -- lowercase stays a plain variable, not hoisted
+# html_lib := @load 'programs/html.code'   -- lowercase stays a plain variable, not hoisted
 ```
 
 Plain variable assignments are never hoisted this way — reading one before its own line has actually run still raises `Undeclared_Identifier`, same as any language with top-to-bottom execution:
@@ -359,7 +359,7 @@ d.can_swim    # true
 Ostrich | Duck ~ Flying { name := 'ostrich' }
 o := Ostrich()
 o.can_swim    # true
-o.can_fly     # raises Prog::Undeclared_Identifier
+o.can_fly     # raises Code::Undeclared_Identifier
 ```
 
 A type can even compose with itself, to extend or override a built-in type's own behavior:
@@ -647,7 +647,7 @@ b.css_filter   # 'invert()' — every Button gets it, since Button itself was ex
 @pop_scope b
 
 c := Button()
-c.onclick   # raises Prog::Undeclared_Identifier — only b was modified
+c.onclick   # raises Code::Undeclared_Identifier — only b was modified
 ```
 
 ## Arrays
@@ -770,7 +770,7 @@ cool := 2342
 
 ## Statement Expressions
 
-1. `` `expr` `` wraps any expression without running it -- an `Prog::Statement`, callable later with `()`
+1. `` `expr` `` wraps any expression without running it -- an `Code::Statement`, callable later with `()`
 2. Written straight at a call site, `` `expr`() `` just evaluates immediately
 3. Stored in a variable, it can be called any number of times -- each call re-evaluates the wrapped expression fresh, by default remembering the scope it was *built* in (a normal closure, no matter where `()` ends up being called from)
 4. `.memoize = true` caches the first call's result instead of re-running every time
@@ -796,7 +796,7 @@ cached()                   # 4
 cached()                   # 4 -- didn't run again
 ```
 
-See `examples/statements.code` for the full picture, including `.use_caller_scope`.
+See `guides/statements.code` for the full picture, including `.use_caller_scope`.
 
 ## Numbers
 
@@ -975,14 +975,14 @@ w.@version        # 2 — an instance reads through to its type's context
 
 ## @load
 
-1. Imports another Backend file
+1. Imports another Code file
 2. A file is only run once per scope it's loaded into — loading the same file into the same scope again returns the first run's result instead of re-running it
 3. Imports may be scoped by assigning the @load to a variable
 4. The path can also be written bare (unquoted), as long as it starts with `./`, `../`, or `~/` — a `\ ` pair escapes a literal space, the same way a shell's own tab-completion writes one
 
 ```code
-@load 'frontend/string.code'
-@load 'frontend/array.code'
+@load 'programs/string.code'
+@load 'programs/array.code'
 @load './my_module.code'
 my_mod := @load './my_module.code'
 my_mod.Some_Type()
@@ -1019,7 +1019,7 @@ double(@puts 5)   # prints 5, returns 10 -- the call still gets the real 5
 
 ### Telling printed values apart
 
-Backend's built-in collection types each wrap their printed contents in a different bracket, so you can tell what you're looking at at a glance:
+Code's built-in collection types each wrap their printed contents in a different bracket, so you can tell what you're looking at at a glance:
 
 ```code
 @puts [1, 2, 3]      # [1, 2, 3]      -- Array
@@ -1035,7 +1035,7 @@ Point {
     x := 1
     greet (; 'hi' )
 }
-@puts Point()   # #<Prog::Instance name="Point" declarations=["x", "greet"]>
+@puts Point()   # #<Code::Instance name="Point" declarations=["x", "greet"]>
 ```
 
 Nothing enforces a bracket convention for your own types, but picking one that doesn't collide with the built-ins above keeps output easy to scan.
@@ -1062,7 +1062,7 @@ supplies := <water: Number = 40, wood: Number = 12>
 3. Boot with `@start_server` (background thread; `@stop_server` to shut one down)
 
 ```code
-@load 'frontend/server.code'
+@load 'programs/server.code'
 
 App | Server {
     Self (;
@@ -1135,12 +1135,12 @@ get://api/data (;
 
 ## Database
 
-1. `@load 'frontend/database.code'` -- this pulls in `backend/table.code` too
+1. `@load 'programs/database.code'` -- this pulls in `programs/table.code` too
 2. `Sqlite(url)` builds a database; `@connect` opens it and **returns it**
 3. `Sqlite.memory()` for an in-memory db, `Sqlite.local('name')` for `.temporary/name.db`
 
 ```code
-@load 'frontend/database.code'
+@load 'programs/database.code'
 
 db := @connect Sqlite('./data/app.db')
 ```
@@ -1162,7 +1162,7 @@ db.find_table('users')          # -> a Table, or nil
 db.delete_table!(User)          # also takes a bare :users
 ```
 
-Column types: `Primary_Key`, `String`/`Text`, `Int`, `Number`, `Bool`, `Date`, `Time`, `Date_Time`. `Flo`/`Decimal`/`Blob` are mapped but not backed by a Backend type yet.
+Column types: `Primary_Key`, `String`/`Text`, `Int`, `Number`, `Bool`, `Date`, `Time`, `Date_Time`. `Flo`/`Decimal`/`Blob` are mapped but not backed by a Code type yet.
 
 ## Record ORM
 
@@ -1185,17 +1185,17 @@ users.count()
 
 - A record is a `Struct` named after the schema -- read members by name (`record.name`), or `record.to_h` for the whole row
 - `Bool` columns round-trip as real `true`/`false`; `Date`/`Time`/`Date_Time` columns round-trip as the matching wrapper (`record.joined_at.year`)
-- A filter naming a column the schema doesn't have raises `Prog::Table_Invalid_Filter_Column`
+- A filter naming a column the schema doesn't have raises `Code::Table_Invalid_Filter_Column`
 
 ## HTML Elements
 
-1. Compose with HTML element types from `backend/html.code`
+1. Compose with HTML element types from `programs/html.code`
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
 4. `.to_s()` renders an element and its children to string directly
 
 ```code
-@load 'frontend/html.code'
+@load 'programs/html.code'
 
 Card | Div {
     css_padding := '1rem'
@@ -1226,13 +1226,13 @@ page := Html([
 
 ## CSS
 
-1. `@load 'frontend/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
+1. `@load 'programs/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
 2. `Css_Formatter_Visitor` walks a tree of those structs and turns it into a real CSS string -- pretty by default, `minify := true` for one line
 3. A rule nested inside another rule's own `rules` gets a synthesized `&` prefix (real CSS nesting); a rule merely sitting inside an `At_Rule`/`Scope_Rule` body does not, since there's no parent selector for `&` to refer to there
 4. `Css_Lint_Visitor` walks the same kind of tree checking for duplicate properties, hardcoded vendor prefixes, and redundant zero-units (`0px` -> `0`) instead of formatting it. Handed a whole `Stylesheet`, it also warns when a state rule (`.card:hover`, `:focus`, ...) sets `transform` while the base selector runs a keyframe `animation` that also animates `transform` — the running animation recomputes it every frame, so the hover value never shows
 
 ```code
-@load 'frontend/css.code'
+@load 'programs/css.code'
 
 rule := Style_Rule(['.card'], [Property('color', 'red'), Property('padding', '8px')])
 
@@ -1248,15 +1248,15 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 
 ## Struct-Based HTML
 
-1. `@load 'frontend/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `backend/html.code`'s `Dom` types above rather than replacing them -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline (onclick wiring, `dom.js`)
+1. `@load 'programs/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `programs/html.code`'s `Dom` types above rather than replacing them -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline (onclick wiring, `dom.js`)
 2. `attributes` is an ordered `Array\Attribute` (`Attribute(name, value)`, built the same way `Property` builds a CSS declaration) -- not a Dictionary, so attributes keep their given order and can even collide (see `Html_Lint_Visitor` below)
 3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as one more child, an embedded `<style>` block, wherever it's attached
 4. `Html_Render`/`Html_Format` are two shared `Html_Formatter_Visitor` instances (compact/pretty); void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
-5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attribute names) walk the same tree for their own purposes -- `Html_Lint_Visitor` and `Css_Lint_Visitor` both compose `backend/visitor.code`'s `Warnings_Visitor` mixin for their shared `warnings`/`warn` machinery
+5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attribute names) walk the same tree for their own purposes -- `Html_Lint_Visitor` and `Css_Lint_Visitor` both compose `programs/visitor.code`'s `Warnings_Visitor` mixin for their shared `warnings`/`warn` machinery
 
 ```code
-@load 'frontend/html2.code'
-@load 'frontend/css.code'
+@load 'programs/html2.code'
+@load 'programs/css.code'
 
 page := div([
     h1('Welcome'),
@@ -1437,18 +1437,18 @@ a ~> 1          # 42 — Wrapped's own ~> wins
 
 1. `:=` infers a type from its right-hand side and locks the identifier to it
 2. Subsequent `=` assignments are checked against that locked type; `:=` again re-infers and re-locks
-3. A mismatch raises `Prog::Type_Contract_Violation`, not the static type checker's `Type_Mismatch`
+3. A mismatch raises `Code::Type_Contract_Violation`, not the static type checker's `Type_Mismatch`
 
 ```code
 x := 4        # declares x, infers Number, locks x to that type
 x = 8         # ok — same type
-x = 'hello'   # raises Prog::Type_Contract_Violation ("expected Number, got String")
+x = 'hello'   # raises Code::Type_Contract_Violation ("expected Number, got String")
 
 x := 4
 x := 'hello'  # fine — re-declaring with := re-infers and re-locks the type
 x             # 'hello'
 
-y = 4         # raises Prog::Cannot_Assign_Undeclared_Identifier — y was never declared
+y = 4         # raises Code::Cannot_Assign_Undeclared_Identifier — y was never declared
 ```
 
 A `: Type` annotation can list more than one alternative type, joined by `|`, `&`, `^`, or `~` — all four mean the exact same thing here: the value must match at least one of the listed types (OR). The operator's usual [type composition](#type-composition) meaning (merge, keep-shared, remove, keep-unique) does not apply to a type annotation — an annotation only lists names to check against, it does not build a new composed type.
@@ -1456,7 +1456,7 @@ A `: Type` annotation can list more than one alternative type, joined by `|`, `&
 ```code
 x: Int | Nil = 1     # ok — matches Int
 x: Int & Nil = nil   # ok — matches Nil (& means the same OR check as | here)
-x: Int ^ Nil = true  # raises Prog::Type_Contract_Violation — matches neither Int nor Nil
+x: Int ^ Nil = true  # raises Code::Type_Contract_Violation — matches neither Int nor Nil
 x: Int ~ Nil = true  # same violation — ~ means the same OR check too
 ```
 
@@ -1466,7 +1466,7 @@ Declaring the combined type first and annotating with its name does *not* give y
 
 ```code
 Int_Or_Nil | Int | Nil {}
-x: Int_Or_Nil = 4     # raises Prog::Type_Contract_Violation, even though 4 is an Int
+x: Int_Or_Nil = 4     # raises Code::Type_Contract_Violation, even though 4 is an Int
 ```
 
 A single named type in annotation position checks the value against that *one* type — real is-a matching, not "matches one of the types it was composed from". So `Int_Or_Nil` only ever accepts `nil` (matching by name is trivial there) or an actual `Int_Or_Nil()` value, never a plain `Int` on its own. Spell out `x: Int | Nil` at each spot you need it — there's no reusable named stand-in for "one of these types" today.
@@ -1483,7 +1483,7 @@ x: Combined = c    # ok — c really is a Combined
 
 1. `(Param, Param -> Type;)` is a signature — a value describing a function's shape (its param types and return type), with no implementation — same `-> Type` placement a real function uses, just with no body
 2. A real function always declares its own return type inside its body, with `-> Type` at the end of its param list before `;` — a self-declaring signature uses the same shape under its name (`double: (Number -> Number;)`)
-3. Assigning a function to a signature-typed identifier checks its actual shape, not just a name — mismatches raise `Prog::Type_Contract_Violation`, the same runtime type contract `:=` uses
+3. Assigning a function to a signature-typed identifier checks its actual shape, not just a name — mismatches raise `Code::Type_Contract_Violation`, the same runtime type contract `:=` uses
 4. Any function with a declared return type is checked on every call — what it actually returns has to match, signature or not
 
 ```code
@@ -1503,14 +1503,14 @@ formatter(1050)               # "$10.5"
 formatter = format_eur        # ok — same shape: (Number) -> String
 formatter(1050)               # "€10.5"
 
-formatter = ( cents; cents )  # raises Prog::Type_Contract_Violation — wrong shape
+formatter = ( cents; cents )  # raises Code::Type_Contract_Violation — wrong shape
 ```
 
 A declared return type is enforced on its own, with no signature involved:
 
 ```code
 lying ( a -> Number; 'not a number' )
-lying(5)   # raises Prog::Type_Contract_Violation — declared Number, actually returned String
+lying(5)   # raises Code::Type_Contract_Violation — declared Number, actually returned String
 ```
 
 ## Structs
@@ -1518,11 +1518,11 @@ lying(5)   # raises Prog::Type_Contract_Violation — declared Number, actually 
 1. `<...>` attaches runtime-inspectable metadata (a struct) to a standalone value. Tagging a *Type* declaration/reference itself uses `\` instead, to stay unambiguous with a plain struct value and with comparisons — `Array\<String> {}` (inline literal), `Array\Task_Schema {}`/`Array\String {}` (a named reference to an already-declared struct or Type), `Primary_Key\4815` (a bare integer, a "version tag")
 2. `\` chains: `Thing\One\Two {}` tags `Thing` with `One`, which is itself tagged with `Two`. `.tag` is `One`, `.tag.tag` is `Two`
 3. Each declared tag is its own type — `Abc\<Number> {}` and `Abc\<String> {}` don't share `Self`/methods, and `Thing\One\Two` and `Thing\One\Three` are distinct too
-4. A reference matches a declared tag by type (like overload resolution), including types it composes and not just its own name, at every link of the chain. Referencing a real Type with no matching variant yet auto-declares one; referencing anything else with no match raises `Prog::Undeclared_Tagged_Type`
+4. A reference matches a declared tag by type (like overload resolution), including types it composes and not just its own name, at every link of the chain. Referencing a real Type with no matching variant yet auto-declares one; referencing anything else with no match raises `Code::Undeclared_Tagged_Type`
 5. Reachable through `.tag` (`.tag.types`, or `.tag.some_name` for named members) — bound before `Self(;)` runs, never forwarded as constructor args
-6. `x.tag = new_tag` re-tags at runtime, but only on a value whose type was declared with a tag, and only when `new_tag` composes at least everything the current tag does, at every chain link (`=>=`) — otherwise `Prog::Tag_Signature_Violation`
+6. `x.tag = new_tag` re-tags at runtime, but only on a value whose type was declared with a tag, and only when `new_tag` composes at least everything the current tag does, at every chain link (`=>=`) — otherwise `Code::Tag_Signature_Violation`
 7. Naming an *undeclared* identifier with bare `<...>` (no `\`, e.g. `Named<...>`) builds a plain, named struct instead of raising — a name that's already taken by a real Type still takes priority and behaves as above
-8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`) — and two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring an already-filled struct with a *different* shape raises `Prog::Undeclared_Tagged_Type`
+8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`) — and two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring an already-filled struct with a *different* shape raises `Code::Undeclared_Tagged_Type`
 
 ```code
 String\<dict: Dictionary> {

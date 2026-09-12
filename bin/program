@@ -9,12 +9,12 @@ bin_path     = File.realpath __FILE__
 project_root = File.expand_path '../..', bin_path
 wanted_ruby  = File.read(File.join(project_root, '.ruby-version')).strip rescue nil
 
-if wanted_ruby && RUBY_VERSION != wanted_ruby && !ENV['BACKEND_RUBY_SELECTED']
+if wanted_ruby && RUBY_VERSION != wanted_ruby && !ENV['CODE_RUBY_SELECTED']
 	shim = File.expand_path 'shims/ruby', ENV.fetch('RBENV_ROOT', '~/.rbenv')
 	ruby = File.executable?(shim) ? shim : 'ruby'
-	exec({ 'RBENV_VERSION' => wanted_ruby, 'BACKEND_RUBY_SELECTED' => '1' }, ruby, bin_path, *ARGV)
+	exec({ 'RBENV_VERSION' => wanted_ruby, 'CODE_RUBY_SELECTED' => '1' }, ruby, bin_path, *ARGV)
 end
 
-require_relative '../backend/backend.rb'
+require_relative '../source/main.rb'
 
-Backend::CLI.run ARGV
+Code::CLI.run ARGV

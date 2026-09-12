@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Shortcut for the full test suite: `./test` (or `test` once bin/ or . is on PATH).
+exec bundle exec rake test "$@"

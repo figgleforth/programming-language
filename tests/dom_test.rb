@@ -1,18 +1,18 @@
 require 'minitest/autorun'
-require_relative '../backend/backend'
+require_relative '../source/main'
 require_relative 'base_test'
 
 class Dom_Test < Base_Test
 	# Runs `src`, returns [interpreter, rendered-html-of-the-result].
 	def render src
-		interp   = Backend::Interpreter.new
+		interp   = Code::Interpreter.new
 		instance = interp.run src
 		[interp, interp.render_dom_to_html(instance)]
 	end
 
 	# Invokes a registered onclick handler the way a POST /onclick/<token> does, minus the HTTP layer.
 	def fire interp, token
-		route             = Prog::Route.new
+		route             = Code::Route.new
 		route.handler     = interp.dom_onclick_function_handlers.fetch(token)[:handler]
 		route.param_names = []
 		req = interp.build_prog_request "/onclick/#{token}", 'post', {}, {}, {}, {}
@@ -24,7 +24,7 @@ class Dom_Test < Base_Test
 
 	def test_re_rendering_a_component_reuses_the_same_tokens
 		interp, html1 = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Panel | Div {
 		    	html_id := 'panel'
 		    	n := 0
@@ -50,7 +50,7 @@ class Dom_Test < Base_Test
 
 	def test_token_namespace_is_anchored_by_the_nearest_html_id
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Outer | Div {
 		    	html_id := 'outer'
 		    	render (; [Button("x", onclick := (; 1 )), Inner()] )
@@ -67,7 +67,7 @@ class Dom_Test < Base_Test
 
 	def test_handler_defined_in_render_still_works_after_re_render
 		interp, _ = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Counter | Div {
 		    	html_id := 'c'
 		    	count := 0
@@ -95,7 +95,7 @@ class Dom_Test < Base_Test
 		# reconstructed from the handler's scope chain), and the callback keeps its closure through
 		# `.map`, so its onclick can still reach a member of the enclosing component.
 		interp, _ = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    List | Div {
 		    	html_id := 'list'
 		    	items := [1, 2, 3]
@@ -122,7 +122,7 @@ class Dom_Test < Base_Test
 
 	def test_key_pins_the_token_and_does_not_consume_a_slot
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Page | Div {
 		    	html_id := 'page'
 		    	render (;
@@ -142,7 +142,7 @@ class Dom_Test < Base_Test
 
 	def test_constructor_sets_whitelisted_html_and_css_attrs
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Button("Save", html_id := 'save', html_class := 'primary', css_color := 'red')
 		CODE
 		assert_includes html, 'id="save"'
@@ -153,7 +153,7 @@ class Dom_Test < Base_Test
 
 	def test_constructor_onclick_registers_a_handler
 		interp, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Page | Div {
 		    	html_id := 'p'
 		    	n := 0
@@ -166,20 +166,20 @@ class Dom_Test < Base_Test
 	end
 
 	def test_non_whitelisted_named_arg_on_a_dom_type_still_raises
-		assert_raises Prog::Unknown_Named_Argument do
-			Backend.interp "@load 'frontend/html'\nButton(\"x\", bogus := 1)"
+		assert_raises Code::Unknown_Named_Argument do
+			Code.interp "@load 'programs/html'\nButton(\"x\", bogus := 1)"
 		end
 	end
 
 	def test_whitelisted_named_arg_on_a_non_dom_type_still_raises
-		assert_raises Prog::Unknown_Named_Argument do
-			Backend.interp "Widget { Self (; ) }\nWidget(html_id := 'x')"
+		assert_raises Code::Unknown_Named_Argument do
+			Code.interp "Widget { Self (; ) }\nWidget(html_id := 'x')"
 		end
 	end
 
 	def test_a_declared_param_wins_over_the_prop_shortcut
-		out = Backend.interp <<~CODE
-		    @load 'frontend/html'
+		out = Code.interp <<~CODE
+		    @load 'programs/html'
 		    Tag | Div {
 		    	seen,
 		    	Self ( key := nil; self.seen = key )
@@ -193,7 +193,7 @@ class Dom_Test < Base_Test
 
 	def test_unset_boolean_attr_is_not_rendered
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    O | Option { html_selected: Bool }
 		    O()
 		CODE
@@ -202,7 +202,7 @@ class Dom_Test < Base_Test
 
 	def test_true_boolean_attr_renders_bare
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    O | Option {
 		    	html_selected: Bool
 		    	Self (; self.html_selected = true )
@@ -216,7 +216,7 @@ class Dom_Test < Base_Test
 
 	def test_false_and_nil_html_attrs_are_dropped
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    D | Div {
 		    	html_hidden := false
 		    	html_title,
@@ -231,7 +231,7 @@ class Dom_Test < Base_Test
 
 	def test_dialog_renders_with_a_closing_tag
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Dialog()
 		CODE
 		assert_includes html, '<dialog>'
@@ -240,7 +240,7 @@ class Dom_Test < Base_Test
 
 	def test_dialog_open_renders_bare
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Dialog(html_open := true)
 		CODE
 		assert_includes html, '<dialog open>'
@@ -249,7 +249,7 @@ class Dom_Test < Base_Test
 
 	def test_dialog_without_open_has_no_open_attr
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Dialog()
 		CODE
 		refute_includes html, 'open'
@@ -257,7 +257,7 @@ class Dom_Test < Base_Test
 
 	def test_popover_true_renders_bare_not_as_the_string_true
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Div(html_popover := true)
 		CODE
 		assert_includes html, '<div popover>'
@@ -266,7 +266,7 @@ class Dom_Test < Base_Test
 
 	def test_popover_with_a_real_value_keeps_that_value
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Div(html_popover := 'manual')
 		CODE
 		assert_includes html, 'popover="manual"'
@@ -274,7 +274,7 @@ class Dom_Test < Base_Test
 
 	def test_popovertarget_has_no_hyphen
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Button("Open", html_popovertarget := 'my-dialog')
 		CODE
 		assert_includes html, 'popovertarget="my-dialog"'
@@ -283,7 +283,7 @@ class Dom_Test < Base_Test
 
 	def test_popovertargetaction_has_no_hyphen
 		_, html = render <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 		    Button("Close", html_popovertargetaction := 'hide')
 		CODE
 		assert_includes html, 'popovertargetaction="hide"'

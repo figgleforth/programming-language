@@ -1,3 +1,0 @@
-@load 'frontend/string'
-
-Fence | String {}

@@ -1,0 +1,38 @@
+Ruby
+    filter remove_matches ^\s*#
+    filter remove_below_above ^=begin ^=end
+    filter remove_inline #.*$
+    extension rb
+    filename Rakefile
+    script_exe ruby
+    3rd_gen_scale 4.20
+    end_of_line_continuation \\$
+Code
+    filter remove_between_general ### ###
+    filter remove_matches ^\s*#
+    filter remove_inline \s+#.*$
+    extension code
+    3rd_gen_scale 2.00
+JavaScript
+    filter rm_comments_in_strings ' /* */
+    filter rm_comments_in_strings ' //
+    filter rm_comments_in_strings " /* */
+    filter rm_comments_in_strings " //
+    filter call_regexp_common C++
+    extension cjs
+    extension js
+    extension mjs
+    3rd_gen_scale 1.48
+    end_of_line_continuation \\$
+CSS
+    filter rm_comments_in_strings " /* */
+    filter rm_comments_in_strings " //
+    filter call_regexp_common C
+    extension css
+    3rd_gen_scale 1.00
+HTML
+    filter remove_html_comments
+    filter call_regexp_common HTML
+    extension htm
+    extension html
+    3rd_gen_scale 1.90

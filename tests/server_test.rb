@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../backend/backend'
+require_relative '../source/main'
 require_relative 'base_test'
 require 'net/http'
 require 'uri'
@@ -17,8 +17,8 @@ class Server_Test < Base_Test
 		    server := Server()
 		CODE
 
-		result = Backend.interp code
-		assert_instance_of Prog::Server, result
+		result = Code.interp code
+		assert_instance_of Code::Server, result
 		assert_equal 3000, result[:port]
 	end
 
@@ -40,8 +40,8 @@ class Server_Test < Base_Test
 		    app := Web_App()
 		CODE
 
-		result = Backend.interp code
-		assert_instance_of Prog::Server, result
+		result = Code.interp code
+		assert_instance_of Code::Server, result
 		assert_equal 3001, result[:port]
 	end
 
@@ -67,7 +67,7 @@ class Server_Test < Base_Test
 		    app := Web_App()
 		CODE
 
-		interpreter = Backend::Interpreter.new
+		interpreter = Code::Interpreter.new
 		interpreter.run code
 
 		assert_equal 2, interpreter.route_functions_by_route_name.count
@@ -84,10 +84,10 @@ class Server_Test < Base_Test
 		    app := Server()
 		CODE
 
-		interpreter     = Backend::Interpreter.new
+		interpreter     = Code::Interpreter.new
 		server_instance = interpreter.run code
 
-		server_instance.port = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		server_instance.port = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 
 		assert_equal 8888, server_instance.port
 	end
@@ -114,7 +114,7 @@ class Server_Test < Base_Test
 		    app := Web_App()
 		CODE
 
-		interpreter = Backend::Interpreter.new
+		interpreter = Code::Interpreter.new
 		interpreter.run code
 
 		assert_equal 2, interpreter.route_functions_by_route_name.count
@@ -142,7 +142,7 @@ class Server_Test < Base_Test
 		    app := Web_App()
 		CODE
 
-		interpreter     = Backend::Interpreter.new
+		interpreter     = Code::Interpreter.new
 		server_instance = interpreter.run code
 		routes          = interpreter.route_functions_by_route_name
 
@@ -176,7 +176,7 @@ class Server_Test < Base_Test
 		    app := Web_App()
 		CODE
 
-		interpreter = Backend::Interpreter.new
+		interpreter = Code::Interpreter.new
 		interpreter.run code
 		route      = interpreter.route_functions_by_route_name.values.first
 		path_parts = ['users', '42', 'posts', '99']
@@ -187,7 +187,7 @@ class Server_Test < Base_Test
 	end
 
 	def test_query_string_parsing
-		interpreter  = Backend::Interpreter.new
+		interpreter  = Code::Interpreter.new
 		query_params = interpreter.parse_query_string 'name=John&age=30&city=NYC'
 
 		assert_equal 'John', query_params['name']
@@ -196,7 +196,7 @@ class Server_Test < Base_Test
 	end
 
 	def test_query_string_with_url_encoding
-		interpreter  = Backend::Interpreter.new
+		interpreter  = Code::Interpreter.new
 		query_params = interpreter.parse_query_string 'message=Hello%20World&special=%21%40%23'
 
 		assert_equal 'Hello World', query_params['message']

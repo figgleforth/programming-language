@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../backend/backend'
+require_relative '../source/main'
 require_relative 'base_test'
 
 # tests/fixtures/dir_tree/
@@ -9,7 +9,7 @@ require_relative 'base_test'
 class Dir_Test < Base_Test
 	TREE = 'tests/fixtures/dir_tree'
 
-	def interp(code) = Backend.interp(code)
+	def interp(code) = Code.interp(code)
 
 	def test_a_dir_has_type_identity
 		assert_equal true, interp("Dir('#{TREE}') === Dir")

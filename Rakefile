@@ -1,5 +1,5 @@
 require 'minitest/test_task'
-require_relative 'backend/backend'
+require_relative 'source/main'
 require 'pp'
 
 task :default => [:test, :cloc]
@@ -11,5 +11,5 @@ Minitest::TestTask.create(:test) do |t|
 end
 
 task :cloc do
-	sh "\ncloc --quiet --force-lang-def=code.cloc --exclude-dir=.projects,.working,.temporary,tests ."
+	sh "\ncloc --quiet --force-lang-def=.config/code.cloc --exclude-dir=.projects,.working,.temporary,tests ."
 end

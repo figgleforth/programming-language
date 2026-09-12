@@ -1,52 +1,52 @@
 require 'minitest/autorun'
-require_relative '../backend/backend'
+require_relative '../source/main'
 require_relative 'base_test'
 
 class Temporal_Test < Base_Test
 	def test_date_today_is_a_date
-		assert_equal Time.now.year, Backend.interp('Date.today().year')
+		assert_equal Time.now.year, Code.interp('Date.today().year')
 	end
 
 	def test_date_parse_reads_components
-		out = Backend.interp('d := Date.parse("2020-03-15"), [d.year, d.month, d.day]')
+		out = Code.interp('d := Date.parse("2020-03-15"), [d.year, d.month, d.day]')
 		assert_equal [2020, 3, 15], out.values
 	end
 
 	def test_date_weekday
 		# 2020-03-15 is a Sunday
-		assert_equal 0, Backend.interp('Date.parse("2020-03-15").weekday')
+		assert_equal 0, Code.interp('Date.parse("2020-03-15").weekday')
 	end
 
 	def test_date_iso8601
-		assert_equal '2020-03-15', Backend.interp('Date.parse("2020-03-15").iso8601()')
+		assert_equal '2020-03-15', Code.interp('Date.parse("2020-03-15").iso8601()')
 	end
 
 	def test_date_comparison
-		assert_equal true, Backend.interp('Date.parse("2020-01-01") < Date.parse("2021-01-01")')
-		assert_equal false, Backend.interp('Date.parse("2021-01-01") < Date.parse("2020-01-01")')
-		assert_equal true, Backend.interp('Date.parse("2020-06-01") == Date.parse("2020-06-01")')
-		assert_equal true, Backend.interp('Date.parse("2020-06-02") != Date.parse("2020-06-01")')
+		assert_equal true, Code.interp('Date.parse("2020-01-01") < Date.parse("2021-01-01")')
+		assert_equal false, Code.interp('Date.parse("2021-01-01") < Date.parse("2020-01-01")')
+		assert_equal true, Code.interp('Date.parse("2020-06-01") == Date.parse("2020-06-01")')
+		assert_equal true, Code.interp('Date.parse("2020-06-02") != Date.parse("2020-06-01")')
 	end
 
 	def test_time_now_and_epoch
-		assert_equal true, Backend.interp('Time.now().epoch() > 1500000000')
+		assert_equal true, Code.interp('Time.now().epoch() > 1500000000')
 	end
 
 	def test_time_at_epoch_zero
 		# Wall-clock year depends on the machine's zone (1970 at/east of UTC, 1969 west of it), so
 		# assert on the epoch round-trip instead -- that's zone-independent.
-		out = Backend.interp('t := Time.at(0), [t.epoch(), t.year]')
+		out = Code.interp('t := Time.at(0), [t.epoch(), t.year]')
 		assert_equal 0, out.values[0]
 		assert_includes [1969, 1970], out.values[1]
 	end
 
 	def test_date_time_now_components
-		out = Backend.interp('dt := Date_Time.now(), [dt.year >= 2026, dt.month >= 1, dt.hour >= 0]')
+		out = Code.interp('dt := Date_Time.now(), [dt.year >= 2026, dt.month >= 1, dt.hour >= 0]')
 		assert_equal [true, true, true], out.values
 	end
 
 	def test_date_time_parse_and_iso8601
-		out = Backend.interp('Date_Time.parse("2020-03-15T09:30:00+00:00").iso8601()')
+		out = Code.interp('Date_Time.parse("2020-03-15T09:30:00+00:00").iso8601()')
 		assert_equal '2020-03-15T09:30:00+00:00', out
 	end
 
@@ -56,7 +56,7 @@ class Temporal_Test < Base_Test
 		    b := Date_Time.parse("2020-01-01T00:00:01+00:00")
 		    [a < b, a <= a, b > a, a == a]
 		CODE
-		assert_equal [true, true, true, true], Backend.interp(code).values
+		assert_equal [true, true, true, true], Code.interp(code).values
 	end
 
 	def test_date_time_round_trips_through_a_table_column
@@ -64,8 +64,8 @@ class Temporal_Test < Base_Test
 		File.delete(filepath) if File.exist?(filepath)
 
 		code = <<~CODE
-		    @load 'frontend/database.code'
-		    @load 'frontend/table.code'
+		    @load 'programs/database.code'
+		    @load 'programs/table.code'
 		    db := @connect Sqlite('#{filepath}')
 
 		    Log_Schema <
@@ -82,7 +82,7 @@ class Temporal_Test < Base_Test
 		    [old.note, old.logged_at.year, old.logged_at < fresh.logged_at]
 		CODE
 
-		out = Backend.interp(code)
+		out = Code.interp(code)
 		assert_equal 'old', out.values[0]
 		assert_equal 2000, out.values[1]
 		assert_equal true, out.values[2]

@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../backend/backend'
+require_relative '../source/main'
 require 'net/http'
 require 'uri'
 require 'timeout'
@@ -34,11 +34,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -67,11 +67,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -92,7 +92,7 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	# A route matching every segment literally wins over one that leaned on a `:param`, regardless of
-	# declaration order. This is what makes `backend/server.code`'s `get://favicon.ico` route actually
+	# declaration order. This is what makes `source/programs/server.code`'s `get://favicon.ico` route actually
 	# shield an app's own `get://:id` from the browser's automatic icon probes.
 	def test_literal_route_beats_a_param_route_regardless_of_order
 		code = <<~CODE
@@ -111,11 +111,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -147,11 +147,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -179,11 +179,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -194,7 +194,7 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	# `request.body[:key]` (and even `request.body['key']`) silently missed and returned `nil` --
-	# `Prog::Dictionary#normalize_dict_key` always converts a subscript key to a Symbol before
+	# `Code::Dictionary#normalize_dict_key` always converts a subscript key to a Symbol before
 	# checking `@hash`, but `body_hash` (from CGI.parse/JSON.parse) is String-keyed, so neither form
 	# ever actually matched the one key that was really stored. `query_params`/`url_params` already
 	# worked around this same problem by hand (storing each entry under both its String and Symbol
@@ -202,7 +202,7 @@ class E2E_Server_Test < Minitest::Test
 	# `#double_key_with_symbols` helper, applied to both in `#handle_request`.
 	def test_request_body_subscript_access
 		code = <<~CODE
-		    @load 'frontend/server'
+		    @load 'programs/server'
 
 		    Web_App | Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -215,11 +215,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -229,15 +229,15 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'symbol: World, string: World', response.body
 	end
 
-	# `response.redirect` was completely unreachable: Response is a plain Scope, not a Prog::Instance,
+	# `response.redirect` was completely unreachable: Response is a plain Scope, not a Code::Instance,
 	# and #build_prog_response pokes `declarations` directly rather than running the Type's own body
-	# on it, so `redirect` (declared in backend/server.code's `Response {}`) never got copied onto the
+	# on it, so `redirect` (declared in source/programs/server.code's `Response {}`) never got copied onto the
 	# instance -- and the Instance-fallback lookup that would normally rescue that is gated on
-	# `is_a?(Prog::Instance)`, so it never fired either. Every call raised `Undeclared_Identifier:
-	# redirect has not been declared`. Fixed with a real `Prog::Response#proxy_redirect` (scopes.rb).
+	# `is_a?(Code::Instance)`, so it never fired either. Every call raised `Undeclared_Identifier:
+	# redirect has not been declared`. Fixed with a real `Code::Response#proxy_redirect` (scopes.rb).
 	def test_response_redirect
 		code = <<~CODE
-		    @load 'frontend/server'
+		    @load 'programs/server'
 
 		    Web_App | Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -250,11 +250,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -267,7 +267,7 @@ class E2E_Server_Test < Minitest::Test
 
 	def test_dialog_and_popover_render_through_a_real_route
 		code = <<~CODE
-		    @load 'frontend/html'
+		    @load 'programs/html'
 
 		    Server {
 		    	port,
@@ -291,11 +291,11 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		@interpreter    = Backend::Interpreter.new
+		@interpreter    = Code::Interpreter.new
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
-		@server_runner.port   = Integer(server_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
@@ -335,7 +335,7 @@ class E2E_Server_Test < Minitest::Test
 		    b := Server_B(#{port_b})
 		CODE
 
-		interpreter = Backend::Interpreter.new
+		interpreter = Code::Interpreter.new
 		interpreter.run code
 
 		a_instance = interpreter.stack.first['a']
@@ -345,11 +345,11 @@ class E2E_Server_Test < Minitest::Test
 		routes_b = interpreter.collect_routes_from_instance b_instance
 
 		@server_runner_a        = a_instance
-		@server_runner_a.port   = Integer(a_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner_a.port   = Integer(a_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner_a.routes = routes_a
 
 		@server_runner_b        = b_instance
-		@server_runner_b.port   = Integer(b_instance.get(:port) || Prog::Server::DEFAULT_PORT)
+		@server_runner_b.port   = Integer(b_instance.get(:port) || Code::Server::DEFAULT_PORT)
 		@server_runner_b.routes = routes_b
 
 		interpreter.start_server @server_runner_a

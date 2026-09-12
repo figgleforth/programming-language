@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Shortcut for the line-count report: `./cloc` (or `cloc` once bin/ or . is on PATH).
+exec bundle exec rake cloc "$@"
