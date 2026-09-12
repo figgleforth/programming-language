@@ -19,7 +19,24 @@
 # non-launchable .bundle, is rejected. app_stub is that bundle's
 # "executable": it does nothing but exit immediately if ever double-clicked.
 #
-# Needs assets/icon.icns to exist first — run build_icon.sh once.
+# On official-ness: UTExportedTypeDeclarations, the Info.plist key that
+# actually declares the type, *is* Apple's public, documented mechanism for
+# this — the Uniform Type Identifiers system, unchanged since Tiger. There's
+# no more-official alternative to that part.
+#
+# `lsregister` itself is the one private piece — no man page, not on $PATH,
+# doesn't ship a stable CLI Apple documents. It's still the standard way
+# real installers (Adobe, Microsoft, and plenty of smaller text/note apps)
+# push a freshly-installed bundle's declarations live immediately, rather
+# than waiting on it. Its path under CoreServices.framework has been stable
+# since Tiger and is the one every how-to for this uses; there's no public
+# replacement for "rescan Launch Services right now." Skipping this call
+# entirely still works — Launch Services rescans app directories on its own
+# (e.g. at login) and would pick up the same bundle eventually — this call
+# just avoids waiting for that.
+#
+# Needs assets/icon.icns to exist first — run build_icon.sh once, or
+# set_icon.sh to replace the icon and register in one step.
 # Safe to re-run any time.
 
 set -euo pipefail
