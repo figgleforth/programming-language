@@ -6,19 +6,19 @@
 	}
 
 	document.addEventListener('click', async (event) => {
-		const element = event.target.closest('a[href], button, input:not([type="hidden"]), select, textarea, summary, [data-backend-onclick]')
+		const element = event.target.closest('a[href], button, input:not([type="hidden"]), select, textarea, summary, [data-prog-onclick]')
 
 		if (!element) return
-		if (!element.hasAttribute('data-backend-onclick')) return
-		const object_id = element.dataset.driveOnclick
+		if (!element.hasAttribute('data-prog-onclick')) return
+		const object_id = element.dataset.progOnclick
 
 		event.preventDefault()
 		event.stopPropagation()
 
 		const inputs = {};
-		document.querySelectorAll('[data-backend-id]').forEach(el => {
+		document.querySelectorAll('[data-prog-id]').forEach(el => {
 			if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
-				inputs[el.dataset.driveId] = el.value;
+				inputs[el.dataset.progId] = el.value;
 			}
 		});
 

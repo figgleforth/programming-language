@@ -1,7 +1,7 @@
 ![Version](https://img.shields.io/badge/version-0.0.0-2B7FFF.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-2B7FFF.svg)
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
-![Status of project Ruby tests](https://github.com/drive-lang/drive-lang/actions/workflows/tests.yml/badge.svg)
+![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 
 ![The icon I use for .prog files](assets/icon@2x.svg)
 
@@ -317,6 +317,8 @@ Counter.count  # 2
 2. `&` intersection: keep only shared members
 3. `~` removal: remove members of right type from left
 4. `^` symmetric difference: keep non-shared members
+
+These four meanings only apply to an actual `Type | Other { }` composition. A `: Type` annotation (`x: Int | Nil`) reuses the same four symbols to mean plain OR, whichever one is written — see [Runtime Type Contracts](#runtime-type-contracts).
 
 ```prog
 Movable {
@@ -1430,6 +1432,34 @@ x := 'hello'  # fine — re-declaring with := re-infers and re-locks the type
 x             # 'hello'
 
 y = 4         # raises Prog::Cannot_Assign_Undeclared_Identifier — y was never declared
+```
+
+A `: Type` annotation can list more than one alternative type, joined by `|`, `&`, `^`, or `~` — all four mean the exact same thing here: the value must match at least one of the listed types (OR). The operator's usual [type composition](#type-composition) meaning (merge, keep-shared, remove, keep-unique) does not apply to a type annotation — an annotation only lists names to check against, it does not build a new composed type.
+
+```prog
+x: Int | Nil = 1     # ok — matches Int
+x: Int & Nil = nil   # ok — matches Nil (& means the same OR check as | here)
+x: Int ^ Nil = true  # raises Prog::Type_Contract_Violation — matches neither Int nor Nil
+x: Int ~ Nil = true  # same violation — ~ means the same OR check too
+```
+
+This holds everywhere a `: Type` annotation appears: a first assignment, a later reassignment against an already-locked type, a function's own return type (`-> Type`, see [Function Signatures](#function-signatures)), and a destructuring target's own `: Type`.
+
+Declaring the combined type first and annotating with its name does *not* give you a reusable version of this OR check:
+
+```prog
+Int_Or_Nil | Int | Nil {}
+x: Int_Or_Nil = 4     # raises Prog::Type_Contract_Violation, even though 4 is an Int
+```
+
+A single named type in annotation position checks the value against that *one* type — real is-a matching, not "matches one of the types it was composed from". So `Int_Or_Nil` only ever accepts `nil` (matching by name is trivial there) or an actual `Int_Or_Nil()` value, never a plain `Int` on its own. Spell out `x: Int | Nil` at each spot you need it — there's no reusable named stand-in for "one of these types" today.
+
+Declaring a combined type first *is* the right move for the other direction — a value that must actually be, or extend, that whole combined type:
+
+```prog
+Combined | A | B {}
+c := Combined()
+x: Combined = c    # ok — c really is a Combined
 ```
 
 ## Function Signatures

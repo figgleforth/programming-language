@@ -3,10 +3,10 @@
 > Requires Ruby `3.4.1` or higher, and Bundler
 
 ```bash
-git clone https://github.com/drive-lang/drive.git
-cd drive
+git clone https://github.com/figgleforth/programming-language.git
+cd programming-language
 bundle install
-bundle exec bin/prog examples/hello_world.prog -p # => Hello, Backend!
+bundle exec bin/program examples/hello_world.prog -p # => Hello, Backend!
 ```
 
 ### Table of Contents

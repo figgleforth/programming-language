@@ -92,11 +92,11 @@ module Backend
 				end
 
 				if onclick_expr
-					html << " data-backend-onclick=\"#{onclick_token}\""
+					html << " data-prog-onclick=\"#{onclick_token}\""
 				end
 
 				if is_input_element?
-					html << " data-backend-id=\"#{input_id_token}\""
+					html << " data-prog-id=\"#{input_id_token}\""
 				end
 
 				html << ">"

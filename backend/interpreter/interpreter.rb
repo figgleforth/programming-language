@@ -283,7 +283,7 @@ module Backend
 		# same component rendered against the same tree shape yields the same tokens every time -- so a
 		# re-render (or a fresh request for the same page) overwrites the handler/input map entries in
 		# place instead of minting new random ones and growing the maps without bound. It also
-		# means a handler defined in render() keeps a stable data-backend-onclick across DOM swaps, which
+		# means a handler defined in render() keeps a stable data-prog-onclick across DOM swaps, which
 		# is what let handlers move out of new() and into render(). `render_scope` is `{ anchor:, slot: }`
 		# seeded in #render_dom_to_html; the slot counter advances in depth-first render order.
 		#

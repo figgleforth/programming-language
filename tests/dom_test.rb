@@ -42,8 +42,8 @@ class Dom_Test < Base_Test
 
 		assert_equal html1, html2
 		assert_equal html2, html3
-		assert_includes html1, 'data-backend-onclick="panel-0"'
-		assert_includes html1, 'data-backend-id="panel-1"'
+		assert_includes html1, 'data-prog-onclick="panel-0"'
+		assert_includes html1, 'data-prog-id="panel-1"'
 		assert_equal 1, interp.dom_onclick_function_handlers.size, 'handler map must not grow across re-renders'
 		assert_equal 1, interp.dom_input_elements.size
 	end
@@ -61,8 +61,8 @@ class Dom_Test < Base_Test
 		    }
 		    Outer()
 		CODE
-		assert_includes html, 'data-backend-onclick="outer-0"'
-		assert_includes html, 'data-backend-onclick="inner-0"'
+		assert_includes html, 'data-prog-onclick="outer-0"'
+		assert_includes html, 'data-prog-onclick="inner-0"'
 	end
 
 	def test_handler_defined_in_render_still_works_after_re_render
@@ -134,8 +134,8 @@ class Dom_Test < Base_Test
 		    }
 		    Page()
 		CODE
-		assert_includes html, 'data-backend-onclick="page-first"'
-		assert_includes html, 'data-backend-onclick="page-0"', 'the unkeyed sibling keeps slot 0 -- a key must not advance the counter'
+		assert_includes html, 'data-prog-onclick="page-first"'
+		assert_includes html, 'data-prog-onclick="page-0"', 'the unkeyed sibling keeps slot 0 -- a key must not advance the counter'
 	end
 
 	# --- #3  Dom constructor named arguments (whitelisted) ---
@@ -161,7 +161,7 @@ class Dom_Test < Base_Test
 		    }
 		    Page()
 		CODE
-		assert_includes html, 'data-backend-onclick="p-go"'
+		assert_includes html, 'data-prog-onclick="p-go"'
 		refute_nil interp.dom_onclick_function_handlers['p-go']
 	end
 

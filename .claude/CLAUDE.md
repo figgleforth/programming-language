@@ -151,6 +151,25 @@ counter           # still -1 — the outer `counter` was never touched
 - A bare annotated identifier with no `=` at all (`x: Number`, or a struct annotation like `thing: <String, Number>`) self-declares to `nil` rather than raising `Prog::Undeclared_Identifier` when later referenced — same as the nil-init idiom (`ident,`), handled in `interp_identifier` via `self_declare_annotated_identifier`
 - Raises `Prog::Type_Contract_Violation` (`errors.rb`), not `Type_Mismatch`
 
+### `: Type` annotations with `|`/`&`/`^`/`~` (`x: Int | Nil`) — always OR, never real composition
+
+A `: Type` annotation can list more than one alternative, joined by any of the four composition operators (`x: Int | Nil`, `x: Int & Nil`, `x: Int ^ Nil`, `x: Int ~ Nil`) — and **all four mean exactly the same thing here**: the value must satisfy at least one listed alternative (OR). The operator's usual meaning under Class Composition Operators (below) — merge / keep-shared / remove / keep-unique of a type's *declarations* — never applies in annotation position, because an annotation doesn't compose two types into a new one at all; it just lists names to check the value against. Whichever operator is written, the rendered error message always joins the names with `" | "`.
+
+```prog
+x: Int | Nil = 1     # ok -- satisfies Int
+x: Int & Nil = nil   # ok -- satisfies Nil (& means the same OR check as | here)
+x: Int ^ Nil = true  # raises Prog::Type_Contract_Violation -- expected "Int | Nil", got Bool
+x: Int ~ Nil = true  # same violation -- ~ means the same OR check too
+```
+
+This OR-regardless-of-operator behavior applies everywhere a `: Type` annotation appears, not just a first assignment: plain reassignment against an already-locked annotation, a function's own `-> Type` return-type contract, and a destructuring target's per-value `: Type`. Implemented in `#annotation_type_names` / `#type_contract_satisfied?` (`interpreter.rb`) — `#annotation_type_names` walks a composition chain's operand names whatever operator joins them, and `#type_contract_satisfied?` treats the resulting list as alternatives (`.any?`), never composing them.
+
+**Pre-declaring a composed type doesn't give you a reusable version of this.** `Int_Or_Nil | Int | Nil {}` then `x: Int_Or_Nil = 4` does **not** behave like `x: Int | Nil = 4` — it raises `Prog::Type_Contract_Violation` (only `nil` itself passes). A single bare name in annotation position skips the OR/array branch above entirely and falls to `#type_contract_satisfied?`'s ordinary compositional check, which requires the value's own composed-type set to be a **superset of the whole named type's** composed set (`Int_Or_Nil, Integer, Number, Nil` all at once) — real nominal is-a/subtyping, not alternation, and no non-nil value can ever be simultaneously Integer-flavored and Nil-flavored. Verified directly against the interpreter; this is not a hypothetical edge case.
+
+- What pre-declaring via `|` *does* usefully give you is a reusable **AND/is-a** contract: `Combined | A | B {}` then `x: Combined = value` requires `value` to actually be (or subtype) `Combined` — e.g. `Combined()` itself, not a bare `A()` — since only `|` (and `~`, removing by name) ever extends a type's own composed-type set (see `#interp_composition`, under Class Composition Operators). This is the same mechanism the covariant return-type example above already relies on (`Task | Table {}` satisfying `-> Table`); it isn't specific to annotations.
+- A type declared purely via `&`/`^`/`~` never gains its operands' names in its own composed-type set either (see Class Composition Operators), so using one of those as an annotation is really just an ordinary check against its own bare name — nothing about `&`/`^`/`~` changes what an annotation accepts.
+- There is currently no reusable named alias for the OR-alternation case — `x: Int | Nil` has to be spelled out at each annotation site; a pre-declared type name can't stand in for it.
+
 ### Important gotcha
 
 `Type_Checker` lives inside `module Backend`. Bare `Array` inside the module resolves to `Prog::Array` (the built-in scope type), not Ruby's `::Array`. Always use `::Array` when checking Ruby array types (e.g. `signature.is_a? ::Array`).
@@ -341,6 +360,8 @@ Backend uses composition operators instead of inheritance. Applied as `Class | O
 - `^` **Symmetric Difference** - keep only unique declarations (discard shared ones)
 
 Multiple operators can be chained: `Admin | Read_Permissions | Write_Permissions { }`.
+
+These four meanings apply only to an actual `Type | Other { }` composition — a `: Type` annotation (`x: Int | Nil`) is a different, unrelated grammar position that reuses the same four operator symbols to mean plain OR regardless of which one is written; see "`: Type` annotations with `|`/`&`/`^`/`~`" under Runtime Type Contracts above.
 
 Built-in types like `Server` and `Dom` are composed this way:
 

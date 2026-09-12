@@ -380,7 +380,6 @@ class Regression_Test < Base_Test
 		assert_nil out
 	end
 
-	# https://github.com/drive-lang/backend/issues/80
 	def test_parsing_bug_from_issue_80
 		assert_instance_of Prog::String_Expr, Backend.parse("'{'").first
 		assert_instance_of Prog::String_Expr, Backend.parse("'('").first

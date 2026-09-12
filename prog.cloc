@@ -1,6 +1,3 @@
-# cloc language definitions for this repo. Loaded via: cloc --force-lang-def=drive.cloc
-# Ruby is trimmed to what this repo actually has. Prog is the .prog language: `#` and
-# `###`/`###` comments, backtick is interpolation (not a comment), ``` is a fence.
 Ruby
     filter remove_matches ^\s*#
     filter remove_below_above ^=begin ^=end

@@ -1,3 +1,5 @@
++ Add tests for composition annotations that use other operators, like &,^,~
++ Maybe rename the language to frog instead. Prog is kinda meaningless as a name, but it makes sense for the file extensions. Or, they could be .code! Oh man, yes
 + Clay has a really neat debug sidebar that lets you inspect its layout in realtime.
 + Rewrite lexer as .prog, make it its own library that can lex anything I want using my own declarations of tokens
 + Implement https://github.com/tsoding/leaf-venation

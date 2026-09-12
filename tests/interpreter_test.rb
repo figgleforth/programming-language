@@ -2893,6 +2893,124 @@ class Interpreter_Test < Base_Test
 		assert_equal 42, Backend.interp('x: Int | Nil = 42, x')
 	end
 
+	# The four tests above only ever spell the annotation with `|`. In annotation position, though,
+	# `#annotation_type_names` walks a composition chain's operand names regardless of which operator
+	# joins them -- `&`/`^`/`~` are accepted by the parser here too, and every one of them means the
+	# exact same OR-alternative check `|` does (see the comment on #annotation_type_names/
+	# #type_contract_satisfied? in interpreter.rb). An annotation only ever *lists* alternative type
+	# names; it never actually composes two types together the way `#interp_composition` does for a
+	# real `Type | Other {}` declaration, so the operator's usual meaning (union/intersection/
+	# difference/symmetric-difference of *declarations*) simply doesn't apply here.
+	def test_non_union_composition_operators_in_annotation_position_mean_the_same_or_check
+		%w(& ^ ~).each do |op|
+			assert_equal 1, Backend.interp("x: Int #{op} Nil = 1, x")
+			assert_nil Backend.interp("x: Int #{op} Nil = nil, x")
+
+			err = assert_raises Prog::Type_Contract_Violation do
+				Backend.interp "x: Int #{op} String = true"
+			end
+			# The error message always renders with ` | ` too, whatever operator was actually written.
+			assert_match 'Int | String', err.message
+			assert_match 'Bool', err.message
+		end
+	end
+
+	def test_non_union_composition_operators_in_annotation_reassignment
+		%w(& ^ ~).each do |op|
+			assert_raises Prog::Type_Contract_Violation do
+				Backend.interp "x: Int #{op} String = 1, x = true"
+			end
+			assert_equal 'hi', Backend.interp("x: Int #{op} String = 1, x = \"hi\", x")
+		end
+	end
+
+	def test_non_union_composition_operators_in_return_type_annotation
+		%w(& ^ ~).each do |op|
+			out = Backend.interp <<~CODE
+			    f ( n := nil -> Int #{op} Nil;
+			    	return n
+			    )
+			    (f(4), f())
+			CODE
+			assert_equal [4, nil], out.values
+
+			err = assert_raises Prog::Type_Contract_Violation do
+				Backend.interp "f (-> Int #{op} Nil; 'oops' ), f()"
+			end
+			assert_match 'Int | Nil', err.message
+			assert_match 'String', err.message
+		end
+	end
+
+	def test_non_union_composition_operators_in_destructuring_target
+		%w(& ^ ~).each do |op|
+			out = Backend.interp "(x: Int #{op} Nil, y) := (1, 2), (x, y)"
+			assert_equal [1, 2], out.values
+
+			out = Backend.interp "(a: Int #{op} Nil, b) := (nil, 5), (a, b)"
+			assert_equal [nil, 5], out.values
+		end
+	end
+
+	# Pre-declaring the union as a real type and annotating with its name does NOT reproduce the OR
+	# check above. `x: Int | Nil` special-cases a chain written directly in the annotation (split into
+	# alternatives, accept any one). A single name has no chain to split, so that never fires -- instead
+	# it's an ordinary is-a check: the value must have EVERYTHING the named type composes. Int_Or_Nil
+	# composes Int_Or_Nil + Int + Nil all at once, which no real value satisfies except `nil` itself
+	# (exempt from every contract) or an actual Int_Or_Nil() instance.
+	def test_named_union_type_does_not_behave_like_an_inline_union_annotation
+		err = assert_raises Prog::Type_Contract_Violation do
+			Backend.interp <<~CODE
+			    Int_Or_Nil | Int | Nil {}
+			    n := 4
+			    x: Int_Or_Nil = n
+			CODE
+		end
+		assert_match 'Int_Or_Nil', err.message
+		assert_match 'Number', err.message
+
+		out = Backend.interp <<~CODE
+		    Int_Or_Nil | Int | Nil {}
+		    m := nil
+		    x: Int_Or_Nil = m
+		    x
+		CODE
+		assert_nil out
+
+		out = Backend.interp <<~CODE
+		    Int_Or_Nil | Int | Nil {}
+		    v := Int_Or_Nil()
+		    x: Int_Or_Nil = v
+		    x =>= Int_Or_Nil
+		CODE
+		assert_equal true, out
+	end
+
+	# Same failure via `:=` instead of a named declaration -- `Int_Or_Nil := Int | Nil` just aliases
+	# Int_Or_Nil to the anonymous type `Int | Nil` builds (see Alias vs. subtype), with the exact same
+	# composed set {Integer, Number, Nil} (minus its own name, since an anonymous composition has none
+	# to add). One name at the annotation site either way, so the same is-a/superset check applies and
+	# fails the same way.
+	def test_walrus_aliased_union_type_does_not_behave_like_an_inline_union_annotation
+		err = assert_raises Prog::Type_Contract_Violation do
+			Backend.interp <<~CODE
+			    Int_Or_Nil := Int | Nil
+			    n := 4
+			    x: Int_Or_Nil = n
+			CODE
+		end
+		assert_match 'Int_Or_Nil', err.message
+		assert_match 'Number', err.message
+
+		out = Backend.interp <<~CODE
+		    Int_Or_Nil := Int | Nil
+		    m := nil
+		    x: Int_Or_Nil = m
+		    x
+		CODE
+		assert_nil out
+	end
+
 	# `x: Number = 'oops'` (a literal RHS) is caught statically before the interpreter ever runs (see type_checker_test.rb) -- these cover the gap that leaves open: a *non-literal* RHS (an identifier, a function, ..) whose actual value mismatches the annotation on the very first, self-declaring assignment. The static checker silently skips non-literal RHS entirely, so this has to be caught dynamically in #interp_infix_assignment, the same place reassignment already is.
 	def test_first_assignment_type_contract_with_non_literal_rhs
 		# Plain nominal annotation.
@@ -3217,6 +3335,45 @@ class Interpreter_Test < Base_Test
 			(Aa =/= Bb, Aa =/= Aa, Left =/= Right, Left =/= Base, a =/= b, l =/= r, l =/= Base)
 		CODE
 		assert_equal [true, false, false, false, true, false, false], out.values
+	end
+
+	# `#interp_composition` (interpreter.rb) only ever touches a type's own *composed-type identity set*
+	# (`.types` -- what `===`/`=>=`/etc. above all compare) in the `|` and `~` branches: `|` unions the
+	# whole operand's composed set in, `~` deletes just the operand's own literal name back out. `&` and
+	# `^` merge/keep *declarations* (composition_test.rb covers that thoroughly) but never write to
+	# `.types` at all -- not even for the operand whose unique members `^` just copied in. So a type
+	# built via `&`/`^` can genuinely have another type's members without that other type ever being
+	# `=>=` true for it.
+	def test_intersection_and_symmetric_difference_do_not_extend_composed_type_identity
+		out = Backend.interp <<~CODE
+		    Aa {}
+		    Bb {}
+		    Sym | Aa ^ Bb {}
+		    (Sym =>= Aa, Sym =>= Bb)
+		CODE
+		assert_equal [true, false], out.values
+
+		out = Backend.interp <<~CODE
+		    Aa { a := 1 }
+		    Bb { a := 2, b := 3 }
+		    Inter | Aa & Bb {}
+		    (Inter =>= Aa, Inter =>= Bb)
+		CODE
+		assert_equal [true, false], out.values
+	end
+
+	# `~`'s own bookkeeping is narrower than it looks: it deletes only the *operand's own written name*
+	# from `.types`, never that operand's whole composed set. So removing a type that itself got composed
+	# in secondhand (through another type) leaves whatever *that* other type had already contributed
+	# behind -- here, `Table` reaches `Task` only via `Other`, and survives `~ Other` untouched.
+	def test_difference_removes_only_the_operands_own_name_not_its_whole_composed_set
+		out = Backend.interp <<~CODE
+		    Table {}
+		    Other | Table {}
+		    Task | Other ~ Other {}
+		    (Task =>= Table, Task =>= Other)
+		CODE
+		assert_equal [true, false], out.values
 	end
 
 	# `Any` (backend/global.prog) is a universal wildcard -- everything except nil counts as Any via `==`/`===`, with no composition required (`Thing | Any {}` isn't needed).
