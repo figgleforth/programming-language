@@ -370,7 +370,7 @@ class Code_Location_Test < Base_Test
 				y: Number = 0
 
 				Self ( x, y;
-					self.x = x
+					self.z = x
 					self.y = y
 				)
 

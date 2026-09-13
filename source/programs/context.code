@@ -12,6 +12,7 @@ Context <
 	size_in_bytes: Integer              # shallow -- this scope object's own slot + buffers, not what it references
 	root_path: String                   # the project root path (Code::ROOT_PATH)
 	static_declarations: Set            # Set of names declared static on this Type
+	tag: Any                            # whatever this scope was tagged with
 
 	#- Func reflection
 	parameters: Array

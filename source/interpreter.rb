@@ -65,6 +65,7 @@ module Code
 		end
 
 		def run source_code
+			register_source nil, source_code unless current_source_file
 			top_level_source_file = current_source_file
 
 			if @stack.empty?
@@ -406,13 +407,13 @@ module Code
 		end
 
 		# Returns nil when the vital doesn't apply to this scope kind (`@keys` off a non-Enum).
-		def context_vital name, scope
+		def context_vital key, scope
 			set_of = ->(list) { finish_intrinsic_instance(Code::Set.new.tap { |s| s.set.merge(list) }, 'Set') }
-			nm     = scope.name.is_a?(Code::Lexeme) ? scope.name.value : scope.name
+			name     = scope.name.is_a?(Code::Lexeme) ? scope.name.value : scope.name
 
-			case name
-			when 'name' then nm
-			when 'display_name' then (scope.display_name if scope.respond_to?(:display_name)) || nm
+			case key
+			when 'name' then name
+			when 'display_name' then (scope.display_name if scope.respond_to?(:display_name)) || name
 			when 'composed_types' then set_of.call(scope.respond_to?(:types) && scope.types ? scope.types.to_a : [])
 			when 'types' then context_types_for(scope)
 			when 'type' then context_type_for(scope)
@@ -429,6 +430,7 @@ module Code
 			when 'parameters' then (wrap_prog_array(scope.parameters) if scope.is_a?(Code::Func))
 			when 'arguments' then (wrap_prog_array(scope.arguments) if scope.is_a?(Code::Func))
 			when 'func_signature' then (scope.func_signature if scope.is_a?(Code::Func))
+			when 'tag' then scope.tag_instance if scope.respond_to?(:tag_instance)
 			end
 		end
 
@@ -1178,8 +1180,22 @@ module Code
 		# `x.@word = v` / `x.@word := v` -- writes to x's Type's `at_members`, which must already have it.
 		def assign_context_member dot_expr, word_ident, value
 			receiver = maybe_instance interpret dot_expr.left
-			type     = receiver.is_a?(Code::Instance) ? receiver.enclosing_scope : receiver
 			name     = word_ident.value
+
+			if name == 'tag'
+				if receiver.is_a?(Code::Scope) && receiver.respond_to?(:tag_instance) && receiver.tag_instance
+					new_tag = tag_struct_for_reassignment value, dot_expr
+					unless tag_chains_satisfy? receiver.tag_instance, new_tag
+						raise Code::Tag_Signature_Violation.new(dot_expr, tag_display_name(receiver), stringify_for_display(new_tag))
+					end
+					receiver.tag_instance = new_tag
+					declare_tag receiver
+					return value
+				end
+				raise Code::Cannot_Assign_Undeclared_Identifier.new(dot_expr)
+			end
+
+			type = receiver.is_a?(Code::Instance) ? receiver.enclosing_scope : receiver
 
 			raise Code::Cannot_Override_Context_Member.new(dot_expr) if context_builtin_member? name
 			raise Code::Cannot_Assign_Undeclared_Identifier.new(dot_expr) unless type.at_members&.key?(name)
@@ -1655,13 +1671,8 @@ module Code
 				left.left.is_a?(Code::Identifier_Expr) && !left.left.scope_operator && left.left.value == 'Self'
 		end
 
-		# A scope that is "under construction" is still allowed to self-declare a brand-new member via `self` or `Self`
 		def still_under_construction? scope
-			if scope.is_a? Code::Instance
-				scope.has? 'Self'
-			else
-				scope.respond_to?(:declaration_in_progress) && scope.declaration_in_progress
-			end
+			scope.respond_to?(:declaration_in_progress) && scope.declaration_in_progress
 		end
 
 		# Shared by every way of writing through `.` onto an already-interpreted receiver.
@@ -1675,20 +1686,6 @@ module Code
 			# member `nil` itself declares is left alone, matching the read path in #interp_dot_scope.
 			if receiver.nil? || (receiver.is_a?(Code::Nil) && !receiver.has?(property))
 				raise Code::Receiver_Is_Nil.new(target)
-			end
-
-			# `.tag =` re-tags a value declared with a tag. The new tag must keep the declared
-			# signature: compose at least everything the current tag does, at every chain link
-			# (`=>=`). A value with no tag has no `.tag` to write -- Member Creation Is Strict
-			# handles that below.
-			if property == 'tag' && receiver.is_a?(Code::Scope) && receiver.has?('tag')
-				new_tag               = tag_struct_for_reassignment value, target
-				unless tag_chains_satisfy? receiver.tag_instance, new_tag
-					raise Code::Tag_Signature_Violation.new(expr, tag_display_name(receiver), stringify_for_display(new_tag))
-				end
-				receiver.tag_instance = new_tag
-				declare_tag receiver
-				return value
 			end
 
 			# Bare `self`/`Self` on the left of a `.` write target. The scope-operator write paths (#interp_infix_declaration's `scope_operator` branch, #interp_infix_assignment's general flow) never run Cannot_Reassign_Constant or check_dot_access_permissions! -- only the external-`.`-write rules below do (see "Member Creation Is Strict") -- so `self`/`Self` route around both entirely here too, for both `=` and `:=`, rather than only the not-yet-declared case.
@@ -2757,13 +2754,10 @@ module Code
 			"#{scope.name}#{Code::TAG_OPERATOR}#{qualifier}"
 		end
 
-		# Makes `.tag` readable via Code dot-access on a Type, Instance, or type reference, and marks it static so it's also readable straight off a bare Type (not just an instance). Only adds the declaration when this particular one actually has a tag, so plain untagged types don't pick up a stray `tag` member. Also refreshes `.display_name` (see Type#initialize) to fold the tag into the type's own displayable name, so a consumer like source/programs/member.code's `to_s` never needs to know `.tag` exists at all.
 		def declare_tag scope
 			return unless scope.tag_instance
 
-			scope.declarations['tag'] = scope.tag_instance
-			scope.display_name        = tag_display_name(scope)
-			scope.static_declarations = (scope.static_declarations || ::Set.new) + %w(tag)
+			scope.display_name = tag_display_name(scope)
 		end
 
 		#
@@ -3426,6 +3420,10 @@ module Code
 
 				curr_scope.static_declarations ||= ::Set.new
 				curr_scope.static_declarations.merge right.static_declarations
+
+				if curr_scope.respond_to?(:tag_instance) && !curr_scope.tag_instance && right.respond_to?(:tag_instance) && right.tag_instance
+					curr_scope.tag_instance = right.tag_instance
+				end
 
 				unless right.is_a?(Code::Struct) && right.name.nil?
 					curr_scope.types ||= ::Set.new

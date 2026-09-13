@@ -545,13 +545,13 @@ module Code
 					end
 				end
 
+				# The branches above only recognise real param-list tokens (names, `: Type`, labels, defaults, `->`). A stray token they all skipped (a number, a string, an operator) -- raise before touching `param`'s location, since nothing was actually parsed for it (`param.lexeme`/`.type`/`.default` all still nil) -- or the `until` loop spins forever.
+				raise "unexpected #{curr_lexeme.value.inspect} in function parameter list" if @i == before_i
+
 				func.parameters << param
 				set_expr_location param, param_start, param.default || param.type || param.lexeme
 				eat if curr? ','
 				reduce_newlines
-
-				# The branches above only recognise real param-list tokens (names, `: Type`, labels, defaults, `->`). A stray token they all skipped (a number, a string, an operator). Without this the `until` loop spins forever
-				raise "unexpected #{curr_lexeme.value.inspect} in function parameter list" if @i == before_i
 			end
 
 			eat Code::FUNCTION_DELIMITER if curr? Code::FUNCTION_DELIMITER

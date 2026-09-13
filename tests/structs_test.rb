@@ -39,7 +39,7 @@ class Structs_Test < Base_Test
 
 		result = Code.interp "Abc {}
 		Abc\\<Number> {}
-		Abc\\<1+2+3/123>.tag.@types.first()"
+		Abc\\<1+2+3/123>.@tag.@types.first()"
 		assert_equal 3, result
 	end
 
@@ -139,7 +139,7 @@ class Structs_Test < Base_Test
 		    Abc\\<String> {}
 		    x := Abc\\<Number>
 		    y := Abc\\<String>
-		    (x.tag.@types.first(), y.tag.@types.first())
+		    (x.@tag.@types.first(), y.@tag.@types.first())
 		CODE
 		assert_equal 'Number', out.values[0].name
 		assert_equal 'String', out.values[1].name
@@ -179,7 +179,7 @@ class Structs_Test < Base_Test
 		    }
 		    z := Abc\\<4815>
 		    zz := z()
-		    zz.tag.@types.first()
+		    zz.@tag.@types.first()
 		CODE
 		assert_equal 4815, out
 	end
@@ -523,7 +523,7 @@ class Structs_Test < Base_Test
 		    Thing\\<DEFAULT_COLUMNS> {}
 
 		    t := Thing\\<5, 1234>()
-		    (t.tag.id, t.tag.created_at)
+		    (t.@tag.id, t.@tag.created_at)
 		CODE
 		assert_equal [5, 1234], out.values
 	end
@@ -538,7 +538,7 @@ class Structs_Test < Base_Test
 
 		    a := Thing\\<opts: Options>()
 		    b := Thing\\<Options>()
-		    (a.tag.opts, b.tag.opts)
+		    (a.@tag.opts, b.@tag.opts)
 		CODE
 		refute_nil out.values[0]
 		refute_nil out.values[1]
@@ -558,7 +558,7 @@ class Structs_Test < Base_Test
 		    db := Data_Conn('primary')
 
 		    t := Table\\<columns := cols, database := db>
-		    (t.tag.columns.@names, t.tag.database.name)
+		    (t.@tag.columns.@names, t.@tag.database.name)
 		CODE
 		assert_equal %w(name age), out.values[0].values
 		assert_equal 'primary', out.values[1]
@@ -611,7 +611,7 @@ class Structs_Test < Base_Test
 		    	to_s (;
 		    		final := value
 		    		final += "{"
-		    		for tag.dict
+		    		for self.@tag.dict
 		    			final += "`key`::`value`, "
 		    		end
 		    		final += "}"
@@ -647,7 +647,7 @@ class Structs_Test < Base_Test
 		    }
 		    z := Abc\\<{x=1}>
 		    zz := z()
-		    zz.tag.@members
+		    zz.@tag.@members
 		CODE
 		assert_equal 1, out.values.length
 		assert_equal 'dict', out.values.first.name
@@ -853,7 +853,7 @@ class Structs_Test < Base_Test
 		    Task_Schema <a: Number, b: String>
 		    Array\\Task_Schema {}
 		    x := Array\\Task_Schema
-		    x.tag.@names
+		    x.@tag.@names
 		CODE
 		assert_equal ['a', 'b'], out.values
 	end
@@ -874,7 +874,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Array\\String {}
 		    x := Array\\String
-		    x.tag.@types.first().@name
+		    x.@tag.@types.first().@name
 		CODE
 		assert_equal 'String', out
 	end
@@ -887,7 +887,7 @@ class Structs_Test < Base_Test
 		    Connection <db: Number, name: String>
 		    Container\\<Connection> {}
 		    x := Container\\<Connection>
-		    x.tag.@names
+		    x.@tag.@names
 		CODE
 		assert_equal ['db', 'name'], out.values
 	end
@@ -899,7 +899,7 @@ class Structs_Test < Base_Test
 		    Connection <db: Number, name: String>
 		    Container\\<Connection> {}
 		    Tasks | Container\\<Connection> {}
-		    Tasks.tag.@names
+		    Tasks.@tag.@names
 		CODE
 		assert_equal ['db', 'name'], out.values
 	end
@@ -915,7 +915,7 @@ class Structs_Test < Base_Test
 
 		    Combo | This | That | There\\Info | Here\\<> {}
 		    x := Combo()
-		    (x.a, x.b, Combo.tag.@names)
+		    (x.a, x.b, Combo.@tag.@names)
 		CODE
 		a, b, tag_names = out.values
 		assert_equal 1, a
@@ -930,7 +930,7 @@ class Structs_Test < Base_Test
 		    Container\\<conn: Connection> {}
 		    Container\\<Connection> {}
 		    x := Container\\<Connection>
-		    x.tag.@names
+		    x.@tag.@names
 		CODE
 		assert_equal ['conn'], out.values
 	end
@@ -985,7 +985,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    s := <id: Array\\String>
 		    m := s.@members.first()
-		    (m.type.@display_name, m.type.tag.@type_names.first())
+		    (m.type.@display_name, m.type.@tag.@type_names.first())
 		CODE
 		assert_equal %w(Array\\String String), out.values
 	end
@@ -996,7 +996,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    s := <id: Array\\<String>>
 		    m := s.@members.first()
-		    (m.type.@display_name, m.type.tag.@type_names.first())
+		    (m.type.@display_name, m.type.@tag.@type_names.first())
 		CODE
 		assert_equal ['Array\\<String>', 'String'], out.values
 	end
@@ -1013,7 +1013,7 @@ class Structs_Test < Base_Test
 		out = refute_raises Code::Out_Of_Tokens do
 			Code.interp <<~CODE
 			    s := <id: Array\\<String>>
-			    s.@members.first().type.tag.@type_names.first()
+			    s.@members.first().type.@tag.@type_names.first()
 			CODE
 		end
 		assert_equal 'String', out
@@ -1023,7 +1023,7 @@ class Structs_Test < Base_Test
 	def test_triple_nested_struct_closing_angles_parse_regression
 		out = Code.interp <<~CODE
 		    s := <a: Array\\<b: Array\\<String>>>
-		    s.@members.first().type.tag.@members.first().type.tag.@type_names.first()
+		    s.@members.first().type.@tag.@members.first().type.@tag.@type_names.first()
 		CODE
 		assert_equal 'String', out
 	end
@@ -1073,7 +1073,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    A {} B {} C {}
 		    Thing\\A\\B\\C {
-		        probe (; [self.tag.@type_names.0, self.tag.tag.@type_names.0, self.tag.tag.tag.@type_names.0] )
+		        probe (; [self.@tag.@type_names.0, self.@tag.@tag.@type_names.0, self.@tag.@tag.@tag.@type_names.0] )
 		    }
 		    Thing\\A\\B\\C().probe()
 		CODE
@@ -1091,15 +1091,15 @@ class Structs_Test < Base_Test
 		assert_equal %w(B C), out.values
 	end
 
-	# --- Runtime `.tag =` ---
+	# --- Runtime `.@tag =` ---
 
 	def test_tag_reassignment_accepts_a_value_that_composes_the_current_tag
 		out = Code.interp <<~CODE
 		    Base {} Sub | Base {}
 		    Thing\\Base {}
 		    z := Thing\\Base()
-		    z.tag = Sub
-		    z.tag.@type_names.0
+		    z.@tag = Sub
+		    z.@tag.@type_names.0
 		CODE
 		assert_equal 'Sub', out
 	end
@@ -1110,20 +1110,89 @@ class Structs_Test < Base_Test
 			    Base {} Other {}
 			    Thing\\Base {}
 			    z := Thing\\Base()
-			    z.tag = Other
+			    z.@tag = Other
 			CODE
 		end
 	end
 
-	# `.tag` is only writable on a value whose type was declared with a tag.
+	# `.tag` is only writable (via `@`) on a value whose type was declared with a tag.
 	def test_tag_reassignment_on_untagged_type_raises_undeclared
 		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
 			Code.interp <<~CODE
 			    Thingy {}
 			    t := Thingy()
-			    t.tag = 5
+			    t.@tag = 5
 			CODE
 		end
+	end
+
+	# Plain `.tag =` (no `@`) is gone along with the plain read -- falls through to the ordinary
+	# "not a declared member" rule, same as any other undeclared plain member.
+	def test_plain_dot_tag_write_no_longer_retags
+		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
+			Code.interp <<~CODE
+			    Base {} Sub | Base {}
+			    Thing\\Base {}
+			    z := Thing\\Base()
+			    z.tag = Sub
+			CODE
+		end
+	end
+
+	# --- `.tag` is `@`-only -- no plain user-space `tag` declaration ---
+
+	def test_plain_dot_tag_no_longer_reads_anything
+		# `.tag` used to be an ordinary declared member (#declare_tag). It's `@`-only now
+		# (#context_vital's 'tag' case reads `tag_instance` directly) -- plain `.` never sees it.
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+			    Abc\\<Number> {}
+			    Abc\\<Number>().tag
+			CODE
+		end
+	end
+
+	def test_at_tag_forms_all_point_to_the_same_tag
+		# All four spellings -- `x.@tag`, `x.@.tag`, and bare `@tag`/`@.tag` once `x` itself is
+		# `stack.last` (`@push_scope`) -- reach the very same `tag_instance`.
+		out = Code.interp <<~CODE
+		    Abc\\<Number> {}
+		    x := Abc\\<4815>()
+
+		    dot_at     := x.@tag.@types.first()      # x.@tag
+		    dot_at_dot := x.@.tag.@types.first()     # x.@.tag
+
+		    @push_scope x
+		    @assert @tag.@types.first() == 4815, 'bare @tag should reach the pushed scope\\'s own tag'
+		    @assert @.tag.@types.first() == 4815, 'bare @.tag should reach the pushed scope\\'s own tag'
+		    @pop_scope x
+
+		    (dot_at, dot_at_dot)
+		CODE
+		assert_equal [4815, 4815], out.values
+	end
+
+	def test_self_dot_at_tag_reads_the_tag_from_inside_a_method
+		# The natural way to read "my own tag" from inside a method: `self.@tag` (not bare `@tag`,
+		# which refers to whatever `stack.last` concretely is -- a per-call Func frame mid-method,
+		# not the instance; see Self.@tag below for the type-scope equivalent).
+		out = Code.interp <<~CODE
+		    Abc\\<Number> {
+		    	probe (; self.@tag.@types.first() )
+		    }
+		    Abc\\<4815>().probe()
+		CODE
+		assert_equal 4815, out
+	end
+
+	def test_Self_dot_at_tag_reads_the_type_scope_tag
+		out = Code.interp <<~CODE
+		    Abc\\<Number> {
+		    	probe (; Self.@tag.@types.first() )
+		    }
+		    Abc\\<4815>().probe()
+		CODE
+		assert_equal 4815, out
 	end
 
 	# Struct Composition -- `Both | Abc | Def <extra: ...>` composes Bare Named Structs the same way `Type | Other {}` composes Types, with `<...>` playing the role `{}` plays for a type declaration.
@@ -1348,7 +1417,7 @@ class Structs_Test < Base_Test
 	# statement into unrelated garbage instead of raising or tagging anything. `nil\<...>` is sugar for
 	# tagging the real `Nil` type.
 	def test_nil_can_be_tagged_like_any_other_type
-		out = Code.interp "nil\\<reason := 'Broken'>.tag.reason"
+		out = Code.interp "nil\\<reason := 'Broken'>.@tag.reason"
 		assert_equal 'Broken', out
 	end
 
@@ -1357,7 +1426,7 @@ class Structs_Test < Base_Test
 		    Error <message: String>
 		    e1 := nil\\Error()
 		    e2 := Nil\\Error()
-		    (e1.@composed_types == e2.@composed_types, e1.tag =>= Error, e2.tag =>= Error)
+		    (e1.@composed_types == e2.@composed_types, e1.@tag =>= Error, e2.@tag =>= Error)
 		CODE
 		out = Code.interp src
 		assert_equal true, out.values[0]

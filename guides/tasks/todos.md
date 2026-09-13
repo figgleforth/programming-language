@@ -1,3 +1,4 @@
++ I hate the flow for managing the declarations that are set on Context, It should be much simpler. Maybe A Ruby class that auto generates the .code class?
 + Maybe rename the language to frog instead. Prog is kinda meaningless as a name, but it makes sense for the file extensions. Or, they could be .code! Oh man, yes
 + Clay has a really neat debug sidebar that lets you inspect its layout in realtime.
 + Rewrite lexer as .code, make it its own library that can lex anything I want using my own declarations of tokens

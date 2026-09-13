@@ -31,14 +31,14 @@ Table_With_Opts\<other: Dictionary> { to_s (; "other-named" ) }
   x := Abc\<Number>    -- reference: dups the matched variant, doesn't mutate it
   Abc\<Number>()       -- construct: binds .tag onto the instance BEFORE Self(;) runs
 
-A tagged reference is a dup of the variant it matched, so tagging it can never leak back and mutate the shared declaration (or any other reference sharing that variant). `.tag` is readable inside `Self(;)` itself, but member values are never forwarded as constructor arguments -- whatever you pass to `(...)` still just binds to new's own declared params, entirely separately.
+A tagged reference is a dup of the variant it matched, so tagging it can never leak back and mutate the shared declaration (or any other reference sharing that variant). Tag is readable via `@` (`@.tag`, `self.@tag`), but member values are never forwarded as constructor arguments -- whatever you pass to `(...)` still just binds to new's own declared params, entirely separately.
 ###
 Abc\<Number> {
 	Self (;)
 }
 z  := Abc\<4815>
 zz := z()
-@assert zz.tag.@types.first() == 4815, '.tag should carry the value the reference was tagged with'
+@assert zz.@tag.@types.first() == 4815, '.tag should carry the value the reference was tagged with'
 
 
 ### Reusing a struct: the spread rule
@@ -50,8 +50,8 @@ DEFAULT_COLUMNS := <id: Number, created_at: Number>
 Thing\<DEFAULT_COLUMNS> {}   # same as writing: Thing\<id: Number, created_at: Number> {}
 
 t := Thing\<5, 1234>()
-@assert t.tag.id == 5, 'a spread member should land on the declaration by its own name'
-@assert t.tag.created_at == 1234, 'a spread member should land on the declaration by its own name'
+@assert t.@tag.id == 5, 'a spread member should land on the declaration by its own name'
+@assert t.@tag.created_at == 1234, 'a spread member should land on the declaration by its own name'
 
 
 ### References never spread
@@ -69,6 +69,6 @@ Widget\Options {}
 widget_a := Widget\<opts: Options>()   # named reference, matches the declared "opts: Options" variant -- works
 widget_b := Widget\<Options>()         # bare reference -- Options treated as one opaque value, NOT spread -- also works
 widget_c := Widget\Options()
-@assert widget_a.tag.@names == ['opts'], 'a named reference should still carry the member name from the matched variant'
-@assert widget_b.tag.@types.first() == Options, 'a bare reference should hold Options as one opaque value, not spread'
-@assert widget_c.tag.@types.first() == String, 'the first type inside this tag is a: String'
+@assert widget_a.@tag.@names == ['opts'], 'a named reference should still carry the member name from the matched variant'
+@assert widget_b.@tag.@types.first() == Options, 'a bare reference should hold Options as one opaque value, not spread'
+@assert widget_c.@tag.@types.first() == String, 'the first type inside this tag is a: String'

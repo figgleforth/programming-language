@@ -2,16 +2,22 @@ require_relative '../shared/error_formatter'
 
 module Code
 	class Error < StandardError
-		attr_accessor :expression
+		# `highlighted_expression` is what actually gets bolded/reddened inside the printed source
+		# snippet -- it defaults to `expression` itself (the common case: highlight the whole thing),
+		# but a subclass can pass a smaller piece of it instead (one identifier inside a whole call,
+		# say) while `expression` still decides which lines of context surround it. See
+		# Error_Formatter#source_snippet.
+		attr_accessor :expression, :highlighted_expression
 
-		def initialize expression = nil
+		def initialize expression = nil, highlighted_expression = nil
 			# Some tool trying to Marshal.dump one of our errors (Minitest does, to report failures raised off the main thread) can still fail if `expression` itself is a live runtime object (holding closures/Procs, etc., not just a parse-time AST node) rather than a String message -- Minitest falls back to reconstructing via `klass.new(original.message)`. That lands here with a single String: it's already the final, formatted message, not an AST node to run back through the formatter -- use it as-is instead of silently producing a blank report.
 			if expression.is_a? ::String
 				super expression
 				return
 			end
 
-			@expression = expression
+			@expression             = expression
+			@highlighted_expression = highlighted_expression || expression
 			super format_error
 		end
 

@@ -60,7 +60,7 @@ loader()
 Row\<id: Statement> {}
 
 r := Row\<`1+2`>()
-@assert r.tag.id() == 3, 'a tagged Statement member should be callable'
+@assert r.@tag.id() == 3, 'a tagged Statement member should be callable'
 
 
 ### Not idempotent — every call re-runs the wrapped expression
@@ -73,9 +73,9 @@ next_seq := `seq += 1`
 row_a := Row\<next_seq>()
 row_b := Row\<next_seq>()
 
-@assert row_a.tag.id() == 1, 'the first call should advance the shared counter to 1'
-@assert row_b.tag.id() == 2, 'a second reference sharing the same Statement should advance the same counter'
-@assert row_a.tag.id() == 3, 'rereading row_a should still advance it, not return a cached value'
+@assert row_a.@tag.id() == 1, 'the first call should advance the shared counter to 1'
+@assert row_b.@tag.id() == 2, 'a second reference sharing the same Statement should advance the same counter'
+@assert row_a.@tag.id() == 3, 'rereading row_a should still advance it, not return a cached value'
 
 
 ### Captured by default

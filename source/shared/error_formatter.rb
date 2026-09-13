@@ -1,10 +1,11 @@
 module Code
 	class Error_Formatter
-		attr_reader :error, :expression
+		attr_reader :error, :expression, :highlighted
 
 		def initialize error
-			@error      = error
-			@expression = error.expression
+			@error       = error
+			@expression  = error.expression
+			@highlighted = (error.respond_to?(:highlighted_expression) && error.highlighted_expression) || @expression
 		end
 
 		def error_name
@@ -12,114 +13,130 @@ module Code
 		end
 
 		def error_name_styled
-			Code::Ascii.bold(Code::Ascii.red(error.class.name.split('::').last))
+			Code::Ascii.bold(Code::Ascii.red(error_name))
 		end
 
+		# The snippet already carries everything -- why, where, and what, branching off the
+		# highlighted span itself so it all reads at a glance. Falls back to a plain
+		# "detail message, then name at location" when there's no snippet to hang that tree off
+		# of (no location at all, or its source was never registered).
 		def format
-			message = "#{Ascii.underline error_name_styled} at #{location_line}"
-			message += "\n#{error.detail_message}" if error.detail_message
-			message
+			source_snippet || fallback
 		end
 
-		def location_available?
-			expression&.respond_to? :line
+		def fallback
+			[error.detail_message, name_at_location].compact.join("\n\n")
 		end
 
-		def location_line
-			# todo bug: Does not display source code properly
-			if expression.is_a?(Code::Expression) && expression.line_start
-				Ascii.underline "#{display_source_file}:#{expression.line_start}:#{expression.column_start}"
-			else
-				# todo: How do I get the source string here?
-				source_snippet
-			end
+		def name_at_location
+			"#{error_name_styled} at #{location_coords}"
 		end
 
-		# note; `expression.source_file` is always an absolute path.
+		def location_coords
+			return 'unknown location' unless located?
+			Ascii.underline "#{display_source_file}:#{expression.line_start}:#{expression.column_start}"
+		end
+
+		# note; `expression.source_file` is either an absolute path, or the literal `'<inline>'`
+		# sentinel `Interpreter#run`/`#register_source` key plain (non-file) source under.
 		def display_source_file
 			file = expression&.source_file
-			return "inline_source" unless file
+			return "inline_source" if file.nil? || file == '<inline>'
 			file.start_with?("#{Dir.pwd}/") ? file.delete_prefix("#{Dir.pwd}/") : file
 		end
 
-		# Simplified version of source_snippet
+		# The literal source around `expression` (its own lines, plus a little surrounding context),
+		# with `highlighted`'s own span bolded/reddened in place -- usually `expression` itself, but
+		# can be a smaller piece of it (one identifier inside a whole call, say) -- and a small
+		# branching pointer under the *end* of that span naming why, where, and what: the detail
+		# message, the exact file:line:col, and the error's own name, one glance. Nil when there's
+		# nothing to show: no location at all, or that source was never registered (see
+		# Interpreter#register_source) -- e.g. an error whose `expression` isn't a real parsed node.
 		def source_snippet
-			# Initial checks and coordinate fetching remain the same
-			line, column, line_end, column_end = get_location_coords
-			return nil unless line
+			return nil unless located?
 
-			source_file = get_source_file
-			lines       = Code::Interpreter.cached_source_by_filename[source_file] || []
+			lines = Code::Interpreter.cached_source_by_filename[expression.source_file] || []
 			return nil if lines.empty?
 
-			# Determine snippet boundaries
-			surrounding_lines = 3
-			start_line        = [line - surrounding_lines, 1].max
-			end_line          = [line_end + surrounding_lines, lines.length].min
+			ctx_start, _, ctx_end, _ = coords_for expression
+			surrounding_lines        = 3
+			start_line               = [ctx_start - surrounding_lines, 1].max
+			end_line                 = [ctx_end + surrounding_lines, lines.length].min
 
-			snippet_lines = []
-
-			(start_line..end_line).each do |line_num|
-				line_index   = line_num - 1
-				line_content = lines[line_index] || ""
-
-				# Expand tabs once per line for consistent display
-				visual_content = line_content.gsub("\t", "    ")
-				prefix         = Code::Ascii.cyan("#{line_num.to_s.rjust(5)} │ ")
-
-				is_error_line = (line_num >= line && line_num <= line_end)
-
-				if is_error_line
-					# Calculate the start and end character positions for the error span on this specific line
-					start_char = (line_num == line) ? (column - 1) : 0
-					end_char   = (line_num == line_end) ? column_end : visual_content.length
-
-					# Convert character indices to visual (space-expanded) indices
-					visual_start            = line_content[0...start_char].gsub("\t", "    ")
-					visual_end              = line_content[0...end_char].gsub("\t", "    ")
-					visual_start_char_count = visual_start.length
-					visual_end_char_count   = visual_end.length
-
-					before     = visual_content[0...visual_start_char_count]
-					error_span = visual_content[visual_start_char_count...visual_end_char_count]
-					after      = visual_content[visual_end_char_count..-1] || ""
-
-					# Apply color/style to the error span
-					styled_span = Code::Ascii.bold(Code::Ascii.red(error_span))
-
-					# Use Colors.make only for the single-line case where we want a different style
-					if line == line_end && line_num == line
-						styled_span = Code::Ascii.bold(Code::Ascii.make(error_span))
-					end
-
-					snippet_lines << prefix + before + styled_span + after
-					spaces      = " " * visual_start_char_count
-					error_label = error_name.gsub '_', ' '
-
-					prefix     = Code::Ascii.cyan("#{' '.rjust(5)} │ ")
-					error_line = spaces + Code::Ascii.bold(Code::Ascii.red("╰── " + error_label))
-					snippet_lines << prefix + error_line
-				else
-					# Regular surrounding line
-					snippet_lines << prefix + visual_content
-				end
-			end
-
-			snippet_lines.join "\n"
+			(start_line..end_line).flat_map { |line_num| format_line line_num, lines[line_num - 1] || '' }.join("\n")
 		end
 
 		private
 
-		def get_location_coords
-			if expression.is_a?(Code::Expression) && expression.line_start
-				[expression.line_start, expression.column_start, expression.line_end || expression.line_start, expression.column_end || expression.column_start]
-			else
-				[nil, nil, nil, nil]
-			end
+		def located?
+			expression.is_a?(Code::Expression) && expression.line_start
 		end
 
-		def get_source_file
-			expression&.source_file
+		# Defensively falls back to the start when an end wasn't recorded (an `expression` that
+		# didn't go through the parser's own location helpers), same as before this class existed.
+		def coords_for expr
+			[expr.line_start, expr.column_start, expr.line_end || expr.line_start, expr.column_end || expr.column_start]
+		end
+
+		# Returns an Array of one or more rendered lines (a plain context line is just one; a
+		# highlighted line gets its own colored span, plus -- only on the *last* highlighted line,
+		# not repeated on every one of a multi-line span -- the branching pointer underneath it).
+		def format_line line_num, line_content
+			hl_line, hl_column, hl_line_end, hl_column_end = coords_for highlighted
+			visual_content                                 = line_content.gsub("\t", "    ")
+			prefix                                          = Code::Ascii.cyan("#{line_num.to_s.rjust(5)}: ")
+
+			return [prefix + visual_content] unless line_num.between?(hl_line, hl_line_end)
+
+			start_char = line_num == hl_line ? hl_column - 1 : 0
+			end_char   = line_num == hl_line_end ? hl_column_end : visual_content.length
+
+			# Character indices above are into the raw line -- re-derive them against the
+			# tab-expanded `visual_content` so the highlight lines up with what's actually printed.
+			visual_start = line_content[0...start_char].gsub("\t", "    ").length
+			visual_end   = line_content[0...end_char].gsub("\t", "    ").length
+
+			before = visual_content[0...visual_start]
+			span   = visual_content[visual_start...visual_end]
+			after  = visual_content[visual_end..] || ""
+
+			# A single-line highlight gets `Ascii.make`'s background treatment (pops more against
+			# one line of context); a multi-line one just gets bold red, which is all a background
+			# would do across several lines anyway.
+			styled_span = if hl_line == hl_line_end
+				Code::Ascii.bold(Code::Ascii.make(span))
+			else
+				Code::Ascii.bold(Code::Ascii.red(span))
+			end
+
+			line = "#{prefix}#{before}#{styled_span}#{after}"
+			line_num == hl_line_end ? [line, *pointer_tree(visual_start), "\n"] : [line]
+		end
+
+		# One branch per item, hanging off a `┆` continuation gutter directly under wherever the
+		# highlighted span starts on its last line: `detail_message` (why), `location_coords`
+		# (where), `error_name` (what) -- whichever of those are actually present, most-specific
+		# first. A single item skips the branch entirely (`╰──` straight to it, no `┬`).
+		def pointer_tree visual_start
+			items = [error.detail_message, location_coords, error_name_styled].compact
+			return [] if items.empty?
+
+			gutter = Code::Ascii.cyan("#{' '.rjust(5)}  ") + (" " * visual_start)
+
+			if items.one?
+				return ["#{gutter}#{Code::Ascii.cyan('╰── ')}#{items.first}"]
+			end
+
+			items.each_with_index.map do |text, index|
+				connector = if index.zero?
+					'╰──┬──'
+				elsif index == items.length - 1
+					'   └──'
+				else
+					'   ├──'
+				end
+				"#{gutter}#{Code::Ascii.cyan(connector)}  #{text}"
+			end
 		end
 	end
 end

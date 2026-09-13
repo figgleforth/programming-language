@@ -1015,7 +1015,7 @@ class Regression_Test < Base_Test
 		assert_equal true, Code.interp(<<~CODE)
 		    Dictionary_Like\\<String, Number> {}
 		    z := Dictionary_Like\\<String, Number>()
-		    z.tag.@types.length() == 2
+		    z.@tag.@types.length() == 2
 		CODE
 
 		# A struct member's own default value can legitimately contain delimiters (`(`/`)`, `[`/`]`, nested `{`/`}`) before the real closing `>` -- must not be mistaken for the statement's own boundary.

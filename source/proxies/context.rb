@@ -15,6 +15,7 @@ module Code
 			'composed_types' => {},
 			'types' => {},
 			'type' => {},
+			'tag' => {},
 			'object_id' => {},
 			'size_in_bytes' => {},
 			'root_path' => {},

@@ -3815,6 +3815,7 @@ class Interpreter_Test < Base_Test
 		error = assert_raises Code::Type_Contract_Violation do
 			Code.interp <<~CODE
 			    Thing {
+					member,
 					Self (;
 						self.member := 0
 					)
@@ -3871,20 +3872,24 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	def test_self_declaration_during_construction_works_but_external_dot_does_not_regression
-		out = Code.interp <<~CODE
-		    Thing {
-		        Self (;
-		            self.member := 123
-		        )
-		    }
-		    t := Thing()
-		    t.member
-		CODE
-		assert_equal 123, out
+	def test_self_declaration_no_longer_works_anywhere_regression
+		# `self.member := value` used to self-declare a brand-new member for the whole window a
+		# constructor was running (`#still_under_construction?`'s old `instance.has?('Self')`
+		# check) -- that's gone now. `self`/`Self` never get to self-declare a new member, not even
+		# from inside `Self(;)` itself; the member has to already exist in the type's own body.
+		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
+			Code.interp <<~CODE
+			    Thing {
+			        Self (;
+			            self.member := 123
+			        )
+			    }
+			    t := Thing()
+			    t.member
+			CODE
+		end
 
 		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
-			# but actually it raises something about not being able to declare members on the type outside of Self(;) or the explicit class body declarations
 			Code.interp <<~CODE
 			    Thing {
 			        not_new_func (;
@@ -3895,6 +3900,20 @@ class Interpreter_Test < Base_Test
 			    t.not_new_func()
 			CODE
 		end
+
+		# Pre-declared in the body -- `self.member := ...` from inside `Self(;)` now just writes
+		# to (re-infers the type of) an already-existing member, same as any other method would.
+		out = Code.interp <<~CODE
+		    Thing {
+		        member,
+		        Self (;
+		            self.member := 123
+		        )
+		    }
+		    t := Thing()
+		    t.member
+		CODE
+		assert_equal 123, out
 
 		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
 			Code.interp 'Number.yolo = 123'
@@ -4214,16 +4233,17 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	def test_self_dot_declare_self_declares_new_member_during_construction
-		out = Code.interp <<~CODE
-		    Thing {
-		        Self (;
-		            self.member := 123
-		        )
-		    }
-		    Thing().member
-		CODE
-		assert_equal 123, out
+	def test_self_dot_declare_no_longer_declares_a_new_member_during_construction
+		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
+			Code.interp <<~CODE
+			    Thing {
+			        Self (;
+			            self.member := 123
+			        )
+			    }
+			    Thing().member
+			CODE
+		end
 
 		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
 			Code.interp <<~CODE
