@@ -45,8 +45,7 @@ module Code
 						lexeme.type  = :comment
 						lexeme.value = lex_block_comment
 					else
-						lexeme.type  = :comment
-						lexeme.value = lex_oneline_comment
+						lex_oneline_comment lexeme
 					end
 
 				elsif delimiter? curr
@@ -224,6 +223,10 @@ module Code
 			eat while (delimiter? && prev == curr)
 		end
 
+		def reduce_whitespace
+			eat while (whitespace? && prev == curr)
+		end
+
 		def peek offset_from_curr = 1, length = 1
 			@input[@index + offset_from_curr, length]
 		end
@@ -267,38 +270,42 @@ module Code
 		# @return [nil]
 		def lex_number lexeme
 			def eat_number
-				number_str = ::String.new
+				it = ::String.new
 				valid      = %w(. _) # An exception for _ is that it cannot be the last character because then you could miss underscored declarations like `1_decl`. This should be lexed as number 1, and identifier _decl.
 
 				# 7/7/25, I'm intentionally allowing multiple dots in a number for Array_Index_Expr
 				while chars? && (numeric? || valid.include?(curr))
 					break if valid.include?(curr) && !numeric?(peek)
-					break if number_str[-1] == '_' && !numeric?(curr)
+					break if it[-1] == '_' && !numeric?(curr)
 
-					number_str << eat
+					it << eat
 					eat '_' while curr == '_' && numeric?(peek)
 				end
-				number_str
+				it.strip
 			end
 
-			lexeme.type = :number
-			prefix = if %w(+ -).include? curr
+			prefix       = if %w(+ -).include? curr
 				eat
 			end
 			lexeme.value = "#{prefix}#{eat_number}"
-			lexeme
+			lexeme.type  = :number
 		end
 
-		def lex_oneline_comment
-			it = ::String.new
-			eat Code::COMMENT_CHAR
-			eat while whitespace?
+		# @param [Code::Lexeme] lexeme to build
+		# @return [nil]
+		def lex_oneline_comment lexeme
+			def eat_comment
+				eat Code::COMMENT_CHAR
 
-			while chars? && !newline?
-				it << eat
+				it = ::String.new
+				reduce_whitespace
 
+				it << eat while chars? && !newline?
+				it.strip
 			end
-			it
+
+			lexeme.type = :comment
+			lexeme.value = eat_comment
 		end
 
 		# Reads a run of consecutive occurrences of `char`, however long -- used for both the opening and closing markers of a block comment/fence, so a longer run on the outer wrapper can safely swallow a same-length (or shorter) inner one without closing early. Mirrors Markdown's own rule for nesting code fences: a marker only closes a block opened by a marker of equal or greater length; a shorter run of the same char is just literal content.
