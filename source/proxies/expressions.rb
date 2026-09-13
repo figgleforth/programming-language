@@ -37,13 +37,13 @@ module Code
 		end
 
 		def location
-			return nil unless line && column
-			"#{source_file}:#{line}:#{column}" if source_file
-			"#{line}:#{column}"
+			return nil unless line_start && column_start
+			"#{source_file}:#{line_start}:#{column_start}" if source_file
+			"#{line_start}:#{column_start}"
 		end
 
 		def line_col
-			"#{line}:#{column}..#{line_end}:#{column_end}" if line
+			"#{line_start}:#{column_start}..#{line_end}:#{column_end}" if line_start
 		end
 	end
 

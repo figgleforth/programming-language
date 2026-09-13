@@ -35,6 +35,7 @@ module Code
 	TYPE_COMPOSITION_OPERATORS        = %w(| & ~ ^) # Union, Intersection, Removal, Symmetric Difference
 	ANY_IDENTIFIER                    = %i(identifier Identifier IDENTIFIER)
 	TYPE_IDENTIFIER                   = %i(Identifier IDENTIFIER)
+	LITERAL_LEXEME_TYPES              = %i(string symbol number)
 	GSCOPE                            = :global
 	STARTING_PRECEDENCE               = 0
 	DEFAULT_OPERATOR_PRECEDENCE       = 500 # given to all custom operators at runtime unless

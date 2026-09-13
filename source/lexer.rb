@@ -227,11 +227,8 @@ module Code
 				it.strip
 			end
 
-			prefix = if %w(+ -).include? curr
-				eat
-			end
-
 			make_lexeme do |lexeme|
+				prefix       = eat if %w(+ -).include? curr
 				lexeme.type  = :number
 				lexeme.value = "#{prefix}#{eat_number}"
 			end

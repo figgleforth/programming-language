@@ -153,15 +153,6 @@ module Code
 			end
 		end
 
-		# `(...)` is a function declaration when a bare `;` (the params/body separator) appears at its own
-		# direct nesting level -- but `(` is also grouping/tuples/call-arguments now, so unlike the old
-		# `{`-only #peek_contains? this has to be depth-*exact*, not just "somewhere before the matching
-		# close": `foo((a; a+1), 5)` is an ordinary call passing an anonymous func as its first argument,
-		# and the inner func's own `;` (at depth 2, one level past `foo`'s own opening paren) must NOT make
-		# `foo(...)` as a whole look like a declaration too -- it has none of its own, at depth 1.
-		# A literal's *value* can coincidentally equal meaningful punctuation (`';'`, `'('`) -- never treat it as real syntax. Shared by #func_declaration_follows?/#anon_func_param_list_follows? below.
-		LITERAL_LEXEME_TYPES = %i[string symbol number].freeze
-
 		def func_declaration_follows?
 			depth = 0
 			remainder.each do |token|
@@ -200,225 +191,6 @@ module Code
 				return false
 			end
 			false
-		end
-
-		# `Ident <...>` and an ordinary `<` comparison that just happens to start with a capitalized identifier (`X < Y`) are indistinguishable by lookahead alone -- rather than trying to enumerate every legitimate statement-ending token a struct's own member values could contain (`,` inside a member list is fine, but so is a `(`/`)`/`[`/`{}` nested inside one member's own default value), just attempt the real parse and see what happens. Saves the token position first; a syntax error anywhere in the attempt (ran out of tokens hunting for a `>` that was never coming, or any other `Parser#eat` mismatch) rewinds back to it, so the caller falls through to ordinary expression parsing (`X < Y` as a comparison) instead.
-		def try_parse_struct
-			saved_i = @i
-			parse_struct
-		rescue StandardError
-			@i = saved_i
-			nil
-		end
-
-		# Same speculative/backtracking approach as #try_parse_struct, for a nameless trailing `<...>` after a composition chain (#parse_type_decl's struct-composition case) rather than one following a bare type name.
-		def try_parse_struct_body
-			saved_i = @i
-			start   = curr_lexeme
-			Code::Struct_Expr.new.tap do |it|
-				it.lexeme = Code::Lexeme.new :struct, '<>'
-				it.types  = []
-				it.names  = []
-				eat '<'
-				closing = parse_struct_members it
-
-				it.column_start = start.column_start
-				it.line_start   = start.line_start
-				it.column_end   = closing.column_end
-				it.line_end     = closing.line_end
-				it.source_file  = start.source_file
-			end
-		rescue StandardError
-			@i = saved_i
-			nil
-		end
-
-		# idea: support sequence of elements where an element can be one of many, like the sequence [IdentifierToken, [:=, =]]
-		def eat * sequence
-			raise "tried to eat #{sequence} but out of lexemes" unless lexemes?
-
-			if sequence.nil? || sequence.empty? || sequence.one?
-				eaten = curr_lexeme
-				if sequence&.one? && !eaten.is(sequence[0])
-					raise "Parser#eat expected #{sequence[0].inspect} but ate #{eaten.value.inspect}"
-				end
-				@i    += 1
-				return eaten
-			end
-		end
-
-		# Currently `stride` doesn't support option to overlap elements
-		#
-		#   for <collection> [map/select/reject] [by <stride>]
-		#   end
-		#
-		#   for items map by 2
-		#       it #[items.0, items.1], [items.2, items.3], ...
-		#   end
-		#
-		def parse_for_loop_expr
-			it            = Code::For_Loop_Expr.new
-			it.lexeme     = eat 'for'
-			it.collection = parse_expression
-
-			if curr? Code::FOR_VERBS and verb = eat
-				it.type   = verb
-				it.lexeme = verb
-			end
-
-			if curr? 'by' and eat 'by'
-				it.stride = begin_expression
-				# todo: Should I check that it's a number here?
-			end
-
-			reduce_newlines
-
-			it.body = []
-			until curr? 'end'
-				it.body << parse_expression
-				reduce_newlines
-			end
-			it.body = it.body.compact
-
-			eat 'end'
-			it
-		end
-
-		def parse_conditional_expr
-			it            = Code::Conditional_Expr.new
-			it.type       = eat # One of %w(if while unless until)
-			it.condition  = parse_expression
-			it.when_true  = []
-			it.when_false = []
-			reduce_newlines
-
-			# @clean
-
-			until curr? %w(end else elif elsif elwhile elswhile)
-				expr = parse_expression
-				it.when_true << expr if expr
-				reduce_newlines
-			end
-
-			if curr? %w(elif elsif elwhile elswhile)
-				it.when_false = parse_conditional_expr
-
-			elsif curr? %w(else) and eat
-				until curr? 'end'
-					expr = parse_expression
-					it.when_false << expr if expr
-					reduce_newlines
-				end
-				eat 'end'
-
-			elsif curr? %w(} end)
-				eat
-
-			else
-				# todo: errors.rb
-				raise "\n\nYou messed your if/elif/else up\n"
-			end
-			it
-		end
-
-		def parse_circumfix_expr opening: '('
-			start = curr_lexeme
-			it    = Code::Circumfix_Expr.new
-			it.grouping = CIRCUMFIX_GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
-			eat opening
-			reduce_newlines
-			closing = it.grouping[1]
-
-			it.expressions = []
-			until curr? closing
-				# note; A bare identifier immediately followed by `,` is special-cased here rather than going through #parse_expression, same fix #parse_struct already needed for `<...>`: #begin_expression's nil-init dispatch would otherwise interfere.
-				it.expressions << if curr?(ANY_IDENTIFIER, ',')
-					parse_identifier_expr
-				else
-					parse_expression
-				end
-				break if curr? closing
-
-				eat if curr? ','
-				reduce_newlines
-			end
-
-			eat closing
-			it.expressions = it.expressions.compact
-			it
-			copy_location it, start
-		end
-
-		# TYPE_IDENT [ ... ]  /  TYPE_IDENT: Enum[\Backing] [ ... ]  /  TYPE_IDENT: Backing [ ... ]
-		#   member forms: TYPE_IDENT | TYPE_IDENT, | TYPE_IDENT: TYPE_IDENT | TYPE_IDENT := EXPR | TYPE_IDENT: TYPE_IDENT = EXPR
-		def parse_enum_expr
-			expr             = Code::Enum_Expr.new
-			expr.expressions = []
-			expr.name        = eat TYPE_IDENTIFIER
-
-			# `: Enum` / `: Enum\Backing` / `: Backing` -- the backing type lands on `expr.type`.
-			if curr? ':'
-				eat ':'
-				base = eat TYPE_IDENTIFIER
-				if base.value == 'Enum'
-					if curr? TAG_OPERATOR
-						eat TAG_OPERATOR
-						expr.type = parse_identifier_expr
-					end
-				else
-					expr.type = Code::Identifier_Expr.new base
-				end
-			end
-
-			eat '['
-
-			#   TYPE_IDENT [ ... ]
-			until curr? ']'
-				reduce_newlines
-				break if curr? ']'
-
-				item = if curr? TYPE_IDENTIFIER, '['
-					parse_enum_expr
-				else
-					#   TYPE_IDENT              # gets its own unique value
-					#   TYPE_IDENT,             # with comma
-					#   TYPE_IDENT: TYPE_IDENT
-					#   TYPE_IDENT := EXPR
-					#   TYPE_IDENT: TYPE_IDENT = EXPR
-					item_name = parse_identifier_expr # also consumes a trailing `: Type` annotation itself, if there is one
-
-					Code.assert item_name.is_a? Code::Identifier_Expr
-
-					case curr_lexeme.value
-					when ','
-						parse_nil_init_expr item_name
-					when ':='
-						eat ':='
-						infix          = Code::Infix_Expr.new
-						infix.operator = Lexeme.new(:operator, ':=')
-						infix.left     = item_name
-						infix.right    = parse_expression
-						infix
-					when '='
-						eat '='
-						infix          = Code::Infix_Expr.new
-						infix.operator = Lexeme.new(:operator, '=')
-						infix.left     = item_name
-						infix.right    = parse_expression
-						infix
-					else
-						# Bare TYPE_IDENT (with or without a `: Type` annotation already picked up above), nothing following -- next token is '}' or the next member's own name. A plain bare name (no type) gets the same nil-init treatment as the explicit-comma form; a typed-but-unvalued name (`ABC: Some_Type`) is left as the Identifier_Expr #parse_identifier_expr already built.
-						item_name.type ? item_name : parse_nil_init_expr(item_name)
-					end
-				end
-
-				eat if curr? ','
-				reduce_newlines
-
-				expr.expressions << item
-			end
-			eat ']'
-			expr
 		end
 
 		# `NAME: Enum [`, `NAME: Enum\Backing [`, or `NAME: Backing [` -- always an enum. Safe to claim
@@ -469,8 +241,220 @@ module Code
 			false
 		end
 
-		def parse_func precedence = STARTING_PRECEDENCE
-			named            = curr?(:identifier)
+		def integer_tag_next?
+			curr?(TAG_OPERATOR, :number) && peek(1).value.match?(/\A\d+\z/)
+		end
+
+		def type_then_integer_tag_next?
+			curr?(TYPE_IDENTIFIER, TAG_OPERATOR, :number) && peek(2).value.match?(/\A\d+\z/)
+		end
+
+		# @param expr  [Code::Expression] expression to set location on
+		# @param from  [Code::Lexeme]     lexeme that begins the expression
+		# @param till  [Code::Lexeme]     lexeme that completes the expression
+		# @return expr [Code::Expression] the given expression
+		def set_expr_location expr, from, till
+			expr.source_file  = from.source_file
+			expr.column_start = from.column_start
+			expr.line_start   = from.line_start
+			expr.column_end   = till.column_end
+			expr.line_end     = till.line_end
+			expr
+		end
+
+		# idea: support sequence of elements where an element can be one of many, like the sequence [IdentifierToken, [:=, =]]
+		def eat * sequence
+			raise "tried to eat #{sequence} but out of lexemes" unless lexemes?
+
+			if sequence.nil? || sequence.empty? || sequence.one?
+				eaten = curr_lexeme
+				if sequence&.one? && !eaten.is(sequence[0])
+					raise "Parser#eat expected #{sequence[0].inspect} but ate #{eaten.value.inspect}"
+				end
+				@i    += 1
+				return eaten
+			end
+		end
+
+		# Currently `stride` doesn't support option to overlap elements
+		#
+		#   for <collection> [map/select/reject] [by <stride>]
+		#   end
+		#
+		#   for items map by 2
+		#       it #[items.0, items.1], [items.2, items.3], ...
+		#   end
+		#
+		def parse_for_loop_expr
+			start         = curr_lexeme
+			it            = Code::For_Loop_Expr.new
+			it.lexeme     = eat 'for'
+			it.collection = parse_expression
+
+			if curr? Code::FOR_VERBS and verb = eat
+				it.type   = verb
+				it.lexeme = verb
+			end
+
+			if curr? 'by' and eat 'by'
+				it.stride = begin_expression
+				# todo: Should I check that it's a number here? Yes.
+			end
+
+			reduce_newlines
+
+			it.body = []
+			until curr? 'end'
+				it.body << parse_expression
+				reduce_newlines
+			end
+			it.body = it.body.compact
+
+			closing = eat 'end'
+			set_expr_location it, start, closing
+		end
+
+		def parse_conditional_expr
+			start = curr_lexeme
+
+			it            = Code::Conditional_Expr.new
+			it.type       = eat # One of %w(if while unless until)
+			it.condition  = parse_expression
+			it.when_true  = []
+			it.when_false = []
+			reduce_newlines
+
+			# @clean
+
+			until curr? %w(end else elif elsif elwhile elswhile)
+				expr = parse_expression
+				it.when_true << expr if expr
+				reduce_newlines
+			end
+
+			closing = if curr? %w(elif elsif elwhile elswhile)
+				it.when_false = parse_conditional_expr
+
+			elsif curr? %w(else) and eat
+				until curr? 'end'
+					expr = parse_expression
+					it.when_false << expr if expr
+					reduce_newlines
+				end
+				eat 'end'
+
+			elsif curr? %w(} end)
+				eat
+
+			else
+				# todo: errors.rb
+				raise "\n\nYou messed your if/elif/else up\n"
+			end
+
+			set_expr_location it, start, closing
+		end
+
+		def parse_circumfix_expr opening: '('
+			start = curr_lexeme
+			it    = Code::Circumfix_Expr.new
+			it.grouping = CIRCUMFIX_GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
+			eat opening
+			reduce_newlines
+			closing = it.grouping[1]
+
+			it.expressions = []
+			until curr? closing
+				# note; A bare identifier immediately followed by `,` is special-cased here rather than going through #parse_expression, same fix #parse_struct already needed for `<...>`: #begin_expression's nil-init dispatch would otherwise interfere.
+				it.expressions << if curr?(ANY_IDENTIFIER, ',')
+					parse_identifier_expr
+				else
+					parse_expression
+				end
+				break if curr? closing
+
+				eat if curr? ','
+				reduce_newlines
+			end
+
+			it.expressions = it.expressions.compact
+			closing        = eat closing
+			set_expr_location it, start, closing
+		end
+
+		# TYPE_IDENT [ ... ]  /  TYPE_IDENT: Enum[\Backing] [ ... ]  /  TYPE_IDENT: Backing [ ... ]
+		#   member forms: TYPE_IDENT | TYPE_IDENT, | TYPE_IDENT: TYPE_IDENT | TYPE_IDENT := EXPR | TYPE_IDENT: TYPE_IDENT = EXPR
+		def parse_enum_expr
+			start            = curr_lexeme
+			expr             = Code::Enum_Expr.new
+			expr.expressions = []
+			expr.name        = eat TYPE_IDENTIFIER
+
+			# `: Enum` / `: Enum\Backing` / `: Backing` -- the backing type lands on `expr.type`.
+			if curr? ':'
+				eat ':'
+				base = eat TYPE_IDENTIFIER
+				if base.value == 'Enum'
+					if curr? TAG_OPERATOR
+						eat TAG_OPERATOR
+						expr.type = parse_identifier_expr
+					end
+				else
+					expr.type = copy_location Code::Identifier_Expr.new(base), base
+				end
+			end
+
+			eat '['
+
+			#   TYPE_IDENT [ ... ]
+			until curr? ']'
+				reduce_newlines
+				break if curr? ']'
+
+				item = if curr? TYPE_IDENTIFIER, '['
+					parse_enum_expr
+				else
+					#   TYPE_IDENT              # gets its own unique value
+					#   TYPE_IDENT,             # with comma
+					#   TYPE_IDENT: TYPE_IDENT
+					#   TYPE_IDENT := EXPR
+					#   TYPE_IDENT: TYPE_IDENT = EXPR
+					item_name = parse_identifier_expr # also consumes a trailing `: Type` annotation itself, if there is one
+
+					Code.assert item_name.is_a? Code::Identifier_Expr
+
+					case curr_lexeme.value
+					when ','
+						parse_nil_init_expr item_name
+					when ':='
+						eat ':='
+						infix          = Code::Infix_Expr.new
+						infix.operator = Lexeme.new(:operator, ':=')
+						infix.left     = item_name
+						infix.right    = parse_expression
+						set_expr_location infix, item_name, infix.right
+					when '='
+						eat '='
+						infix          = Code::Infix_Expr.new
+						infix.operator = Lexeme.new(:operator, '=')
+						infix.left     = item_name
+						infix.right    = parse_expression
+						set_expr_location infix, item_name, infix.right
+					else
+						# Bare TYPE_IDENT (with or without a `: Type` annotation already picked up above), nothing following -- next token is '}' or the next member's own name. A plain bare name (no type) gets the same nil-init treatment as the explicit-comma form; a typed-but-unvalued name (`ABC: Some_Type`) is left as the Identifier_Expr #parse_identifier_expr already built.
+						item_name.type ? item_name : parse_nil_init_expr(item_name)
+					end
+				end
+
+				eat if curr? ','
+				reduce_newlines
+
+				expr.expressions << item
+			end
+			closing = eat ']'
+			set_expr_location expr, start, closing
+		end
+
+		def parse_func
 			start            = curr_lexeme
 			func             = Code::Func_Expr.new
 			func.expressions = [] # Expression
@@ -491,7 +475,8 @@ module Code
 			reduce_newlines
 
 			until curr? Code::FUNCTION_DELIMITER
-				before_i = @i
+				before_i    = @i
+				param_start = curr_lexeme
 
 				if curr? '->' and eat '->'
 					# A function (named or anonymous) declaring its own return type inline, at the end of its param list: `(a: Number -> Number; ... )`. Distinct from `identifier: Type (...)`, which is a signature reference/alias, not an implementation declaring its own type.
@@ -531,9 +516,9 @@ module Code
 					# note; something in the if/else below depends on param.name being present
 					param.name = param.lexeme
 
-					if curr?('...') and eat('...') # f (x...; ...) -- same as f (x: Arguments; ...)
+					if curr?('...') and dots = eat('...') # f (x...; ...) -- same as f (x: Arguments; ...)
 						param.variadic = true
-						param.type     ||= Code::Identifier_Expr.new('Arguments')
+						param.type     ||= copy_location Code::Identifier_Expr.new('Arguments'), dots
 					end
 
 					if curr?(':', TYPE_IDENTIFIER)
@@ -561,6 +546,7 @@ module Code
 				end
 
 				func.parameters << param
+				set_expr_location param, param_start, param.default || param.type || param.lexeme
 				eat if curr? ','
 				reduce_newlines
 
@@ -576,79 +562,42 @@ module Code
 				reduce_newlines
 			end
 
-			eat ')'
+			closing = eat ')'
 
-			has_real_body = func.expressions.any?
-
-			if (func.type || signature_colon) && !has_real_body
+			if (func.type || signature_colon) && !func.expressions.any?
 				sig        = Code::Func_Signature_Expr.new
 				sig.name   = func.name
 				sig.type   = func.type
 				sig.lexeme = func.lexeme
 				sig.params = func.parameters
-				return copy_location sig, start
+				return set_expr_location sig, start, closing
 			end
 
-			copy_location func, start
-		end
-
-		# `>>`/`>>>`/etc are legitimate operators elsewhere (right-shift, `>>=`), but two or more `<...>` structs closing back-to-back (`Array\<String>>`) glue into that same token at the lexer level -- the same ambiguity C++ has with nested template brackets. Splits the current lexeme in place into that many separate `>` tokens whenever it's a pure run of `>` characters, so each nested #parse_struct call can close with its own ordinary `eat '>'`. A no-op on anything else (a lone `>`, or a real `>>=`/`>>` that isn't closing a struct at all), so callers can call it defensively before every `>` check without needing to know whether gluing actually happened here.
-		def split_glued_close_angles!
-			return unless curr_lexeme && curr_lexeme.value.is_a?(::String) && curr_lexeme.value.length > 1 && curr_lexeme.value.chars.all? { |char| char == '>' }
-
-			glued  = curr_lexeme
-			closes = glued.value.chars.each_index.map do |index|
-				closer              = glued.dup
-				closer.value        = '>'
-				closer.column_start = glued.column_start + index
-				closer.column_end   = closer.column_start
-				closer
-			end
-
-			input[i, 1] = closes
-		end
-
-		def integer_tag_next?
-			curr?(TAG_OPERATOR, :number) && peek(1).value.match?(/\A\d+\z/)
-		end
-
-		def type_then_integer_tag_next?
-			curr?(TYPE_IDENTIFIER, TAG_OPERATOR, :number) && peek(2).value.match?(/\A\d+\z/)
+			set_expr_location func, start, closing
 		end
 
 		def integer_tag_struct_expr
 			start  = curr_lexeme
 			member = parse_number_expr
-			Code::Struct_Expr.new.tap do |it|
-				it.lexeme       = Code::Lexeme.new :struct, '<>'
-				it.types        = [member]
-				it.names        = [nil]
-				it.column_start = start.column_start
-				it.line_start   = start.line_start
-				it.column_end   = member.column_end
-				it.line_end     = member.line_end
-				it.source_file  = start.source_file
-			end
+
+			it        = Code::Struct_Expr.new
+			it.lexeme = Code::Lexeme.new :struct, '<>'
+			it.types  = [member]
+			it.names  = [nil]
+			set_expr_location it, start, member.lexeme
 		end
 
 		def parse_struct
 			# TYPE_IDENTIFIER <...>
-			start = curr_lexeme
-			Code::Struct_Expr.new.tap do |it|
-				it.name   = eat if curr? TYPE_IDENTIFIER
-				it.lexeme = Code::Lexeme.new :struct, '<>'
-				it.types  = []
-				it.names  = []
-				eat '<'
-				closing = parse_struct_members it
-
-				# Manually tracking location insead of using `#copy_location`, because I want it to span all of "<....>
-				it.column_start = start.column_start
-				it.line_start   = start.line_start
-				it.column_end   = closing.column_end
-				it.line_end     = closing.line_end
-				it.source_file  = start.source_file
-			end
+			start     = curr_lexeme
+			it        = Code::Struct_Expr.new
+			it.name   = eat if curr? TYPE_IDENTIFIER
+			it.lexeme = Code::Lexeme.new :struct, '<>'
+			it.types  = []
+			it.names  = []
+			eat '<'
+			closing = parse_struct_members it
+			set_expr_location it, start, closing
 		end
 
 		# The member list inside `<...>` -- factored out of #parse_struct so struct-composition's trailing body (`Both | Abc | Def <extra: String>`) can reuse it without re-eating a leading name. Returns the closing `>` lexeme.
@@ -713,7 +662,6 @@ module Code
 			start        = curr_lexeme
 			it           = Code::Type_Expr.new eat # one of valid_idents
 			it.name      = it.lexeme.value
-			valid_idents = %i(Identifier IDENTIFIER)
 			is_type      = Helpers.type_identifier? it.name
 			is_const     = Helpers.constant_identifier? it.name
 
@@ -742,7 +690,12 @@ module Code
 			# Then this is a reference to an existing type (optionally tagged), not a declaration. `it.expressions` stays nil here so callers (like #interp_type) can tell this apart from a real, even if empty, `{}` body. Whatever follows (like a trailing `(...)` call) is picked up in #complete_expression, same as any other primary expression.
 			# A composed operand can be a struct literal too (`Type | <x: Int> {}`), not just a type name.
 			unless curr?('{') || curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<')
-				return copy_location it, start
+				closing = if it.tag
+					it.tag
+				else
+					it.lexeme
+				end
+				return set_expr_location it, start, closing
 			end
 
 			it.expressions = []
@@ -756,12 +709,18 @@ module Code
 				# A trailing `<...>` composes structs instead of a type's `{}` body. Speculative -- a bare `<` could just as easily be a comparison (`x := A | B < 5`), so only commit if it actually parses as a struct.
 				if curr?('<') && (body = try_parse_struct_body)
 					it.struct_body = body
-					return copy_location it, start
+					return set_expr_location it, start, body
 				end
 
 				# No body followed the composition chain (`Abc|Def`, `A & B`, ...) so this is a reference to an anonymous type built by applying the chain, not a declaration.
 				it.anonymous_composition = true
-				return copy_location it, start
+
+				closing = if it.expressions
+					it.expressions.last
+				else
+					it.lexeme
+				end
+				return set_expr_location it, start, closing
 			end
 
 			eat '{'
@@ -774,35 +733,32 @@ module Code
 
 			it.expressions = it.expressions.compact
 
-			eat '}'
-			copy_location it, start
+			closing = eat '}'
+			set_expr_location it, start, closing
 		end
 
 		def parse_comment
-
 			lexeme   = eat
 			it       = Code::Comment_Expr.new lexeme
-			it.value = Code::String_Expr.new lexeme
-			it.body  = Code::String_Expr.new lexeme
+			it.value = copy_location Code::String_Expr.new(lexeme), lexeme
+			it.body  = copy_location Code::String_Expr.new(lexeme), lexeme
 			it.type  = lexeme.type
-			it
+			set_expr_location it, lexeme, lexeme
 		end
 
 		def parse_fence_expr
-			start    = curr_lexeme
 			lexeme   = eat
 			it       = Code::Fence_Expr.new lexeme
-			it.value = Code::String_Expr.new lexeme
+			it.value = copy_location Code::String_Expr.new(lexeme), lexeme
 			it.type  = lexeme.type # :fence by default
-			copy_location it, start
-			it
+			set_expr_location it, lexeme, lexeme
 		end
 
 		def parse_html_expr
 			# TODO: :html_vs_type_expr
 			start      = curr_lexeme
 			it         = Code::Html_Fence_Expr.new eat
-			it.value   = Code::String_Expr.new start
+			it.value   = copy_location Code::String_Expr.new(start), start
 			it.body    = it.value
 			it.element = it.lexeme
 			copy_location it, start
@@ -821,7 +777,7 @@ module Code
 				infix.left     = ident
 				infix.operator = dot_op
 				infix.right    = right
-				copy_location infix, ident
+				set_expr_location infix, ident, right
 				ident = infix
 			end
 
@@ -835,8 +791,7 @@ module Code
 			end
 
 			expr.identifier = ident
-			expr
-			copy_location expr, start
+			set_expr_location expr, start, ident
 		end
 
 		# `x := |Compo` / `y := |This ^ That` -- a composition chain with no left operand, used as a value. Same Type_Expr shape #parse_type_decl builds for `Base | Compo`, just with `.name` left nil. Only reachable from `:=`'s own RHS parsing.
@@ -848,14 +803,16 @@ module Code
 
 			it.expressions << parse_composition_expr while curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER)
 
-			copy_location it, start
+			set_expr_location it, start, it.expressions.last
 		end
 
 		def parse_statement_expr
+			start = curr_lexeme
 			Code::Statement_Expr.new.tap do |it|
 				eat '`'
 				it.expression = parse_expression
-				eat '`'
+				closing       = eat '`'
+				set_expr_location it, start, closing
 			end
 		end
 
@@ -907,7 +864,11 @@ module Code
 			end
 
 			expr.kind = Code.type_of_identifier expr.value
-			copy_location expr, start
+			# The end of this expression's own span isn't always `expr.lexeme` -- a trailing tag
+			# (`\<...>`/`\Name`/`\123`) or `: Type` annotation consumes more tokens past the bare
+			# name, and `expr.type` (if present) is always the last of those to be parsed.
+			closing = expr.type || expr.tag || expr.lexeme
+			set_expr_location expr, start, closing
 		end
 
 		def parse_self_prefixed_identifier
@@ -916,14 +877,17 @@ module Code
 
 			expr                = parse_identifier_expr
 			expr.scope_operator = Code::Lexeme.new(:operator, keyword.value)
-			expr
+			# `expr` already has its own correct end (from the recursive #parse_identifier_expr call
+			# above) -- only the start needs moving back to `keyword`, to include "self."/"Self." itself.
+			set_expr_location expr, keyword, expr
 		end
 
 		def parse_symbol_expr
 			start = curr_lexeme
 			eat ':'
-			it = Code::Symbol_Expr.new eat
-			copy_location it, start
+			name = eat
+			it   = Code::Symbol_Expr.new name
+			set_expr_location it, start, name
 		end
 
 		def parse_route_expr
@@ -962,13 +926,13 @@ module Code
 			route.http_method = Code::Identifier_Expr.new.tap do |expr|
 				expr.value = http_method
 				expr.kind  = :identifier
+				copy_location expr, route_token
 			end
 			route.path        = path_string
 			route.expression  = expr
 			route.param_names = param_names
 
-			route
-			copy_location route, start
+			set_expr_location route, start, expr
 		end
 
 		def parse_percent_literal_expr
@@ -990,7 +954,7 @@ module Code
 				reduce_newlines
 			end
 
-			eat ')'
+			closing = eat ')'
 
 			percent_lit             = Code::Percent_Literal_Expr.new # This extends Circumfix_Expr
 			percent_lit.kind        = kind.value
@@ -1004,7 +968,7 @@ module Code
 
 			raise Code::Invalid_Percent_Literal_Expression.new(percent_lit) unless valid_items
 
-			copy_location percent_lit, start
+			set_expr_location percent_lit, start, closing
 		end
 
 		# One item is a run of tokens with no whitespace between them, not one lexer token (`1px` lexes as number+identifier). A backtick item never merges -- it's a whole evaluated expression.
@@ -1047,11 +1011,8 @@ module Code
 			lexeme.line_end   = right.lexeme.line_end
 			lexeme.column_end = right.lexeme.column_end
 
-			merged                                 = Code::Identifier_Expr.new lexeme
-			merged.line_start, merged.column_start = left.line_start, left.column_start
-			merged.line_end, merged.column_end     = right.line_end, right.column_end
-			merged.source_file                     = left.source_file
-			merged
+			merged = Code::Identifier_Expr.new lexeme
+			set_expr_location merged, left, right
 		end
 
 		def parse_beginless_range_expr
@@ -1061,7 +1022,7 @@ module Code
 				it.right    = parse_expression precedence_for(it.operator.value)
 				it.right    = it.right.left if it.right.is_a? Code::Nil_Init_Expr
 
-				copy_location it, it.operator # Typically I store `start = curr_lexeme` but here I know that it.operator was the first eaten lexeme here.
+				set_expr_location it, it.operator, it.right # Typically I store `start = curr_lexeme` but here I know that it.operator was the first eaten lexeme here.
 			end
 		end
 
@@ -1078,7 +1039,7 @@ module Code
 					it.right = it.right.left if it.right.is_a? Code::Nil_Init_Expr
 				end
 
-				copy_location it, left_side_expr
+				set_expr_location it, left_side_expr, it.right || it.operator
 			end
 		end
 
@@ -1108,7 +1069,6 @@ module Code
 				expr.type  = :integer
 				expr.value = expr.value.to_i
 			end
-			expr
 			copy_location expr, start
 		end
 
@@ -1127,7 +1087,127 @@ module Code
 			nil_expr.privacy = Code.privacy_of_ident 'nil'
 			expr.right       = nil_expr
 
-			copy_location expr, start
+			# The synthetic `nil` on the right never came from real source, so the true end of this
+			# expression is wherever `expr.left` ends (which may extend past `start`'s own single
+			# lexeme -- a tagged/typed left side, or a freshly-parsed one when `left` wasn't given).
+			set_expr_location expr, start, expr.left
+		end
+
+		def parse_context_call context_ident, precedence
+			member          = Code::Infix_Expr.new
+			member.operator = Code::Lexeme.new(:operator, '.')
+			member.left     = copy_location Code::Identifier_Expr.new(Code::CONTEXT_OPERATOR), context_ident
+			member.right    = copy_location Code::Identifier_Expr.new(context_ident.value), context_ident
+			copy_location member, context_ident
+
+			paren    = curr?('(') && lexeme_adjacent?(context_ident.lexeme, curr_lexeme)
+			bare_arg = lexemes? && !paren && !(curr?(:delimiter) && CONTEXT_ARG_TERMINATORS.include?(curr_lexeme.value))
+
+			# note; A stack function (`@push_scope`, `@load`, ...) is never a capturable reference.
+			bare_ref = !paren && !bare_arg && !Code::Context::STACK_FUNCTIONS.include?(context_ident.value)
+			return complete_expression member, precedence if bare_ref
+
+			call           = Code::Call_Expr.new
+			call.receiver  = member
+			closing        = context_ident
+			call.arguments = if paren and eat '('
+				args = []
+				reduce_newlines
+				until curr? ')'
+					args << parse_expression
+					eat if curr? ','
+					reduce_newlines
+				end
+				closing = eat ')'
+				args
+			elsif bare_arg
+				args    = [parse_expression]
+				args << parse_expression while curr? ',' and eat ','
+				closing = args.last
+				args
+			else
+				[] # bare `@pop_scope` etc -- a 0-arg call
+			end
+			set_expr_location call, context_ident, closing
+			complete_expression call, precedence
+		end
+
+		# `@operator <op> @infix <precedence> ( left, right; ... )` -- a genuine declaration form, not a
+		# call. `start` is the just-parsed `@operator` identifier itself, so the whole declaration's
+		# location can start there rather than at `<op>`, the second token.
+		def parse_operator_overload start, precedence
+			op_lexeme     = eat # the operator symbol/identifier itself -- not via parse_expression (custom fixity would misparse it)
+			unless %i(operator identifier).include? op_lexeme.type
+				raise "An operator can only be an :operator or :identifier. Your `#{op_lexeme.value}` is :#{op_lexeme.type}. Maybe it's reserved. todo; Better message!"
+			end
+			operator_expr = Code::Operator_Expr.new op_lexeme
+			copy_location operator_expr, op_lexeme
+
+			next_expr = begin_expression
+			if next_expr.is_a?(Code::Identifier_Expr) && next_expr.prefixed_with_at && %w(prefix infix postfix circumfix).include?(next_expr.value)
+				prec = if curr? '('
+					precedence_for(operator_expr.value)
+				else
+					# A bare primitive parse -- the precedence is immediately followed by the overload's own func body `(left, right; ...)`, and parse_expression's call-continuation would swallow that `(`.
+					Code.assert curr? :number
+					parse_number_expr.value
+				end
+				unless prec.is_a? ::Numeric
+					raise "an operator overload requires the following form:\n\n\t@operator <operator> @infix <precedence> (left, right; ...)\twhere <precedence> is optional."
+				end
+
+				overload            = Code::Operator_Overload_Expr.new operator_expr.lexeme
+				overload.fixity     = next_expr.lexeme
+				overload.precedence = prec
+				overload.func_expr  = parse_func
+				overload.value      = operator_expr.lexeme.value
+				set_expr_location overload, start, overload.func_expr
+				return complete_expression overload, precedence
+			end
+
+			complete_expression next_expr, precedence
+		end
+
+		# `Ident <...>` and an ordinary `<` comparison that just happens to start with a capitalized identifier (`X < Y`) are indistinguishable by lookahead alone -- rather than trying to enumerate every legitimate statement-ending token a struct's own member values could contain (`,` inside a member list is fine, but so is a `(`/`)`/`[`/`{}` nested inside one member's own default value), just attempt the real parse and see what happens. Saves the token position first; a syntax error anywhere in the attempt (ran out of tokens hunting for a `>` that was never coming, or any other `Parser#eat` mismatch) rewinds back to it, so the caller falls through to ordinary expression parsing (`X < Y` as a comparison) instead.
+		def try_parse_struct
+			saved_i = @i
+			parse_struct
+		rescue StandardError
+			@i = saved_i
+			nil
+		end
+
+		# Same speculative/backtracking approach as #try_parse_struct, for a nameless trailing `<...>` after a composition chain (#parse_type_decl's struct-composition case) rather than one following a bare type name.
+		def try_parse_struct_body
+			saved_i = @i
+			start   = curr_lexeme
+			Code::Struct_Expr.new.tap do |it|
+				it.lexeme = Code::Lexeme.new :struct, '<>'
+				it.types  = []
+				it.names  = []
+				eat '<'
+				closing = parse_struct_members it
+				set_expr_location it, start, closing
+			end
+		rescue StandardError
+			@i = saved_i
+			nil
+		end
+
+		# `>>`/`>>>`/etc are legitimate operators elsewhere (right-shift, `>>=`), but two or more `<...>` structs closing back-to-back (`Array\<String>>`) glue into that same token at the lexer level -- the same ambiguity C++ has with nested template brackets. Splits the current lexeme in place into that many separate `>` tokens whenever it's a pure run of `>` characters, so each nested #parse_struct call can close with its own ordinary `eat '>'`. A no-op on anything else (a lone `>`, or a real `>>=`/`>>` that isn't closing a struct at all), so callers can call it defensively before every `>` check without needing to know whether gluing actually happened here.
+		def split_glued_close_angles!
+			return unless curr_lexeme && curr_lexeme.value.is_a?(::String) && curr_lexeme.value.length > 1 && curr_lexeme.value.chars.all? { |char| char == '>' }
+
+			glued  = curr_lexeme
+			closes = glued.value.chars.each_index.map do |index|
+				closer              = glued.dup
+				closer.value        = '>'
+				closer.column_start = glued.column_start + index
+				closer.column_end   = closer.column_start
+				closer
+			end
+
+			input[i, 1] = closes
 		end
 
 		def begin_expression precedence = STARTING_PRECEDENCE, member_rhs: false
@@ -1140,7 +1220,7 @@ module Code
 				parse_nil_init_expr
 
 			elsif (curr?('(') || curr?(:identifier, '(') || curr?(:identifier, ':', '(') || curr?(SCOPE_KEYWORDS, '(') || curr?(SCOPE_KEYWORDS, '.', :identifier, '(') || curr?(SCOPE_KEYWORDS, '.', :identifier, ':', '(')) && func_declaration_follows? && (!member_rhs || curr?('('))
-				parse_func precedence
+				parse_func
 
 			elsif (curr?(TYPE_IDENTIFIER, '[') && bare_enum_declaration_follows?) || annotated_enum_declaration_follows?
 				parse_enum_expr
@@ -1232,77 +1312,6 @@ module Code
 			complete_expression expression, precedence, member_rhs: member_rhs
 		end
 
-		def parse_context_call context_ident, precedence
-			member          = Code::Infix_Expr.new
-			member.operator = Code::Lexeme.new(:operator, '.')
-			member.left     = Code::Identifier_Expr.new(Code::CONTEXT_OPERATOR)
-			member.right    = Code::Identifier_Expr.new(context_ident.value)
-			copy_location member, context_ident
-
-			paren    = curr?('(') && lexeme_adjacent?(context_ident.lexeme, curr_lexeme)
-			bare_arg = lexemes? && !paren && !(curr?(:delimiter) && CONTEXT_ARG_TERMINATORS.include?(curr_lexeme.value))
-
-			# note; A stack function (`@push_scope`, `@load`, ...) is never a capturable reference.
-			bare_ref = !paren && !bare_arg && !Code::Context::STACK_FUNCTIONS.include?(context_ident.value)
-			return complete_expression member, precedence if bare_ref
-
-			call           = Code::Call_Expr.new
-			call.receiver  = member
-			call.arguments = if paren and eat '('
-				args = []
-				reduce_newlines
-				until curr? ')'
-					args << parse_expression
-					eat if curr? ','
-					reduce_newlines
-				end
-				eat ')'
-				args
-			elsif bare_arg
-				args = [parse_expression]
-				args << parse_expression while curr? ',' and eat ','
-				args
-			else
-				[] # bare `@pop_scope` etc -- a 0-arg call
-			end
-			copy_location call, context_ident
-			complete_expression call, precedence
-		end
-
-		# `@operator <op> @infix <precedence> ( left, right; ... )` -- a genuine declaration form, not a
-		# call. `op_ident` is the just-parsed `@operator`. Returns an Operator_Overload_Expr.
-		def parse_operator_overload op_ident, precedence
-			op_lexeme     = eat # the operator symbol/identifier itself -- not via parse_expression (custom fixity would misparse it)
-			unless %i(operator identifier).include? op_lexeme.type
-				raise "An operator can only be an :operator or :identifier. Your `#{op_lexeme.value}` is :#{op_lexeme.type}. Maybe it's reserved. todo; Better message!"
-			end
-			operator_expr = Code::Operator_Expr.new op_lexeme
-			copy_location operator_expr, op_lexeme
-
-			next_expr = begin_expression
-			if next_expr.is_a?(Code::Identifier_Expr) && next_expr.prefixed_with_at && %w(prefix infix postfix circumfix).include?(next_expr.value)
-				prec = if curr? '('
-					precedence_for(operator_expr.value)
-				else
-					# A bare primitive parse -- the precedence is immediately followed by the overload's own func body `(left, right; ...)`, and parse_expression's call-continuation would swallow that `(`.
-					Code.assert curr? :number
-					parse_number_expr.value
-				end
-				unless prec.is_a? ::Numeric
-					raise "an operator overload requires the following form:\n\n\t@operator <operator> @infix <precedence> (left, right; ...)\twhere <precedence> is optional."
-				end
-
-				overload            = Code::Operator_Overload_Expr.new operator_expr.lexeme
-				overload.fixity     = next_expr.lexeme
-				overload.precedence = prec
-				overload.func_expr  = parse_func
-				overload.value      = operator_expr.lexeme.value
-				return complete_expression overload, precedence
-			end
-
-			complete_expression next_expr, precedence
-		end
-
 		# todo: Factor out the various branches of code in here?
 		def complete_expression expr, precedence = STARTING_PRECEDENCE, member_rhs: false
 			return expr unless expr && lexemes?
@@ -1334,6 +1343,8 @@ module Code
 				expr = Code::Prefix_Expr.new.tap do |it|
 					it.operator   = expr
 					it.expression = parse_expression precedence_for(it.operator.value)
+					# `it.expression` can be nil -- a bare `return`/`not` with nothing following.
+					set_expr_location it, it.operator, it.expression || it.operator
 				end
 
 				return complete_expression expr, precedence
@@ -1349,7 +1360,7 @@ module Code
 					it.right    = parse_expression precedence_for it.operator.value
 					it.right    = it.right.left if it.right.is_a? Code::Nil_Init_Expr
 
-					copy_location it, expr
+					set_expr_location it, expr, it.right
 					return complete_expression it, precedence
 				elsif RANGE_OPERATORS.include? curr_lexeme.value
 					# A `.`/`.?` RHS is always a bare member name -- `a.b...c` is `(a.b)...c`, never `a.(b...c)`.
@@ -1380,16 +1391,17 @@ module Code
 							parse_expression curr_operator_prec, member_rhs: DOT_ACCESS_OPERATORS.include?(expr.operator.value)
 						end
 						expr.right    = expr.right.left if expr.right.is_a? Code::Nil_Init_Expr
-						copy_location expr, left
 
 						if expr.left.is(Code::Identifier_Expr) && expr.operator.value == '.' && expr.right.is(Code::Number_Expr) && expr.right.type == :float
 							# @copypaste from above #parse_expression when :number.
-							number                  = Code::Array_Index_Expr.new expr.right
+							number                  = Code::Array_Index_Expr.new expr.right.lexeme
 							number.indices_in_order = expr.right.value.to_s.split '.'
 							number.indices_in_order = number.indices_in_order.map &:to_i
+							copy_location number, expr.right
 							expr.right              = number
 						end
 
+						set_expr_location expr, left, expr.right
 						return complete_expression expr, precedence
 					end
 				end
@@ -1398,6 +1410,7 @@ module Code
 				expr = Code::Postfix_Expr.new.tap do |it|
 					it.expression = expr
 					it.operator   = eat(%i(operator identifier))
+					set_expr_location it, it.expression, it.operator
 				end
 			end
 
@@ -1412,21 +1425,24 @@ module Code
 				receiver       = expr
 				expr           = Code::Call_Expr.new
 				expr.receiver  = receiver
-				expr.arguments = if spread_lambda_arg
-					[parse_func]
+				closing        = if spread_lambda_arg
+					func           = parse_func
+					expr.arguments = [func]
+					func
 				else
-					parse_circumfix_expr(opening: curr_lexeme.value).expressions
+					circumfix      = parse_circumfix_expr(opening: curr_lexeme.value)
+					expr.arguments = circumfix.expressions
+					circumfix
 				end
 
-				copy_location expr, receiver
+				set_expr_location expr, receiver, closing
 				return complete_expression expr, precedence
 			elsif subscript && (precedence_for(curr_lexeme.value) > precedence)
 				it            = Code::Subscript_Expr.new
 				it.receiver   = expr
 				it.expression = parse_circumfix_expr opening: curr_lexeme.value
-				it
 
-				copy_location expr, left
+				set_expr_location it, it.receiver, it.expression
 				return complete_expression it, precedence
 			end
 
@@ -1442,6 +1458,7 @@ module Code
 				it_prec       = precedence_for it.type.value
 				it.condition  = parse_expression
 				it.when_true  = [expr]
+				set_expr_location it, expr, it.condition
 				return complete_expression it, precedence
 			end
 
