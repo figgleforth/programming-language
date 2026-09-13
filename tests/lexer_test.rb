@@ -430,16 +430,16 @@ class Lexer_Test < Base_Test
 
 	def test_single_line_code_location
 		out = Code.lex 'abracadabra'
-		assert_equal 1, out.last.l0
-		assert_equal 1, out.last.c0
-		assert_equal 1, out.last.l1
-		assert_equal 11, out.last.c1
+		assert_equal 1, out.last.line_start
+		assert_equal 1, out.last.column_start
+		assert_equal 1, out.last.line_end
+		assert_equal 11, out.last.column_end
 
 		out = Code.lex 'abracadabra = whatever'
-		assert_equal 1, out.last.l0
-		assert_equal 1, out.last.l1
-		assert_equal 15, out.last.c0
-		assert_equal 22, out.last.c1
+		assert_equal 1, out.last.line_start
+		assert_equal 1, out.last.line_end
+		assert_equal 15, out.last.column_start
+		assert_equal 22, out.last.column_end
 	end
 
 	def test_multiline_code_location
@@ -492,7 +492,7 @@ class Lexer_Test < Base_Test
 
 	# `@load` accepts a bare (unquoted) path when it starts with `./`, `../`, or `~/` -- lexed as an
 	# ordinary :string token, so `@load ./foo` produces the exact same three tokens `@load 'foo'`
-	# would (minus the quote characters themselves). See #load_path_pattern?/#lex_load_path/
+	# would (minus the quote characters themselves). See #load_path_pattern?/#eat_load_path/
 	# #preceded_by_at_load? in lexer.rb.
 	def test_load_bare_path_forms
 		{

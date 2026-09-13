@@ -1,6 +1,15 @@
 module Code
-		Lexeme = ::Struct.new(:type, :value, :reserved, :l0, :c0, :l1, :c1, :source_file, :quotation_style) do
-		include Code_Location_Setter
+	class Lexeme
+		LITERAL_TYPES = %i[string symbol number fence html].freeze
+
+		attr_accessor :type, :value, :reserved, :quotation_style, :line_start, :column_start, :line_end, :column_end, :source_file
+
+		def initialize type = nil, value = nil, reserved = nil, quotation_style = nil
+			@type = type
+			@value = value
+			@reserved = reserved
+			@quotation_style = quotation_style
+		end
 
 		def == other
 			if other.is_a? Lexeme
@@ -9,9 +18,6 @@ module Code
 				super other
 			end
 		end
-
-		# Token types whose `.value` is arbitrary literal content (a string's/symbol's/number's own text, a fence block's raw body) rather than real syntax -- that content can coincidentally spell a meaningful punctuation/keyword string (`')'`, `'end'`, `';'`, ...), but a literal can never legitimately BE the delimiter/keyword something is scanning for. Excluded from #is's string-value comparisons below so a `curr?(')')`-style check (used everywhere, chief among many #parse_circumfix_expr's own closing-delimiter loop) can't mistake a literal's content for real syntax.
-		LITERAL_TYPES = %i[string symbol number fence html].freeze
 
 		def is compare
 			if compare.is_a? Symbol
@@ -36,8 +42,7 @@ module Code
 		end
 
 		def line_col
-			"#{l0}:#{c0}..#{l1}:#{c1}"
+			"#{line_start}:#{column_start}..#{line_end}:#{column_end}"
 		end
-
 	end
 end

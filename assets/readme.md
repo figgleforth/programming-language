@@ -1,9 +1,8 @@
 # Assets
 
-- `icon.svg` / `icon@2x.svg` — the icon for `.code` files. `icon@2x.svg` is the source used to build the macOS file icon.
+- `icon.svg` — the icon for `.code` files.
 - `icon.sketch` — the Sketch source file for the icon.
-- `icon.icns` — the built macOS icon file, built from `icon@2x.svg` by `build_icon.sh`. Don't hand-edit it — rebuild it with `build_icon.sh` (or `set_icon.sh`) instead. It's committed on purpose: a fresh clone can register the icon straight away, with no build step and no `sips`/`iconutil` dependency check, before ever touching the SVG.
-- `build_icon.sh` — builds `icon.icns` from `icon@2x.svg` (or any image path you pass it). Run standalone, any time you change the SVG.
+- `build_icon.sh` — builds `icon.icns` from `icon.svg` (or any image path you pass it). Run standalone, any time you change the SVG.
 - `set_icon.sh` — the one-command way to replace the icon: point it at any image (`.svg`, `.png`, `.icns`, ...) and it rebuilds `icon.icns` and re-registers it with macOS in one step. This is the closest thing to the drag-a-new-icon-onto-Get-Info trick, since macOS has no such control for a declared file type.
 - `Info.plist` — the actual file type declaration macOS reads. Plain text, read it directly.
 - `app_stub` — a two-line do-nothing script. See "Why a helper app" below.
@@ -17,7 +16,7 @@ macOS does not know about `.code` files by default. A `.code` file shows a blank
 
 - `.code` is a real file type, with its own identifier (`com.bp.codelang.code-source`).
 - This file type is plain text, specifically source code (it conforms to Apple's `public.source-code` type, which itself conforms to `public.plain-text`). This helps Spotlight, Quick Look, and text-aware tools handle `.code` files correctly.
-- This file type has an icon, built from `icon@2x.svg`.
+- This file type has an icon, built from `icon.svg`.
 
 This change is **global** on your Mac. It applies to every `.code` file, in every folder, not just this repo. It does **not** change what app opens a `.code` file when you double-click it.
 
@@ -35,7 +34,7 @@ The one piece that isn't public is `lsregister` itself, the tool that pushes a b
 
 ### Opt in
 
-1. Build the icon (only needed once, or after changing `icon@2x.svg`):
+1. Build the icon (only needed once, or after changing `icon.svg`):
 
    ```bash
    assets/build_icon.sh

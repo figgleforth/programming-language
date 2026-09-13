@@ -22,13 +22,13 @@ module Code
 		end
 
 		def location_available?
-			expression&.respond_to? :l0
+			expression&.respond_to? :line
 		end
 
 		def location_line
 			# todo bug: Does not display source code properly
-			if expression.is_a?(Code::Expression) && expression.l0
-				Ascii.underline "#{display_source_file}:#{expression.l0}:#{expression.c0}"
+			if expression.is_a?(Code::Expression) && expression.line_start
+				Ascii.underline "#{display_source_file}:#{expression.line_start}:#{expression.column_start}"
 			else
 				# todo: How do I get the source string here?
 				source_snippet
@@ -45,8 +45,8 @@ module Code
 		# Simplified version of source_snippet
 		def source_snippet
 			# Initial checks and coordinate fetching remain the same
-			l0, c0, l1, c1 = get_location_coords
-			return nil unless l0
+			line, column, line_end, column_end = get_location_coords
+			return nil unless line
 
 			source_file = get_source_file
 			lines       = Code::Interpreter.cached_source_by_filename[source_file] || []
@@ -54,8 +54,8 @@ module Code
 
 			# Determine snippet boundaries
 			surrounding_lines = 3
-			start_line        = [l0 - surrounding_lines, 1].max
-			end_line          = [l1 + surrounding_lines, lines.length].min
+			start_line        = [line - surrounding_lines, 1].max
+			end_line          = [line_end + surrounding_lines, lines.length].min
 
 			snippet_lines = []
 
@@ -67,12 +67,12 @@ module Code
 				visual_content = line_content.gsub("\t", "    ")
 				prefix         = Code::Ascii.cyan("#{line_num.to_s.rjust(5)} │ ")
 
-				is_error_line = (line_num >= l0 && line_num <= l1)
+				is_error_line = (line_num >= line && line_num <= line_end)
 
 				if is_error_line
 					# Calculate the start and end character positions for the error span on this specific line
-					start_char = (line_num == l0) ? (c0 - 1) : 0
-					end_char   = (line_num == l1) ? c1 : visual_content.length
+					start_char = (line_num == line) ? (column - 1) : 0
+					end_char   = (line_num == line_end) ? column_end : visual_content.length
 
 					# Convert character indices to visual (space-expanded) indices
 					visual_start            = line_content[0...start_char].gsub("\t", "    ")
@@ -88,7 +88,7 @@ module Code
 					styled_span = Code::Ascii.bold(Code::Ascii.red(error_span))
 
 					# Use Colors.make only for the single-line case where we want a different style
-					if l0 == l1 && line_num == l0
+					if line == line_end && line_num == line
 						styled_span = Code::Ascii.bold(Code::Ascii.make(error_span))
 					end
 
@@ -111,8 +111,8 @@ module Code
 		private
 
 		def get_location_coords
-			if expression.is_a?(Code::Expression) && expression.l0
-				[expression.l0, expression.c0, expression.l1 || expression.l0, expression.c1 || expression.c0]
+			if expression.is_a?(Code::Expression) && expression.line_start
+				[expression.line_start, expression.column_start, expression.line_end || expression.line_start, expression.column_end || expression.column_start]
 			else
 				[nil, nil, nil, nil]
 			end

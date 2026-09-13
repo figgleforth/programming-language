@@ -13,9 +13,9 @@ module Code
 	FOR_VERBS                         = %w(each map select reject count)
 	BROWSER_VIEW_SIZE                 = 'browser_view_size'
 	INTERPOLATE_CHAR                  = '`' # easily distinguishable betwen ```
-	COMMENT_CHAR                      = '#'
-	BLOCK_COMMENT_CHARS               = '###'
-	FENCE_CHARS                       = '```'
+	COMMENT_PREFIX                    = '#'
+	BLOCK_COMMENT_DELIMITER           = '###'
+	FENCE_DELIMITER                   = '```'
 	PREFIX                            = %w(! - + ~ not return)
 	INFIX                             = %w( + - ^ * ** / % ~ == === =!= =>= =<= =/= ? . .? = := : ||= &&= **= <<= >>= += -= *= |= /= %= &= ^= =~ !~ && || & | << >>
  .. >.. ..< >..< != <= >= < > <=> < > and or )
@@ -28,8 +28,8 @@ module Code
 	ANY_WILDCARD_COMPARISON_OPERATORS = %w(== != =>= =<= =/=)
 	INFIX_ARITHMETIC_OPERATORS        = %w(+ - * ** / % << >> ^ & |)
 	RANGE_OPERATORS                   = %w(.. ..< >.. >..<)
-	SELF_KEYWORDS                     = %w(self Self)          # instance / type scope -- context-restricted
-	SCOPE_KEYWORDS                    = %w(self Self Global)   # every bare scope keyword you can dot into
+	SELF_KEYWORDS                     = %w(self Self) # instance / type scope -- context-restricted
+	SCOPE_KEYWORDS                    = %w(self Self Global) # every bare scope keyword you can dot into
 	DOT_ACCESS_OPERATORS              = %w(. .?)
 	TAG_OPERATOR                      = '\\'
 	TYPE_COMPOSITION_OPERATORS        = %w(| & ~ ^) # Union, Intersection, Removal, Symmetric Difference
@@ -69,68 +69,68 @@ module Code
 	)
 
 	PRECEDENCES = {
-		              # Member access
-		              '.' => 1200, '.?' => 1200,
+		# Member access
+		'.' => 1200, '.?' => 1200,
 
-		              # Subscript/call
-		              '[' => 1100, '{' => 1100, '(' => 1100,
+		# Subscript/call
+		'[' => 1100, '{' => 1100, '(' => 1100,
 
-		              # Exponentiation
-		              '**' => 1000,
+		# Exponentiation
+		'**' => 1000,
 
-		              # Unary
-		              '!' => 900, 'not' => 900, '\\' => 900,
+		# Unary
+		'!' => 900, 'not' => 900, '\\' => 900,
 
-		              # Multiplicative
-		              '*' => 800, '/' => 800, '%' => 800,
+		# Multiplicative
+		'*' => 800, '/' => 800, '%' => 800,
 
-		              # Additive
-		              '+' => 700, '-' => 700,
+		# Additive
+		'+' => 700, '-' => 700,
 
-		              # Bitwise shifts
-		              '<<' => 600, '>>' => 600,
+		# Bitwise shifts
+		'<<' => 600, '>>' => 600,
 
-		              # Relational
-		              '<' => 550, '<=' => 550, '<=>' => 550, '>' => 550, '>=' => 550,
+		# Relational
+		'<' => 550, '<=' => 550, '<=>' => 550, '>' => 550, '>=' => 550,
 
-		              # Type set comparison
-		              '=>=' => 550, '=<=' => 550, '=!=' => 500, '=/=' => 500,
+		# Type set comparison
+		'=>=' => 550, '=<=' => 550, '=!=' => 500, '=/=' => 500,
 
-		              # Equality
-		              '==' => 500, '!=' => 500, '===' => 500,
+		# Equality
+		'==' => 500, '!=' => 500, '===' => 500,
 
-		              # Bitwise AND
-		              '&' => 450,
+		# Bitwise AND
+		'&' => 450,
 
-		              # Bitwise XOR
-		              '^' => 425,
+		# Bitwise XOR
+		'^' => 425,
 
-		              # Bitwise OR
-		              '|' => 410,
+		# Bitwise OR
+		'|' => 410,
 
-		              # Logical AND
-		              '&&' => 300, 'and' => 300,
+		# Logical AND
+		'&&' => 300, 'and' => 300,
 
-		              # Logical OR
-		              '||' => 200, 'or' => 200,
+		# Logical OR
+		'||' => 200, 'or' => 200,
 
-		              # Member/label
-		              ':' => 140,
+		# Member/label
+		':' => 140,
 
-		              # Comma
-		              ',' => 100,
+		# Comma
+		',' => 100,
 
-		              # Assignment
-		              '='   => 90, ':=' => 90, '+=' => 90, '-=' => 90, '*=' => 90, '/=' => 90,
-		              '%='  => 90, '&=' => 90, '&&=' => 90, '|=' => 90, '||=' => 90,
-		              '^='  => 90, '<<=' => 90, '>>=' => 90,
-		              '**=' => 90,
+		# Assignment
+		'='   => 90, ':=' => 90, '+=' => 90, '-=' => 90, '*=' => 90, '/=' => 90,
+		'%='  => 90, '&=' => 90, '&&=' => 90, '|=' => 90, '||=' => 90,
+		'^='  => 90, '<<=' => 90, '>>=' => 90,
+		'**=' => 90,
 
-		              # Ranges
-		              '..' => 80, '..<' => 80, '>..' => 80, '>..<' => 80,
+		# Ranges
+		'..' => 80, '..<' => 80, '>..' => 80, '>..<' => 80,
 
-		              # Keywords
-		              'return' => 70,
-		              'unless' => 60, 'if' => 60, 'while' => 60, 'until' => 60,
-	              }
+		# Keywords
+		'return' => 70,
+		'unless' => 60, 'if' => 60, 'while' => 60, 'until' => 60,
+	}
 end

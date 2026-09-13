@@ -1,4 +1,4 @@
-# todo; use Expression#set_location_span l0, c0, l1, c1 for every single expression
+# todo; use Expression#set_location_span line, column, line_end, column_end for every single expression
 
 module Code
 	class Parser
@@ -35,11 +35,11 @@ module Code
 		def copy_location expr, from_lexeme_or_expr
 			return expr unless from_lexeme_or_expr
 
-			expr.l0          = from_lexeme_or_expr.l0
-			expr.c0          = from_lexeme_or_expr.c0
-			expr.l1          = from_lexeme_or_expr.l1
-			expr.c1          = from_lexeme_or_expr.c1
-			expr.source_file = from_lexeme_or_expr.source_file
+			expr.line_start   = from_lexeme_or_expr.line_start
+			expr.column_start = from_lexeme_or_expr.column_start
+			expr.line_end     = from_lexeme_or_expr.line_end
+			expr.column_end   = from_lexeme_or_expr.column_end
+			expr.source_file  = from_lexeme_or_expr.source_file
 
 			expr
 		end
@@ -222,11 +222,11 @@ module Code
 				eat '<'
 				closing = parse_struct_members it
 
-				it.c0          = start.c0
-				it.l0          = start.l0
-				it.c1          = closing.c1
-				it.l1          = closing.l1
-				it.source_file = start.source_file
+				it.column_start = start.column_start
+				it.line_start   = start.line_start
+				it.column_end   = closing.column_end
+				it.line_end     = closing.line_end
+				it.source_file  = start.source_file
 			end
 		rescue StandardError
 			@i = saved_i
@@ -598,10 +598,10 @@ module Code
 
 			glued  = curr_lexeme
 			closes = glued.value.chars.each_index.map do |index|
-				closer       = glued.dup
-				closer.value = '>'
-				closer.c0    = glued.c0 + index
-				closer.c1    = closer.c0
+				closer              = glued.dup
+				closer.value        = '>'
+				closer.column_start = glued.column_start + index
+				closer.column_end   = closer.column_start
 				closer
 			end
 
@@ -620,14 +620,14 @@ module Code
 			start  = curr_lexeme
 			member = parse_number_expr
 			Code::Struct_Expr.new.tap do |it|
-				it.lexeme      = Code::Lexeme.new :struct, '<>'
-				it.types       = [member]
-				it.names       = [nil]
-				it.c0          = start.c0
-				it.l0          = start.l0
-				it.c1          = member.c1
-				it.l1          = member.l1
-				it.source_file = start.source_file
+				it.lexeme       = Code::Lexeme.new :struct, '<>'
+				it.types        = [member]
+				it.names        = [nil]
+				it.column_start = start.column_start
+				it.line_start   = start.line_start
+				it.column_end   = member.column_end
+				it.line_end     = member.line_end
+				it.source_file  = start.source_file
 			end
 		end
 
@@ -643,11 +643,11 @@ module Code
 				closing = parse_struct_members it
 
 				# Manually tracking location insead of using `#copy_location`, because I want it to span all of "<....>
-				it.c0          = start.c0
-				it.l0          = start.l0
-				it.c1          = closing.c1
-				it.l1          = closing.l1
-				it.source_file = start.source_file
+				it.column_start = start.column_start
+				it.line_start   = start.line_start
+				it.column_end   = closing.column_end
+				it.line_end     = closing.line_end
+				it.source_file  = start.source_file
 			end
 		end
 
@@ -1037,20 +1037,20 @@ module Code
 
 		# No gap between the two lexemes in the original source -- same line, second starting exactly one column past where the first ends.
 		def lexeme_adjacent? a, b
-			a && b && a.l1 == b.l0 && a.c1 + 1 == b.c0
+			a && b && a.line_end == b.line_start && a.column_end + 1 == b.column_start
 		end
 
 		# Concatenates two adjacent items' source text -- always folds into a plain Identifier_Expr, since #interp_percent_literal only reads `.value`/`.lexeme` off it either way.
 		def merge_percent_literal_items left, right
-			lexeme       = left.lexeme.dup
-			lexeme.value = "#{left.lexeme.value}#{right.lexeme.value}"
-			lexeme.l1    = right.lexeme.l1
-			lexeme.c1    = right.lexeme.c1
+			lexeme            = left.lexeme.dup
+			lexeme.value      = "#{left.lexeme.value}#{right.lexeme.value}"
+			lexeme.line_end   = right.lexeme.line_end
+			lexeme.column_end = right.lexeme.column_end
 
-			merged               = Code::Identifier_Expr.new lexeme
-			merged.l0, merged.c0 = left.l0, left.c0
-			merged.l1, merged.c1 = right.l1, right.c1
-			merged.source_file   = left.source_file
+			merged                                 = Code::Identifier_Expr.new lexeme
+			merged.line_start, merged.column_start = left.line_start, left.column_start
+			merged.line_end, merged.column_end     = right.line_end, right.column_end
+			merged.source_file                     = left.source_file
 			merged
 		end
 

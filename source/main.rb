@@ -15,8 +15,6 @@ require_relative 'shared/declaration_accessors'
 require_relative 'shared/cached_by_path'
 require_relative 'shared/error_formatter'
 require_relative 'shared/documenter'
-require_relative 'shared/code_location'
-require_relative 'shared/code_location_setter'
 
 # proxies/ is the language's runtime vocabulary: the AST, the scopes, the errors, and the Ruby
 # class behind each built-in .code type. Base types first -- the value types subclass Instance

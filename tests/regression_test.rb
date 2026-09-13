@@ -253,7 +253,7 @@ class Regression_Test < Base_Test
 	end
 
 	def test_lexer_operator_quote_regression
-		# #lex_operator was consuming quotes as symbols, creating invalid operators like ="
+		# #eat_operator was consuming quotes as symbols, creating invalid operators like ="
 		# This caused { b="two" } to fail lexing when = was immediately followed by "
 		out = Code.interp '{ a=1, b="two", c: :three }.values()'
 		assert_equal [1, "two", :three], out.values

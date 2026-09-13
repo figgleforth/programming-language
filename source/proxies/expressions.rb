@@ -1,10 +1,8 @@
 module Code
 	class Expression
-		include Code_Location_Setter
-
 		attr_reader :lexeme # todo; this should become #lexeme that returns @lexemes.first
 		attr_accessor :lexemes # the entire span of lexemes that make up this expression
-		attr_accessor :value, :type, :l0, :c0, :l1, :c1, :source_file
+		attr_accessor :value, :type, :line_start, :column_start, :line_end, :column_end, :source_file
 
 		def initialize lexeme = nil
 			self.lexeme = lexeme
@@ -39,13 +37,13 @@ module Code
 		end
 
 		def location
-			return nil unless l0 && c0
-			"#{source_file}:#{l0}:#{c0}" if source_file
-			"#{l0}:#{c0}"
+			return nil unless line && column
+			"#{source_file}:#{line}:#{column}" if source_file
+			"#{line}:#{column}"
 		end
 
 		def line_col
-			"#{l0}:#{c0}..#{l1}:#{c1}" if l0
+			"#{line}:#{column}..#{line_end}:#{column_end}" if line
 		end
 	end
 
