@@ -1,9 +1,13 @@
 module Code
 	class Lexer
+		# region
+
+		DEFAULT_INPUT = '@puts greeting := "Hello :)"'
+
 		attr_accessor :source_file # set from outside. As is :input but that's got its own setter
 		attr_reader :index, :column, :line, :lexemes, :input
 
-		def initialize input = '@puts greeting := "Hello :)"'
+		def initialize input = DEFAULT_INPUT
 			self.input = input
 		end
 
@@ -14,6 +18,121 @@ module Code
 			@column  = 1 # short for column
 			@line    = 1 # short for line
 		end
+
+		def output
+			@lexemes = []
+
+			while chars?
+				single  = curr == Code::COMMENT_CHAR
+				blocked = peek(0, Code::BLOCK_COMMENT_CHARS.length) == Code::BLOCK_COMMENT_CHARS
+				fenced  = peek(0, Code::FENCE_CHARS.length) == Code::FENCE_CHARS
+
+				lexeme             = Lexeme.new
+				lexeme.l0          = @line
+				lexeme.c0          = @column
+				lexeme.source_file = @source_file # set from outside before output is called
+
+				if single || blocked || fenced
+					if fenced
+						lexeme.value = lex_fence_block
+						lexeme.type  = if lexeme.value.downcase.start_with? "html\n"
+							lexeme.value = lexeme.value[5..] # strips html and the newline
+							:html
+						else
+							:fence
+						end
+					elsif blocked
+						lexeme.type  = :comment
+						lexeme.value = lex_block_comment
+					else
+						lexeme.type  = :comment
+						lexeme.value = lex_oneline_comment
+					end
+
+				elsif delimiter? curr
+					lexeme.type  = :delimiter
+					lexeme.value = eat
+
+				elsif whitespace? curr
+					lexeme.type  = :whitespace
+					lexeme.value = eat
+
+				elsif numeric? || (curr == '-' && numeric?(peek) && should_lex_negative_number?(@lexemes))
+					lex_number lexeme
+
+				elsif %w(' ").include? curr
+					lexeme.type            = :string
+					lexeme.quotation_style = curr == "'" ? :single : :double
+					lexeme.value           = lex_string
+
+				elsif route_pattern?
+					lexeme.type  = :route
+					lexeme.value = lex_route
+
+				elsif identifier?
+					lexeme.value = lex_identifier
+					lexeme.type  = Code.type_of_identifier lexeme.value
+					if %w(for skip stop).include?(lexeme.value)
+						lexeme.type = :operator
+					end
+
+				elsif load_path_pattern? @lexemes
+					# A bare, unquoted path right after `@load` -- `./x`, `../x`, `~/x` is lexed as an ordinary :string token (quotation_style set as if it were '...')
+					lexeme.type            = :string
+					lexeme.quotation_style = :single
+					lexeme.value           = lex_load_path
+
+				elsif curr == '.' && peek == '?'
+					# Again I'm special casing for `.?` which is my version of Ruby's `&.`
+					lexeme.type  = :operator
+					lexeme.value = "#{eat}#{eat}"
+
+				elsif symbol?(curr)
+					lexeme.type = :operator
+					if %w(. | & ).include? curr
+						lexeme.value = case [curr, peek, peek(2)]
+						in ['.', p, _] if identifier?(p) && p != '_'
+							lex_operator
+						in ['.', '<', _] | ['.', '.', _]
+							lex_operator
+						in ['|', '|', '=']
+							lex_operator
+						in ['&', '&', '=']
+							lex_operator
+						in ['|', '=', _]
+							lex_operator
+						in ['&', '=', _]
+							lex_operator
+						in ['|', '|', _] | ['&', '&', _]
+							str = ::String.new
+							str << eat
+							str << eat
+							str
+						else
+							eat
+						end
+					else
+						lexeme.value = lex_operator
+					end
+
+				else
+					raise Code::Lex_Char_Not_Implemented.new(char: curr)
+				end
+
+				lexeme.l1 = @line
+				lexeme.c1 = (@line > lexeme.l0) ? @column : @column - 1
+
+				next if lexeme.type == :whitespace
+
+				lexeme.reserved = Code::RESERVED.include? lexeme.value
+				@lexemes << lexeme
+			end
+
+			@lexemes.compact
+		end
+
+		# endregion
+		# region Methods for lexeme identification
 
 		def whitespace? char = curr
 			Code::WHITESPACES.include? char
@@ -72,9 +191,25 @@ module Code
 			!(prior&.type == :operator && prior.value == '.')
 		end
 
+		def should_lex_negative_number? tokens
+			last_token = tokens.reverse.find { |t| t.type != :whitespace }
+			return true if last_token.nil?
+
+			# After operators or opening delimiters, lex as negative number but NOT after closing delimiters like ')' which would be subtraction: (x)-1
+			if last_token.type == :delimiter
+				return !%w<) ] }>.include?(last_token.value)
+			end
+
+			last_token.type == :operator
+		end
+
 		def chars?
 			@index < @input.length
 		end
+
+		# endregion
+
+		# region Methods for input manipulation
 
 		def prev
 			return nil if @index <= 0
@@ -83,6 +218,10 @@ module Code
 
 		def curr
 			@input[@index]
+		end
+
+		def reduce_delimiters
+			eat while (delimiter? && prev == curr)
 		end
 
 		def peek offset_from_curr = 1, length = 1
@@ -107,6 +246,10 @@ module Code
 			eaten
 		end
 
+		# endregion
+
+		# region Methods for lexing
+
 		def lex_many length = 1, expected_chars = nil
 			it = ::String.new
 			while chars? && length > 0
@@ -117,35 +260,33 @@ module Code
 			if expected_chars && expected_chars != it
 				raise Code::Lexed_Unexpected_Char.new(expected: expected_chars, got: it)
 			end
-
 			it
 		end
 
-		def lex_number
-			it    = ::String.new
-			valid = %w(. _) # An exception for _ is that it cannot be the last character because then you could miss underscored declarations like `1_decl`. This should be lexed as number 1, and identifier _decl.
+		# @param [Code::Lexeme] lexeme to build
+		# @return [nil]
+		def lex_number lexeme
+			def eat_number
+				number_str = ::String.new
+				valid      = %w(. _) # An exception for _ is that it cannot be the last character because then you could miss underscored declarations like `1_decl`. This should be lexed as number 1, and identifier _decl.
 
-			# 7/7/25, I'm intentionally allowing multiple dots in a number for Array_Index_Expr
-			while chars? && (numeric? || valid.include?(curr))
-				break if valid.include?(curr) && !numeric?(peek)
-				break if it[-1] == '_' && !numeric?(curr)
+				# 7/7/25, I'm intentionally allowing multiple dots in a number for Array_Index_Expr
+				while chars? && (numeric? || valid.include?(curr))
+					break if valid.include?(curr) && !numeric?(peek)
+					break if number_str[-1] == '_' && !numeric?(curr)
 
-				it << eat
-				eat '_' while curr == '_' && numeric?(peek)
-			end
-			it
-		end
-
-		def should_lex_negative_number? tokens
-			last_token = tokens.reverse.find { |t| t.type != :whitespace }
-			return true if last_token.nil?
-
-			# After operators or opening delimiters, lex as negative number but NOT after closing delimiters like ')' which would be subtraction: (x)-1
-			if last_token.type == :delimiter
-				return !%w<) ] }>.include?(last_token.value)
+					number_str << eat
+					eat '_' while curr == '_' && numeric?(peek)
+				end
+				number_str
 			end
 
-			last_token.type == :operator
+			lexeme.type = :number
+			prefix = if %w(+ -).include? curr
+				eat
+			end
+			lexeme.value = "#{prefix}#{eat_number}"
+			lexeme
 		end
 
 		def lex_oneline_comment
@@ -235,10 +376,6 @@ module Code
 			it
 		end
 
-		def reduce_delimiters
-			eat while (delimiter? && prev == curr)
-		end
-
 		def lex_operator
 			# note; Operators cannot start with or end with: ' " { } ( ) [ ] and that is a strict rule.
 			str = ::String.new
@@ -315,122 +452,6 @@ module Code
 			it
 		end
 
-		def output
-			@lexemes = []
-
-			while chars?
-				single  = curr == Code::COMMENT_CHAR
-				blocked = peek(0, Code::BLOCK_COMMENT_CHARS.length) == Code::BLOCK_COMMENT_CHARS
-				fenced  = peek(0, Code::FENCE_CHARS.length) == Code::FENCE_CHARS
-
-				lexeme             = Lexeme.new
-				lexeme.source_file = @source_file # set from outside before output is called
-				lexeme.l0          = @line
-				lexeme.c0          = @column
-
-				if single || blocked || fenced
-					if fenced
-						lexeme.value = lex_fence_block
-						lexeme.type  = if lexeme.value.downcase.start_with? "html\n"
-							lexeme.value = lexeme.value[5..] # strips html and the newline
-							:html
-						else
-							:fence
-						end
-					elsif blocked
-						lexeme.type  = :comment
-						lexeme.value = lex_block_comment
-					else
-						lexeme.type  = :comment
-						lexeme.value = lex_oneline_comment
-					end
-
-				elsif delimiter? curr
-					lexeme.type  = :delimiter
-					lexeme.value = eat
-
-				elsif whitespace? curr
-					lexeme.type  = :whitespace
-					lexeme.value = eat
-
-				elsif curr == '-' && numeric?(peek) && should_lex_negative_number?(@lexemes)
-					lexeme.type = :number
-					eat
-					lexeme.value = '-' + lex_number
-
-				elsif numeric?
-					lexeme.type  = :number
-					lexeme.value = lex_number
-
-				elsif %w(' ").include? curr
-					lexeme.type            = :string
-					lexeme.quotation_style = curr == "'" ? :single : :double
-					lexeme.value           = lex_string
-
-				elsif route_pattern?
-					lexeme.type  = :route
-					lexeme.value = lex_route
-
-				elsif identifier?
-					lexeme.value = lex_identifier
-					lexeme.type  = Code.type_of_identifier lexeme.value
-					if %w(for skip stop).include?(lexeme.value)
-						lexeme.type = :operator
-					end
-
-				elsif load_path_pattern? @lexemes
-					# A bare, unquoted path right after `@load` -- `./x`, `../x`, `~/x` is lexed as an ordinary :string token (quotation_style set as if it were '...')
-					lexeme.type            = :string
-					lexeme.quotation_style = :single
-					lexeme.value           = lex_load_path
-
-				elsif curr == '.' && peek == '?'
-					# Again I'm special casing for `.?` which is my version of Ruby's `&.`
-					lexeme.type  = :operator
-					lexeme.value = "#{eat}#{eat}"
-
-				elsif symbol?(curr)
-					lexeme.type = :operator
-					if %w(. | & ).include? curr
-						lexeme.value = case [curr, peek, peek(2)]
-						in ['.', p, _] if identifier?(p) && p != '_'
-							lex_operator
-						in ['.', '<', _] | ['.', '.', _]
-							lex_operator
-						in ['|', '|', '=']
-							lex_operator
-						in ['&', '&', '=']
-							lex_operator
-						in ['|', '=', _]
-							lex_operator
-						in ['&', '=', _]
-							lex_operator
-						in ['|', '|', _] | ['&', '&', _]
-							str = ::String.new
-							str << eat
-							str << eat
-							str
-						else
-							eat
-						end
-					else
-						lexeme.value = lex_operator
-					end
-
-				else
-					raise Code::Lex_Char_Not_Implemented.new(char: curr)
-				end
-
-				lexeme.l1 = @line
-				lexeme.c1 = (@line > lexeme.l0) ? @column : @column - 1
-
-				next if lexeme.type == :whitespace
-
-				lexeme.reserved = Code::RESERVED.include? lexeme.value
-				@lexemes << lexeme
-			end
-
-			@lexemes.compact
-		end
+		# endregion
 	end
 end

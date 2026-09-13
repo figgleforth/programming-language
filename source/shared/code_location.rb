@@ -1,5 +1,5 @@
 module Code
-	Code_Location = ::Data.define(:l0, :c0, :l1, :c1) do
+	Code_Location = ::Struct.new(:l0, :c0, :l1, :c1) do
 		def < other
 			self != other && other.include?(self)
 		end
