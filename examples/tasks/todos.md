@@ -1,5 +1,5 @@
++ Since `ident...` is varargs, I think `...ident` should be used on the calling end when you want to splat ident's members at the callsite
 + I hate the flow for managing the declarations that are set on Context, It should be much simpler. Maybe A Ruby class that auto generates the .code class?
-+ Maybe rename the language to frog instead. Prog is kinda meaningless as a name, but it makes sense for the file extensions. Or, they could be .code! Oh man, yes
 + Clay has a really neat debug sidebar that lets you inspect its layout in realtime.
 + Rewrite lexer as .code, make it its own library that can lex anything I want using my own declarations of tokens
 + Implement https://github.com/tsoding/leaf-venation
@@ -7,10 +7,9 @@
 + Implement https://github.com/tsoding/piff (https://nathaniel.ai/myers-diff/)
 + Implement https://github.com/tsoding/randomart this one is really cool. I downloaded the paper already.
 + Implement https://github.com/tsoding/subframes (https://x.com/FreyaHolmer/status/1718979996125925494)
-+ Since `ident...` is varargs, I think `...ident` should be used on the calling end when you want to splat ident's members at the callsite
++ Implement Rope data structure for fun
++ Implement an Ast walker that identifies functions that are contained, and ones that make calls elsewhere. 
 + Typechecker doesn't check static declarations at all
-+ Write Rope data structure for fun
-+ Write an Ast walker that identifies functions that are contained, and ones that make calls elsewhere. 
 + Struct should be an actual struct behind the scenes.
 + Try to distill constructs to even simpler shapes. I kinda want features to just click together. Need a webpage? Just @load html, or eventually I'll write premade templates you can just swap in and out. An example came to mind, a scope contains one or more statements, we can generalize scopes to be made up of a body (`{`...`}`), and callable scopes to generalize with a colon (`{`...`;`...`}`)
 + Add a way to transform real code into a runtime Ast, as well as Ast to evaluated code
