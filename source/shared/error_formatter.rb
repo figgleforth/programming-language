@@ -62,14 +62,16 @@ module Code
 			surrounding_lines        = 3
 			start_line               = [ctx_start - surrounding_lines, 1].max
 			end_line                 = [ctx_end + surrounding_lines, lines.length].min
+			_, _, hl_line_end, _     = coords_for highlighted
+			pointer_line             = [hl_line_end, end_line].min
 
-			(start_line..end_line).flat_map { |line_num| format_line line_num, lines[line_num - 1] || '' }.join("\n")
+			(start_line..end_line).flat_map { |line_num| format_line line_num, lines[line_num - 1] || '', pointer_line }.join("\n")
 		end
 
 		private
 
 		def located?
-			expression.is_a?(Code::Expression) && expression.line_start
+			(expression.is_a?(Code::Expression) || expression.is_a?(Code::Lexeme)) && expression.line_start
 		end
 
 		# Defensively falls back to the start when an end wasn't recorded (an `expression` that
@@ -81,10 +83,10 @@ module Code
 		# Returns an Array of one or more rendered lines (a plain context line is just one; a
 		# highlighted line gets its own colored span, plus -- only on the *last* highlighted line,
 		# not repeated on every one of a multi-line span -- the branching pointer underneath it).
-		def format_line line_num, line_content
+		def format_line line_num, line_content, pointer_line
 			hl_line, hl_column, hl_line_end, hl_column_end = coords_for highlighted
 			visual_content                                 = line_content.gsub("\t", "    ")
-			prefix                                          = Code::Ascii.cyan("#{line_num.to_s.rjust(5)}: ")
+			prefix                                         = Code::Ascii.cyan("#{line_num.to_s.rjust(5)}: ")
 
 			return [prefix + visual_content] unless line_num.between?(hl_line, hl_line_end)
 
@@ -100,17 +102,14 @@ module Code
 			span   = visual_content[visual_start...visual_end]
 			after  = visual_content[visual_end..] || ""
 
-			# A single-line highlight gets `Ascii.make`'s background treatment (pops more against
-			# one line of context); a multi-line one just gets bold red, which is all a background
-			# would do across several lines anyway.
-			styled_span = if hl_line == hl_line_end
+			styled_span = if hl_line == pointer_line
 				Code::Ascii.bold(Code::Ascii.make(span))
 			else
 				Code::Ascii.bold(Code::Ascii.red(span))
 			end
 
 			line = "#{prefix}#{before}#{styled_span}#{after}"
-			line_num == hl_line_end ? [line, *pointer_tree(visual_start), "\n"] : [line]
+			line_num == pointer_line ? [line, *pointer_tree(visual_start), "\n"] : [line]
 		end
 
 		# One branch per item, hanging off a `┆` continuation gutter directly under wherever the
@@ -124,16 +123,16 @@ module Code
 			gutter = Code::Ascii.cyan("#{' '.rjust(5)}  ") + (" " * visual_start)
 
 			if items.one?
-				return ["#{gutter}#{Code::Ascii.cyan('╰── ')}#{items.first}"]
+				return ["#{gutter}#{Code::Ascii.cyan('╰─ ')}#{items.first}"]
 			end
 
 			items.each_with_index.map do |text, index|
 				connector = if index.zero?
-					'╰──┬──'
+					'╰─┬─'
 				elsif index == items.length - 1
-					'   └──'
+					'  └─'
 				else
-					'   ├──'
+					'  ├─'
 				end
 				"#{gutter}#{Code::Ascii.cyan(connector)}  #{text}"
 			end

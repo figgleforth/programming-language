@@ -33,4 +33,4 @@ The project root has a shortcut, named `programs`, that points straight at this 
 
 ### Where to see these in use
 
-The [`guides`](../../guides) folder at the project root has a short, runnable `.code` file for almost every feature in this folder.
+The [`examples`](../../examples) folder at the project root has a short, runnable `.code` file for almost every feature in this folder.

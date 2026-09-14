@@ -27,14 +27,14 @@
 Raylib {
 	# --- Window / lifecycle ---
 	Self.init_window ( width: Number, height: Number, title: String; @ruby )
-	Self.close_window ( ; @ruby )
+	Self.close_window (; @ruby )
 	Self.window_should_close? ( -> Bool; @ruby )
 	Self.set_target_fps ( fps: Number; @ruby )
 	Self.get_frame_time ( -> Number; @ruby )
 
 	# --- Drawing ---
-	Self.begin_drawing ( ; @ruby )
-	Self.end_drawing ( ; @ruby )
+	Self.begin_drawing (; @ruby )
+	Self.end_drawing (; @ruby )
 	Self.clear_background ( color: Array; @ruby )
 
 	# --- Shapes ---
@@ -62,9 +62,9 @@ Raylib {
 	Self.set_shader_value_float ( shader: Any, location: Number, value: Number; @ruby )
 	Self.set_shader_value_texture ( shader: Any, location: Number, texture: Any; @ruby ) # binds a texture uniform -- for sampling a *different* texture than whatever's naturally being drawn
 	Self.begin_texture_mode ( render_texture: Any; @ruby )
-	Self.end_texture_mode ( ; @ruby )
+	Self.end_texture_mode (; @ruby )
 	Self.begin_shader_mode ( shader: Any; @ruby )
-	Self.end_shader_mode ( ; @ruby )
+	Self.end_shader_mode (; @ruby )
 	Self.draw_texture ( texture: Any, x: Number, y: Number, color: Array; @ruby )
 	# `source`/`dest` are [x, y, width, height] Arrays, `origin` an [x, y] Array.
 	Self.draw_texture_pro ( texture: Any, source: Array, dest: Array, origin: Array, rotation: Number, color: Array; @ruby )

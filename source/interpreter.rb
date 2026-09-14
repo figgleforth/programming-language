@@ -3575,11 +3575,12 @@ module Code
 
 			when Code::Range
 				collection.range
+			when ::Integer, Code::Integer
+				(1..(collection.is_a?(::Integer) ? collection : collection.value))
 			when Code::String
 				collection.value.chars
 
 			when Code::Struct
-				# `@.members` (an `Code::Array` of `Code::Member`, the `@members` ivar) is only populated when the opt-in `source/programs/struct.code` layer is loaded (see #build_struct) -- a bare Struct with no matching declared `Struct` type has nothing to iterate.
 				collection.members&.values || []
 
 			else
@@ -3631,7 +3632,7 @@ module Code
 			# we've returned the collection above and are going to treat it differently
 			if elements.equal? collection
 				# todo; assert that this function takes an Int
-				raise "Cannot iterate something that doesn't respond to next(Int->Any;)\n#{for_loop_expr.inspect}" unless collection.is_a?(Code::Instance) && collection.has?('next')
+				raise Non_Iterable_Collection_In_For_Loop.new(for_loop_expr, collection) unless collection.is_a?(Code::Instance) && collection.has?('next')
 
 				next_function = collection.get('next') # The actual signature of this functin is next(Int->Any;)
 				begin

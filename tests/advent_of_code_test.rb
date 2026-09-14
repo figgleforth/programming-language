@@ -2,7 +2,7 @@ require 'minitest/autorun'
 require_relative '../source/main'
 require_relative 'base_test'
 
-# The Advent of Code solutions in guides/aoc/ crunch real puzzle input and are slow (day 4 brute-forces
+# The Advent of Code solutions in examples/aoc/ crunch real puzzle input and are slow (day 4 brute-forces
 # MD5, day 6 touches ~20M grid cells), so they don't run in a normal `rake test`. Each file ends in an
 # `answer == expected` expression, so `interp_file` returning truthy = solved.
 #
@@ -22,8 +22,8 @@ class Advent_Of_Code_Test < Base_Test
 
 	SOLVED.each do |day|
 		define_method "test_2015_#{day}" do
-			assert Code.interp_file("guides/aoc/2015/#{day}.code"),
-			       "guides/aoc/2015/#{day}.code did not return a truthy answer check"
+			assert Code.interp_file("examples/aoc/2015/#{day}.code"),
+			       "examples/aoc/2015/#{day}.code did not return a truthy answer check"
 		end
 	end
 

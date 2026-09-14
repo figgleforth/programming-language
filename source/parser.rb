@@ -26,6 +26,7 @@ module Code
 
 			expressions = []
 			while lexemes?
+				@last_expression = expressions.compact.last
 				expressions << parse_expression
 			end
 
@@ -1211,7 +1212,7 @@ module Code
 		end
 
 		def begin_expression precedence = STARTING_PRECEDENCE, member_rhs: false
-			raise Code::Out_Of_Tokens.new unless lexemes?
+			raise Code::Out_Of_Tokens.new(@last_expression) unless lexemes?
 
 			if curr? :route
 				parse_route_expr

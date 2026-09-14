@@ -96,6 +96,51 @@ class Error_Test < Base_Test
 		end
 	end
 
+	def test_non_iterable_collection_in_for_loop
+		# Regression: `collection` (the actual runtime value, not a second Expression) used to pass
+		# straight through as `highlighted_expression` -- Error_Formatter crashed trying to read a
+		# location off it (`NoMethodError`, not this error at all) the moment this ever got raised.
+		# Never had a test at all, is how that shipped unnoticed. `true` (not `5` -- see
+		# test_for_loop_over_a_bare_integer below) since a bare Integer is legitimately iterable now.
+		error = assert_raises Code::Non_Iterable_Collection_In_For_Loop do
+			Code.interp "for true\n@puts it\nend"
+		end
+		assert_match 'TrueClass', error.message
+	end
+
+	def test_out_of_tokens_carries_last_parsed_expression
+		# `Parser#begin_expression` used to raise `Out_Of_Tokens.new` with no argument at all, so
+		# the error had no location and rendered as "unknown location" with no source snippet.
+		# `Parser#output`'s top-level loop now tracks `@last_expression` (the previously completed
+		# top-level statement) and passes it in, giving Error_Formatter something real to anchor
+		# a snippet on. `a := 5` and `b := a +` sit on the same line with nothing but a space
+		# between them -- no comma/newline separator lexeme in between to eat first -- so by the
+		# time parsing runs out of tokens hunting for `+`'s right operand, `@last_expression` is
+		# still the completed `a := 5` statement, not nil.
+		error = assert_raises Code::Out_Of_Tokens do
+			Code.interp 'a := 5 b := a +'
+		end
+		assert_instance_of Code::Infix_Expr, error.expression
+		assert_equal ':=', error.expression.operator.value
+		assert_equal 1, error.expression.line_start
+
+		plain = error.message.gsub(/\e\[[\d;]*m/, '')
+		assert_includes plain, 'a := 5 b := a +' # the real source line, not a blank/missing snippet
+		refute_includes plain, 'unknown location'
+	end
+
+	def test_out_of_tokens_with_nothing_parsed_yet_still_falls_back_gracefully
+		# No prior statement exists at all here (this fails on the very first token), so
+		# `@last_expression` is legitimately nil -- same as before this change -- and the
+		# formatter should still degrade to its plain "unknown location" message instead of
+		# crashing on a nil expression.
+		error = assert_raises Code::Out_Of_Tokens do
+			Code.interp 'a +'
+		end
+		assert_nil error.expression
+		assert_includes error.message, 'unknown location'
+	end
+
 	def test_invalid_start_directive_argument
 		# todo: Doesn't display code and location
 		assert_raises Code::Invalid_Server_Argument do

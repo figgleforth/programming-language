@@ -1,0 +1,85 @@
+# https://dl.acm.org/doi/epdf/10.1145/1073204.1073251
+
+WIDTH := 800
+HEIGHT := 600
+VEIN_COUNT := 1
+ATTRACTOR_COUNT := 5
+
+Point <x: Int, y: Int>
+Attractor | Point <force: Float = 1> # maybe use force to influence vein extrude direction
+Vein <points := []>
+
+veins := []
+attr_points := []
+
+random_vec2 (-> Point;
+	x := Number.rand(WIDTH)
+	y := Number.rand(HEIGHT)
+	Point(x, y)
+)
+
+# 0. reset
+veins = []
+attr_points = []
+
+# 1. scatter attractors
+for ATTRACTOR_COUNT
+	attr_points.append(random_vec2())
+end
+
+# 2. scatter starting vein points
+for VEIN_COUNT
+	v := Vein()
+	v.points.append(random_vec2())
+	veins.append(v)
+end
+
+# 3. simulate
+
+# 4. render with raylib
+Raylib.init_window(WIDTH, HEIGHT, 'Neighborhoods')
+Raylib.set_target_fps(30)
+
+BLACK := <0,0,0>
+WHITE := <255, 255, 255>
+RED := <200, 0, 0>
+ATTR_RADIUS := 22
+VEIN_RADIUS := 22
+
+until Raylib.window_should_close?()
+	stop if Raylib.is_key_pressed?(:escape) || Raylib.is_key_pressed?(:period)
+
+	Raylib.clear_background(BLACK)
+	Raylib.begin_drawing()
+
+	for attr_points
+		Raylib.draw_circle(it.x, it.y, ATTR_RADIUS, RED)
+	end
+
+	for veins
+		for it.points
+			Raylib.draw_circle(it.x, it.y, VEIN_RADIUS, WHITE)
+		end
+	end
+
+	Raylib.end_drawing()
+end
+
+Raylib.close_window()
+@load ./programs/raylib
+
+### LOOP:
+  1. ASSOCIATE
+     - Each attraction point finds its single nearest vein node.
+     - If an attraction point is too close to any vein, DELETE it.
+
+  2. GROW
+     - Each influenced vein node averages the directions to its assigned points.
+     - Extend a new vein node 1 step forward in that direction.
+
+  3. MERGE (For closed loops / neighborhoods)
+     - If a new node steps near an existing vein, SNAP them together.
+     - Otherwise, keep it as a new branch tip.
+
+  4. STOP when all attraction points are gone (or unreachable).
+###

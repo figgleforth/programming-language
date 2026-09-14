@@ -42,7 +42,7 @@ Game {
 		# sample "what's behind the rectangle" from (there's no way to read the real screen back
 		# mid-frame in raylib's immediate-mode API).
 		background_target = Raylib.load_render_texture(SCREEN_WIDTH, SCREEN_HEIGHT)
-		invert_shader = Raylib.load_shader('guides/raylib/shaders/invert.vert', 'guides/raylib/shaders/invert.frag')
+		invert_shader = Raylib.load_shader('examples/raylib/shaders/invert.vert', 'examples/raylib/shaders/invert.frag')
 
 		# The background texture's handle never changes frame to frame (only its *content* is
 		# re-rendered each frame, in draw), so this only needs binding once, here.

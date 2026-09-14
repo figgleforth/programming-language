@@ -35,10 +35,10 @@ module Code
 				                              instead of reloading in place
 
 			--- EXAMPLES
-				bin/program guides/hello_world.code -p
+				bin/program examples/hello_world.code -p
 				bin/program lex "x = 5 + 3" -p
 
-				bin/program parsef guides/hello_world.code -p
+				bin/program parsef examples/hello_world.code -p
 				bin/program interp "4815" -p
 
 		INST

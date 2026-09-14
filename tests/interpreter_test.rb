@@ -1734,6 +1734,41 @@ class Interpreter_Test < Base_Test
 		assert_equal [1, 2, 3, 4], out.values[3].values
 	end
 
+	# `for <Integer>` -- sugar for `for 1..<Integer>`: N iterations, `it` running 1..N (same as
+	# `at`, the positional index, running 0..N-1). Reuses the Range machinery verbatim (stride,
+	# map/select/reject/count), so this exercises that it isn't its own special, narrower case.
+	def test_for_loop_over_a_bare_integer
+		out = Code.interp <<~CODE
+		    collected := []
+		    for 5
+		        collected << it
+		    end
+		    collected
+		CODE
+		assert_equal [1, 2, 3, 4, 5], out.values
+	end
+
+	def test_for_loop_over_a_bare_integer_zero_iterates_zero_times
+		out = Code.interp <<~CODE
+		    count := 0
+		    for 0
+		        count += 1
+		    end
+		    count
+		CODE
+		assert_equal 0, out
+	end
+
+	def test_for_loop_over_a_bare_integer_supports_verbs_and_stride
+		out = Code.interp <<~CODE
+		    doubled := for 6 map by 2
+		        (it.0, it.1)
+		    end
+		    doubled
+		CODE
+		assert_equal [[1, 2], [3, 4], [5, 6]], out.values.map(&:values)
+	end
+
 	def test_for_loop_skip
 		out = Code.interp "
 		result := []

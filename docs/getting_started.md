@@ -6,7 +6,7 @@
 git clone https://github.com/figgleforth/programming-language.git
 cd programming-language
 bundle install
-bundle exec bin/program guides/hello_world.code -p # => Hello, Code!
+bundle exec bin/program examples/hello_world.code -p # => Hello, Code!
 ```
 
 ### Table of Contents
@@ -17,7 +17,7 @@ bundle exec bin/program guides/hello_world.code -p # => Hello, Code!
 ### Project Structure
 
 - [`source/readme`](../source/readme.md) details the architecture and contains instructions for running your own programs
-- [`guides`](../guides) contains more useful code examples
+- [`examples`](../examples) contains more useful code examples
 - [`source/programs`](../source/programs) contains code for the standard library
 - [`source`](../source) contains code implementing the language
     - [Lexer](../source/lexer.rb) – Source code to Lexemes

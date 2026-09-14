@@ -198,6 +198,23 @@ module Code
 	end
 
 	class Out_Of_Tokens < Error
+		def detail_message
+			'Ran out of source before this could finish parsing.'
+		end
+	end
+
+	class Non_Iterable_Collection_In_For_Loop < Error
+		attr_accessor :collection
+
+		def initialize expression, collection
+			@collection = collection
+			super expression
+		end
+
+		def detail_message
+			value = collection.respond_to?(:value) ? collection.value : collection
+			"`for` needs something iterable to loop over -- got #{Ascii.bold collection.class.name.split('::').last} (`#{value}`)"
+		end
 	end
 
 	class Invalid_Scope_Syntax < Error
