@@ -1943,6 +1943,100 @@ class Interpreter_Test < Base_Test
 		assert_equal 3, out
 	end
 
+	def test_for_loop_by_stride_with_overlap
+		# `by 2,1` walks every consecutive pair -- stride 2, sliding forward by (stride - overlap) = 1
+		# each step, instead of jumping a full 2 like plain `by 2` would.
+		out = Code.interp "
+		for [1, 2, 3, 4, 5, 6] map by 2,1
+			it.0 + it.1
+		end"
+		assert_equal [3, 5, 7, 9, 11], out.values
+	end
+
+	def test_for_loop_by_stride_with_overlap_wider_window
+		# `by 3,1` walks 3-wide windows, each sharing its last element with the next window's first --
+		# a step of (3 - 1) = 2.
+		out = Code.interp "
+		for [1, 2, 3, 4, 5, 6, 7] map by 3,1
+			(it.0, it.1, it.2)
+		end"
+		assert_equal [[1, 2, 3], [3, 4, 5], [5, 6, 7]], out.values.map(&:values)
+	end
+
+	def test_for_loop_overlap_drops_a_trailing_short_window
+		# Unlike the plain (no-overlap) stride chunking, which keeps a final undersized chunk
+		# (`each_slice`'s own behavior), an overlapping window that can't reach the full stride is
+		# dropped instead of kept short -- there's no well-formed final pair to make from a single
+		# leftover `5` here.
+		out = Code.interp "
+		for [1, 2, 3, 4, 5] map by 2,1
+			(it.0, it.1)
+		end"
+		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5]], out.values.map(&:values)
+	end
+
+	def test_for_loop_overlap_works_with_select_reject_and_count
+		select_out = Code.interp "
+		for [1, 2, 3, 4, 5, 6] select by 2,1
+			it.0 + it.1 > 5
+		end"
+		assert_equal [[3, 4], [4, 5], [5, 6]], select_out.values.map(&:values)
+
+		reject_out = Code.interp "
+		for [1, 2, 3, 4, 5, 6] reject by 2,1
+			it.0 + it.1 > 5
+		end"
+		assert_equal [[1, 2], [2, 3]], reject_out.values.map(&:values)
+
+		count_out = Code.interp "
+		for [1, 2, 3, 4, 5, 6] count by 2,1
+			it.0 + it.1 > 5
+		end"
+		assert_equal 3, count_out
+	end
+
+	def test_for_loop_by_stride_with_odd_overlap
+		# stride 5, overlap 3 -> step = 2. The last two starting positions (index 6 and index 8)
+		# can't fill a full 5-wide window from a 9-element array, so both get dropped -- the same
+		# "drop an incomplete trailing window" rule as the even-overlap tests above, just exercised
+		# with more than one dropped window this time.
+		out = Code.interp "
+		for [1, 2, 3, 4, 5, 6, 7, 8, 9] map by 5,3
+			it
+		end"
+		assert_equal [[1, 2, 3, 4, 5], [3, 4, 5, 6, 7], [5, 6, 7, 8, 9]], out.values.map(&:values)
+	end
+
+	def test_for_loop_stride_and_overlap_from_variables
+		# `by` and its overlap both go through #begin_expression, same as any other value there --
+		# no reason they'd have to be number literals.
+		out = Code.interp "
+		stride := 2
+		overlap := 1
+		for [1, 2, 3, 4, 5, 6] map by stride,overlap
+			(it.0, it.1)
+		end"
+		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5], [5, 6]], out.values.map(&:values)
+	end
+
+	def test_for_loop_overlap_must_be_smaller_than_stride
+		assert_raises RuntimeError do
+			Code.interp "
+			for [1, 2, 3] map by 2,2
+				it
+			end"
+		end
+	end
+
+	def test_for_loop_overlap_must_be_an_integer
+		assert_raises RuntimeError do
+			Code.interp "
+			for [1, 2, 3] map by 2,'x'
+				it
+			end"
+		end
+	end
+
 	def test_for_loop_map_with_skip
 		out = Code.interp "
 		for [1, 2, 3, 4, 5] map

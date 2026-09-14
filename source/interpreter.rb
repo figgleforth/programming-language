@@ -3557,9 +3557,12 @@ module Code
 
 		# @param for_loop_expr [Code::For_Loop_Expr]
 		def interp_for_loop for_loop_expr
-			stride = interpret(for_loop_expr.stride) if for_loop_expr.stride
+			stride  = interpret(for_loop_expr.stride) if for_loop_expr.stride
+			overlap = interpret(for_loop_expr.overlap) if for_loop_expr.overlap
 
 			Code.assert stride.nil? || stride.is_a?(::Integer), "Stride must be an integer" if stride
+			Code.assert overlap.nil? || overlap.is_a?(::Integer), "Overlap must be an integer" if overlap
+			Code.assert overlap.nil? || overlap < stride, "Overlap must be smaller than the stride" if overlap
 
 			loop_type = for_loop_expr.type&.value || 'each' # one of Code::FOR_VERBS
 			result    = nil
@@ -3619,8 +3622,22 @@ module Code
 			collected = []
 			count_val = 0
 			elements  = if stride && !collection.is_a?(Code::Dictionary)
-				# `each_slice` yields raw Ruby Arrays -- wrap each chunk as a real Code::Array so `it` behaves like any other Code value (`==`, `.push`, etc.), not just dot-index access (`it.0`), which already worked because #interp_dot_infix calls #maybe_instance on its receiver regardless.
-				values.each_slice(stride).map { |chunk| Code::Array.new(chunk) }.each_with_index
+				chunks = if overlap && overlap > 0
+					values_array = values.to_a
+					step         = stride - overlap
+					(0...values_array.length).step(step).map do |i|
+						values_array[i, stride]
+					end.select do |chunk|
+						chunk.length == stride
+					end
+				else
+					values.each_slice(stride).to_a
+				end
+
+				chunks.map do |chunk|
+					Code::Array.new(chunk)
+				end.each_with_index
+				
 			elsif values.respond_to? :each_with_index
 				values.each_with_index
 			else

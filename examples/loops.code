@@ -33,6 +33,17 @@ end
 @assert pairs == [['red', 'blue'], ['green', 'yellow'], ['orange', 'purple']], 'stride 2 should chunk into pairs'
 
 
+### Stride with overlap
+
+`by N,overlap` slides each N-wide window forward by `N - overlap` elements instead of a full `N`, so consecutive windows share `overlap` elements rather than being disjoint. Jin checks each fish against the one that washed up right after it:
+###
+consecutive_pairs := []
+for fish by 2,1
+	consecutive_pairs.push(it)
+end
+@assert consecutive_pairs == [['red', 'blue'], ['blue', 'green'], ['green', 'yellow'], ['yellow', 'orange'], ['orange', 'purple']], 'stride 2 overlap 1 should walk every consecutive pair'
+
+
 ### Verbs: map
 
 A verb after the collection turns `for` into a transformation that returns a value, instead of just running side effects. `map` transforms every element:

@@ -1295,6 +1295,22 @@ sums := for [1, 2, 3, 4, 5, 6] map by 2
 end  # => [3, 7, 11]
 ```
 
+**With overlap:** `by <stride>,<overlap>` slides each window forward by `stride - overlap` elements instead of a full `stride`, so consecutive windows share `overlap` elements instead of being disjoint.
+
+```code
+`Every consecutive pair -- stride 2, sliding forward by 1
+pairs := for [1, 2, 3, 4, 5, 6] map by 2,1
+    (it.0, it.1)
+end  # => [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)]
+
+`3-wide windows, each sharing 1 element with the next -- stride 3, sliding forward by 2
+windows := for [1, 2, 3, 4, 5, 6, 7] map by 3,1
+    (it.0, it.1, it.2)
+end  # => [(1, 2, 3), (3, 4, 5), (5, 6, 7)]
+```
+
+A trailing window that can't reach the full `stride` is dropped rather than kept short (unlike the plain no-overlap chunking above, which keeps a final undersized chunk via `each_slice`) -- `for [1, 2, 3, 4, 5] map by 2,1` produces `[1,2], [2,3], [3,4], [4,5]`, not a trailing `[5]` on its own. `overlap` must be a smaller integer than `stride`.
+
 **With stop (partial results):**
 
 ```code

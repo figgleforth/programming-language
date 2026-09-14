@@ -277,13 +277,15 @@ module Code
 			end
 		end
 
-		# Currently `stride` doesn't support option to overlap elements
-		#
-		#   for <collection> [map/select/reject] [by <stride>]
+		#   for <collection> [map/select/reject] [by <stride>[,<overlap>]]
 		#   end
 		#
 		#   for items map by 2
 		#       it #[items.0, items.1], [items.2, items.3], ...
+		#   end
+		#
+		#   for items map by 2,1
+		#       it #[items.0, items.1], [items.1, items.2], [items.2, items.3], ...
 		#   end
 		#
 		def parse_for_loop_expr
@@ -300,6 +302,10 @@ module Code
 			if curr? 'by' and eat 'by'
 				it.stride = begin_expression
 				# todo: Should I check that it's a number here? Yes.
+
+				if curr? ',' and eat ','
+					it.overlap = begin_expression
+				end
 			end
 
 			reduce_newlines
