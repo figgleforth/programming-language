@@ -1,23 +1,27 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Use ASD-STE100 (Simplified Technical English) at all times: documenting, chatting, explaining, writing comments for the user, etc. Always, do not steer away from this.
+This file gives Claude Code guidance for work in this repository. Use ASD-STE100 (Simplified Technical English) at all times — in chat, in comments, and in documentation. Do not make an exception.
+
+`readme.md` is the language reference for users. It holds the concepts and the examples. This file holds only what Claude needs: file names, method names, dispatch order, gotchas, and known limits. When a topic below has a matching `readme.md` section, read that section first for the language-level behavior.
 
 ## Working Relationship
 
-The user writes the code. Claude advises by default: review the approach, surface gaps, act as a sounding board — but do not start implementation unprompted, even when a task looks small or the next step seems obvious. Only write code, run the implementation, or edit source / `.code` files when the user explicitly asks. Write a changelog only when asked.
+The user writes the code. Claude gives advice by default: review the plan, find the gaps, act as a sounding board. Do not start work on your own, even for a task that looks small. Write code, run commands, or edit `.code` / source files only when the user asks directly. Write a changelog only when asked.
 
-This is a side project. Some changes go through PRs, others commit straight to `main`. The user drives the language's direction; Claude does not track a roadmap.
+This is a side project. Some changes go through a PR. Other changes go straight to `main`. The user sets the language's direction. Claude does not keep a roadmap.
 
-## About this language
+## About This Language
 
-This is an educational programming language for web development, implemented in Ruby. The language itself has no fixed name yet — the Ruby module is `Code`, files end in `.code`, and the CLI is `bin/program` (`bin/prog` still works as an alias). It features:
+This is an educational programming language for web development, written in Ruby. The language has no fixed name yet. The Ruby module is `Code`. Source files end in `.code`. The CLI command is `bin/program` (alias: `bin/prog`).
 
-- Naming conventions that replace keywords (Capitalized classes, lowercase functions/variables, UPPERCASE constants)
-- Class composition operators instead of inheritance (|, &, ~, ^)
-- Dot notation for accessing nested structures and scopes (., ..)
-- First-class functions and classes
-- Built-in web server support with routing
-- When writing .code source, use `#` for single-line comments (with a space after), and `###`/`###` for multi-line/block comments -- a longer run of `#`s on the outer marker nests a same-length or shorter one inside it (same rule triple-backtick ` ``` ` fences use to nest, Markdown-fence-style)
+Main features:
+
+- Casing marks a name's role: a capital letter starts a class, a lowercase letter starts a function or variable, all capitals mark a constant.
+- Composition operators (`|`, `&`, `~`, `^`) replace inheritance.
+- Dot notation (`.`, `..`) reaches nested structures and scopes.
+- Functions and classes are first-class values.
+- A built-in web server handles routes.
+- Use `#` for a one-line comment, with one space after it. Use `###` for a block comment. A longer run of `#` on the outer mark can nest a shorter or equal-length run inside it — the same rule a Markdown fence (` ``` `) uses to nest.
 
 ## Common Commands
 
@@ -37,7 +41,7 @@ bundle exec rake
 CI=1 bundle exec rake test
 ```
 
-The suite is serial (~8s). 5 `hot_reload_test.rb` tests boot a real WEBrick server (~2s); they're `remove_method`'d unless `ENV['CI']` (see the `CI_ONLY` list at the bottom of that file). `rake test` locally ~ `966 runs, 0 skips`; GitHub Actions (sets `CI`) and `CI=1 rake test` ~ `971`. `database_test.rb`/`server_test.rb` are fast and always run.
+The suite runs in serial order and takes about 8 seconds. `hot_reload_test.rb` has 5 tests that boot a real WEBrick server (about 2 seconds); they're `remove_method`'d unless `ENV['CI']` is set — see the `CI_ONLY` list at the bottom of that file. A local `rake test` run reports about `966 runs, 0 skips`. GitHub Actions (which sets `CI`), and a local `CI=1 rake test` run, report about `971`. `database_test.rb` and `server_test.rb` are fast and always run.
 
 ### Running Programs
 
@@ -66,961 +70,452 @@ bundle install
 
 ## Architecture
 
-Five phases: **Lexer → Parser → Type Checker → Forward Declarator → Interpreter**
+Five phases run in this order: Lexer, Parser, Type Checker, Forward Declarator, Interpreter.
 
-`Interpreter` is the main entry point. It owns a `Lexer` and `Parser`, and exposes `run(source_code)` which drives all phases. `Lexer` and `Parser` are plain transformation classes you can also call directly.
+`Interpreter` is the main entry point. It owns a `Lexer` and a `Parser`, and its `run(source_code)` method drives all five phases. `Lexer` and `Parser` are plain transform classes — call each on its own too, when you need to.
 
-### One module: `Code`
+### One Module: `Code`
 
-Everything — the engine (Lexer, Parser, Interpreter, …) and the language's own runtime vocabulary (the AST, the scope hierarchy, the built-in value types, the errors) — lives in one Ruby module, `Code`. There used to be a two-module split (`Backend`, the engine; `Prog`, the vocabulary), joined by `include Prog`; that split is gone, and every class is a direct, unqualified sibling under `module Code` now.
+Every class lives under one Ruby module, `Code`: the engine (Lexer, Parser, Interpreter, and so on) and the language's own runtime vocabulary (the AST, the scope hierarchy, the built-in value types, the errors).
 
-- The engine: `Lexer`, `Parser`, `Type_Checker`, `Declarator`, `Documenter`, `Interpreter`, `REPL`, `Hot_Reloader`, `Dom_Renderer`, `CLI` (plus `Code.interp`/`.parse`/`.lex` and `ROOT_PATH`/`STANDARD_LIBRARY_PATH`/`VERSION`).
-- The runtime vocabulary: the whole scope hierarchy (`Scope`, `Global`, `Type`, `Instance`, `Func`, `Route`, `Any`, `Nil`, `Bool`, `Server`, `Request`, `Response`, `Return`), every built-in value type (`String`, `Array`, `Number`, `Struct`, `Context`, `Enum`, …), the AST (`Expression` + every `*_Expr`, `Lexeme`), the errors, and `constants.rb`.
-- Mnemonic for the CLI name: `bin/program` (`bin/prog` alias) runs your program. `.code` and `@load` paths are otherwise unaffected by this — this is purely a Ruby-side module change, invisible from `.code` source.
+- The engine: `Lexer`, `Parser`, `Type_Checker`, `Declarator`, `Documenter`, `Interpreter`, `REPL`, `Hot_Reloader`, `Dom_Renderer`, `CLI` — plus `Code.interp`/`.parse`/`.lex` and the constants `ROOT_PATH`/`STANDARD_LIBRARY_PATH`/`VERSION`.
+- The runtime vocabulary: the scope hierarchy (`Scope`, `Global`, `Type`, `Instance`, `Func`, `Route`, `Any`, `Nil`, `Bool`, `Server`, `Request`, `Response`, `Return`); every built-in value type (`String`, `Array`, `Number`, `Struct`, `Context`, `Enum`, and more); the AST (`Expression` and every `*_Expr`, `Lexeme`); the error classes; and `constants.rb`.
+- This module layout is a Ruby-side detail only. It has no effect on `.code` source or `@load` paths.
 
-### Directory layout — `source/`
+### Directory Layout — `source/`
 
-Two kinds of thing here: one flat `.rb` file per pipeline phase (no more numbered per-phase subfolders — `lexer.rb`, `parser.rb`, `type_checker.rb`, `declarator.rb`, `interpreter.rb` all sit directly in `source/`), plus `proxies/` and `shared/`. `source/main.rb` requires everything in load order (it *is* the load-order spec).
+Two kinds of file live here: one flat `.rb` file per pipeline phase (`lexer.rb`, `parser.rb`, `type_checker.rb`, `declarator.rb`, `interpreter.rb`), plus the `proxies/` and `shared/` folders. `source/main.rb` requires every file in load order — read it to see that order.
 
-- `main.rb` — entry point; requires all components, then defines `Code.lex`/`.parse`/`.declare`/`.interp` (+ `_file` variants), `ROOT_PATH`, `STANDARD_LIBRARY_PATH`, `VERSION`
-- `cli.rb` — `Code::CLI` (the `bin/program` commands); `repl.rb` — `Code::REPL`
-- `lexer.rb` — `Code::Lexer`, source → tokens
-- `parser.rb` — `Code::Parser`, tokens → AST
-- `type_checker.rb` — `Code::Type_Checker`, static checks on the AST
-- `declarator.rb` — `Code::Declarator`, builds `Interpreter#declarations` for forward resolution (see Forward Declarations)
-- `interpreter.rb` — `Code::Interpreter`, the running program; owns `@lexer`/`@parser`, `stack`, `routes`, `servers`, `cached_expressions_by_filepath`; `run(source)` is the entry point
-- `programs/` — the `.code` files that ship with the language (the standard library); see Standard Library below
-- `proxies/` — base types first in the require list:
-	- `scopes.rb` — the scope hierarchy: `Scope`, `Global < Scope` (bottom of the stack, holds the stdlib), `Type`, `Instance`, `Func`, `Route`, `Return`, `Any`, `Nil`, `Bool`, `Server`, `Request`, `Response`
-	- `lexeme.rb` (`Code::Lexeme`), `expressions.rb` (`Code::Expression` + every `*_Expr`), `errors.rb`, `func_signature.rb`, `return.rb`
-	- the Ruby class behind each built-in `.code` type (`string.rb` ↔ `programs/string.code`, …): `string array number range set dictionary struct context enum statement member file_system temporal database table` — each `class X < Instance`
-- `shared/` — pulled in across the codebase: `constants.rb` (operators, precedence, reserved words), `helpers.rb` (`module Helpers`: identifier casing, `assert`), `ascii.rb` (`Code::Ascii`), `ruby_proxies.rb`, `declaration_accessors.rb`, `cached_by_path.rb`, `error_formatter.rb` (`Code::Error_Formatter`), `documenter.rb` (`Code::Documenter` — a separate doc-comment pass, not in the run pipeline), plus what used to be `interpreter/`'s own helpers: `dom_renderer.rb` (`Code::Dom_Renderer`), `hot_reloader.rb` (`Code::Hot_Reloader`), and the browser assets `interpreter.rb` serves by literal path (`dom.js`, `live_reload.js`, `view_transition.css`)
+- `main.rb` — entry point. Requires every component, then defines `Code.lex`/`.parse`/`.declare`/`.interp` (and their `_file` forms), `ROOT_PATH`, `STANDARD_LIBRARY_PATH`, `VERSION`.
+- `cli.rb` — `Code::CLI` (the `bin/program` commands). `repl.rb` — `Code::REPL`.
+- `lexer.rb` — `Code::Lexer`: source → tokens.
+- `parser.rb` — `Code::Parser`: tokens → AST.
+- `type_checker.rb` — `Code::Type_Checker`: static checks on the AST.
+- `declarator.rb` — `Code::Declarator`: builds `Interpreter#declarations` for forward resolution. See Forward Declarations below.
+- `interpreter.rb` — `Code::Interpreter`: runs the program. Owns `@lexer`/`@parser`, `stack`, `routes`, `servers`, `cached_expressions_by_filepath`. `run(source)` is the entry point.
+- `programs/` — the `.code` files that ship with the language (the standard library). See Standard Library below.
+- `proxies/` — base types load first:
+	- `scopes.rb` — the scope hierarchy: `Scope`, `Global < Scope` (bottom of the stack, holds the stdlib), `Type`, `Instance`, `Func`, `Route`, `Return`, `Any`, `Nil`, `Bool`, `Server`, `Request`, `Response`.
+	- `lexeme.rb` (`Code::Lexeme`), `expressions.rb` (`Code::Expression` and every `*_Expr`), `errors.rb`, `func_signature.rb`, `return.rb`.
+	- One Ruby class per built-in `.code` type (`string.rb` ↔ `programs/string.code`, and so on): `string array number range set dictionary struct context enum statement member file_system temporal database table`. Each is `class X < Instance`.
+- `shared/` — pulled in across the codebase: `constants.rb` (operators, precedence, reserved words), `helpers.rb` (`module Helpers`: identifier casing, `assert`), `ascii.rb` (`Code::Ascii`), `ruby_proxies.rb`, `declaration_accessors.rb`, `cached_by_path.rb`, `error_formatter.rb` (`Code::Error_Formatter`), `documenter.rb` (`Code::Documenter` — a separate doc-comment pass, not in the run pipeline), `dom_renderer.rb` (`Code::Dom_Renderer`), `hot_reloader.rb` (`Code::Hot_Reloader`), and the browser assets `interpreter.rb` serves by literal path (`dom.js`, `live_reload.js`, `view_transition.css`).
 
-The project root symlinks `programs` → `source/programs`, so a `.code` file's own `@load 'programs/x.code'` line resolves the same way whether it's written inside the standard library or in your own program, run from the root.
+The project root symlinks `programs` → `source/programs`, so a `.code` file's own `@load 'programs/x.code'` line resolves the same way whether it runs from the standard library or from your own program.
 
 ### Standard Library
 
-- `source/programs/global.code` - Auto-loaded when `load_standard_library` is `true` (default) — lands in its own `Standard_Library` scope added to Global's readable scope, not as direct Global declarations (see Splatting a Scope below)
-- Standard library path defined in `Code::STANDARD_LIBRARY_PATH`
-- See `source/programs/readme.md` for which files load automatically and which need an explicit `@load`
+- `source/programs/global.code` loads by default (`load_standard_library` is `true`). It lands in its own `Standard_Library` scope, added to Global's readable scope — not as direct Global declarations. See Splatting a Scope below.
+- `Code::STANDARD_LIBRARY_PATH` holds the path.
+- `source/programs/readme.md` lists which files load by default, and which files need an explicit `@load`.
 
 ## Type Checker
 
-The type checker (`source/type_checker.rb`) runs between the parser and interpreter. It is invoked from `Interpreter#output` before the execution loop, so it also runs on files loaded via `@load`.
+`source/type_checker.rb` runs between the parser and the interpreter. `Interpreter#output` calls it before the run loop starts, so it also checks a file loaded with `@load`.
 
-### What it checks
+### What It Checks
 
-- **Typed variable assignments** — `x: String = 123` raises `Type_Mismatch` (literal RHS only)
-- **Typed function parameter defaults** — `go ( x: Number := 'bad'; x )` raises at the param default
-- **Call site argument types** — `add(1, 'oops')` raises if `add` has typed params and the arg is a known literal
+- A typed variable assignment: `x: String = 123` raises `Type_Mismatch`. Only a literal right side triggers this.
+- A typed function parameter default: `go ( x: Number := 'bad'; x )` raises at the param default.
+- A call-site argument type: `add(1, 'oops')` raises when `add` has typed params and the argument is a known literal.
 
-Annotations whose RHS is non-literal (an identifier, a function call, etc.) are silently skipped — only literal mismatches are caught statically.
+An annotation with a non-literal right side (an identifier, a function call) is not checked. Only a literal mismatch raises.
 
-### How it works
+### How It Works
 
 `Type_Checker` has two core methods:
 
-- `infer_type(expr)` — maps an expression to a language type name string (`'String'`, `'Number'`, `'Symbol'`), or looks up `Identifier_Expr` values in `type_by_identifier`. Returns `nil` if unknown.
-- `check(expr)` — recursive dispatcher; returns `nil` (no error) or a `Type_Mismatch` error. Recurses into all child-bearing expression types.
+- `infer_type(expr)` maps an expression to a type name string (`'String'`, `'Number'`, `'Symbol'`). For an `Identifier_Expr` it looks the name up in `type_by_identifier`. It returns `nil` when the type is not known.
+- `check(expr)` is the recursive dispatcher. It returns `nil` (no error) or a `Type_Mismatch`. It recurses into every expression kind that has children.
 
 `type_by_identifier` is a hash built during the walk:
-- Typed assignments (`x: String = ...`) register `'x' => 'String'`
-- Named functions with typed params (`add ( a: Number; ... )`) register `'add' => ['Number', 'Number']` via `register_func`
+- A typed assignment (`x: String = ...`) registers `'x' => 'String'`.
+- A named function with typed params (`add ( a: Number; ... )`) registers `'add' => ['Number', 'Number']`, through `register_func`.
 
-Call site checking happens in `check_call` — it looks up the receiver name in `type_by_identifier`, retrieves the param type array, and compares each literal argument's inferred type against the expected type.
+`check_call` checks a call site. It looks up the receiver name in `type_by_identifier`, reads the param type array, and compares each literal argument's inferred type against the expected type.
 
-### Runtime Type Contracts (`:=`)
+### Gotcha
 
-Separate from the static `Type_Checker` above, `:=` is a runtime-enforced type contract handled entirely in the interpreter (`interp_infix_declaration` in `interpreter.rb`), not the type checker. `:=` is also the general declaration operator — `=` is pure assignment and requires the identifier to already be declared (handled in `interp_infix_assignment`), raising `Code::Cannot_Assign_Undeclared_Identifier` otherwise:
+`Type_Checker` lives inside `module Code`. A bare `Array` inside the module means `Code::Array`, not Ruby's `::Array`. Use `::Array` to check a real Ruby array (for example, `signature.is_a? ::Array`).
 
-```code
-x := 4        # declares x, infers Number, locks x to that type
-x = 8         # ok — same type
-x = 'hello'   # raises Code::Type_Contract_Violation
+### Known Limitation
 
-y = 4         # raises Code::Cannot_Assign_Undeclared_Identifier — y was never declared
-
-counter := -1
-increment (;
-	counter := 99   # shadows — declares a new local `counter`, doesn't touch the outer one
-	counter += 1    # `=`/compound ops still resolve outward, so this mutates the local
-)
-increment()
-counter           # still -1 — the outer `counter` was never touched
-```
-
-- `:=` declares the identifier, infers a type from the RHS, and records it on the assigning scope's `type_by_identifier`
-- `:=` always declares on the current scope (`stack.last`), shadowing any identically-named identifier in an enclosing scope, rather than reusing/overwriting it. Plain `=` and compound ops (`+=`, etc.) still resolve through the enclosing scope via `scope_for_identifier`, which is how closures over outer variables keep working
-- Subsequent plain `=` assignments to that identifier are checked against the recorded type on every assignment (not just literal RHS, unlike the static checker)
-- Re-running `:=` on the same identifier re-infers and overwrites the locked type
-- `=` without a prior `:=` (or a `: Type` annotation, or another declaration form — see below) raises `Code::Cannot_Assign_Undeclared_Identifier`
-- A `: Type` annotation (`x: Number = 4`) and a Class-styled identifier assigned a Scope value (`My_Type = Other {}`) are each themselves self-declaring, so `=` is allowed to introduce those identifiers too
-- A bare annotated identifier with no `=` at all (`x: Number`, or a struct annotation like `thing: <String, Number>`) self-declares to `nil` rather than raising `Code::Undeclared_Identifier` when later referenced — same as the nil-init idiom (`ident,`), handled in `interp_identifier` via `self_declare_annotated_identifier`
-- Raises `Code::Type_Contract_Violation` (`errors.rb`), not `Type_Mismatch`
-
-### `: Type` annotations with `|`/`&`/`^`/`~` (`x: Int | Nil`) — always OR, never real composition
-
-A `: Type` annotation can list more than one alternative, joined by any of the four composition operators (`x: Int | Nil`, `x: Int & Nil`, `x: Int ^ Nil`, `x: Int ~ Nil`) — and **all four mean exactly the same thing here**: the value must satisfy at least one listed alternative (OR). The operator's usual meaning under Class Composition Operators (below) — merge / keep-shared / remove / keep-unique of a type's *declarations* — never applies in annotation position, because an annotation doesn't compose two types into a new one at all; it just lists names to check the value against. Whichever operator is written, the rendered error message always joins the names with `" | "`.
-
-```code
-x: Int | Nil = 1     # ok -- satisfies Int
-x: Int & Nil = nil   # ok -- satisfies Nil (& means the same OR check as | here)
-x: Int ^ Nil = true  # raises Code::Type_Contract_Violation -- expected "Int | Nil", got Bool
-x: Int ~ Nil = true  # same violation -- ~ means the same OR check too
-```
-
-This OR-regardless-of-operator behavior applies everywhere a `: Type` annotation appears, not just a first assignment: plain reassignment against an already-locked annotation, a function's own `-> Type` return-type contract, and a destructuring target's per-value `: Type`. Implemented in `#annotation_type_names` / `#type_contract_satisfied?` (`interpreter.rb`) — `#annotation_type_names` walks a composition chain's operand names whatever operator joins them, and `#type_contract_satisfied?` treats the resulting list as alternatives (`.any?`), never composing them.
-
-**Pre-declaring a composed type doesn't give you a reusable version of this.** `Int_Or_Nil | Int | Nil {}` then `x: Int_Or_Nil = 4` does **not** behave like `x: Int | Nil = 4` — it raises `Code::Type_Contract_Violation` (only `nil` itself passes). A single bare name in annotation position skips the OR/array branch above entirely and falls to `#type_contract_satisfied?`'s ordinary compositional check, which requires the value's own composed-type set to be a **superset of the whole named type's** composed set (`Int_Or_Nil, Integer, Number, Nil` all at once) — real nominal is-a/subtyping, not alternation, and no non-nil value can ever be simultaneously Integer-flavored and Nil-flavored. Verified directly against the interpreter; this is not a hypothetical edge case.
-
-- What pre-declaring via `|` *does* usefully give you is a reusable **AND/is-a** contract: `Combined | A | B {}` then `x: Combined = value` requires `value` to actually be (or subtype) `Combined` — e.g. `Combined()` itself, not a bare `A()` — since only `|` (and `~`, removing by name) ever extends a type's own composed-type set (see `#interp_composition`, under Class Composition Operators). This is the same mechanism the covariant return-type example above already relies on (`Task | Table {}` satisfying `-> Table`); it isn't specific to annotations.
-- A type declared purely via `&`/`^`/`~` never gains its operands' names in its own composed-type set either (see Class Composition Operators), so using one of those as an annotation is really just an ordinary check against its own bare name — nothing about `&`/`^`/`~` changes what an annotation accepts.
-- There is currently no reusable named alias for the OR-alternation case — `x: Int | Nil` has to be spelled out at each annotation site; a pre-declared type name can't stand in for it.
-
-### Important gotcha
-
-`Type_Checker` lives inside `module Code`. Bare `Array` inside the module resolves to `Code::Array` (the built-in scope type), not Ruby's `::Array`. Always use `::Array` when checking Ruby array types (e.g. `signature.is_a? ::Array`).
-
-### Known limitation
-
-Call sites that appear before the function definition are not checked — the signature isn't registered yet when the call is encountered. This is a known limitation; a two-pass approach would fix it.
+A call site before the function's own definition is not checked — the signature is not registered yet when the parser reaches the call. A two-pass approach would fix this.
 
 ### Errors
 
-- `Code::Type_Mismatch < Code::Type_Checking_Failed` — carries `expression`, `declared`, and `inferred`
-- `Code::Type_Checking_Failed` — raised by `output` if any errors were collected
+- `Code::Type_Mismatch < Code::Type_Checking_Failed` — carries `expression`, `declared`, and `inferred`.
+- `Code::Type_Checking_Failed` — `output` raises this when it collects any error.
+
+## Runtime Type Contracts (`:=`)
+
+See readme.md's "Runtime Type Contracts" section for the language-level rules and examples. This is a separate, runtime check — the interpreter handles it, not the static Type Checker above.
+
+- `interp_infix_declaration` (`interpreter.rb`) implements `:=`. `interp_infix_assignment` implements plain `=`, and raises `Code::Cannot_Assign_Undeclared_Identifier` when the identifier does not exist yet.
+- `:=` always declares on the current scope (`stack.last`). It shadows a same-named identifier from an enclosing scope, rather than reusing it. Plain `=` and compound operators (`+=`, and so on) still resolve through the enclosing scope, via `scope_for_identifier` — this is how a closure keeps reading and writing an outer variable:
+
+```code
+counter := -1
+increment (;
+	counter := 99   # a new local -- does not touch the outer counter
+	counter += 1    # `+=` resolves outward, so this changes the local
+)
+increment()
+counter           # still -1
+```
+
+- `#annotation_type_names` and `#type_contract_satisfied?` (`interpreter.rb`) implement the OR-regardless-of-operator rule for `: Type` annotations. `#annotation_type_names` reads every operand name in a composition chain, whatever operator joins them. `#type_contract_satisfied?` treats that list as alternatives (`.any?`) — it never composes them.
+- A mismatch raises `Code::Type_Contract_Violation`, not `Type_Mismatch`.
 
 ## Forward Declarations
 
-Top-level function/type declarations are hoisted ahead of the point where they're actually reached in the file, so calling a function (or referencing a type) before its own declaration works — including mutual recursion between two top-level functions declared in either order. Plain variable assignments (`:=`/`=`/`ident,`) are never hoisted this way; reading one before its own line has run still raises `Code::Undeclared_Identifier`, exactly as if this feature didn't exist:
-
-```code
-result := main()   # `main` hasn't been reached yet -- works anyway
-main (; helper() )
-helper (; 42 )
-result             # 42
-
-@puts "`a`"        # raises Code::Undeclared_Identifier -- `a` is a plain variable, not hoistable
-a := 123
-```
+See readme.md's "Forward Declarations" section for the language-level behavior and examples. This section covers the Ruby implementation.
 
 ### `Declarator` (`source/declarator.rb`)
 
-Walks the whole top-level AST once, before interpretation (invoked from `Interpreter#output`, same spot `Type_Checker` runs from), building `Interpreter#declarations`: `Hash{::String => Code::Declaration}`. `Code::Declaration = Data.define(:key, :expr_or_decl, :expr)` — `expr` is always the *original* expression (what would need to be `interpret`ed to actually bring the declaration into being); `expr_or_decl` is a more inspectable rendering (a nested Hash for a `Type_Expr`/`Func_Expr`/`Route_Expr` body, the raw value expression for `:=`/`=`, etc.). Inspect either directly via `bin/prog declare <code>` / `declaref <file>`.
+Walks the whole top-level AST once, before interpretation, and builds `Interpreter#declarations`: `Hash{::String => Code::Declaration}`. `Code::Declaration = Data.define(:key, :expr_or_decl, :expr)`. `expr` is always the original expression — what `interpret` needs to run to bring the declaration into being. `expr_or_decl` is a more readable rendering (a nested Hash for a `Type_Expr`/`Func_Expr`/`Route_Expr` body, or the raw value expression for `:=`/`=`). Inspect either one with `bin/prog declare <code>` / `declaref <file>`.
 
-`#declare` dispatches per expression kind:
+`#declare` dispatches on the expression kind:
 
-- **Nests** under its own key: `Type_Expr`, `Func_Expr` (named only), `Route_Expr`, `Func_Signature_Expr` — each recurses into its own body/params via `#declare_all`, the same Hash-building the top level itself uses. A `Type_Expr`'s own `.tag` (if any) rides along under a `'tag'` key
-- **Flattens** into the enclosing level instead: `Conditional_Expr` (`if`/`unless`/`while`/`until` don't push their own scope, so a `:=` inside a branch really does land in the enclosing scope — chains through `elif`/`elwhile` via `.when_false`) and `Circumfix_Expr` (groupings don't push a scope either) — `#declare_all` accepts either a `Declaration` or a `Hash` back from `#declare`, merging the latter flat rather than nesting it under a made-up key
-- **Deliberately excluded**: `For_Loop_Expr` (pushes its own scope per iteration in `#interp_for_loop` — loop-local, not forward-referenceable from outside), `Call_Expr` (its arguments can themselves use `:=` for named-argument passing, which looks identical to a declaration but isn't one — see Named Function Arguments above), and a bare `Identifier_Expr` (reads a value, doesn't declare one — registering one used to be a real bug: it silently clobbered a same-named real declaration reached later in the same Hash, since both share a key)
-- **Literals** (`String_Expr`/`Number_Expr`/`Symbol_Expr`) aren't declarations on their own, but are preserved (not dropped to `nil`) as the *value* on the right of a `:=`/`=` via `#resolve_value` — a separate helper from `#declare`, used only for RHS resolution, so a literal or plain identifier RHS is stored as-is instead of wrapped in another `Declaration`
+- Nests under its own key: `Type_Expr`, `Func_Expr` (named only), `Route_Expr`, `Func_Signature_Expr`. Each recurses into its own body or params through `#declare_all`.
+- Flattens into the enclosing level: `Conditional_Expr` (`if`/`unless`/`while`/`until` do not push their own scope, so a `:=` inside a branch lands in the enclosing scope) and `Circumfix_Expr` (a grouping does not push a scope either).
+- Excluded on purpose: `For_Loop_Expr` (pushes its own scope per iteration — loop-local, not forward-referenceable), `Call_Expr` (its arguments can use `:=` for named-argument passing — see Named Function Arguments — which is not a declaration), and a bare `Identifier_Expr` (reads a value, does not declare one).
+- Literals (`String_Expr`/`Number_Expr`/`Symbol_Expr`) are stored as the value on the right of a `:=`/`=`, through `#resolve_value` — a separate helper used only for right-side resolution.
 
 ### `@load` (`Declarator#declarations_for_load`)
 
-A bare `@load 'file'` also participates: `#declare`'s `Call_Expr` branch (`#load_call?` recognises the `@.load` receiver) hands `declarations_for_load` off to compute the *other* file's own Declarator output (parsed + declared once, cached class-level in `cached_declarations_by_filepath`, keyed by resolved path — mirrors `Interpreter.cached_expressions_by_filepath`; `currently_loading_filepaths` guards a load cycle, A `@load`ing B `@load`ing A, from recursing forever), then **rebinds every entry's `.expr` to the `@load` directive itself**, not the isolated node it was found on in the other file. This matters twice over: a loaded file's declarations aren't independent of each other (`Div | Dom {}` needs `Dom` too — forcing `Div` alone and leaving `Dom` unhoisted would break), and forcing any single name has to mark the *whole* `@load` as forced, or `#output`'s own walk redundantly re-runs the entire file a second time once it reaches that line for real. Returns nil (declines) when the path isn't a plain string literal (`@load some_var`) — nothing statically known to walk. The rebound Hash flattens into the current level the same way `Conditional_Expr`/`Circumfix_Expr` already do.
+A bare `@load 'file'` participates too: the `Call_Expr` branch of `#declare` computes the loaded file's own Declarator output (parsed and declared once, cached in `cached_declarations_by_filepath`, keyed by resolved path), then rebinds every entry's `.expr` to the `@load` directive itself — not the isolated node it came from in the other file. This matters because a loaded file's declarations depend on each other (`Div | Dom {}` needs `Dom` too), and because forcing one name has to mark the whole `@load` as forced, so `#output` does not re-run the whole file a second time when it reaches that line for real.
 
-`Ident := @load 'file'` / `IDENT := @load 'file'` (a *named*, namespace-isolating load — see File Loading below) doesn't need any of the above: it's handled entirely by the existing `Infix_Expr` branch plus `#hoistable_declaration_expr?`'s casing check (next section) — forcing the whole `Infix_Expr` re-runs the real assignment, which builds the isolated scope correctly on its own.
+`Ident := @load 'file'` (a named, namespace-isolating load — see File Loading below) needs none of this. The existing `Infix_Expr` branch, plus `#hoistable_declaration_expr?`'s casing check (next section), handles it — forcing the whole `Infix_Expr` re-runs the real assignment.
 
 ### Interpreter (`#resolve_forward_declaration`)
 
-The consuming side lives in `#interp_identifier`'s final `else` branch — the case where ordinary lookup found nothing and `scope` is `nil` — right before it would raise `Code::Undeclared_Identifier`. It checks `declarations[name]`, and if a hoistable declaration is found, runs its `.expr` immediately (`interpret decl.expr`, pushed against `#global` specifically, not whatever's currently on top of `stack`), then retries the lookup.
+`#interp_identifier`'s final `else` branch consumes this — the case where ordinary lookup found nothing. It checks `declarations[name]`. When it finds a hoistable declaration, it runs `.expr` immediately (against `#global`, not whatever scope is on top of `stack`), then retries the lookup.
 
-- **Hoistable vs. not** — `HOISTABLE_EXPRESSIONS` (`Func_Expr`, `Type_Expr`, `Route_Expr`, `Struct_Expr`, `Func_Signature_Expr`, `Operator_Expr`, `Operator_Overload_Expr`; lives on `Interpreter`, not `constants.rb` — it references `Expression` subclasses, and `constants.rb` loads before `expressions.rb` does) are declarative and order-independent, so running one early changes nothing about what the program means. `#hoistable_declaration_expr?` also unwraps one level of `:=`/`=` to catch `This := That {}` (see Runtime Type Contracts above, "Class-styled identifier assigned a Scope value") — same declarative category as a bare `Type_Expr`, just spelled through an assignment. A *named* `@load` (`Ident := @load 'file'` / `IDENT := @load 'file'`) is checked the same way, but additionally requires a Capitalized/UPPERCASE left-hand name (`Code.type_of_identifier`) — a lowercase `mod := @load 'file'` stays a plain variable, not hoisted. A *bare* `@load` (no assignment at all) is checked separately, via `#bare_load_directive_expr?` — always hoistable, since there's no left-hand name to apply a casing rule to; kept out of `#hoistable_declaration_expr?`'s own recursive unwrap specifically so it can't leak permissiveness into the named/casing-restricted case. Anything else — a plain `x := 5`, `x := some_call()`, `ident,` — is a step in the program's own imperative order, and reading it before that step runs is a bug in the *program*; forward-resolving it anyway would silently paper over that instead of raising
-- **Guards against double execution** — forcing a declaration marks its `.expr` in `@forced_declarations` (identity-tracked, a plain `Set` — `Expression` doesn't override `hash`/`eql?`); `#output`'s own top-level walk skips any expression already in that set when it reaches it for real, so a forced function/type/`@load` only ever runs once. That skip has to *keep* the running result (`result` in `input.each.inject(nil) { |result, expr| ... }`), not reset it via a bare `next` — otherwise, if the skipped statement happens to be the file's *last* one, the whole program's reported result silently becomes `nil` instead of the true last value
-- **Only fires when Global is actually reachable** — guarded by `stack.any? { |s| s.equal? global }` (identity check, not `#include?`, which is `==` and can hit a language type's own overload — e.g. `Code::Array#==` assumes its operand also has `.values`). A plain `x.y` dot access deliberately excludes Global from its lookup (`#interp_dot_scope`'s `exclude_global_scope: true`, see Scope System below) specifically so a member missing on `x` stays missing — without this guard, forward-resolution would quietly reach past that exclusion and resolve to an unrelated global of the same name. Consequence worth knowing: a plain identifier reference (`This()`) hoists, but a `.method()` call doesn't independently hoist the method it's calling — `sign.warning()` only works once `warning`'s own declaration has actually been reached, even if `sign`'s type was itself forced early (see `examples/forward_declarations.code`)
-- **`#global`** — a dedicated reference set once when Global is created, independent of `stack` (which `#interp_member_access` temporarily swaps out during dot-access resolution — `stack.first` isn't reliably Global during that window)
-- **`declarations` is saved/restored around `#load_file_into_scope`'s recursive `#output` call**, same as `@input` already was — otherwise loading a file (`@load`, especially the `x := @load 'file'` isolated-scope form) would overwrite the outer program's own `declarations` with the loaded file's, and forward-resolution would leak names declared inside an isolated module scope straight onto Global
+- `HOISTABLE_EXPRESSIONS` (`Func_Expr`, `Type_Expr`, `Route_Expr`, `Struct_Expr`, `Func_Signature_Expr`, `Operator_Expr`, `Operator_Overload_Expr`) lives on `Interpreter`, not `constants.rb`, because it references `Expression` subclasses that load later. `#hoistable_declaration_expr?` also unwraps one level of `:=`/`=` to catch `This := That {}`. A named `@load` needs a Capitalized or UPPERCASE left-hand name too (`Code.type_of_identifier`) — a lowercase `mod := @load 'file'` stays a plain variable. A bare `@load` is checked separately, through `#bare_load_directive_expr?`, kept out of the recursive unwrap on purpose.
+- Forcing a declaration marks its `.expr` in `@forced_declarations` (an identity-tracked `Set`). `#output`'s own top-level walk skips any expression already in that set. The skip keeps the running `result` rather than resetting it with a bare `next` — otherwise a skipped last statement would silently turn the whole program's result into `nil`.
+- The whole mechanism only fires when Global is reachable — guarded by `stack.any? { |s| s.equal? global }`, an identity check (not `#include?`, which is `==` and can hit a language type's own overload). A plain `x.y` dot access excludes Global from its lookup on purpose (`#interp_dot_scope`'s `exclude_global_scope: true`), so a member missing on `x` stays missing. One consequence: a plain identifier reference (`This()`) hoists, but `.method()` does not hoist the method it calls on its own — `sign.warning()` only works once `warning`'s own declaration has run, even if `sign`'s type was forced early. See `examples/forward_declarations.code`.
+- `#global` is a dedicated reference, set once when Global is created, independent of `stack` (which `#interp_member_access` swaps out during dot-access resolution).
+- `declarations` is saved and restored around `#load_file_into_scope`'s recursive `#output` call, the same way `@input` already is — otherwise loading a file would overwrite the outer program's own `declarations`.
 
-### Known limitation
+### Known Limitation
 
-`declarations` is keyed by name at one flat level per file — a declaration nested inside a Type/Func body (or a top-level `if`/tuple, whose own declarations flatten into this same level) isn't distinguished from a genuinely top-level one. Forcing one of those runs only that one inner expression, not the construct around it (an `if`'s condition, say).
+`declarations` is keyed by name at one flat level per file. A declaration nested inside a Type or Func body (or a top-level `if`/tuple, which flattens into the same level) is not told apart from a genuinely top-level one. Forcing one runs only that one inner expression, not the construct around it.
 
 ## Scope System
 
 The language uses a scope hierarchy, all defined in `source/proxies/scopes.rb`:
 
-- **Global** - The global scope; pushed as the bottom of `Interpreter#stack` on first `run`; standard library declarations live here; execution state (routes, servers, loaded files, etc.) lives directly on `Interpreter`
-- **Type** - Class definitions (tracks `@types`, `@expressions`)
-- **Instance** - Class instances
-- **Func** - Function scopes (tracks `@expressions`)
-- **Route** - HTTP route handlers (extends Func, adds `@http_method`, `@path`, `@handler`, `@parts`, `@param_names`)
-- **Html_Element** - HTML element scopes (tracks `@expressions`, `@attributes`, `@types`)
-- **Return** - Return value wrapper (tracks `@value`)
+- **Global** — the global scope. Pushed as the bottom of `Interpreter#stack` on first `run`. Standard library declarations live here. Execution state (routes, servers, loaded files) lives directly on `Interpreter`.
+- **Type** — class definitions (tracks `@types`, `@expressions`).
+- **Instance** — class instances.
+- **Func** — function scopes (tracks `@expressions`).
+- **Route** — HTTP route handlers (extends Func, adds `@http_method`, `@path`, `@handler`, `@parts`, `@param_names`).
+- **Html_Element** — HTML element scopes (tracks `@expressions`, `@attributes`, `@types`).
+- **Return** — return-value wrapper (tracks `@value`).
 
-Each scope can also have **readable** and **writable** fallback scopes - additional scopes checked after the scope's own declarations during identifier lookup, populated via `@splat`/`@splatr` (`@unsplat` removes one) - see Splatting a Scope below. This is distinct from `@push_scope`/`@pop_scope` (see Reopening a Scope below), which pushes a scope directly onto the interpreter's stack rather than adding a fallback lookup place.
+Each scope also carries readable and writable fallback scopes — extra places identifier lookup checks after the scope's own declarations, set with `@splat`/`@splatr` (see Splatting a Scope below). This is a different mechanism from `@push_scope`/`@pop_scope` (see Reopening a Scope below), which pushes a scope directly onto the interpreter's stack rather than adding a fallback.
 
-### Scope Keywords
+See readme.md's "Scope Keywords" section for the language-level rules on `self`/`Self`/`Global`.
 
-Explicit scope access goes through three bare keywords — `self`, `Self`, `Global` (`SCOPE_KEYWORDS` in `constants.rb`; `SELF_KEYWORDS` stays `%w(self Self)` for the two that are context-restricted). Each is a reserved identifier that's both a value on its own and something you dot into:
+An identifier with no keyword prefix searches every scope on the stack, from current to global, proxy methods included. `self.x` searches only the current instance (no fall back to global); `Self.x` only the current type; `Global.x` only the global scope. An identifier starting with `_` is private by convention (for example `_private_var`).
 
-- `Global.identifier` - global scope only (`Global` alone is the global scope object)
-- `self.identifier` - current instance scope only (`self` alone is also a value — see `self` / `Self` Keywords below)
-- `Self.identifier` - current type scope only — where statics live, so this is how an instance method reaches a `Self.`-declared static (see Static Declarations below)
+- `self.` outside an instance context raises `Cannot_Use_Instance_Scope_Operator_Outside_Instance`.
+- `Self.` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`.
+- `Global.`/`Self.`/`self.` followed by a literal (`Global.123`) raises `Invalid_Dot_Infix_Right_Operand`.
 
-There is no symbolic scope operator (the old `~/` is gone). `Keyword.member` reads as a plain `.` dot access off the bare keyword — no desugaring — except in the function-name and nil-init positions (`self.funk (;)`, `Global.x,`), where `#parse_self_prefixed_identifier` synthesizes a `scope_operator` lexeme carrying the keyword string (`'self'` / `'Self'` / `'Global'`), which `#scope_for_identifier` / `#track_static_declaration` match on. `./` and `../` carry no built-in meaning.
+### Implementation Notes
 
-**Identifier Search Behavior:**
-
-- `identifier` (no keyword) - searches every scope in the stack from current to global, proxy methods included
-- `self.identifier` - only the current instance scope (no fall back to global)
-- `Self.identifier` - only the current type scope
-- `Global.identifier` - only the global scope
-
-**Privacy Convention:**
-
-Identifiers starting with `_` are considered private by convention (e.g., `_private_var`, `_helper_function`).
-
-**Validation:**
-
-- `Global.`/`Self.`/`self.` followed by a literal (`Global.123`) (`Self.123`) is rejected as an invalid dot target (`Invalid_Dot_Infix_Right_Operand`)
-- `self.` outside an instance context raises `Cannot_Use_Instance_Scope_Operator_Outside_Instance`
-- `Self.` outside a type context raises `Cannot_Use_Type_Scope_Operator_Outside_Type`
-
-**Dot access (`x.y`)** resolves `y` only against `x` (plus global scope) via `#interp_member_access` (`interpreter.rb`), never the ambient call stack — without this, a member missing on `x` could fall through to an unrelated same-named member still active further down the interpreter's stack (e.g. the very method currently executing) instead of raising `Undeclared_Identifier`.
-
-**Nil receiver.** `x.y` / `x.y()` / `x.y = z` / `x.y := z` where `x` is `nil` raises `Code::Receiver_Is_Nil` (`"`x` is nil — no member `.y` to reach"`), not a bare `Undeclared_Identifier` (which read as if `y` were a missing type). `nil` is still a real scope with its own declared members, so `nil.to_s()` and the like keep working — the read path (`#interp_dot_scope`) only translates an `Undeclared_Identifier` to `Receiver_Is_Nil` when the lookup genuinely finds nothing and the receiver is `Code::Nil`; the write path (`#assign_dot_member`) guards Ruby `nil` and any not-actually-declared member on `Code::Nil` up front. `x.?y` on a nil `x` still returns `nil` (`Receiver_Is_Nil` is in `#interp_dot_infix`'s `.?` rescue list).
-
-### `self` / `Self` Keywords
-
-`self.x` reaches the current instance scope, `Self.x` the current type scope. Bare `self`/`Self` (no trailing `.x`) are also usable as values.
-
-- Bare `self`/`Self` (no trailing `.identifier`) are handled in `#interp_identifier` (`interpreter.rb`): each does the `#current_instance` / nearest-`Code::Type` stack search and returns that Scope object as a real value — so `Self()` constructs the type (`Self() === Type_Name()`), `Self.declaration` reads a static, and passing `self`/`Self` around works like passing any other value
-- `self.x`/`Self.x` **reads and `=`/`:=` writes** parse as an ordinary `.` dot-access off the bare `self`/`Self` identifier — no desugaring. The write target is special-cased in `#assign_dot_member` (`interpreter.rb`, `Code::SELF_KEYWORDS`) to route around the stricter external-`.`-write rules (`Cannot_Reassign_Constant`, `#check_dot_access_permissions!`), so a method can freely reassign its own already-declared members — self-declaring a *brand-new* one this way is a separate question, see Member Creation Is Strict below
-- `self.funk (;)`/`Self.funk (;)` (bare function declarations) and `self.x,`/`Self.x,` (nil-init) **do** desugar at parse time: `#parse_self_prefixed_identifier` (`parser.rb`) synthesizes a `scope_operator` lexeme carrying the keyword string (`'self'` / `'Self'`) onto the `Identifier_Expr`, so every downstream scope-operator-aware check (`#track_static_declaration` — gated on `'Self'`, the per-instance re-run skip in `#run_type_body_on_instance`) treats it uniformly
-- `#static_var_declaration_expr?` (`interpreter.rb`) recognizes the `Self.x := value` static declaration by its AST shape — a `.` dot-target with a bare `Self` identifier on the left — so it runs once during the type body walk, not per instance
-- `#current_instance` (`interpreter.rb`) is the nearest `Code::Instance` in the stack (role-based, not positional) — shared by `self` resolution and `#check_dot_access_permissions!`'s privacy check. This mattered for a real bug: `#interp_func_body` always pushes a fresh per-call `Func` frame on top of the instance, so `stack.last` during any method body is never the instance itself — a privacy check that compared against `stack.last` directly would (and did) wrongly reject `self.some_private_member` read from inside that very instance's own method, until fixed to compare against `#current_instance` instead
+- `#parse_self_prefixed_identifier` (`parser.rb`) synthesizes a `scope_operator` lexeme on `self.funk (;)` / `Global.x,` — the function-name and nil-init positions. `#scope_for_identifier` and `#track_static_declaration` match on that lexeme.
+- **Dot access (`x.y`)** resolves `y` only against `x`, plus global scope, through `#interp_member_access` — never the ambient call stack. Without this, a missing member on `x` could fall through to an unrelated same-named member still active further down the stack.
+- **Nil receiver.** `x.y` (read, call, or write) where `x` is `nil` raises `Code::Receiver_Is_Nil`, not a bare `Undeclared_Identifier`. `nil` is still a real scope with its own declared members, so `nil.to_s()` still works. The read path (`#interp_dot_scope`) translates `Undeclared_Identifier` to `Receiver_Is_Nil` only when the receiver really is `Code::Nil`; the write path (`#assign_dot_member`) checks this up front. `x.?y` on a nil `x` still returns `nil`.
+- `#current_instance` (`interpreter.rb`) is the nearest `Code::Instance` in the stack, found by role, not by position. `self` resolution and `#check_dot_access_permissions!`'s privacy check both use it, since `#interp_func_body` always pushes a fresh `Func` frame on top of the instance — `stack.last` during a method body is never the instance itself.
+- `#static_var_declaration_expr?` (`interpreter.rb`) recognizes `Self.x := value` by its AST shape — a `.` dot-target with a bare `Self` identifier on the left — so it runs once during the type body walk, not once per instance.
 
 ## Reopening a Scope
 
-`@push_scope scope` pushes a `Type` or `Instance` directly onto the interpreter's stack, so its members become reachable without a prefix, and any bare declaration made while "inside" lands on the pushed scope itself — this actually mutates the target, unlike a splat (Splatting a Scope, below), which only adds a lookup fallback. `@pop_scope scope` pops back out; it asserts (by identity) that `scope` is exactly what `@push_scope` last pushed, raising a plain `RuntimeError` instead of silently popping the wrong thing.
+`@push_scope scope` pushes a `Type` or `Instance` directly onto the interpreter's stack, so its members become reachable with no prefix. A bare declaration made while "inside" lands on the pushed scope itself — this mutates the target, unlike a splat (see Splatting a Scope), which only adds a lookup fallback. `@pop_scope scope` pops back out. It checks, by identity, that `scope` is exactly what `@push_scope` last pushed, and raises a plain `RuntimeError` otherwise.
 
-```code
-Button {
-	label := 'default'
-}
-
-@push_scope Button
-	css_filter := 'invert()'   # declared directly on the Button type -- every instance sees it
-@pop_scope Button
-
-b := Button()
-b.css_filter   # 'invert()'
-```
-
-Reopening a `Type` extends every instance (past and future); reopening a specific `Instance` directly changes only that one value. Implemented as `#interp_context_stack_function`'s `push_scope`/`pop_scope` cases, calling `#push_scope`/`#pop_scope` on the interpreter's `stack`. This replaces the older `@cd`/`@cd ..` directive, which popped without naming (or checking) a target.
+Implemented as `#interp_context_stack_function`'s `push_scope`/`pop_scope` cases, calling `#push_scope`/`#pop_scope` on the interpreter's `stack`.
 
 ## Static Declarations
 
-Type-level (static) members are declared with `Self.` (see `self` / `Self` Keywords above):
+See readme.md's "Static Declarations" section for the language-level rules and examples.
 
-```code
-Person {
-    Self.count := 0      # Static variable shared across all instances
-
-    Self.increment (;  # Static method
-        count += 1
-    )
-
-    init (;
-        Self.count += 1  # Access static from instance method
-    )
-}
-
-Person().init()
-Person().init()
-Person.increment()   # Call static method on type => 3 (2 from init(), 1 more from this call)
-```
-
-**Implementation Details:**
-
-- Static declarations are tracked in `type.static_declarations` set
-- Instance methods can access type-level variables via `Self.`
-- When calling instance methods, the interpreter pushes both the type scope and instance scope onto the stack
-- Instances are linked to their types via `instance.enclosing_scope = type`
-- Static functions and variables are declared on the Type scope
+- Static declarations are tracked in `type.static_declarations`.
+- Calling an instance method pushes both the type scope and the instance scope onto the stack.
+- An instance links to its type through `instance.enclosing_scope = type`.
 
 ## Member Creation Is Strict
 
-A member must be declared in a type's own body before anything can write to it — `.` from outside, or `self.`/`Self.` from one of the type's own methods, `Self(;)` (the constructor) included. Nothing ever self-declares a brand-new member on an instance:
+A member must be declared in a type's own body before anything can write to it — from outside with `.`, or from inside one of the type's own methods (`Self(;)`, the constructor, included) with `self.`/`Self.`. Nothing ever self-declares a brand-new member on an instance.
 
-```code
-Thing { member, Self (; self.member := 123 ) }   # `member,` declares it; `self.member := 123` just writes to it
-t := Thing()
-t.member = 5                            # fine -- member already exists
-t.missing = 5                          # raises Code::Cannot_Assign_Undeclared_Identifier
-
-Bad { Self (; self.member := 123 ) }    # raises Code::Cannot_Assign_Undeclared_Identifier -- `member` was
-                                        # never declared in the body; self/Self get no shortcut, construction included
-```
-
-- `self.`/`Self.` writing to an *already-declared* member works from any method, `Self(;)` included — it's a plain reassignment, not a declaration. Self-declaring a brand-new member this way — even from inside `Self(;)` itself, on the very first line of construction — raises `Code::Cannot_Assign_Undeclared_Identifier`, same as external `.` always has. (This used to be allowed for the whole window a constructor was running — `#still_under_construction?`'s old `instance.has?('Self')` check — deliberately removed, so there's no hidden way to grow an instance's shape outside its own declared body.)
-- `#still_under_construction?` (`interpreter.rb`) still grants one, narrower exception: a `Code::Type`'s own `declaration_in_progress` (true only while its `{}` body is being walked, set/cleared in `#finish_type_declaration`) — this is what makes `Self.count := 0` self-declaring a brand-new static work when written directly in the type's own body (see Static Declarations above). `Code::Instance < Code::Type` but never gets `declaration_in_progress` set on itself (only the `Type` object is ever toggled), so this exception is deliberately false for an instance under construction, however it's reached
-- A constant-named member (`X.SOME_CONST = ...`) can never be reassigned via `.`, raising `Code::Cannot_Reassign_Constant`
-- All three `.`-write forms — plain `=`, plain `:=`, and destructuring dot-targets (see Destructuring below) — share one implementation, `#assign_dot_member` in `interpreter.rb`. `:=` onto an *existing* member re-infers/overwrites its recorded type (same as re-running `:=` on a plain identifier); `=` checks the new value against any previously recorded type instead
-- A `.`-write onto a `nil` receiver (`x.y = z` / `x.y := z` where `x` is `nil`) raises `Code::Receiver_Is_Nil`, not `Cannot_Assign_Undeclared_Identifier` — see "Nil receiver" under Scope System above
+- `self.`/`Self.` writing to an already-declared member works from any method, `Self(;)` included — it is a plain reassignment, not a declaration. Self-declaring a brand-new member this way, even inside `Self(;)`, raises `Code::Cannot_Assign_Undeclared_Identifier`, the same as an external `.` write always has.
+- `#still_under_construction?` (`interpreter.rb`) grants one narrower exception: a `Code::Type`'s own `declaration_in_progress` flag (true only while its `{}` body is being walked). This is what lets `Self.count := 0` self-declare a brand-new static inside the type's own body. `Code::Instance < Code::Type` in Ruby, but only the `Type` object ever gets `declaration_in_progress` set — an instance under construction never has it.
+- A constant-named member (`X.SOME_CONST = ...`) can never be reassigned through `.` — it raises `Code::Cannot_Reassign_Constant`.
+- Plain `=`, plain `:=`, and destructuring dot-targets all share one implementation: `#assign_dot_member` in `interpreter.rb`. `:=` onto an existing member re-infers and overwrites its recorded type. `=` checks the new value against any previously recorded type.
+- A `.`-write onto a `nil` receiver raises `Code::Receiver_Is_Nil`, not `Cannot_Assign_Undeclared_Identifier` — see Nil Receiver under Scope System above.
 
 ## Class Composition Operators
 
-The language uses composition operators instead of inheritance. Applied as `Class | Other { body }`:
+See readme.md's "Type Composition" section for the language-level rules, chaining, and the `Alias vs. subtype` distinction. This section covers only the Ruby implementation.
 
-- `|` **Union** - merge all declarations; left side wins conflicts
-- `&` **Intersection** - keep only declarations shared by both sides
-- `~` **Difference** - remove right side's declarations from left side
-- `^` **Symmetric Difference** - keep only unique declarations (discard shared ones)
+- `interp_composition`'s `|` case only fills in a key the accumulating scope does not already have (`curr_scope[key] = ... unless curr_scope.has?(key)`, `source/interpreter.rb`). A chain (`A | B | C { }`) applies strictly left to right, so the leftmost operand that declares a name wins — `Self` included.
+- The type's own literal `{ }` body always wins over anything composition brought in, whatever position it holds in the chain — the composition steps run first, the body's own declarations run last and overwrite unconditionally.
+- `~` (difference) protects `Self` from removal, even when the right-hand operand also declares one. `&`/`^` have no such protection, and can drop `Self` like any other key.
+- `interp_struct_composition` (the sibling that composes structs, via `Both | Abc | Def <extra: String>`) mirrors the same leftmost-wins rule for `|`, matched by member name.
 
-Multiple operators can be chained: `Admin | Read_Permissions | Write_Permissions { }`.
+### Composing With a Struct Value
 
-These four meanings apply only to an actual `Type | Other { }` composition — a `: Type` annotation (`x: Int | Nil`) is a different, unrelated grammar position that reuses the same four operator symbols to mean plain OR regardless of which one is written; see "`: Type` annotations with `|`/`&`/`^`/`~`" under Runtime Type Contracts above.
+`Code::Struct < Instance < Type < Scope` (`source/proxies/struct.rb`, `source/proxies/scopes.rb`), and `interp_composition`'s only requirement of its right-hand operand is `is_a? Code::Scope` — so a struct value satisfies it like any Type would. A named struct member is an ordinary `declare`d entry (`Struct#initialize` calls `declare name, values[i], type_names[i]` for each named member), so `|`/`~`/`&`/`^` treat it as just another declaration to merge.
 
-Built-in types like `Server` and `Dom` are composed this way:
-
-```code
-Web_App | Server { get:// (; "Hello" ) }
-Layout | Dom { render (; Html([Body("Hello")]) ) }
-```
-
-(`Table` used to be composed too — `Post | Table { Self.database := Global.db }` — but the ORM moved to plain `Database` instance methods; see Database and ORM below.)
-
-### Composing with a Struct value
-
-Not a deliberate feature — no special-casing anywhere for it — but it works and is worth knowing about: `Code::Struct < Instance < Type < Scope` (`source/proxies/struct.rb`, `source/proxies/scopes.rb`), and `interp_composition`'s only requirement of its right-hand operand is `is_a? Code::Scope`, so a struct value satisfies it like any Type would. A named struct member really is an ordinary `declare`d entry (`Struct#initialize` calls `declare name, values[i], type_names[i]` for each named member), so `|`/`~`/`&`/`^` see it as just another set of declarations to merge:
-
-```code
-p := <a := 5, b := 'x'>
-
-Combined | p {
-	foo (; a )
-}
-
-c := Combined()
-c.a       # 5
-c.b       # 'x'
-c.foo()   # 5
-```
-
-- An **unnamed** struct member never transfers — `Struct#initialize` only declares members that have a name, so `Combined | <String, Number> {}` composes in nothing
-- A struct declared with no values (`Point <a: Number, b: String>`, no `:=`) composes fine too, but every member comes through `nil`
-- No `Self`-collision case here, since structs have no constructor — ordinary member-name collision rules (leftmost composed-in source wins, own `{}` body always wins over composition — see below) still apply
-
-### `|` and the leftmost-wins rule (including `Self`)
-
-`interp_composition`'s `|` case only fills in a key the accumulating scope doesn't already have (`curr_scope[key] = ... unless curr_scope.has?(key)`, `source/interpreter.rb`), and a composition chain (`A | B | C { }`) applies strictly left-to-right — so **the leftmost operand that declares a given name wins**, for any conflicting member, `Self` included:
-
-```code
-A { label, Self (; self.label := 'A' ) }
-B { label, Self (; self.label := 'B' ) }
-
-Combined | A | B {}
-Combined().label   # 'A' -- A's Self ran, not B's; A comes first in the chain
-```
-
-The type's own literal `{ }` body always wins over anything pulled in by composition, regardless of chain position — the composition steps (`| A`, `| B`, ...) are applied first (they're written before the `{`), and the body's own declarations are interpreted last, unconditionally overwriting whatever composition brought in. So an explicit `Self (;)` (or any other member) in the type's own body always beats a composed-in one from any operand.
-
-`~` (difference) explicitly protects `Self` from removal even if the right-hand operand also declares one (`# Maybe I'll have other keys to protect in the future.`) — `&`/`^` have no such protection and can drop `Self` like any other non-shared/shared key. `interp_struct_composition` (the sibling that composes *structs* via `Both | Abc | Def <extra: String>`) mirrors the same leftmost-wins rule for `|`, matched by member name — see "Composing with a Struct value" above; struct composition has no `Self` at all, so there's nothing to protect on the `~` side.
-
-### Alias vs. subtype
-
-Two ways to give a type a second name, with different type-identity behavior (see Type Comparison Operators):
-
-- **`Name := Other`** — a plain alias. `Name` is bound to the *exact same* `Type` object (the "Class-styled identifier assigned a Scope value" form, see Runtime Type Contracts). Same composed-type set, so `x === Name` ⟺ `x === Other`. This is how `source/programs/number.code` declares `Int := Integer` / `Flo := Float` / `Dec := Decimal`.
-- **`Name | Other {}`** — a distinct, *narrower* subtype. `Name`'s composed-type set is `{Name} ∪ Other`'s, strictly larger — so `Name =>= Other` is true but `Name === Other` is false, and a plain `Other` value is **not** `=== Name` (it doesn't carry `Name` in its set). This is `Web_App | Server {}`, `Duck | Flying {}`, etc.
-
-Pick `:=` for a synonym, `| {}` when the new name should be its own type that `=>=` its parent without being `===` to it.
+- An unnamed struct member never transfers — `Struct#initialize` only declares members that have a name.
+- A struct declared with no values composes fine too, but every member comes through `nil`.
+- There is no `Self`-collision case here, since structs have no constructor.
 
 ## Type Comparison Operators
 
-Five operators compare the *composed-type sets* of Types and Instances (a type's own name plus every type it has composed via `|`/`&`/`~`/`^`), handled by `#interp_comparison_infix` (`interpreter.rb`, dispatched from `#interp_infix`). All five share the `=X=` shape (equals, symbol, equals) so they're easy to remember and hard to mistake for one another:
+See readme.md's "Comparison" section (under Operators) for `===`/`=!=`/`=>=`/`=<=`/`=/=` and their examples. All five are handled by `#interp_comparison_infix` (`interpreter.rb`, dispatched from `#interp_infix`).
 
-- `===` - exact type-set equality
-- `=!=` - negation of `===`
-- `=>=` - is left a superset of right (left composes with at least everything right does)
-- `=<=` - is right a superset of left (mirror of `=>=` with operands reversed: `A =<= B` ≡ `B =>= A`)
-- `=/=` - disjoint: the two share no composed types at all
-
-Only `=>=` (superset) carries genuinely new information — `=<=` is `=>=` with swapped operands, and `===` is mutual `=>=` in both directions (`(A =>= B) && (B =>= A)`); `=!=` is just `!(A === B)`. The other three exist purely for readability at the call site, the same reason most languages ship both `<=`/`>=` alongside `==`/`!=` despite one being derivable from the other.
-
-```code
-Flying { can_fly := true }
-Swimming { can_swim := true }
-
-Duck | Flying | Swimming { name := 'duck' }
-Fish | Swimming { name := 'fish' }
-
-Duck === Duck          #=> true  (identical composed-type sets)
-Duck === Fish          #=> false (Duck also composes Flying)
-Duck =!= Fish          #=> true
-Duck =>= Swimming      #=> true  (Duck composes with at least Swimming)
-Swimming =>= Duck      #=> false (Swimming doesn't compose Duck's extra types)
-Swimming =<= Duck      #=> true  (mirror of the line above)
-Duck =/= Fish          #=> false (both compose Swimming, so they're not disjoint)
-Flying =/= Swimming    #=> true  (share nothing)
-```
-
-Struct members (see below) factor into all five: `===`/`=!=` require both the composed-type-sets *and* the structures (`left.tag_instance&.type_objects == right.tag_instance&.type_objects`) to match; `=>=`/`=<=` additionally require the member-poor side's members to be entirely present in the member-rich side's; `=/=` additionally requires the members to share nothing either. An unstructured side is treated as having no members, so `Abc === Abc` (neither side structured) is unaffected and stays `true`. Two types still sharing a composed type (e.g. both being `Abc`) always blocks `=/=` regardless of their members — disjointness means sharing *nothing*, composed types included.
-
-### `Any` is a universal wildcard — for `==`/`!=`/`=>=`/`=<=`/`=/=`, deliberately not `===`/`=!=`
-
-`Any` (`source/programs/global.code`) is a real declared type, but `==`/`!=`/`=>=`/`=<=`/`=/=` special-case it: any value or type that isn't `nil` counts as equal-or-superset-of `Any`, in either operand position, with no composition required — you don't need `Thing | Any {}` for `Thing` to satisfy it.
-
-```code
-Thing { x := 1 }
-
-String == Any        #=> true
-Thing() == Any        #=> true
-4 == Any              #=> true
-nil == Any            #=> false -- the one exception
-String =>= Any        #=> true -- Any genuinely is a superset of everything
-```
-
-`===`/`=!=` are the one deliberate exception — they're exact composed-type-SET equality, and that's exactly what's used throughout the codebase as a structural type-dispatch check (`node === Element`, `prop === Property`, ...). Wildcarding `Any` through `===` too would mean a bare `Any` *value* (not a `Thing() | Any {}` subtype — the literal type itself, reachable e.g. when a struct member typed `Any`/`String` never got a real value) satisfied *every* such dispatch check instead of just its own, silently misrouting it into whatever branch happened to be checked first rather than into the intended "not a real value" fallback:
-
-```code
-String === Any        #=> false -- neither composes the other; Any =>= String, not Any === String
-Any === Any           #=> true  -- identical composed-type sets, ordinary case
-```
-
-Implemented once in `#interp_comparison_infix` (`interpreter.rb`) via `ANY_WILDCARD_COMPARISON_OPERATORS` (`constants.rb` — `== != =>= =<= =/=`, `===`/`=!=` pointedly absent), checked up front before the normal composed-type-set/overload-lookup logic — a new `#any_type?` helper identifies the literal `Any` type (by name, not by composed types). `===`/`=!=` fall through to the ordinary composed-type-set comparison below, where `Any`'s own set (`{"Any"}`) simply isn't a superset of (or subset of) anything else's, so they come out `false`/`true` respectively without any special-casing.
-
-### A String equals a bare Type by name
-
-`"Flying" == Flying` is `true` (either operand order) when the string spells the type's own `.name` — `==`/`!=` only, and only for a *bare* Type (not an Instance or Struct). Checked up front in `#interp_comparison_infix` via `#string_value_and_bare_type`, right after the `Any` wildcard. The point: `set.include?(SomeType)` / `array.include?(SomeType)` (both language-level scans that compare `it == item`) match against a collection of type-name strings — e.g. `Duck.@composed_types.include?(Flying)` even though `@.composed_types` stores only strings.
+- Struct members factor into all five: `===`/`=!=` also require the structures to match (`left.tag_instance&.type_objects == right.tag_instance&.type_objects`); `=>=`/`=<=` also require the member-poor side's members to sit entirely inside the member-rich side's; `=/=` also requires the members to share nothing. An unstructured side counts as having no members.
+- `Any` is a real declared type (`source/programs/global.code`), but `==`/`!=`/`=>=`/`=<=`/`=/=` special-case it: any value or type that is not `nil` counts as equal to, or a superset of, `Any` — in either operand position, with no composition needed. `===`/`=!=` are the one exception: they stay exact composed-type-set equality, since that is what the codebase uses throughout as a structural type-dispatch check (`node === Element`, and so on). `ANY_WILDCARD_COMPARISON_OPERATORS` (`constants.rb`) lists the five that get the wildcard; `#any_type?` identifies the literal `Any` type by name.
+- `"Flying" == Flying` is `true`, in either operand order, when the string spells the type's own `.name` — `==`/`!=` only, and only for a bare Type (not an Instance or Struct). `#string_value_and_bare_type` checks this, right after the `Any` wildcard. This is what lets `set.include?(SomeType)` match a collection of type-name strings.
 
 ## Structs
 
-`<...>` attaches runtime-inspectable metadata (a "struct") to a standalone value or a reference to an existing type. Parsed by `parse_struct` in `parser.rb` into `Code::Struct_Expr`; interpreted by `interp_struct` in `interpreter.rb` into an `Code::Struct` instance (`source/proxies/struct.rb` — no paired `.code` file; `source/programs/struct.code` + `source/programs/member.code` are a separate, higher-level `Member`/`Struct` layer built on top of it, loaded by default via `source/programs/global.code`).
+See readme.md's "Structs" section for `<...>` and `\` tagging, chains, and the concept of "each declared tag is its own type." This section covers the Ruby implementation.
 
-Tagging a *Type* declaration/reference itself — as opposed to a standalone struct value — goes through `\` (`Code::TAG_OPERATOR`, `source/shared/constants.rb`) instead of bare `<...>`, to stay unambiguous from a lone unnamed Struct-valued member (see "Each declared tag is its own type" below) and from ordinary comparisons. `\`'s RHS is resolved by `#resolve_tag_node` (`interpreter.rb`; `#resolve_tag_reference` is a thin `expr.tag` → `#resolve_tag_node` delegator), dispatched from `interp_type`/`#interp_tagged_type_declaration`:
+`parse_struct` (`parser.rb`) builds a `Code::Struct_Expr`; `interp_struct` (`interpreter.rb`) builds a `Code::Struct` instance (`source/proxies/struct.rb` — no paired `.code` file). `source/programs/struct.code` and `source/programs/member.code` are a separate, higher-level `Member`/`Struct` layer on top of it, loaded by default through `source/programs/global.code`.
 
-```code
-Abc\<Number> {}              # inline literal declaration — Number becomes part of Abc's tag_declaration
-Task_Schema <a: Number, b: String>  # a separately-declared struct value (bare `<...>`, no `\`)
-Array\Task_Schema {}         # named reference — reuses an already-declared struct value verbatim
-Array\String {}              # named reference to a Type — wrapped as the equivalent single-unnamed-member struct, same as Array\<String>
-Thing\One\Two {}             # chain — Thing tagged with One, One itself tagged with Two (see "Tag chains" below)
+`\`'s right side resolves through `#resolve_tag_node` (`#resolve_tag_reference` is a thin `expr.tag` delegator), dispatched from `interp_type`/`#interp_tagged_type_declaration`. There is no standalone `\expr` expression — `\` only ever trails a type name. `Identifier_Expr` carries the tag on `.tag`; a tagged `Param_Expr` (`x: Abc\<Number>`) reaches it through `param.type.tag`, since `param.type` is itself an `Identifier_Expr`.
 
-x := Abc\<Number>             # reference — dup of the existing Abc type, tagged; doesn't mutate the original
-x: Abc\<Number>                # same, as a type annotation — lands on the Identifier_Expr's `.tag`
-thing: <String, Number>        # bare struct annotation — lands on the Identifier_Expr's `.type` as a Struct_Expr, sugar for `thing: Struct<String, Number>`; a standalone Code::Struct value, unrelated to `\`
-z := Abc\<4815>                # a reference tagged with an actual value rather than a type
-z()                            # constructs Abc, with the tag bound (readable via `@.tag`/`self.@tag`) before Self(;) runs
-Abc\<4815>()                   # same, in one step
-Abc\4815                       # bare integer, no `<...>` — shorthand for Abc\<4815> (a "version tag")
-Primary_Key\Int               # bare identifier RHS is still a named reference, not this shorthand
-Def {}
-Def()                          # untagged types are completely unaffected — `@.tag`/`x.@tag` on one is just nil (plain `.tag`, no `@`, always raises Undeclared_Identifier now, tagged or not — see Runtime wiring below)
-```
+A named reference's right side must resolve to a real `Code::Struct` or `Code::Type`, or it raises `Code::Tag_Reference_Must_Be_Type_Or_Struct`. Referencing a real declared Type with no matching tagged variant yet does not raise — it auto-declares one on the spot (`#declare_tagged_type_variant`), so `Array\String` works with no `Array\String {}` written first.
 
-There is no standalone `\expr` expression — `\` only ever trails a type name (a declaration, a reference, or an annotation). `Identifier_Expr` carries the tag on `.tag`; a tagged `Param_Expr` (`x: Abc\<Number>`) reaches it the same way any other type annotation does — `param.type` is itself an `Identifier_Expr`, so the tag is `param.type.tag`, not a separate `Param_Expr#tag` (removed — it only ever duplicated that). The bare `x: <...>` struct annotation lives on `.type` (an `Identifier_Expr` for a plain `: Type`, a `Struct_Expr` for `: <...>`). There is no `type_struct` field and no `Tag_Expr` node.
+- A member is any expression, evaluated normally at interpret time — an identifier like `Number` resolves to the real `Code::Type`.
+- The bare integer shorthand (`Abc\4815`, a "version tag") is handled by `#integer_tag_next?`/`#type_then_integer_tag_next?`/`#integer_tag_struct_expr` (`parser.rb`).
+- Named members reuse `parse_identifier_expr`'s `: Type` annotation parsing for each member. Three named forms: `name: Type`, `name := value`, and `name: (params -> ret;)` (a func-signature type). A `:` right after a bare identifier, followed by anything that is not a capitalized type name or `<...>`, raises `Code::Invalid_Struct_Member_Annotation` at parse time — without this check, the leftover `:` reparses as a `:symbol` literal starting a new member.
+- A struct is only ever reachable through `@` (`@.tag`, `x.@tag`, and so on) — never auto-unpacked into the struct's own scope, and never through plain `.tag`. Every reflective accessor is `@`-only, held as a plain Ruby ivar on `Code::Struct`, surfaced by `#context_vital`:
+  - `@.name` — the struct's own identifier, or `nil`.
+  - `@.names` / `@.type_names` / `@.values` — parallel per-member arrays.
+  - `@.type_objects` / `@.types` — the same thing: the per-member type-object list.
+  - `@.members` — an `Code::Array` of `Code::Member`, populated by `#build_struct` only when the `struct.code`/`member.code` layer is loaded.
+  - `@.composed_types` — the composed-type `Set`. `@.type` — the first member's type.
+  - `s.types` / `s.names` / `s.values` (plain `.`) resolve a member of that name, or raise — the `.` namespace on a struct is user members only.
+- `name` is `@`-only across the board (`Type.@name`, `instance.@name`, `enum.@name`, `struct.@name`), backed by `Scope#name`. A plain `.name` reads a declared member of that name or raises.
+- Reference forms (`x := Abc\<Number>`) `dup` the matched variant rather than mutating it in place. `Object#dup` is shallow, so `@declarations`/`@static_declarations` are re-forked too, or tagging one reference would mutate every other reference sharing that variant.
+- Constructing from a tagged reference binds `.tag` onto the instance before `type.expressions` (and so `Self(;)`) run, so `Self`'s own body can read it through `self.@tag`. Member values are never forwarded as constructor arguments — `(...)` still binds to `Self`'s own declared params.
 
-A named reference's RHS must resolve to a real `Code::Struct` or `Code::Type` — anything else raises `Code::Tag_Reference_Must_Be_Type_Or_Struct`. Referencing a name that's a real declared Type but has no matching tagged variant yet doesn't raise — it auto-declares one on the spot (an implicit empty body via `#declare_tagged_type_variant`), so `Array\String` "just works" without requiring `Array\String {}` to have been written first; declaring it for real later reopens/extends this same auto-created variant.
+### Tag Chains
 
-- A member is any expression (`Abc\<1+2+3/123>`, `Abc\<this, that>`), not just a type name — evaluated normally at interpret time, so an identifier like `Number` resolves to the actual `Code::Type`
-- **Bare integer shorthand** (`Abc\4815`, no angle brackets): a "version tag", parsed identically to `Abc\<4815>` — a single unnamed member holding that integer. Handled by `#integer_tag_next?`/`#type_then_integer_tag_next?`/`#integer_tag_struct_expr` (`parser.rb`), in both the primary-expression dispatch and `#parse_identifier_expr`'s trailing-tag handling. Only a bare integer triggers it; `Abc\Name` stays a named reference. Used by `source/programs/database.code`'s `Primary_Key\Int` (an `Int`-tagged primary key) and left open for schema-version tagging
-- Named members (`Type\<some_string: String, num: Number> {}`) reuse `parse_identifier_expr`'s existing `: Type` annotation parsing for each member — no separate grammar needed. Three named forms: `name: Type`, `name := value`, and `name: (params -> ret;)` (a func-signature type — `#parse_struct` detects `identifier : (` + `func_declaration_follows?` and calls `#parse_func`, which returns a `Func_Signature_Expr`; `#interp_struct` records `#build_func_signature` as the member's type, value nil). There's no general `name: value` the way Dictionaries have one. `:` immediately after a bare identifier, followed by anything that isn't a capitalized type name or `<...>` (almost always a lowercase value, mistaken for Dictionary-style `key: value`), raises `Code::Invalid_Struct_Member_Annotation` at parse time in `#parse_struct` — without that check, `#parse_identifier_expr`'s own `: Type` lookahead just declines to consume the `:` (it can never be a type), leaving it to be reparsed on the next loop iteration as an unrelated `:symbol` prefix literal starting a whole new member, since commas are optional between struct members same as any other list — `<columns: cols>` would otherwise silently become the two members `columns, :cols` instead of erroring anywhere
-- A struct is only ever reachable via `@` (`@.tag`/`x.@tag`, `x.@tag.@types` for the per-member type-object list, `x.@tag.some_string` for named members) — never auto-unpacked into the struct's own scope, and never through plain `.tag` (see Runtime wiring below — it's a reflective vital, same as `@.name`/`@.types`, not a declared member). **The `.` namespace on a struct is user members only.** Every reflective accessor is `@`-only, held as a plain Ruby ivar on `Code::Struct` and surfaced by `#context_vital` (`#context_types_for` etc.) when reached through `@`:
-  - `@.name` — a bare named struct's identifier, else nil (Ruby-level `Scope#name`; `Struct#initialize` nils the `"Struct"` its `super` seeded)
-  - `@.names` / `@.type_names` / `@.values` — the parallel per-member arrays (`@names` / `@type_names` / `@values` ivars); each comes back a linked `Code::Array` (`#interp_at_word_on` runs a raw-Array result through `#maybe_instance`)
-  - `@.type_objects` and `@.types` are the same thing — the per-member Type-object list (`@type_objects` ivar)
-  - `@.members` — an `Code::Array` of `Code::Member`, populated by `#build_struct` only when the `source/programs/struct.code` / `source/programs/member.code` layer is loaded
-  - `@.composed_types` = always the composed-type `Set` (own name + `|`/`&`/`~`/`^`); `@.type` = first member type
-  - `s.types` / `s.names` / `s.values` (plain `.`) resolve a *member* of that name (`Layer_Order <names: Array\String>`, `Structure <types: Array\Any>`) or raise. `Code::Struct` keeps Ruby-level `attr_accessor`s for all of these — Ruby code (`Database`, `#interp_struct_call`, `#interp_for_loop`) reads `struct.members` / `struct.names` directly.
-- **`name` is `@`-only across the board** — `Type.@name` / `instance.@name` / `enum.@name` / `struct.@name`, backed by the Ruby-level `Scope#name` attr (not `@declarations`, not a static). A plain `.name` reads a declared member of that name or raises. A composed type sharing a built-in Ruby class (`Tasks | Table {}`) has its `Scope#name` overwritten to the real name in `#build_instance_of_type`. `Struct#initialize` nils its own name (`super` seeds `"Struct"` for `@types`' sake). Ruby-side code that needs the schema name (`Database`, `Table`) reads `struct.name` directly.
-- A bare identifier immediately followed by `,` inside `<...>` (`<String, Number>`) is special-cased in `parse_struct` to parse as a plain identifier rather than the nil-init idiom (`ident,` ⇒ `ident = ident or nil`), which would otherwise misfire on the exact same shape
-- Reference forms (`x := Abc\<Number>`) `dup` the matched variant (see below) rather than mutating it in place — `Object#dup` is shallow, so `@declarations`/`@static_declarations` are explicitly re-forked too, otherwise tagging one reference would silently mutate every other reference sharing that variant
-- Constructing from a tagged reference binds `.tag` onto the instance *before* `type.expressions` (and therefore `Self(;)`) run, so `Self`'s own body can read it via `self.@tag` — but member values are never forwarded as constructor arguments; whatever `(...)` actually passes still binds to `Self`'s own declared params, entirely separately
-- A named member's value, supplied positionally at the reference site (`Woof\<'hello', 4815>`, never `Woof\<key: 'hello'>`), gets re-associated with the *matched variant's own* `tag_declaration` names before landing on the instance, so `x.@tag.key` still resolves correctly
+`#resolve_tag_node` walks the nested `.tag` field: it resolves one link to a `Code::Struct`, and if that node carries its own `.tag`, resolves that too and hangs it off `struct.tag_instance` plus `#declare_tag(struct)`. Each link is a real `Code::Struct`, so `@tag.@tag.@tag` is ordinary `@`-access down the chain.
 
-### Tag chains
+Two chains sharing a prefix are distinct variants — `Thing\One\Two {}` and `Thing\One\Three {}` do not merge. `#declare_tagged_type_variant`'s collision check pairs `Struct#structure_declaration_equal?` (top-level structure) with `#tag_chains_equal?` (recursive equality down `.tag_instance`). `#find_tagged_type_variant` filters candidates through `#tag_chains_satisfy?` (a recursive `=>=`-style match) before its own exact-or-compositional pick.
 
-`Thing\One\Two` tags `Thing` with `One`, and `One` is itself tagged with `Two` — `x.@tag` is `One`, `x.@tag.@tag` is `Two`. The parser already nests this at the AST level: `#parse_identifier_expr`'s trailing-`\` branch recurses, so `\One\Two` parses as `Identifier_Expr(One)` with its own `.tag` of `Identifier_Expr(Two)` (`#parse_type_decl`'s `\Name` branch calls straight into `#parse_identifier_expr`, so it inherits the recursion). `\<...>` is always terminal — you can't chain past an inline struct (`Thing\<x: Int>\Two` is not a thing), and you can't tag a bare named struct (`Struct_Name\Tag<members>`).
+### Runtime Re-Tagging
 
-`#resolve_tag_node` walks the nested `.tag` (the parser's AST field, Ruby-level): it resolves one link to an `Code::Struct`, and if the node carries its own `.tag`, recursively resolves that and hangs it off `struct.tag_instance` + `#declare_tag(struct)`. Each link is a real `Code::Struct` (a `Scope`), so `@tag.@tag.@tag` is just ordinary `@`-access down the chain once built. `#interp_type`'s reference branch (which rebuilds the top struct to re-associate call-site member values) carries the chain across that rebuild explicitly.
+`x.@tag = new_tag` re-tags at runtime — `@`-only, like reading it. `#assign_context_member` (`interpreter.rb`) handles both `x.@tag =` and `self.@tag =`, in a dedicated branch before the built-in-`@`-member check:
 
-Two chains sharing a prefix are distinct variants: `Thing\One\Two {}` and `Thing\One\Three {}` don't merge. `#declare_tagged_type_variant`'s collision check pairs `Struct#structure_declaration_equal?` (top level) with `#tag_chains_equal?` (recursive exact equality down `.tag_instance`), and `#find_tagged_type_variant` filters candidates through `#tag_chains_satisfy?` (recursive `=>=`-style compositional match) before its own exact/compositional pick. Both helpers treat both-nil as equal, so an unchained tag is unaffected.
+- Only allowed when `x`'s type was declared with a tag (`receiver.tag_instance` present) — otherwise it raises `Cannot_Assign_Undeclared_Identifier`.
+- `#tag_struct_for_reassignment` normalizes `new_tag` to its tag `Code::Struct`.
+- The new tag must `=>=` the current one at every chain link (`#tag_chains_satisfy?`), or it raises `Code::Tag_Signature_Violation`.
+- On success: `receiver.tag_instance = new_tag`, then `#declare_tag(receiver)`. No already-run method re-runs.
+- Plain `x.tag = new_tag` (no `@`) does none of this — it raises `Cannot_Assign_Undeclared_Identifier` unconditionally.
 
-### Runtime re-tagging
+### Each Declared Tag Is Its Own Type
 
-`x.@tag = new_tag` re-tags at runtime — `@`-only, like reading it. Handled in `#assign_context_member` (`interpreter.rb`), in a dedicated branch before the "is this a known builtin `@` member" check, so it covers both `x.@tag =` and `self.@tag =`:
+`#interp_tagged_type_declaration` handles a tagged declaration, as a sibling of `#interp_bare_type_declaration` (plain, untagged `Type { ... }`). Both funnel into `#declare_tagged_type_variant`, then `#finish_type_declaration`. Each variant is kept in a per-scope list (`Scope#tagged_type_variants`, keyed by base name), not a single mangled-string-keyed member — so `String\<dict: Dictionary> {}` and `String\<other: Dictionary> {}` stay distinct.
 
-- Only allowed when `x`'s type was declared with a tag — the branch is gated on `receiver.tag_instance` being present, so `Thingy {}` then `Thingy.@tag = 5` still raises `Cannot_Assign_Undeclared_Identifier` (Member Creation Is Strict) rather than falling into the generic `Cannot_Override_Context_Member` a truly read-only vital would give
-- `new_tag` is normalized to its tag `Code::Struct` by `#tag_struct_for_reassignment` (a Struct is itself; a Type/Instance contributes its own `.tag_instance`, or is wrapped single-member)
-- The new tag must `=>=` the current one at every chain link — `#tag_chains_satisfy?(receiver.tag_instance, new_tag)` — else `Code::Tag_Signature_Violation`
-- On success: `receiver.tag_instance = new_tag` + `#declare_tag(receiver)`. `@tag` reads live off `tag_instance` on each call (`#context_vital`); no re-running of already-run methods
-- Plain `x.tag = new_tag` (no `@`) does nothing of this — it's an ordinary, undeclared plain member now, so it raises `Cannot_Assign_Undeclared_Identifier` unconditionally, tagged or not (`#assign_dot_member` has no `'tag'` special case anymore)
+A reference resolves by inferring a type name for each supplied value and matching it against the declared variants for that base name. `#member_candidate_type_names` returns every type a value composes, its own name first — so a `Div` satisfies a member declared `Dom`, even though nothing is literally named `Dom`. `Code::Struct#satisfied_by_candidates?` checks a declared variant against those candidates; `#find_tagged_type_variant` filters through `#tag_chains_satisfy?` first, then prefers an exact match before a compositional one. A lone unnamed struct-valued member spreads at declare time, but not at reference time by default — `#interp_type`'s reference branch retries with spreading applied when the unspread shape finds nothing. A reference with no matching declared variant either auto-declares one, or raises `Code::Undeclared_Tagged_Type`.
 
-### Each declared tag is its own type
+### Runtime Wiring
 
-`Abc\<Number> {}` and `Abc\<String> {}` are independent `Code::Type` objects, not one shared type with two tags bolted on — declaring a tag creates a fresh type seeded from a copy of the *bare* type's own body (if one exists at declaration time), so one tagged variant's `Self`/methods can never clobber another's. This is handled by `#interp_tagged_type_declaration` (`interpreter.rb`), a sibling of `#interp_bare_type_declaration` (used for plain, untagged `Type { ... }`, which still reopens/extends one shared object as before). Both funnel into `#declare_tagged_type_variant` (shared with the auto-declare-on-reference fallback, see above) then `#finish_type_declaration` (Code:: Ruby-class linking, `@types` bookkeeping, running the body) — reopening an existing variant (bare or tagged) only re-runs its *new* expressions, not ones already run on an earlier declaration.
-
-Each variant is kept in a per-scope list (`Scope#tagged_type_variants`, keyed by base name — e.g. every declared tag of `String`) rather than a single mangled-string-keyed member, so `String\<dict: Dictionary> {}` and `String\<other: Dictionary> {}` are two distinct variants instead of colliding on a shared `"String<Dictionary>"` key. Matching pairs top-level structure equality (`Code::Struct#structure_declaration_equal?`, `struct.rb` — both `names` and resolved `type_names`, positionally, mirroring the language's own `===` on Type/Instance) with `#tag_chains_equal?` for anything chained (`Thing\One\Two` vs `Thing\One\Three`).
-
-A reference resolves by inferring a type name for each supplied value and matching that against the declared variants for that base name — but the match isn't exact-name-only: `#member_candidate_type_names` returns every type a value composes (its own name first, then everything it composes), so e.g. a `Div` satisfies a member declared `Dom` even though nothing in `source/programs/html.code` is literally named `Dom`. `Code::Struct#satisfied_by_candidates?` checks a declared variant against those candidates (mirroring the language's own `=>=` superset operator); `#find_tagged_type_variant` first filters candidates through `#tag_chains_satisfy?` (the same compositional match, applied recursively down `.tag_instance`), then prefers an exact match before falling back to a compositional one. A lone unnamed Struct-valued member spreads at declare time but not at reference time by default (see below) — `#interp_type`'s reference branch retries with spreading applied whenever the unspread shape doesn't find anything, so a reference/composition operand can still reach a variant that was declared with spreading. A reference with no matching declared variant either auto-declares one (base name is a real Type, see above) or raises `Code::Undeclared_Tagged_Type` (base name is something else entirely).
-
-```code
-String\<Dictionary> { to_s (; "I'm a dict-tagged string" ) }
-String\<Number>     { to_s (; "I'm a number-tagged string" ) }
-
-String\<{x=1}>().to_s()   # "I'm a dict-tagged string"   -- {x=1} is a Dictionary
-String\<5>().to_s()       # "I'm a number-tagged string" -- 5 is a Number
-```
-
-### Confirmed example
-
-```code
-String\<dict: Dictionary> {
-    Self ( str: String = "";
-        value = str
-    )
-    to_s (;
-        final := value
-        final += "{"
-        for self.@tag.dict
-            final += "`key`::`value`, "
-        end
-        final += "}"
-    )
-}
-a := String\<{x=0, y=1, z=2}>()
-b := String\<{x=0, y=1, z=2}>("My dict: ")
-a.to_s()   # "{x::0, y::1, z::2, }"
-b.to_s()   # "My dict: {x::0, y::1, z::2, }"
-```
-
-### Runtime wiring
-
-- `Code::Struct < Instance`, not `Scope` — the `enclosing_scope` method-lookup fallback used for `arr.push(...)`-style calls (see `#interp_identifier`) is gated on `is_a?(Code::Instance)`, and `Struct` needs that same fallback for `source/programs/struct.code`'s own declarations (`==`, `include?`) to be reachable at all. Note: `source/programs/struct.code`/`source/programs/member.code` are the separate, higher-level `Member`/`Struct` layer, loaded by default (`source/programs/global.code`) but still reachable with `Code.interp(code, load_standard_library: false)` — distinct from this low-level `Code::Struct` Ruby class, which every struct literal goes through regardless of whether that layer is loaded, or which operator (`<...>` or `\`) built it
-- Every `Code::Struct.new` call site also calls `link_instance_to_type(struct, 'Struct')`, linking it to whichever `Struct` type is currently declared — either the bare Ruby-backed fallback (no standard library loaded), or `source/programs/struct.code`'s own `Struct { }` otherwise (see `#build_struct`)
-- `.tag` is `@`-only (`@.tag` / `x.@tag`) — a reflective vital exactly like `@.name`/`@.types`, read live off `tag_instance` by `#context_vital`'s `'tag'` case, never a plain declared member (`#declare_tag` only refreshes `.display_name` now — see Member Creation Is Strict above). Being a vital rather than a declaration means it's naturally readable straight off a bare `Type`, an `Instance`, or a `Struct` alike, with no separate "mark it static" step needed the way an ordinary declaration would; chained tags resolve the same way at each link (`x.@tag.@tag`), since every link is just another Scope with its own `tag_instance`. Composition (`Tasks | Container\<Connection> {}`) doesn't get `tag_instance` for free the way an ordinary declaration would from the generic declarations-copy — `#interp_composition`'s `|` case copies it explicitly, same leftmost-wins rule as everything else (only fills it in when the accumulating scope doesn't already have one of its own)
-- `Type` (and therefore `Instance`, which subclasses it, and `Struct`) carries two separate accessors, both holding an `Code::Struct`:
-  - `.tag_instance` (Ruby; `@.tag`/`x.@tag` at the language level) — what a specific reference or instance was actually tagged with (`Abc\<4815>`). Set on an explicit `Abc\<...>`/`Abc\Name` reference (never the bare declared type), on each nested link struct of a chain, and by a runtime `x.@tag =` write — its presence on a Type is what distinguishes "explicitly referenced" from "just the declared type" for `===`/`=!=`/etc. and for whether construction binds `.tag` at all
-  - `.tag_declaration` — the type's own declared tag (`Abc\<dict: Dictionary = {}> {}`): named/positional members, annotations, and defaults. A tagged reference looks here to re-associate positional call-site values with names and fall back to defaults
-  - Both live on `Type`, not `Scope`, because a tagged reference is a `dup` of the type (same Ruby class as the type itself), so a `Type`-vs-`Instance` check can't stand in for the "declared" vs "supplied" distinction — see the comments on `Type#tag_instance`/`Type#tag_declaration` in `scopes.rb`
+- `Code::Struct < Instance`, not `Scope` — the `enclosing_scope` method-lookup fallback (see `#interp_identifier`) is gated on `is_a?(Code::Instance)`, and `Struct` needs that fallback for `struct.code`'s own declarations (`==`, `include?`) to be reachable at all.
+- Every `Code::Struct.new` call site also calls `link_instance_to_type(struct, 'Struct')`, linking it to whichever `Struct` type is declared — the bare Ruby fallback, or `struct.code`'s own `Struct { }`.
+- `.tag` is `@`-only, read live off `tag_instance` by `#context_vital`'s `'tag'` case. Composition (`Tasks | Container\<Connection> {}`) does not copy `tag_instance` for free — `#interp_composition`'s `|` case copies it explicitly, with the same leftmost-wins rule as everything else.
+- `Type` (and so `Instance`, and `Struct`) carries two separate accessors, both holding a `Code::Struct`: `.tag_instance` (what a specific reference or instance was tagged with) and `.tag_declaration` (the type's own declared tag — named or positional members, annotations, defaults). Both live on `Type`, not `Scope`, since a tagged reference is a `dup` of the type — a `Type`-vs-`Instance` check cannot stand in for "declared" vs "supplied."
 
 ### Bare Named Structs
 
-`Ident<...>` where `Ident` has nothing declared under it anywhere (no bare `Type`, no tagged variant, no alias to one) isn't an error — it builds a plain `Struct`, same as `<...>` alone, except with `@.name` set from the identifier:
+`Ident<...>` where `Ident` is genuinely undeclared builds a plain `Struct`, with `@.name` set from the identifier — implemented in `#interp_struct`/`#register_bare_named_struct` (`interpreter.rb`), gated on `expr.name.is_a?(Code::Lexeme)`. Conflict detection checks both `find_in_stack(name)` and `tagged_variants_for(name)`, since a tagged Type declaration never registers under the plain identifier namespace.
 
-```code
-Thing := <String, Number>   # anonymous -- @.name is nil; only reachable via the variable Thing
-Named <String, Number>      # named -- @.name == 'Named'
-
-n := Named<String, Number>
-n.@name                     # 'Named'
-```
-
-**Type lookup always takes priority.** This only kicks in when `Ident` is genuinely undeclared — a name that collides with something real still behaves exactly as it always has:
-
-```code
-Abc\<Number> {}
-Task \<a: Number> {}
-Task <b: String>      # raises Code::Undeclared_Tagged_Type -- Task IS declared (as a tagged Type), just not with this shape
-```
-
-Implemented in `#interp_struct`/`#register_bare_named_struct` (`interpreter.rb`), gated on `expr.name.is_a?(Code::Lexeme)` (`parse_struct`'s own leading-identifier capture — distinct from `\<...>`'s inline-literal form, which copies its name onto `.tag.name` as a plain String instead and so never re-triggers this path). Conflict detection checks both `find_in_stack(name)` (a bare Type or a local alias) and `tagged_variants_for(name)` (any tagged variant under that name, matching or not) — a tagged Type declaration never registers under the plain identifier namespace, so `find_in_stack` alone can't see it; either check being non-empty means something real is declared under that name, so the original error still applies.
-
-**Redeclaring** a bare named struct with the *identical* shape is a no-op (`#structure_declaration_equal?`, order-insensitive once every member is named). A genuinely *different* non-empty shape still raises `Code::Undeclared_Tagged_Type` — bare named structs aren't reopenable the way tagged Types are.
-
-**Self-reference and forward declaration.** A member's own `: Type` annotation can name the struct being declared (`Node <name: String, parent: Node>`, `Scope <enclosing_scope: Scope>`). `#predeclare_bare_named_struct_stub` (called at the top of `#interp_struct`) declares an empty stand-in on the scope *before* the members are interpreted — mirroring how a bare `Type` is declared before its own body runs — then `#register_bare_named_struct` swaps the finished struct in and `#repoint_struct_self_reference` points the self-referential `type_objects` slots at it (so `Node.@types.get(1) == Node`). Since `Struct_Expr` is already hoisted by the forward-declaration machinery, this also makes *mutually*-referential structs work (`A <partner: B>` / `B <partner: A>`).
-
-An **empty `Name <>`** is a forward declaration: a later `Name <...full...>` fills it in rather than hitting the different-shape error (the stub-fill branch in `#register_bare_named_struct`, keyed on `existing.equal?(stub)` where `#predeclare_bare_named_struct_stub` also returns a prior empty `names.empty?` struct). `Name <>` on its own is just an empty struct, not an `Undeclared_Identifier`. Two genuinely non-empty shapes still conflict.
+- Redeclaring a bare named struct with the identical shape is a no-op (`#structure_declaration_equal?`, order-insensitive once every member is named). A different non-empty shape still raises `Code::Undeclared_Tagged_Type`.
+- A member's own `: Type` annotation can name the struct being declared. `#predeclare_bare_named_struct_stub` declares an empty stand-in before the members are interpreted, then `#register_bare_named_struct` swaps the finished struct in and `#repoint_struct_self_reference` points the self-referential slots at it. Since `Struct_Expr` is already hoisted, this also makes mutually-referential structs work.
+- An empty `Name <>` is a forward declaration — a later `Name <...full...>` fills it in, keyed on `existing.equal?(stub)`.
 
 ## Enums (not finalized — don't rely on yet)
 
-`TYPE_IDENTIFIER [ ... ]` declares an `Code::Enum` (`Code::Enum_Expr` in the parser, `#parse_enum_expr`; `#interp_enum`/`#build_enum`/`#build_enum_member` in `interpreter.rb`; its own language-level body living in `source/programs/enum.code`, Ruby class in `source/proxies/enum.rb`). Self-declaring, like `Type { }` and a named `func (;)` — no `:=` needed. Members can be bare (`TODO`), bare with a trailing comma (`BUG,`), type-annotated only (`DONE: Priority`), type-annotated with a value (`CANCELLED: Priority = 99`), self-declared with a value (`ARCHIVED := 'archived'`), or a nested enum (`Nested [ A, B ]`, reachable only as `Outer.Nested`). A bare/annotated-only member's value is a Symbol matching its own name. The enum's reflective data is `@`-only — `@.keys`/`@.values`/`@.types` (parallel Arrays), `@.type` (backing type, see below), `@.count` — held as plain Ruby ivars (`enum_keys`/`enum_values`/`enum_types`/`enum_type`) on `Code::Enum`, not `@declarations`, so a member named `KEYS`/`TYPES` can't clash. `#context_vital`'s Enum branches (`#context_types_for` / `#context_type_for` / `#context_values_for` + direct `keys`/`count`) surface them under `@`. `@.composed_types` still gives the ordinary composed-type `Set` (`Set{enum_name}`).
+See readme.md's "Enums" section for the language-level shape. `Code::Enum_Expr` (`#parse_enum_expr`) and `#interp_enum`/`#build_enum`/`#build_enum_member` (`interpreter.rb`) implement it. Its language-level body lives in `source/programs/enum.code`; the Ruby class is `source/proxies/enum.rb`.
 
-### Enum vs. subscript disambiguation
+The enum's reflective data is `@`-only — `@.keys`/`@.values`/`@.types` (parallel Arrays), `@.type` (backing type), `@.count` — held as plain Ruby ivars on `Code::Enum`, not `@declarations`, so a member named `KEYS`/`TYPES` cannot clash.
 
-`Name [ ... ]` in statement/value position is an enum declaration, but `name[i]` is also an array/dictionary subscript. The parser decides by pure lookahead into the brackets (`#bare_enum_declaration_follows?`, `parser.rb`) — no more `@declared_identifiers` tracking (that whole set is gone). It's an enum when the body has any of: nothing (`Name []`), a `,`, a `:=`/`=`/`NAME:` member form, a nested `NAME [`, or two-or-more items (whitespace-, newline-, or comma-separated). **A single bare item (`Name [ ONE ]`) reads as a subscript** — the deliberate tradeoff for dropping the tracking. Write `Name [ ONE, ]` (trailing comma) or annotate (below) to force a one-option enum.
+### Enum vs. Subscript Disambiguation
 
-### Annotated form — `Name: Enum [ ... ]` / `Name: Enum\Backing_Type [ ... ]` / `Name: Backing_Type [ ... ]`
+`Name [ ... ]` in statement or value position is an enum declaration; `name[i]` is an array or dictionary subscript. `#bare_enum_declaration_follows?` (`parser.rb`) decides by looking ahead into the brackets. It reads as an enum when the body has any of: nothing, a `,`, a `:=`/`=`/`NAME:` member form, a nested `NAME [`, or two or more items. A single bare item (`Name [ ONE ]`) reads as a subscript — write `Name [ ONE, ]` (a trailing comma) to force a one-option enum.
 
-Any `Capitalized: Type [` annotation (`#annotated_enum_declaration_follows?`) makes it an enum unconditionally, whatever the item count — so `Name: Enum [ ONE ]` is a one-option enum. The base can be literally `Enum` (with an optional `\Backing_Type` tag), or the backing type on its own (`Name: Int [ ... ]`) — either way the backing/value type lands on `expr.type`, which `#build_enum` reads into `instance.enum_type` / `@.type` (the slot the removed `TYPE_IDENT :: Type { }` forced-type spelling used to feed). Safe to claim this broadly: a `Capitalized: Type` expression is never subscripted (capitalized names are types). All forms funnel through `#parse_enum_expr`, which consumes the `: Type[\Tag]` prefix before the `[`.
+### Annotated Form
 
-**Syntactically present, but the type system isn't enforced yet**: each member's own `: Type` annotation is stored but never checked against anything — `Task_Type [ BUG: String = 'oops' ]` declares and constructs without error. The backing type (`Name: Enum\Int`) is likewise recorded but not yet used to coerce or check member values (auto-increment integers, `.Member` leading-dot inference — all still parked). Don't build real functionality on top of Enum type annotations until that's resolved.
+Any `Capitalized: Type [` annotation (`#annotated_enum_declaration_follows?`) makes it an enum unconditionally, whatever the item count. The base can be `Enum` (with an optional `\Backing_Type` tag), or the backing type on its own. Either way the backing type lands on `expr.type`, read by `#build_enum` into `instance.enum_type` / `@.type`.
+
+**Not enforced yet:** each member's own `: Type` annotation is stored but never checked. The backing type is recorded but not yet used to coerce or check member values. Do not build real functionality on Enum type annotations until this is resolved.
 
 ## Destructuring
 
-`(a, b) := <tuple-or-struct-valued expr>` extracts a Tuple's or Struct's values positionally into fresh locals or existing members:
+See readme.md's "Structs" section area for the language-level examples; `#interp_destructuring_declaration` (`interpreter.rb`) implements it, dispatched from `#interp_infix_declaration` when `expr.left` is a `()`-grouped `Circumfix_Expr`.
 
-```code
-(a, b) := (1, 2)              # Tuple source
-(a, b) := <1, 2>              # Struct source
-(x: Number, y) := (1, 2)      # per-target type check against the extracted value
-(thing.member, local) := <Number, Number>(1, 1)  # existing-member target
-```
-
-- A plain-identifier target always declares fresh on the current scope, same shadowing behavior as any other `:=` — even if that name is already declared elsewhere
-- Extracting fewer values than the source has is fine (extras discarded); asking for *more targets than the source has values* raises `Code::Destructuring_Arity_Mismatch`
-- A target can also be an existing member (`thing.member`) instead of a fresh local — this reassigns rather than declares, going through the same `#assign_dot_member` path as plain `thing.member = value` (see Member Creation Is Strict above): the member must already exist, can't be a constant, and (if it has a previously recorded type) the extracted value must match it
-- Only `Code::Tuple`/`Code::Struct` sources are supported (`Code::Invalid_Destructuring_Source` otherwise); a target that's neither a plain identifier nor an existing-member dot-expression raises `Code::Invalid_Destructuring_Target`
-- Implementation: `#interp_destructuring_declaration` in `interpreter.rb`, dispatched from `#interp_infix_declaration` when `expr.left` is a `()`-grouped `Circumfix_Expr`
-- Not implemented: the bare (no-parens) form `a, b := ...` — needs lookahead past the whole comma-run to distinguish it from N independent nil-init declarations, deferred as not urgent
+- A plain-identifier target always declares fresh on the current scope.
+- Asking for more targets than the source has values raises `Code::Destructuring_Arity_Mismatch`; extra values are discarded.
+- An existing-member target (`thing.member`) reassigns through the same `#assign_dot_member` path as `thing.member = value`.
+- Only `Code::Tuple`/`Code::Struct` sources work (`Code::Invalid_Destructuring_Source` otherwise). A target that is neither a plain identifier nor an existing-member dot-expression raises `Code::Invalid_Destructuring_Target`.
+- Not implemented: the bare, no-parens form `a, b := ...` — this needs lookahead past the whole comma run to tell it apart from independent nil-init declarations. Not urgent.
 
 ## Percent Literals
 
-`%kind(...)` turns a space-separated list of bare items into a real `Array` of String or Symbol literals, without quoting each one individually. Parsed by `#parse_percent_literal_expr` (`parser.rb`) into `Code::Percent_Literal_Expr`; interpreted by `#interp_percent_literal` (`interpreter.rb`).
+See readme.md's "Percent Literals" section for the eight kinds and their examples. `#parse_percent_literal_expr` (`parser.rb`) builds a `Code::Percent_Literal_Expr`; `#interp_percent_literal` (`interpreter.rb`) interprets it.
 
-```code
-%string(boo Hoo COOL)      # [boo, Hoo, COOL] — preserves each item's own casing
-%symbol(BOO hoo Cool)      # [:BOO, :hoo, :Cool]
+- Items split only on whitespace or `,`, not per lexer token — `1px`/`file.ext` are each one item, even though the lexer tokenizes them as several lexemes. `#parse_percent_literal_item` parses one token through `#parse_percent_literal_token`, then merges further tokens through `#merge_percent_literal_items` while `#lexeme_adjacent?` finds no gap in the source. A merged item becomes a plain `Identifier_Expr` carrying the concatenated text. A backtick item never merges.
+- `#parse_percent_literal_token` reads one bare token at a time, never through the general `#parse_expression` — a symbolic operator item (`+`/`-`) is also a valid prefix operator, and ordinary expression parsing would swallow the next item as its operand.
+- The one remaining `else -> #parse_expression` branch exists so an invalid item still consumes at least one token, or the parser would loop forever on it.
 
-%str(Boo hOO COOL)         # [boo, hoo, cool] — forces lowercase
-%Str(boo HOO cOOl)         # [Boo, Hoo, Cool] — forces Capitalcase
-%STR(boo Hoo cool)         # [BOO, HOO, COOL] — forces UPPERCASE
-# %sym/%Sym/%SYM do the same three, for symbols
+## `@` Is `Context`
 
-cool := 2342
-%string(481516 `cool`)     # [481516, 2342] — a backtick item (see Statement Expressions below) is interpolated immediately, then folded through the same casing treatment as everything else
+See readme.md's "The Context (`@`)" section for the language-level reflective members and function list. `@` resolves to a `Context` (`Code::Context < Code::Instance`, `source/proxies/context.rb`). There is no per-scope Context object — nothing is cached on a scope.
 
-%string(1px solid red)     # [1px, solid, red]     — "1px" stays one item, even though the lexer tokenizes it as a number then an identifier
-%string(file.ext other)    # [file.ext, other]      — same for "file.ext" (identifier/operator/identifier)
-```
-
-- Eight kinds total: `string`/`str`/`Str`/`STR` (String), `symbol`/`sym`/`Sym`/`SYM` (Symbol) — see `PERCENT_LITERALS` in `constants.rb`
-- Items can be identifiers, numbers, operators, or `` `expr` `` (Statement) literals; anything else (a string literal, `[1, 2]`, ...) raises `Code::Invalid_Percent_Literal_Expression`
-- **Items split only on whitespace (or `,`), not per lexer token.** `1px`/`file.ext` are each one item even though the lexer tokenizes them as several lexemes (a number then an identifier; two identifiers split by a `.` operator) — matching how the rest of the language treats `.` as meaningful punctuation, not a word boundary. `#parse_percent_literal_item` (`parser.rb`) parses one token via `#parse_percent_literal_token` (the same one-token-at-a-time dispatch described below), then keeps merging in further tokens via `#merge_percent_literal_items` as long as `#lexeme_adjacent?` says there's no gap in the source between the previous token's end and the next one's start. A merged item always becomes a plain `Identifier_Expr` carrying the concatenated text (regardless of what token kinds it merged) — downstream (`#interp_percent_literal`) only ever reads `.value`/`.lexeme` off an item, casing included, so the merge is transparent to it. A backtick item never merges with neighboring text; it stands alone, same as before
-- **Parsing (one token)**: `#parse_percent_literal_token` reads one bare token at a time (`curr? :operator`/`:number`/identifier-kind dispatch), never via the general `#parse_expression` — a symbolic operator item like `+`/`-` is also a valid PREFIX operator, and `#parse_expression` would happily reparse it as a prefix/infix expression that swallows the *next* item as its operand (`%str(+ - ^)` used to collapse into one nested `Prefix_Expr` instead of three separate items); a run like `^^^ + - * /` would similarly get glommed into one compound infix expression by ordinary expression parsing, since nothing else marks item boundaries besides whitespace
-- The one remaining `else -> #parse_expression` branch exists purely so an *invalid* item still consumes at least one token — without it, the parser looped forever re-checking the same un-consumed token instead of raising `Invalid_Percent_Literal_Expression`
-
-## `@` is `Context`
-
-`@` resolves to a `Context` (`Code::Context < Code::Instance`, `source/proxies/context.rb`). There is **no per-scope Context object** — nothing is cached on a scope. Instead:
-
-- **One shared Context** (`Interpreter#shared_context`, built once) holds the `@` **functions** as bodiless callable stand-ins — a `Code::Func` carrying `#context_function_name`. `#bind_context_func(name, subject)` hands out a cheap `dup` with `enclosing_scope` set to the subject (the scope this `@` is "about"). Built from the `MEMBERS` constant, so `@load` / `@push_scope` work during the stdlib bootstrap before `context.code` is loaded.
-- **Reflective vitals** (`name`, `display_name`, `composed_types`, `types`, `type`, `tag`, `object_id`, `size_in_bytes`, `root_path`, `static_declarations`, the Struct-only `names`/`type_names`/`values`/`members`, the Enum-only `keys`/`count`, the Func-only `parameters`/`arguments`/`func_signature`) are **never stored** — `#context_vital(name, scope)` computes one on demand against the actual scope, so `x.@name` after an `x.@tag =` reads live, not a stale snapshot. Returns nil when the vital doesn't apply to that kind of scope (an untagged `x.@tag` included). `#context_types_for` / `#context_type_for` / `#context_values_for` handle the Struct/Enum branches.
-- **`#context_for(scope)`** builds a *transient* `Code::Context` (subject = `scope`) only for a bare `@` (alone, or `@.foo`). Its type identity (`@ === Context`) comes from copying the stdlib `Context` declaration's `.types`; it reads `global['Context']` directly (not `link_instance_to_type`, which reads `stack.first` — wrong mid `x.@` resolution).
+- One shared `Context` (`Interpreter#shared_context`, built once) holds the `@` functions as bodiless callable stand-ins — a `Code::Func` carrying `#context_function_name`. `#bind_context_func(name, subject)` hands out a cheap `dup`, with `enclosing_scope` set to the subject.
+- Reflective vitals (`name`, `display_name`, `composed_types`, `types`, `type`, `tag`, `object_id`, `size_in_bytes`, `root_path`, `static_declarations`, plus the Struct-only and Enum-only ones) are never stored — `#context_vital(name, scope)` computes each one on demand, so a read after `x.@tag =` is live, not stale.
+- `#context_for(scope)` builds a transient `Code::Context` (subject = `scope`) only for a bare `@` (alone, or `@.foo`).
 
 ### Resolving `@name` / `x.@name` / `@.name`
 
-`#interp_at_word_on(scope, ident_expr)` is the one resolver. It unwraps a `Code::Context` scope to its `.subject`, then: a `Context::FUNCTIONS` name → `#bind_context_func`; a `Context::VITALS` name → `#context_vital`; a user `@x` member → `#user_at_member_owner` (the Type carrying it, reached directly or through an instance); else `Undeclared_Identifier`. It's called from `#interp_identifier`'s `@`-branch (bare `@word`, which then walks `[stack.last, *Types up the stack, global]` catching `Undeclared_Identifier` — only user `@x` needs the walk) and from `#interp_dot_infix` (`x.@word` via the at-flagged RHS; `@.word` via a dedicated branch when the receiver is a `Code::Context`).
+`#interp_at_word_on(scope, ident_expr)` is the one resolver. It unwraps a `Code::Context` scope to its `.subject`, then dispatches: a `Context::FUNCTIONS` name to `#bind_context_func`; a `Context::VITALS` name to `#context_vital`; a user `@x` member to `#user_at_member_owner`; else `Undeclared_Identifier`.
 
-### `Code::Context::MEMBERS` — the one source of truth
+`Code::Context::MEMBERS` is the one source of truth. It maps each name to `{}` (a vital), `{ fn: :intrinsic }`, or `{ fn: :stack }`. `FUNCTIONS`/`STACK_FUNCTIONS`/`VITALS` derive from it. `source/programs/context.code` is the hand-written mirror, and `tests/context_test.rb` asserts its members equal `MEMBERS.keys`. Adding a member takes one `MEMBERS` entry and one `context.code` line.
 
-`MEMBERS` maps each name to `{}` (a vital), `{ fn: :intrinsic }` (`#interp_intrinsic`), or `{ fn: :stack }` (`#interp_context_stack_function`, runs in the caller's frame). `FUNCTIONS` / `STACK_FUNCTIONS` / `VITALS` derive from it (`.select`). `source/programs/context.code` is the hand-written mirror — its members carry the docs, drive `#stringify_context`'s `@` display, and are asserted equal to `MEMBERS.keys` by `tests/context_test.rb`. Adding a member = one `MEMBERS` entry + one `context.code` line.
+Call dispatch (`#interp_call`, `when Code::Func`): a context function never runs through `#interp_func_body` and gets no pushed frame. A `STACK_FUNCTIONS` member runs in the caller's own frame, through `#interp_context_stack_function`. Everything else runs through `#interp_intrinsic`.
 
-**There is no "directive" concept.** `@word(a, b)` parses as an ordinary `Call_Expr` on `@.word`; bare `@word` stays a `@.word` reference so `p := @puts` captures it. `@operator … @infix …` is its own declaration form; `@ruby` is a magic identifier in a func body (`#interp_ruby_proxy`); `@splat` / `@splatr` in a param list are annotations.
+### User-Declarable `@` Members
 
-**One call dispatch path** (`#interp_call`, `when Code::Func`): `if receiver.context_function_name` → `#interp_context_function` — **no `#interp_func_body`, no pushed frame**. Same for `@word()`, `x.@word()`, and captured `p := @puts` then `p(...)`. A `STACK_FUNCTIONS` member → `#interp_context_stack_function(word, arg_exprs, call_expr)` in *this* frame (`stack.last` is the real caller; reads raw arg exprs — `@push_scope` needs a bare identifier). Everything else → `#interp_intrinsic(word, evaluated_args, call_expr, func.enclosing_scope)` — the 4th arg is the bound subject, which only `to_s` reads (`@<name>`).
-
-- `@puts` **passthrough**: prints each arg, returns the original value(s) — 1 → that arg, 0 → nil, N → an Array.
-- Errors: `Invalid_Context_Function_Usage`, `Invalid_Scope_Function_Argument`, `Invalid_Ruby_Proxy_Usage`, `Invalid_Server_Argument`.
-
-### User-declarable `@` members
-
-Inside a `Type { }` body you can declare your own members onto that type's `Context` — they show up under `@`, never in plain `.` access:
-
-```code
-Thing {
-	@label: String = "widget"   # onto Thing.at_members
-	@rank: Number               # nil
-	@meta := compute()          # runs once, in the type body (like a static)
-}
-Thing.@label            # "widget"
-Thing().@label          # "widget"  -- an instance reads through to its type's Context
-Thing.@label = "gadget" # overwrite; the member must already be declared
-Thing.label             # Undeclared_Identifier -- `.` is user-space only, `@x` never leaks into it
-```
-
-- **Type scope only** — `@x := …` anywhere else raises `Code::Context_Declaration_Outside_Type`. It's effectively a static: one storage slot on the Type's `Scope#at_members` (a plain Hash, `nil` until the first `@x` declaration), read by every instance.
-- **Built-in members are protected** — declaring `@name` / `@types` / `@object_id` / … (a `Code::Context::VITALS` or `FUNCTIONS` name) raises `Code::Cannot_Override_Context_Member` (`#context_builtin_member?`).
-- **`x.@x = v`** requires `x` to already have that `@`-member declared in the body (`Code::Cannot_Assign_Undeclared_Identifier` otherwise) — writes always land on the *Type's* `at_members`, even through an instance.
-- Implementation: parser leaves a directive-flagged `Identifier_Expr` unwrapped when it carries a `: T` annotation or is followed by `=`/`:=` (`#complete_expression`); `#interp_context_declaration` / `#assign_context_member` / `#context_declaration_expr?` (`interpreter.rb`) handle declaration, `x.@x =` writes, and the once-per-type run skip in `#run_type_body_on_instance`. Reads go through `#interp_at_word_on` → `#user_at_member_owner`.
+See readme.md's "The Context (`@`)" section for the language-level example. `@x := …` outside a Type body raises `Code::Context_Declaration_Outside_Type`. It stores on the Type's `Scope#at_members` — effectively a static, read by every instance. Declaring a name that is already a `Code::Context::VITALS` or `FUNCTIONS` member raises `Code::Cannot_Override_Context_Member`. `x.@x = v` requires the member to already be declared on the type.
 
 ## Statement Expressions
 
-`` `expr` `` wraps any expression without running it — an `Code::Statement`, callable later with `()`. Parsed by `#parse_statement_expr` (`parser.rb`) into `Code::Statement_Expr`; interpreted by `#interp_statement` (`interpreter.rb`) into an `Code::Statement` instance (`source/proxies/statement.rb` + `source/programs/statement.code`).
+See readme.md's "Statement Expressions" section for the language-level rules, including captured-vs-caller scope and `.memoize`. `#parse_statement_expr` (`parser.rb`) builds a `Code::Statement_Expr`; `#interp_statement` (`interpreter.rb`) builds a `Code::Statement` instance (`source/proxies/statement.rb` plus `source/programs/statement.code`).
 
-```code
-`1+2`()                    # 3 — written and called in the same place, evaluates immediately
-
-x := `1+2`
-x()                        # 3 — stored, called later
-x: Statement = `1+2`       # same thing, explicit type annotation
-
-counter := 0
-increment := `counter += 1`
-increment()
-increment()
-increment()
-counter                    # 3 — each call actually re-runs the wrapped expression; not memoized by default
-```
-
-**Scope: captured by default, opt into the caller's.** A Statement remembers the single scope it was on top of the stack when *built* (`captured_scope`, mirroring how `Code::Func#enclosing_scope` already gives ordinary functions real closures) — calling it later, from anywhere, resolves free identifiers as if it were still running where it was written, not wherever `()` happens to be called from.
-
-```code
-Slacker {
-	count := 0
-	statement: Statement
-
-	Self ( statement; self.statement = statement )
-	live_count (-> Number; statement() )
-}
-
-count := 2
-captured := `count += 4`
-Slacker(captured).live_count()   # 6 — resolves the *outer* count, mutating it 2 -> 6
-
-count = 2
-dynamic := `count += 4`
-dynamic.use_caller_scope = true
-Slacker(dynamic).live_count()    # 4 — resolves Slacker's *own* count member instead (0 -> 4); outer count untouched
-```
-
-- `.use_caller_scope = true` switches a Statement from captured (predictable, closure-like) to dynamic (resolves fresh at every call site) — see `examples/statements.code`
-- `.memoize = true` caches the first `()` result and returns it on every call after that, instead of re-running — `Memoized_Statement`/`Memoizer` no longer exist as separate types, this replaced them
-- `Statement(other)` adopts `other`'s wrapped expression, `captured_scope`, and settings rather than re-capturing "wherever this `Statement(...)` call happens to be written" — `Statement(x+1)` behaves exactly like writing `` `x+1` `` directly (`Code::Statement#proxy_from`, called from `source/programs/statement.code`'s `Self(;)`)
-
-**Two construction paths, and why it matters.** Every Ruby-backed language type (`Code::String`, `Code::Array`, `Code::Statement`, ...) can be built two different ways, and Statement's `captured_scope` makes the distinction concrete:
-
-1. A backtick literal (`` `expr` ``) — `#interp_statement` builds the Ruby object directly and is the *only* place that can set `captured_scope`, since it's interpreter-side code with a live `stack` to read from; Ruby's `#initialize` has no reference to the running `Interpreter` at all.
-2. An explicit `Statement(...)` call — goes through the normal Type-construction path (`#interp_type_call` -> `#build_instance_of_type`), which calls `Code::Statement.new` with no meaningful constructor argument. Real argument binding happens afterward, separately, once `Self(;)`'s own body (`source/programs/statement.code`) runs. Ruby's `#initialize` only ever needs to set harmless defaults it can't get wrong.
-
-`use_caller_scope`/`memoize`/`_memoized`/`_memoized_value` are declared as ordinary language members in `source/programs/statement.code` (not Ruby `attr_accessor`s) so plain dot-assignment (`s.memoize = true`) works with no extra plumbing; `#invoke_statement` reads/writes them from Ruby via `Scope#[]`/`#[]=`. `captured_scope` couldn't take that route — it holds a live Ruby `Scope` object, not a language-representable value — so it stays a Ruby `attr_accessor` instead.
-
-A bare backtick literal builds the Ruby object directly and skips the normal Type-construction path entirely, so `#interp_statement` has to *also* run the type's own language-level body on the instance (`#run_type_body_on_instance`) — otherwise `use_caller_scope`/`memoize`/etc. would only ever exist on instances built the `Statement(...)` way, and `s.memoize = true` on a bare `` `expr` `` would raise `Cannot_Assign_Undeclared_Identifier`.
-
-**Where scope-aware invocation is (and isn't) enforced.** `#invoke_statement` is the single place `use_caller_scope`/`memoize` are enforced, called from `#interp_call`'s `Code::Statement` branch (an already-*constructed* instance being called via `()`). It doesn't apply to:
-- A bare `` `expr`() `` written and called in the same place (`#interp_call`'s earlier `Code::Statement_Expr` check) — always immediate, in whatever scope it's written in
-- A `` `expr` `` item inside a percent literal (`#interp_percent_literal`) or array literal (`#interp_circumfix`) — neither ever builds a real `Code::Statement`, so there's no instance to hold these settings on
-
-Pushing the captured scope back on top (rather than swapping the whole stack) is deliberate: identifier lookup searches innermost-first, so one scope pushed via `#push_then_pop` wins the search over the caller's own frames underneath, without needing to hide/replace them — the same trick `#interp_func_body` already uses for ordinary `Func` closures.
+- **Two construction paths.** A backtick literal (`` `expr` ``) builds the Ruby object directly — `#interp_statement` is the only place that can set `captured_scope`, since it runs with a live `stack` to read. An explicit `Statement(...)` call goes through the normal Type-construction path instead; real argument binding happens once `Self(;)`'s own body runs.
+- `use_caller_scope`/`memoize`/`_memoized`/`_memoized_value` are ordinary language members in `statement.code`, not Ruby `attr_accessor`s — `#invoke_statement` reads and writes them through `Scope#[]`/`#[]=`. `captured_scope` stays a Ruby `attr_accessor`, since it holds a live Ruby `Scope`, not a language-representable value.
+- A bare backtick literal skips the normal Type-construction path, so `#interp_statement` also runs the type's own language-level body on the instance (`#run_type_body_on_instance`) — otherwise `use_caller_scope`/`memoize` would only exist on instances built the `Statement(...)` way.
+- `#invoke_statement` is the single place `use_caller_scope`/`memoize` are enforced, called from `#interp_call`'s `Code::Statement` branch. It does not apply to a bare `` `expr`() `` written and called in the same place, or to a `` `expr` `` item inside a percent literal or array literal — neither of those ever builds a real `Code::Statement`.
+- Pushing the captured scope back on top (rather than swapping the whole stack) works because identifier lookup searches innermost-first — the same trick `#interp_func_body` uses for ordinary `Func` closures.
 
 ## Identifier Naming Conventions
 
-The language enforces naming conventions through the helper functions:
+The language enforces naming conventions through helper functions:
 
-- **UPPERCASE** (constant_identifier?) - Constants
-- **Capitalized** (type_identifier?) - Classes/types
-- **lowercase** (member_identifier?) - Variables and functions
+- UPPERCASE (`constant_identifier?`) — constants.
+- Capitalized (`type_identifier?`) — classes and types.
+- lowercase (`member_identifier?`) — variables and functions.
 
 ## Function Conventions
 
-Lowercase identifier, followed by a `()` grouped block which contains `;` which separates the params and body.
+See readme.md's "Functions" and "Labeled & Named Function Arguments" sections for the language-level rules and examples.
 
-```code
-<identifier> ( <args>; <body> )
-```
-
-`(...)` is also grouping, a call's argument list, and a Tuple, so a bare `(` alone doesn't say which one is coming. `func_declaration_follows?` (`parser.rb`) disambiguates by depth-checking the upcoming tokens for a bare `;` at nesting level 1 (the declaration's own params/body separator, not a nested one) before the matching `)` closes: `foo((a; a+1), 5)` is an ordinary call passing an anonymous func as its first argument — the inner func's `;` sits at depth 2, one level past `foo`'s own opening paren, so it doesn't make `foo(...)` itself look like a declaration.
-
-**Signature-only declarations.** A no-body func is a *signature* (`Code::Func_Signature_Expr`) when it either declares a return type (`(Number, Number -> Number;)`) or was written with the `name: (…)` colon form (`double: (Number -> Number;)`, `sleep: (Number;)`, `to_s: (;)`) — `#parse_func` tracks `signature_colon` for the latter. A bare `foo (;)` (no colon, no return type) stays a real, empty function. Every param slot in a signature must carry a type. These are also how a struct member gets a func-signature type (see Structs).
-
-### Spread lambda sugar
-
-A call whose *single* argument is an anonymous function may drop that argument's own parens:
-
-```code
-xs.map(x; x * 2)        # sugar for xs.map((x; x * 2))
-xs.filter(n; n > 0)
-xs.find(x; x == target)
-xs.map(x; x * 2).filter(n; n > 2)   # chains
-```
-
-Only when the receiver is a **member access, call result, or subscript** — `xs.map(...)`, `f().g(...)`, `a[0](...)`. A bare identifier stays a declaration: `double(n; n * 2)` still *declares* `double`. And only when the tokens before the `;` are genuinely param-list-shaped (`anon_func_param_list_follows?`, `parser.rb`) — `xs.reduce(0, a; a)` (a value, then a name) does not spread. Handled in `#complete_expression` plus a `member_rhs` flag on `#begin_expression`/`#parse_expression` that stops the `.`-RHS `member(x; y)` from being read as a declaration.
+- `(...)` also means a grouping, a call's argument list, and a Tuple, so a bare `(` alone does not say which is coming. `func_declaration_follows?` (`parser.rb`) disambiguates by depth-checking for a bare `;` at nesting level 1 before the matching `)` closes.
+- A no-body func is a signature (`Code::Func_Signature_Expr`) when it declares a return type, or was written with the `name: (…)` colon form. `#parse_func` tracks `signature_colon` for the colon form. A bare `foo (;)` stays a real, empty function.
+- The spread lambda sugar (`xs.map(x; x * 2)`) only applies when the receiver is a member access, call result, or subscript — never a bare identifier, which still declares. `anon_func_param_list_follows?` (`parser.rb`) checks the tokens before `;` are genuinely param-list-shaped. `#complete_expression` plus a `member_rhs` flag handle this.
 
 ## Variadic Parameters
 
-`f (x...;)` — `x...` is sugar for `x: Arguments` (`Arguments | Array {}` in `source/programs/array.code`; `Args` is an alias). Binds `x` to an `Arguments` instance (a `Code::Array` linked to the `Arguments` type, so `x === Arguments` and every Array method works) holding the positional argument tail — empty if none. `...` is a dedicated lexer token (distinct from the range base `..`) and only carries meaning in a param list; `Param_Expr#variadic`, `#wrap_arguments_array`.
+See readme.md's "Recursion" and array sections for related context; the language-level rules for `x...` live in `source/programs/array.code` (`Arguments | Array {}`; `Args` is an alias). `...` is a dedicated lexer token, distinct from the range base `..`, and only carries meaning in a param list (`Param_Expr#variadic`, `#wrap_arguments_array`).
 
-```code
-sum ( nums...; acc := 0  for nums  acc += it  end  acc )
-sum(1, 2, 3)          # 6
-sum()                 # 0
-
-f ( a, rest...; (a, rest) )
-f(1, 2, 3)            # (1, [2, 3])
-```
-
-- A variadic param takes the whole unconsumed positional tail; params declared *after* it get named args, defaults, or `Missing_Argument` — never positionals.
-- `rest := <value>` at a call site: an Array spreads into the tail, anything else raises `Type_Contract_Violation` (expected `Arguments`).
-- **The nicety**: when a func has a variadic param, an unknown named arg (`h(value := 5)`, no `value` param) binds by its own name into the call scope instead of raising `Unknown_Named_Argument`. A variadic body can't rely on any given name being set — this is for the directive-proxy shape in the `@`/Context redesign.
-- Override `Arguments#push` (in `source/programs/array.code`) for a typed variadic.
+- A variadic param takes the whole unconsumed positional tail. Params declared after it get named args, defaults, or `Missing_Argument` — never positionals.
+- `rest := <value>` at a call site: an Array spreads into the tail; anything else raises `Type_Contract_Violation`.
+- When a func has a variadic param, an unknown named arg binds by its own name into the call scope instead of raising `Unknown_Named_Argument` — a variadic body cannot rely on any given name being set.
+- Override `Arguments#push` (`source/programs/array.code`) for a typed variadic.
 - The static `Type_Checker` skips a func with a variadic param entirely.
 
 ## Labeled Function Arguments
 
-Swift/ObjC-style: a param declared with two identifiers in a row (`label name`) can be called with `label: value` at the call site.
+See readme.md's "Labeled & Named Function Arguments" section for the language-level rules and examples.
 
-```code
-send_greeting ( to person; person )
-send_greeting(to: 42)      # matches the label declared at that position
-send_greeting(42)          # labels are opt-in -- a bare positional call still works
-```
-
-- Matching is purely positional — a labeled argument's label must match whatever's declared at that same param index; labels are never used to reorder arguments
-- A supplied label that doesn't match the declared one at that position (including "labeled when none was declared") raises `Code::Argument_Label_Mismatch`
-- Two params can share the same label (`Self ( at x, at y; ... )` then `Point(at: 3, at: 4)`) — matching Swift, labels aren't required to be unique
-- Implementation: `label: value` parses as an ordinary `:` `Infix_Expr` (same production named struct members use) — `#interp_func_body` unwraps it via `#classify_argument` before interpreting, rather than letting `#interpret` try to resolve the label as an identifier
+- Matching is purely positional — a labeled argument's label must match whatever is declared at that same param index. Labels never reorder arguments.
+- `label: value` parses as an ordinary `:` `Infix_Expr` (the same production named struct members use). `#interp_func_body` unwraps it through `#classify_argument` before interpreting.
 
 ## Named Function Arguments
 
-`name := value` at a call site binds by the callee's declared param *name*, order-independent — a separate mechanism from labels (which check a *position*'s declared label, never reorder). Works for any call, including construction (`Self(;)` params).
+See readme.md's "Labeled & Named Function Arguments" section for the language-level rules and examples.
 
-```code
-sub ( a, b; a - b )
-sub(a := 1, b := 2)  #=> -1
-sub(b := 2, a := 1)  #=> -1, same result -- order doesn't matter
-sub(1, b := 2)       #=> -1, positional then named is fine
-```
-
-- **Ordering rule**: positional arguments (bare or labeled) must come before all named arguments in a call — once you switch to naming, every argument after that has to be named too. Reverting to positional after a named argument raises `Code::Positional_Argument_After_Named`
-- The same name used twice in one call raises `Code::Duplicate_Named_Argument`
-- A param supplied both positionally *and* by name (e.g. `add(1, a := 2)` where `a` is the first param) raises `Code::Argument_Given_By_Name_And_Position`
-- A named argument whose name doesn't match any declared param raises `Code::Unknown_Named_Argument` — checked up front, before param binding, so a typo'd name is reported directly rather than surfacing as a confusing `Code::Missing_Argument` on some unrelated param the typo incidentally starved of a value
-- A named argument bypasses label-checking entirely for that param — it's matched by declared name, not position, so there's no positional label to compare against
-- Implementation: `name := value` parses as an ordinary `:=` `Infix_Expr` (same production a struct member's bare default uses) — `#classify_argument` distinguishes it from a labeled (`:`) or plain positional argument; `#interp_func_body` builds a `named_args` hash alongside the existing positional `arg_values` array, consulting it first when binding each declared param
+- The ordering rule: positional arguments must come before all named arguments. Reverting to positional after a named argument raises `Code::Positional_Argument_After_Named`.
+- A named argument whose name matches no declared param raises `Code::Unknown_Named_Argument`, checked up front, before param binding — so a typo is reported directly, not as a confusing `Code::Missing_Argument` on an unrelated param.
+- `name := value` parses as an ordinary `:=` `Infix_Expr`. `#classify_argument` tells it apart from a labeled (`:`) or plain positional argument. `#interp_func_body` builds a `named_args` hash alongside the positional `arg_values` array, and checks it first when binding each declared param.
 
 ## Struct-Typed Function Parameters
 
-A function param can be typed with an inline struct (`: <...>`) instead of a plain type name — structural, not nominal: any argument that has each named member, with a compatible type, satisfies it, regardless of what type the argument itself is actually named.
+A function param can be typed with an inline struct (`: <...>`) instead of a plain type name — structural, not nominal. Any argument that has each named member, with a compatible type, satisfies it.
 
 ```code
 f ( right: <name: String, type: Any, value: Any>; right.name )
-
-m := Member('x', String, 4)
-f(m)          #=> 'x' -- Member has all three, so it satisfies the struct annotation without being named "Member" in the annotation itself
-
-f(nil)        # raises Code::Type_Contract_Violation -- nil has none of the required members
 ```
 
-- `Any` is a wildcard within a struct annotation's member types — `type: Any` matches regardless of the member's actual type (including a declared-but-nil member)
-- Checked at every call — unlike a plain `: Type` param annotation (never runtime-enforced except by the static checker on literal args), a struct annotation is a real, always-checked contract
-- Implementation: a `: <...>` param annotation parses onto `Param_Expr#type` as a `Struct_Expr` (same as `x: <String, Number>` on `Identifier_Expr#type`); `#check_struct_type_contract` (interpreter.rb) runs on every bound argument whose `param.type.is_a?(Code::Struct_Expr)`, reusing `#member_candidate_type_names` (the same compositional matching `Ident<...>` structured-type references already use) to check each named member
-- Found and fixed a real, previously-undiscovered lexer bug while building this: `>` immediately followed by `,`/`;` with no space (`<String>;`) lexed as one bogus combined operator token instead of two, silently breaking any struct annotation directly followed by either character
+- `Any` is a wildcard within a struct annotation's member types.
+- Checked at every call — unlike a plain `: Type` param annotation, this is a real, always-checked contract.
+- A `: <...>` param annotation parses onto `Param_Expr#type` as a `Struct_Expr`. `#check_struct_type_contract` (`interpreter.rb`) runs on every bound argument whose `param.type.is_a?(Code::Struct_Expr)`, reusing `#member_candidate_type_names`.
 
 ## Class Conventions
 
-A capitalized identifier followed by a `{}` grouped block
+See readme.md's "Classes" section for the language-level rules and constructor example.
 
-```code
-<Identifier> { <body> }
-```
+### `Self` Is an Ordinary Function Member
 
-`Self (;)` is the constructor. `Type()` is the one documented way to call it:
+The constructor is a function named `Self`, declared and reachable like any other. `Type()` is the only construction sugar; `X.Self`/`X.Self(...)` are not special-cased.
 
-```code
-Point {
-    x,
-    y,
+- `Type.Self` (bare, no parens) is an ordinary reference to the declared function — it returns the raw `Code::Func`, uncalled. A type's body runs directly onto the type's own scope, not just per-instance, so `Self` stays declared there even after it is deleted off each instance right after construction. `#interp_member_access` (`interpreter.rb`) special-cases a dot-target literally named `Self`/`self` (no scope operator), doing `receiver[name]`/`receiver.has?(name)` directly instead of routing through `#interp_identifier`.
+- `Type.Self()` (called) is an ordinary call on that `Func` — it never goes through `#interp_type_call`'s instance-building path, so no `Instance` is pushed, and a constructor body's `self.x = ...` raises `Code::Cannot_Use_Instance_Scope_Operator_Outside_Instance`. This is left as-is, not designed for.
+- `instance.Self` raises `Code::Undeclared_Identifier` — `Self` is deleted off an instance the moment construction finishes (`instance.delete :Self` in `#interp_type_call`).
 
-    Self ( x, y;
-        ./x = x
-        ./y = y
-    )
-}
-
-p := Point(3, 4)  # Calls Self
-```
-
-### `Self` is an ordinary function member — no dot-based construction magic
-
-There used to be a separate `X.new`/`X.new(...)` dot-sugar that specially meant "construct". It's gone: the constructor is just named `Self`, declared and reachable like any other function, and `Type()` is the *only* construction sugar — `X.Self`/`X.Self(...)` are deliberately **not** special-cased:
-
-- **`Type.Self`** (bare, no parens) is an ordinary reference to the declared function, same as any other unnamed function access — it returns the raw `Code::Func`, uncalled. This works because a type's body runs directly onto the type's own scope, not just per-instance (`#finish_type_declaration`), so `Self` stays declared there even though it's deleted off each *instance* right after its own construction finishes (see Member Creation Is Strict above). Getting this right required a bypass in `#interp_member_access` (`interpreter.rb`): without it, a dot-target literally named `Self`/`self` fell into `#interp_identifier`'s bare-keyword branch (which means "the enclosing Type/Instance", and only makes sense with *no* dot receiver at all) instead of doing plain member lookup — `Widget.Self` would silently return `Widget` itself, and `x.Self` on a non-Type receiver would raise the wrong error (`Cannot_Use_Type/Instance_Scope_Operator_Outside_Type/Instance`) instead of `Undeclared_Identifier`. The bypass triggers only when the dot-target's name is a bare `Self`/`self` (no scope operator), doing `receiver[name]`/`receiver.has?(name)` directly instead of routing through `#interp_identifier`.
-- **`Type.Self()`** (called) is just an ordinary call on that `Func` — not documented, not fixed up. It never goes through `#interp_type_call`'s instance-building machinery, so no `Instance` is ever pushed; a constructor body's `self.x = ...` therefore raises `Code::Cannot_Use_Instance_Scope_Operator_Outside_Instance`. This is "fair game" (deliberately left as-is) rather than a designed feature — a side effect of `Self` being ordinary, not something to fix or rely on.
-- **`instance.Self`** raises `Code::Undeclared_Identifier` — `Self` is deleted off an instance the moment its own construction finishes (`instance.delete :Self` in `#interp_type_call`), same as the old `:new` used to be.
-- `Code::Cannot_Initialize_Non_Type_Identifier` was removed along with the old dot-based construction special-casing (`errors.rb`) — nothing raises it anymore; a non-callable value now just raises `Code::Receiver_Is_Not_Callable` regardless of how it's written.
-
-**Storing a method reference as a first-class value.** `f := instance.some_method` (bare, no call) followed by `f(...)` later works correctly even from a totally unrelated scope — sibling methods `some_method` itself calls internally stay reachable. This is `#rebind_func_to_scope` (`interpreter.rb`): whenever an identifier lookup finds a `Code::Func`, it rebinds that func's `enclosing_scope` to whatever Instance/Type it was just found on, so calling it later still has access to the rest of that instance's declarations. This only has to happen *once* per method — guarded by `enclosing_scope.instance_of?(Code::Type)` (exact class, "still pointing at the bare declaring Type") rather than `is_a?` — `Code::Instance < Code::Type` in Ruby, so `is_a?` would also match a method *already* correctly bound to a specific Instance, re-rebinding it to whatever unrelated scope its *container* (a plain variable, an Array/Dictionary/struct member, ...) was found through on every subsequent read, silently losing the original binding.
+**Storing a method reference as a value.** `f := instance.some_method` (no call), then `f(...)` later, still reaches the instance's other methods. `#rebind_func_to_scope` (`interpreter.rb`) rebinds a found `Code::Func`'s `enclosing_scope` to whatever Instance/Type it was found on. This happens once per method, guarded by `enclosing_scope.instance_of?(Code::Type)` (exact class) rather than `is_a?` — since `Code::Instance < Code::Type` in Ruby, `is_a?` would also match an already-bound method and re-rebind it on every later read through an unrelated container.
 
 ## Splatting a Scope
 
-Every scope keeps two extra fallback places identifier lookup checks, after its own declarations: a **read-only** set and a **writable** set (also a fallback for writes). Neither overrides anything already reachable on the scope itself.
+See readme.md's "Splatting a Scope" section for the language-level rules and examples.
 
-Both are held **weakly** — adding an instance doesn't keep it alive. Once every other reference to it is gone, it becomes eligible for GC on its own, even though it's technically still "in" the set, and it silently stops resolving through it. This matters most for long-lived scopes (Global, or anything a running `@start_server` keeps reusing across requests) — a `Set` of strong references would otherwise pin whatever gets added for the life of the process.
+- `Scope#readable_scopes`/`Scope#writable_scopes` (`scopes.rb`) are `ObjectSpace::WeakMap`s (`wm[x] = x`, since Ruby's stdlib has no weak Set), so membership cannot keep an instance alive on its own.
+- `Scope#add_readable_scope`/`#add_writable_scope`/`#remove_readable_scope`/`#remove_writable_scope` are the only code that touches the WeakMaps directly. `#interp_context_stack_function`'s `splat`/`splatr`/`unsplat` cases, and the param-shorthand handling in `#interp_func_body`, both call these.
+- Lookup order, for reads and writes, is: own `@declarations` first, then `@writable_scopes` (most-recently-added first), then `@readable_scopes`.
+- The param shorthand only unpacks a `Type`/`Instance` value. `@splat`/`@splatr` as bare directives run the target through `#maybe_instance` first, then raise `Code::Invalid_Scope_Function_Argument` if it still is not one.
+- `source/programs/global.code` loads into its own `Standard_Library` scope, added to Global's readable scope — so `String`/`Array`/etc. are reachable but not directly declared on Global. Reassigning a built-in (`Array = Mine`) can never mutate the real one, since `Scope#[]=` only writes through `writable_scopes`, never `readable_scopes` — it creates a new entry directly in Global's own declarations instead.
 
-Three `@` stack functions manage this — one idea, one knob:
+### In a Function Param List
 
-- `@splat x` — add `x` as a **writable** splat (the common case: a write to a name it already has lands on that member)
-- `@splatr x` — add `x` **read-only**
-- `@unsplat x` — remove `x` from both sets, wherever it is
-
-`@push_scope` (see Reopening a Scope) is the deliberately-distinct verb — it *mutates* its target and makes it current, rather than adding a lookup fallback.
-
-### In a function param list
-
-`@splat` / `@splatr` on a param unpacks that argument for the whole body:
-
-```code
-add ( @splatr vec;
-	x + y   # Access vec.x and vec.y directly
-)
-
-v := Vector(3, 4)
-add(v)   # Returns 7
-
-double ( @splat vec;
-	x *= 2   # @splat -> a write straight through to vec.x
-	vec
-)
-```
-
-A `: Type` / `: <...>` annotation on a splat param **is enforced** at the call (`#check_splat_param_type_contract`), unlike a plain param annotation — the annotation names the members the body reaches, so the wrong shape fails here with `Type_Contract_Violation` instead of an `Undeclared_Identifier` deep in the body. Nominal (`: Vector`) checks composed-type identity; structural (`: <x: Number, y: Number>`) checks shape via `#check_struct_type_contract`.
-
-### Manual, outside a param list
-
-`@splat instance` / `@splatr instance` / `@unsplat instance` do the same by hand, in any scope — useful when the thing to splat isn't known until the body runs.
-
-**Implementation details:**
-
-- `Scope#readable_scopes`/`Scope#writable_scopes` (`scopes.rb`) are `ObjectSpace::WeakMap`s (each entry stored as its own key *and* value — `wm[x] = x` — since there's no dedicated weak-Set in the stdlib), not `Set`s, specifically so membership can't keep an instance alive on its own
-- Adding/removing goes through `Scope#add_readable_scope`/`#add_writable_scope`/`#remove_readable_scope`/`#remove_writable_scope` — the only code that touches the WeakMaps directly. `#interp_context_stack_function`'s `splat`/`splatr`/`unsplat` cases call these (`splat` → `add_writable_scope`, `splatr` → `add_readable_scope`, `unsplat` → both `remove_*`), as does `param.add_to_readable`/`param.add_to_writable` handling in `#interp_func_body` for the param shorthand
-- Lookup order, for both reads and writes, is `[self, writable, read-only]`: own `@declarations` first, then `@writable_scopes` (most-recently-added first), then `@readable_scopes`. `Scope#get`/`#[]=`/`#delete` all check own declarations first — an own declaration always wins over a same-named member reachable through a splat
-- "Most-recently-added first" (`test_multiple_unpacks`) means lookups walk `@writable_scopes.keys.reverse_each`/`@readable_scopes.keys.reverse_each` — `WeakMap#keys` does preserve insertion order in practice, but unlike `Hash`/`Set`, Ruby doesn't document that as a guarantee
-- The param shorthand only unpacks a `Type`/`Instance` value (silently skipped otherwise); `@splat`/`@splatr` as bare directives run the target through `#maybe_instance` first (so a raw `4` becomes a real `Code::Number`, a `Scope`) then raise `Code::Invalid_Scope_Function_Argument` if it still isn't one
-- `source/programs/global.code` is loaded into its own `Standard_Library` scope (`Interpreter#run`), added to Global's readable scope rather than merged into Global's own declarations — so `String`/`Array`/etc. are reachable but not directly declared on Global (`global.declarations.key?('Array')` is `false`; `global.has?('Array')` is `true`, via the fallback). `global` is pushed onto `stack` *before* this load (rather than being the load's own target) so `Global` still resolves to real Global throughout the stdlib's own loading. Reassigning a built-in (`Array = Mine`) can never mutate the real one — `Scope#[]=` only redirects through `writable_scopes`, never `readable_scopes` — it just creates a new entry directly in Global's own declarations, shadowing the readable fallback for the rest of that `Global`'s lifetime. If `Mine` composes the original (`Mine | Array {}`), everything keeps working afterward, since proxy-method dispatch (`.length()` etc.) finds its owning type by looking up the type name in the stack, and `Mine` has those declarations composed in — and reassigning this way is a real, working way to extend every array literal in the rest of a program, not just a safe no-op
+`@splat`/`@splatr` on a param unpacks that argument for the whole body. A `: Type`/`: <...>` annotation on a splat param is enforced at the call (`#check_splat_param_type_contract`), unlike a plain param annotation — the wrong shape fails here with `Type_Contract_Violation`, instead of an `Undeclared_Identifier` deep in the body.
 
 ## Operator Overloading
 
-Custom operators are declared with `@operator`, a fixity directive, a precedence number, and a function body. Parsed specially in `parser.rb` (`scan_and_register_operator_overloads_before_parsing` pre-scans and registers precedence before the main parse, since fixity/precedence affects how the rest of the file parses):
+See readme.md's "Operator Overloading" section for the language-level rules and examples.
 
-```code
-@operator -> @infix 300 ( left, right;
-    right(left)
-)
-
-double ( n; n * 2 )
-5 -> double  # => 10
-```
-
-- Fixities: `@infix`, `@prefix`, `@postfix`, and `@circumfix` (only `infix`/`prefix`/`postfix` are documented in `readme.md`; `circumfix` is accepted by the parser but undocumented there)
-- The operator symbol can be any symbol sequence or identifier (`->`, `!!`, `pm`, `$`)
-- Overloads are stored as regular functions in the declaring scope — they don't leak outside it
-- Represented internally as `Code::Operator_Overload_Expr` (fixity, precedence, operator lexeme, `Func_Expr` body)
-- **Precedence**: a type's own overload for an operator always wins over a same-named one declared anywhere else. Dispatch (`#find_operator_overload` in `interpreter.rb`) checks the left operand's own declarations first, then its `enclosing_scope` (for shorthand-constructed instances that never got the type's declarations copied onto themselves — see `#interp_type_call`), and only falls back to a lexically/dynamically-scoped global operator (found by searching `stack.reverse_each`, deliberately excluding `Code::Type`/`Code::Instance` scopes) if the operand doesn't declare its own
-- That stack search is scope-based, not global-only — an operator declared inside a function body shadows a same-named one declared outside it, for the duration of that call, with no leakage back out once the call returns
-- `Code::Type`/`Code::Instance` scopes are excluded from that stack search specifically to prevent infinite recursion: a Type merely being on the call stack (because one of its methods is currently executing) says nothing about whether the *current* operands belong to it — without the exclusion, an overload whose body reuses its own operator symbol on unrelated operands (even plain `1 == 1`) would recurse into itself forever, since the declaring Type never leaves the stack while its own body runs
+- `scan_and_register_operator_overloads_before_parsing` (`parser.rb`) pre-scans and registers precedence before the main parse, since fixity and precedence affect how the rest of the file parses.
+- Represented internally as `Code::Operator_Overload_Expr` (fixity, precedence, operator lexeme, `Func_Expr` body).
+- Dispatch (`#find_operator_overload`, `interpreter.rb`) checks the left operand's own declarations first, then its `enclosing_scope`, then falls back to a lexically- or dynamically-scoped global operator, found by searching `stack.reverse_each` and deliberately excluding `Code::Type`/`Code::Instance` scopes.
+- That exclusion prevents infinite recursion: a Type merely being on the call stack, because one of its methods is running, says nothing about whether the current operands belong to it. Without the exclusion, an overload that reuses its own operator symbol on unrelated operands (even plain `1 == 1`) would recurse forever.
 
 ## Ranges
 
-Four range operators, all derived from the base `..` (`RANGE_OPERATORS = %w(.. ..< >.. >..<)` in `constants.rb`, handled by `#interp_range_infix` in `interpreter.rb`, dispatched from `#interp_infix`). `...` is **not** a range operator — it's reserved for the variadic-param sugar (see Variadic Parameters).
+See readme.md's "Ranges" section for the four operators and their examples. `RANGE_OPERATORS = %w(.. ..< >.. >..<)` (`constants.rb`); `#interp_range_infix` (`interpreter.rb`) handles them, dispatched from `#interp_infix`. `...` is not a range operator — it is reserved for variadic-param sugar.
 
-```code
-1..5   # inclusive:         1, 2, 3, 4, 5
-1..<5  # exclusive end:     1, 2, 3, 4
-1>..5  # exclusive start:      2, 3, 4, 5
-1>..<5 # exclusive both:       2, 3, 4
-```
-
-`..<` trims the end, `>..`/`>..<` bump the start by 1. `#interp_range_infix` builds a `::Range` (`::Range.new(from, to, exclude_end)`, `from` being `start` or `start + 1`) and wraps it: `finish_intrinsic_instance Code::Range.new(that), 'Range'`.
-
-**Lexing.** `..` is a prefix of both `..<` and `...`, and `>..` of `>..<` — so `#lex_operator` can't stop at the first range-op match. It builds the operator char by char and, whenever the accumulated string is a range op (or `...`), keeps going only while a *longer* range op / `...` could still match the next char, else breaks (`range_like` local). The `>`-guard (`break if it == '>' && curr == '.' && peek != '.'`) still keeps `Type<Struct>.member` from lexing `>.` as a bogus token.
-
-**Endless / beginless.** A range operator with no operand on one side is open-ended: `2..` (nil end, `expr.right` nil — parsed in `#complete_expression`) or `..3` / `..<-1` (nil start, `expr.left` nil — parsed in `#begin_expression`, `..`/`..<` only). `#interp_range_infix` reads a nil side as a nil `::Range` endpoint. Iterating (`for`, `.to_a`) an endless one loops forever; slicing is fine. `xs[..-1]` lexes `..` then a prefix `-`, never one glued token.
-
-`Code::Range` is an ordinary Instance (`source/proxies/range.rb`, `source/programs/range.code`), not a `::Range` subclass — it wraps the real `::Range` in `.range` and has full type identity (`(1..5) === Range`), a `: Range` contract, and its own methods. Its `to_s` renders `1..5` (inclusive) / `1..<5` (exclusive end) — it can't tell `>..` from `..` since the start bump is already baked into `.range`. Every range is numeric and only ever built by these four operators (there's no `Range(...)` literal). See the Range entry under Built-in Types below.
-
-**As a subscript** — `arr[1..3]` / `"abc"[0..<2]` slices an Array or String. `#interp_subscript` unwraps the `Code::Range` to its `.range` before indexing; the sliced Array result is re-linked (`#wrap_prog_array`), an out-of-bounds start yields `nil` (Ruby semantics). Each operator keeps its own end/start behavior, so `xs[1..3]` (inclusive) is one element longer than `xs[1..<3]`. Endless (`xs[2..]`) and beginless (`xs[..3]`, `xs[..-1]` for the whole array) work; negative endpoints count from the end. A `Dictionary` range key isn't meaningful and isn't special-cased.
+- **Lexing.** `..` is a prefix of both `..<` and `...`; `>..` is a prefix of `>..<`. `#lex_operator` builds the operator char by char, and keeps going only while a longer range op could still match the next char. A `>`-guard keeps `Type<Struct>.member` from lexing `>.` as a bogus token.
+- **Endless/beginless.** A range with no operand on one side is open-ended — `2..` (`expr.right` nil) or `..3` (`expr.left` nil). `#interp_range_infix` reads a nil side as a nil `::Range` endpoint. Iterating an endless one loops forever; slicing is fine.
+- `Code::Range` is an ordinary Instance (`source/proxies/range.rb`, `source/programs/range.code`), not a `::Range` subclass — it wraps the real `::Range` in `.range`. `.to_s` renders `1..5` / `1..<5`; it cannot tell `>..` from `..`, since the start bump is already baked into `.range`.
+- As a subscript, `#interp_subscript` unwraps the `Code::Range` to its `.range` before indexing; the sliced Array is re-linked through `#wrap_prog_array`.
 
 ## Built-in Types and Intrinsic Methods
 
-The language's built-in types (String, Array, Set, Range, Dictionary, Number) have ruby methods that delegate to Ruby's native implementations. These methods are declared using a `proxy_` prefix (see source/shared/ruby_proxies.rb). Each has a Ruby class in `source/proxies/` (or `scopes.rb` for the oldest ones) and a paired `.code` file declaring its surface.
+See readme.md's per-type sections (Arrays, Dictionaries, Sets, Strings, Numbers, Dates & Times, File & Dir) for the language-level method lists and examples. The built-in types (String, Array, Set, Range, Dictionary, Number) have Ruby methods that delegate to Ruby's native implementations, declared with a `proxy_` prefix (see `source/shared/ruby_proxies.rb`). Each has a Ruby class in `source/proxies/` (or `scopes.rb` for the oldest ones) and a paired `.code` file declaring its surface.
 
-**Wiring a Ruby-built instance's type identity.** A `Code::Instance` created in Ruby (`Code::String.new` in a proxy, a numeric literal, a `Set` from `|`, ...) seeds `@types` from its Ruby class name (`"Code::String"`), which fails every `===` / return-type check. Two shared helpers fix it, and are the only places instance `.types` gets set from a name: **`#adopt_type(instance, type_name)`** — `#link_instance_to_type` (sets `enclosing_scope` to `global[type_name]`) then `instance.types = enclosing_scope.types` (or bare `::Set[type_name]` if the global type isn't declared yet). Used by `#finish_intrinsic_instance` (which also sets `.name`), the `@ruby` proxy return, `#wrap_prog_array` / `#wrap_arguments_array`, and `#maybe_instance`'s nil branch. **`#prefix_type(scope, name)`** — puts `name` at the front of a scope's composed set, so `Ident <...>` and a named schema instance are `Ident`-shaped not just `Struct`-shaped.
+**Wiring a Ruby-built instance's type identity.** A `Code::Instance` created in Ruby seeds `@types` from its Ruby class name, which fails every `===` / return-type check. Two shared helpers fix this, and are the only places instance `.types` gets set from a name:
+
+- `#adopt_type(instance, type_name)` — `#link_instance_to_type` (sets `enclosing_scope` to `global[type_name]`), then `instance.types = enclosing_scope.types`. Used by `#finish_intrinsic_instance`, the `@ruby` proxy return, `#wrap_prog_array`/`#wrap_arguments_array`, and `#maybe_instance`'s nil branch.
+- `#prefix_type(scope, name)` — puts `name` at the front of a scope's composed set, so `Ident <...>` and a named schema instance are `Ident`-shaped, not just `Struct`-shaped.
 
 ### Intrinsic Method Implementation Pattern
 
-**In `.code`** files:
+In `.code`:
 
 ```code
 String {
@@ -1029,10 +524,9 @@ String {
 }
 ```
 
-**In Ruby** (`scopes.rb`):
+In Ruby (`scopes.rb` or a `proxies/` file):
 
 ```ruby
-
 class String < Instance
 	extend Ruby_Proxies
 
@@ -1042,649 +536,129 @@ class String < Instance
 end
 ```
 
-**Custom ruby handlers** for methods that need special logic:
+A custom Ruby handler covers a method that needs special logic:
 
 ```ruby
-
 def proxy_concat other_array
 	values.concat other_array.values # Extract Ruby array first
 end
 ```
 
-**Methods implemented in `.code`** (not as Ruby proxies):
-Some methods like `find`, `any?`, and `all?` are implemented directly in `.code` using for loops rather than Ruby proxies, as they need to execute .code functions.
+Some methods (`find`, `any?`, `all?`, and so on) run in `.code` with a `for` loop, instead of a Ruby proxy, because they need to call `.code` functions.
 
-### String
+### Per-Type Ruby Notes
 
-Properties: `length`, `ord`
-
-Methods: `upcase()`, `downcase()`, `split(delimiter)`, `slice(substr)`, `trim()`, `trim_left()`, `trim_right()`, `chars()`, `index(substr)`, `to_i()`, `to_f()`, `empty?()`, `include?(substr)`, `reverse()`, `replace(new)`, `start_with?(prefix)`, `end_with?(suffix)`, `gsub(pattern, replacement)`
-
-`.N`-style positional dot-index (`"abc".0` -> `"a"`) indexes by character, same syntax Array/Tuple/Struct already support — a narrower dispatch (`#interp_dot_string`, `interpreter.rb`), not shared with theirs, since reusing that one outright would also pick up its `.each` shorthand branch and Ruby's own String has no `#each`. Negative/out-of-range indices behave the same as Array's own `.N`; the result is a real `Code::String` (`#array_index_value` wraps it via `#maybe_instance`), so `"abc".0.upcase()` chains fine.
-
-Defined in: `source/programs/string.code`, implemented in `scopes.rb` as `Code::String`
-
-### Array
-
-Properties: `values`
-
-Methods: `push(item)`, `pop()`, `shift()`, `unshift(item)`, `length()`, `first(count)`, `last(count)`, `slice(from, to)`, `reverse()`, `join(separator)`, `map(func)`, `filter(func)`, `reduce(func, init)`, `concat(other)`,`flatten()`, `sort()`, `uniq()`, `include?(item)`, `empty?()`, `find(func)` *(Code)*, `any?(func)` *(Code)*, `all?(func)`*(Code)*, `each(func)`
-
-Defined in: `source/programs/array.code`, implemented in `scopes.rb` as `Code::Array`
-
-**Note:** Methods marked *(Code)* are implemented directly in `.code` using for loops, not as Ruby proxies.
-
-**Gotcha:** `concat` is destructive — a plain passthrough to Ruby's own `Array#concat`, so it mutates the receiver in place, unlike every other method above (`map`/`filter`/`flatten`/`reverse`/`sort`/`uniq`/...), which all return a new Array and leave the receiver untouched. Dangerous against a struct's own member array specifically, since structs are meant to be plain, immutable data — prefer `[a, b].flatten()` to combine two arrays without mutating either one.
-
-### Dictionary
-
-Methods: `keys()`, `values()`, `has_key?(key)`, `delete(key)`, `merge(other)`, `count()`, `empty?()`, `clear()`, `fetch(key, default)`
-
-```code
-dict := {x: 4, y: 8}
-dict[:x]           # Access by key => 4
-dict[:z] = 15      # Assignment
-dict.keys()        # [:x, :y, :z]
-dict.values()      # [4, 8, 15]
-dict.empty?()      # false
-dict.count()       # 3
-```
-
-**Features:**
-
-- Symbol, string, or identifier keys
-- Subscript access via `dict[key]`
-- Defined in: `source/programs/dictionary.code`, implemented in `scopes.rb` as `Code::Dictionary`
-
-### Set
-
-An unordered collection of unique items, backed by a Ruby `::Set` in `Code::Set#@set` (`source/proxies/set.rb`, `source/programs/set.code`). No literal syntax — build one with `Set()` / `Set([1, 2, 3])` / `Set(1..5)` / `Set(other_set)`. Loaded by `source/programs/global.code` (no `@load` needed).
-
-```code
-s := Set([1, 2, 2, 3])   # {1, 2, 3} -- dedups
-s.add(4)                  # mutating primitives return self, so they chain
-s.include?(2)             # true
-s.values()                # [1, 2, 3, 4] -- a fresh Array snapshot
-
-Set([1, 2, 3]) | Set([3, 4])   # union        -> Set{1, 2, 3, 4}
-Set([1, 2, 3]) & Set([2, 3, 4]) # intersection -> Set{2, 3}
-Set([1, 2, 3]) - Set([2, 3, 4]) # difference   -> Set{1}
-Set([1, 2, 3]) ^ Set([2, 3, 4]) # symmetric    -> Set{1, 4}
-```
-
-- **Primitives** (`@ruby` proxies): `add`/`insert`, `delete`/`remove`, `merge`, `clear` (all return self); `length`/`count`/`size`, `empty?`, `values`/`to_a`, `subset?`, `superset?`, `disjoint?`, `intersect?`.
-- **`include?` and `@operator ==` are implemented in `.code`**, not `@ruby` — same reason as `source/programs/array.code`: Ruby's `Set#include?`/`#==` use `hash`/`eql?` identity and never see a custom element type's own `@operator ==`. Insertion dedup still uses Ruby identity for non-primitive elements (honoring a custom `==` there would mean dropping the Ruby `::Set` proxy).
-- **Set algebra**: `union`/`intersection`/`difference`/`symmetric_difference` are language methods returning a fresh linked `Set` (via `Set(...)`). The `|`/`&`/`-`/`^` operators are handled by the Ruby backing — `#interp_logical_infix` / `#interp_arithmetic_infix` reach `Code::Set#|` etc. directly (they don't consult an operand's own overloads), and `#maybe_instance`'s `when Code::Set` branch re-links the result on the next dot access so `(a | b).values()` chains.
-- **HOF**: `each` (returns self), `map` (→ Array), `filter`/`select` (→ Set), `find`, `any?`, `all?`.
-- `for a_set` iterates its members (`#interp_for_loop`'s `when Code::Set` → `collection.set.to_a`).
-- Polymorphic params (`merge`, `union`, ...) are annotated `: Set_Like` — `Set_Like := Set | Array | Range`, a composed alias declared at the top of `source/programs/set.code` (the language has no inline `A | B` annotation syntax yet). `Code::Set#to_ruby_set` coerces any of the three, and raises via `Code.assert` for anything else rather than leaking a Ruby `NoMethodError`.
-
-### Range
-
-A numeric range (`source/proxies/range.rb`, `source/programs/range.code`), `Code::Range < Instance` wrapping a Ruby `::Range` in `.range`. Only ever built by the four range operators (see Ranges above) — no `Range(...)` literal.
-
-```code
-r := 1..5
-r === Range        # true -- real type identity
-r.start()          # 1
-r.finish()         # 5
-r.length()         # 5
-r.include?(3)      # true
-r.to_a()           # [1, 2, 3, 4, 5]
-r.sum()            # 15
-r.map(n; n * n)    # [1, 4, 9, 16, 25]
-x: Range = 1..5    # contract holds
-
-for 1..5           # iterates via `collection.range` (#interp_for_loop)
-    @puts it
-end
-```
-
-- **Proxies** (`@ruby`): `start`, `finish`, `excludes_end?`, `length`/`count`/`size`, `include?` (→ `::Range#cover?`; `covers?` is a prog-level alias), `min`, `max`, `sum`, `values`/`to_a` (→ Array), `to_s` (`"1..5"` / `"1..<5"`).
-- **HOF** (in `.code`, iterating `for self`): `each` (returns self), `map`/`filter`/`select` (→ Array), `reduce`/`accumulate`, `find`, `any?`, `all?`; `empty?`.
-- `Code::Range` `include ::Enumerable` (via `def each`), so Ruby-side consumers (`#interp_for_loop`, `#interp_each_loop`, `Code::Set#to_ruby_set`) and the tests' plain `range.include?(n)` / `range.to_a` keep working.
-- `#interp_range_infix` links the range via `finish_intrinsic_instance`; `#maybe_instance` has a `when Code::Range` re-link branch (mirrors Set).
-
-### Number (and Integer / Float / Decimal)
-
-Mirrors Ruby's numeric tower. `Number` is the abstract base (Ruby's `Numeric` role) — never instantiated directly. The concrete types each wrap the matching Ruby class in `value`:
-
-| Language type | Ruby proxy | literal |
-|###|###|###|
-| `Integer` | `Integer` | `4` |
-| `Float` | `Float` | `4.5` |
-| `Decimal` | `BigDecimal` | none — `Decimal('1.50')` / `Decimal(x)` only |
-| `Number` | — (base) | — |
-
-`Int` / `Flo` / `Dec` are short **aliases** — declared `Int := Integer` (not `Int | Integer {}`), so each *is* the same `Type` object, with an identical composed-type set: `4 === Int` **and** `4 === Integer` are both true. A `| {}` subtype would instead be narrower (`4 === Int` false, `Int =>= Integer` true) — see "Alias vs. subtype" below. The temporal structs (`source/programs/date.code` etc) and DB schema columns use these aliases.
-
-- **`#maybe_instance`** picks the class off the already-evaluated Ruby value's class (`::Integer` → `Code::Integer`, etc). All bare `Integer`/`Float` inside `module Code` now mean `Code::Integer`/`Code::Float` — use `::Integer`/`::Float` for the Ruby classes (same gotcha as `Array`).
-- **`Code::Integer < Code::Number`**, etc. `#find_ruby_class_for_type` picks the most-derived candidate (longest ancestor chain), so `Integer(x)` builds a `Code::Integer` (whose `value=` coerces via `to_i`; `Float`→`to_f`; `Decimal`→`BigDecimal`), not a bare `Code::Number`.
-- **Arithmetic and `<=>`** run straight on `value`, so mixed operands follow Ruby's tower. Integer division stays lossy (`7 / 2` is `3`).
-- **`Ruby_Proxies.proxy_delegate_name`** walks the superclass chain (class-ivar, not inherited) so `Instance#[]=` still syncs the `value` member on a subclass; `Instance#[]=` reads the value back after the setter runs, picking up any coercion.
-
-**Type identity.** `===` is exact type-set equality, so `4 === Integer` is **true** but `4 === Number` is **false** — use `4 =>= Number` for the "is-a" check (an `Integer` composes `Number`). Contract enforcement (`x: Number = 4`, param `:=`, destructuring, dot-member) is compositional via `#type_contract_satisfied?` (`composed_types_for(value).include?(expected)`), so `x: Number = 4` passes while `x: Integer = 4.5` doesn't. The static `Type_Checker` uses `#numeric_compatible?` (family-aware) at its three comparison sites; `infer_type(Number_Expr)` returns `'Integer'`/`'Float'`.
-
-**Leniency on inference.** `#inferred_type_name` collapses any numeric to `'Number'` — used when *recording* a type from a value (`:=` locking, struct member inference, contract-violation messages) so `sum := 0` then `sum = 1.5` still works and struct metadata stays coarse. `#type_name_to_string` still returns the leaf (`'Integer'`), used for `===`/display. `#member_candidate_type_names` returns the compositional list (`['Integer', 'Number']`).
-
-Properties: `value` (the wrapped Ruby number). Methods: `numerator()`, `denominator()`, `to_s()`, `abs()`, `floor()`, `ceil()`, `round()`, `sqrt()`, `even?()`, `odd?()`, `to_i()`, `to_f()`, `clamp(min, max)`. (No `type` — dropped; use `=== Integer` / `.value.class`-equivalents.)
-
-Defined in `source/programs/number.code`, implemented in `source/proxies/number.rb`. `Number#initialize` coerces a non-`Numeric` argument to `0` — `#interp_ruby_proxy` builds a throwaway `ruby_class.new(type_name_string)` when dispatching a static proxy (`Integer.rand`).
-
-### Date / Time / Date_Time
-
-Three temporal wrappers, always available (loaded by `source/programs/global.code` — no `@load` needed). Each wraps a Ruby stdlib value: `Date` → `::Date`, `Time` → `::Time`, `Date_Time` → `::DateTime`.
-
-```code
-Date.today()                       # today's Date
-Date.parse('2020-03-15')           # Date from an ISO string
-Time.now()                         # current Time
-Time.at(1_700_000_000)             # Time from epoch seconds
-Date_Time.now()
-Date_Time.parse('2020-03-15T09:30:00+00:00')
-
-d := Date.parse('2020-03-15')
-d.year        # 2020
-d.month       # 3
-d.day         # 15
-d.weekday     # 0  (0 = Sunday .. 6 = Saturday; Date only)
-d.iso8601()   # '2020-03-15'
-d.to_s()      # same as iso8601()
-
-Time.now().epoch()   # Unix seconds (Time only)
-```
-
-- **Common members**: `year`, `month`, `day`, `iso8601()`, `to_s()` (all three). `Time`/`Date_Time` add `hour`, `minute`, `second`. `Time` adds `epoch()`. `Date` adds `weekday`.
-- **Comparison**: `<`, `>`, `<=`, `>=`, `==`, `!=` all work, against another wrapper or a raw Ruby value — `Temporal#<=>` unwraps either side (`source/proxies/temporal.rb`).
-- **Static constructors**: `Date.today`, `Date.parse`; `Time.now`, `Time.at`, `Time.parse`; `Date_Time.now`, `Date_Time.parse`.
-- Proxy bodies: `source/programs/date.code`, `source/programs/time.code`, `source/programs/date_time.code`. Ruby classes and the shared `Temporal` mixin: `source/proxies/temporal.rb`. Tests: `tests/temporal_test.rb`.
-- These are the types a `Date` / `Time` / `Date_Time` table column maps to — a value read back from such a column comes out as the matching wrapper, linked to its global type via `Table#linked_temporal` (`table.rb`).
-
-### File (File I/O)
-
-Static methods for reading and writing files:
-
-```code
-content := File.read('./path/to/file.txt')               # read file contents as a string
-File.write_string_to_file('./path/to/file.txt', 'Hi')    # write a string to a file
-File.list_directory('./some/dir')                        # sorted Array of child names
-```
-
-`source/programs/file.code` declares `File | File_System {}` — the Ruby class is `Code::File_System`
-(`source/proxies/file.rb`), *not* `Code::File`, so bare `File` inside `module Code` / `module Code`
-stays Ruby's `::File` (the interpreter uses it everywhere). Same trick for `Dir` below. `find_ruby_class_for_type`
-walks composed types, so `File`'s `[File, File_System]` set resolves to `Code::File_System`.
-
-### Dir (directories)
-
-`Dir(path)` is a directory value — the building blocks for walking a tree (a treemap, `du`, ...).
-`source/programs/dir.code` declares `Dir | Directory {}`; the Ruby class is `Code::Directory` (`source/proxies/dir.rb`).
-
-```code
-d := Dir('./src')
-d.name()          # 'src'      -- last path segment
-d.exists?()       # true       -- exists and is a directory
-d.children()      # full paths of every child
-d.subdirs()       # full paths of the child directories
-d.files()         # full paths of the child regular files
-d.size()          # recursive total bytes under the directory
-d.size_of(path)   # bytes of one file, or the recursive total of one dir
-d.is_dir?(path)   d.is_file?(path)
-Dir.pwd()   Dir.home()   # -> Dir
-```
-
-Scalars come back as `Code::String` / raw numbers, list methods as a linked `Code::Array` of path
-strings (not `Dir` instances — recurse with `Dir(it)`). Symlinks are not descended for `size`.
-Tests: `tests/dir_test.rb`, `tests/file_test.rb`.
+- **String** — `.N` positional dot-index (`"abc".0`) goes through `#interp_dot_string`, a narrower dispatch than Array/Tuple's — reusing that one would also pick up its `.each` shorthand, and Ruby's own String has no `#each`. Defined in `source/programs/string.code`, implemented in `scopes.rb`.
+- **Array** — `concat` is destructive: a plain passthrough to Ruby's own `Array#concat`, unlike every other Array-combining method (`map`/`filter`/`flatten`/`reverse`/`sort`/`uniq`), which all return a new Array. Prefer `[a, b].flatten()` to combine two arrays without mutating either.
+- **Set** — backed by a Ruby `::Set` in `Code::Set#@set` (`source/proxies/set.rb`, `source/programs/set.code`). `include?` and `@operator ==` are implemented in `.code`, not `@ruby`, since Ruby's own `Set#include?`/`#==` use `hash`/`eql?` identity and never see a custom element type's `@operator ==`. The `|`/`&`/`-`/`^` operators are handled by the Ruby backing directly — `#interp_logical_infix`/`#interp_arithmetic_infix` reach `Code::Set#|` and so on, without consulting an operand's own overloads. `Set_Like := Set | Array | Range` (`set.code`) is the polymorphic-param alias; `Code::Set#to_ruby_set` coerces any of the three.
+- **Range** — see Ranges above.
+- **Number** — see readme.md's "Numbers" section for the type table (`Integer`/`Float`/`Decimal`/`Number`, each one's Ruby class and literal) and the `Int`/`Flo`/`Dec` aliases. `#maybe_instance` picks the class off the already-evaluated Ruby value's class; bare `Integer`/`Float` inside `module Code` mean `Code::Integer`/`Code::Float` — use `::Integer`/`::Float` for the Ruby classes. `#find_ruby_class_for_type` picks the most-derived candidate (longest ancestor chain). `#inferred_type_name` collapses any numeric to `'Number'` when recording a type from a value, so `sum := 0` then `sum = 1.5` still works; `#type_name_to_string` still returns the leaf, used for `===`/display. `===` is exact type-set equality, so `4 === Integer` is true but `4 === Number` is false — use `4 =>= Number` for the is-a check.
+- **Date/Time/Date_Time** — each wraps a Ruby stdlib value (`::Date`/`::Time`/`::DateTime`) through the shared `Temporal` mixin (`source/proxies/temporal.rb`). `Temporal#<=>` unwraps either side of a comparison. These are the types a `Date`/`Time`/`Date_Time` table column maps to; `Table#linked_temporal` (`table.rb`) links a value read back from such a column.
+- **File/Dir** — `source/programs/file.code` declares `File | File_System {}`; the Ruby class is `Code::File_System` (`source/proxies/file.rb`), not `Code::File`, so bare `File` inside `module Code` stays Ruby's `::File`. Same trick for `Dir` (`Code::Directory`, `source/proxies/dir.rb`). `find_ruby_class_for_type` walks composed types to resolve either.
 
 ## Loop Control Flow
 
-### For Loops
+See readme.md's "For Loops", "For Loop Verbs", and "Loop Control" sections for the language-level rules and examples, including the stride-with-overlap form (`by <stride>,<overlap>`).
 
-```code
-for [1, 2, 3, 4, 5]
-    result << it
-end
+### Implementation Notes
 
-for 1..10  # Range support
-    sum += it
-end
-
-for items by 2  # Stride support
-    process it  # it contains chunks of 2 items
-end
-```
-
-**Intrinsic variables:**
-
-- `it` - Current iteration value
-- `at` - Current iteration index
-
-### For Loop Verbs
-
-For loops support transformation verbs that return values: `map`, `select`, `reject`, `count`.
-
-```code
-`Transform each element
-doubled := for [1, 2, 3, 4, 5] map
-    it * 2
-end  # => [2, 4, 6, 8, 10]
-
-`Filter elements where body is truthy
-evens := for [1, 2, 3, 4, 5, 6] select
-    it % 2 == 0
-end  # => [2, 4, 6]
-
-`Filter elements where body is falsy
-odds := for [1, 2, 3, 4, 5, 6] reject
-    it % 2 == 0
-end  # => [1, 3, 5]
-
-`Count elements where body is truthy
-count := for [1, 2, 3, 4, 5, 6] count
-    it % 2 == 0
-end  # => 3
-```
-
-**With stride:**
-
-```code
-`Map chunks of 2
-sums := for [1, 2, 3, 4, 5, 6] map by 2
-    it.0 + it.1
-end  # => [3, 7, 11]
-```
-
-**With overlap:** `by <stride>,<overlap>` slides each window forward by `stride - overlap` elements instead of a full `stride`, so consecutive windows share `overlap` elements instead of being disjoint.
-
-```code
-`Every consecutive pair -- stride 2, sliding forward by 1
-pairs := for [1, 2, 3, 4, 5, 6] map by 2,1
-    (it.0, it.1)
-end  # => [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)]
-
-`3-wide windows, each sharing 1 element with the next -- stride 3, sliding forward by 2
-windows := for [1, 2, 3, 4, 5, 6, 7] map by 3,1
-    (it.0, it.1, it.2)
-end  # => [(1, 2, 3), (3, 4, 5), (5, 6, 7)]
-```
-
-A trailing window that can't reach the full `stride` is dropped rather than kept short (unlike the plain no-overlap chunking above, which keeps a final undersized chunk via `each_slice`) -- `for [1, 2, 3, 4, 5] map by 2,1` produces `[1,2], [2,3], [3,4], [4,5]`, not a trailing `[5]` on its own. `overlap` must be a smaller integer than `stride`.
-
-**With stop (partial results):**
-
-```code
-`Stop returns partial results for map/select/reject
-partial := for [1, 2, 3, 4, 5] map
-    stop if it == 4
-    it * 2
-end  # => [2, 4, 6]
-```
-
-### Loop Control Keywords
-
-```code
-for items
-    if condition
-        skip  # Continue to next iteration
-    end
-    if other_condition
-        stop  # Break out of loop
-    end
-end
-```
-
-- **skip** - Skip remaining loop body and continue to next iteration (like `continue`)
-- **stop** - Exit the loop immediately (like `break`)
-- Works with `for`, `while`, and `until` loops
-
-### While and Until Loops
-
-```code
-while x < 4
-    x += 1
-end
-
-until x >= 23
-    x += 2
-end
-```
-
-Both support `elwhile`/`else` chaining (like `elif` for loops):
-
-```code
-while x < 4
-    x += 1
-elwhile y > -8
-    y -= 1
-else
-    z := 1
-end
-```
-
-### Unless / Control Flows as Expressions
-
-`unless condition` is equivalent to `if !condition`. All control flows (`if`, `unless`, `while`, `until`) are expressions and return values:
-
-```code
-x := unless condition
-    4
-else
-    -4
-end
-```
-
-**Truthiness** (`#truthy?` in `interpreter.rb`) is uniform across all four conditional forms (`if`/`unless`/`while`/`until`) and just delegates to Ruby's own rules (`!!value`): only `nil`/`false` are falsy, everything else — `0`/`0.0` included — is truthy.
-
-### Return Statement
-
-The `return` keyword exits a function and returns a value. It properly propagates even when used inside loops:
-
-```code
-find ( func;
-    for values
-        if func(it)
-            return it  # Exits the function, not just the loop
-        end
-    end
-    nil
-)
-
-[1, 2, 3].find(( x;
-    x > 1
-))  # Returns 2
-```
-
-**Implementation:**
-
-- `return value` creates an `Code::Return` object wrapping the value
-- For loops detect `Return` objects and propagate them up to the function
-- Functions unwrap the `Return` object and return the inner value
-- Without `return`, functions return the last expression evaluated
+- `it`/`at` come from a fresh `Scope` pushed per iteration.
+- `for`'s stride path (`by N`) wraps each chunk as a real `Code::Array`, through `Code::Array.new(chunk)`, so `it` supports `==`/`.push`/etc, not just dot-index access.
+- The overlap form (`by N,overlap`) computes `step = stride - overlap`, then builds windows with `(0...values_array.length).step(step).map { |i| values_array[i, stride] }`, keeping only full-size windows (`chunk.length == stride`). A trailing window that cannot reach the full `stride` is dropped, unlike the plain no-overlap chunking above, which keeps a final undersized chunk through Ruby's `each_slice`. `overlap` must be a smaller integer than `stride`. `Code::For_Loop_Expr#overlap` (`source/proxies/expressions.rb`) holds the parsed value; `interp_for_loop` (`interpreter.rb`) validates and applies it.
+- `return value` creates a `Code::Return` object. A `for` loop detects one and propagates it up to the function; the function unwraps it and returns the inner value.
+- Truthiness (`#truthy?`, `interpreter.rb`) is uniform across `if`/`unless`/`while`/`until`, and delegates to Ruby's own `!!value` rule — only `nil`/`false` are falsy.
 
 ## Code Style Preferences
 
 ### Ruby Code Style
 
-- **Indentation**: Use tabs (equivalent to 4 spaces)
-- **Class names**: Use `This_Case` (capitalized with underscores), not `ThisCase`
-- **Method definitions**: Omit parentheses - `def something arg` not `def something(arg)`
-- **Method calls**: Omit parentheses where possible - `foo.bar arg` not `foo.bar(arg)`
-- **Comments**: Only add comments for non-obvious code — don't comment obvious operations. Keep each comment to 1-2 sentences on a single `#` line that wraps naturally in the editor; only start a new `#` line for a genuinely separate second point, never to manually wrap one long sentence across multiple lines
+- Indentation: use tabs (equal to 4 spaces).
+- Class names: use `This_Case`, not `ThisCase`.
+- Method definitions: omit parentheses — write `def something arg`, not `def something(arg)`.
+- Method calls: omit parentheses where you can — write `foo.bar arg`, not `foo.bar(arg)`.
+- Comments: add a comment only for code that is not obvious. Keep each comment to 1–2 sentences, on one `#` line that wraps naturally in the editor. Start a new `#` line only for a separate second point, never to wrap one long sentence across lines.
 
 ## Testing
 
-Tests use Minitest and inherit from `Base_Test` (in tests/base_test.rb):
+Tests use Minitest and inherit from `Base_Test` (`tests/base_test.rb`):
 
-- `tests/lexer_test.rb` - Lexer tests
-- `tests/parser_test.rb` - Parser tests
-- `tests/interpreter_test.rb` - Interpreter tests
-- `tests/type_checker_test.rb` - Static type checker tests
-- `tests/composition_test.rb` - Class composition operator tests
-- `tests/pipeline_test.rb` - Full lex→parse→interpret pipeline tests
-- `tests/error_test.rb` - Runtime error tests
-- `tests/proxies_test.rb` - Ruby Proxy method tests
-- `tests/regression_test.rb` - Regression tests
-- `tests/server_test.rb` - Server and routing tests
-- `tests/e2e_server_test.rb` - End-to-end server tests
-- `tests/database_test.rb` - Database and ORM tests
+- `tests/lexer_test.rb` — lexer tests.
+- `tests/parser_test.rb` — parser tests.
+- `tests/interpreter_test.rb` — interpreter tests.
+- `tests/type_checker_test.rb` — static type checker tests.
+- `tests/composition_test.rb` — class composition operator tests.
+- `tests/pipeline_test.rb` — full lex → parse → interpret pipeline tests.
+- `tests/error_test.rb` — runtime error tests.
+- `tests/proxies_test.rb` — Ruby proxy method tests.
+- `tests/regression_test.rb` — regression tests.
+- `tests/server_test.rb` — server and routing tests.
+- `tests/e2e_server_test.rb` — end-to-end server tests.
+- `tests/database_test.rb` — database and ORM tests.
 
-The base test class provides `refute_raises` helper for asserting no exceptions.
+`Base_Test` provides a `refute_raises` helper, for asserting that a block raises no exception.
 
 ## Database and ORM
 
-The language includes built-in database support with an ActiveRecord-style ORM using Sequel and SQLite. `source/programs/database.code` (which itself `@load`s `source/programs/table.code`) gives you both `Database`/`Sqlite` and `Table`.
+See readme.md's "Database" and "Record ORM" sections for the language-level API and examples. `source/programs/database.code` (which `@load`s `source/programs/table.code`) gives you `Database`/`Sqlite` and `Table`.
 
-### Connecting
-
-`@connect` opens the connection and **returns the `Database`** — so the idiom is one line:
-
-```code
-@load 'source/programs/database.code'
-
-db := @connect Sqlite('./data/myapp.db')   # a real path
-db := @connect Sqlite.memory()             # ':memory:', nothing hits prog
-db := @connect Sqlite.local('_sandbox/demo.db')  # your own path, verbatim (adds `.db` if missing) --
-                                                  # the parent directory must already exist
-```
-
-- `Sqlite(url)` builds an unconnected `Database` (`adapter`/`url` set, `connection` still nil). `@connect` interprets its argument, links it to the `Database` type, and lazily builds + caches the Sequel connection on it (`#interp_intrinsic`'s `connect` case). A second `@connect` on the same `Database` returns the same cached `Sequel::SQLite::Database`.
-- `@connect db` (statement form, no assignment) still works — it returns the same value, you just ignore it.
-- Connecting with no `url` raises `Code::Url_Not_Set_For_Database_Instance`.
-
-### Schemas
-
-A schema is a **named Struct** — one member per column, the member's type name deciding the column type. The struct's `.name` is what the table name is derived from (`User` → `users`, `Log_Schema` → `log_schemas`, via `Sequel::Inflections` pluralize/underscore), so an **anonymous** schema struct raises `Code.assert` (a `RuntimeError`) in every method that takes one.
-
-```code
-User <
-    id: Primary_Key
-    name: String
-    joined_at: Date_Time
->
-```
-
-Column type names, matched by string in `Database#proxy_create_table` (`database.rb`):
-
-| schema type | column |
-|###|###|
-| `Primary_Key` | auto-increment primary key (declared `Primary_Key\Int` in `source/programs/database.code`) |
-| `String`, `Text` | text |
-| `Int` | integer |
-| `Number` | numeric |
-| `Bool` | boolean (SQLite stores 0/1/NULL — see round-trip note below) |
-| `Date`, `Time`, `Date_Time` | the matching Ruby date/time column |
-| `Flo`/`Float`, `Decimal`, `Blob`/`Binary` | mapped, but no language type backs these yet |
-| an `Enum`-typed member | text |
-
-### Database methods
-
-- `find_or_create_table(schema)` → a `Table` (creates the table if missing, otherwise just binds to it). The usual entry point.
-- `create_table(schema)` → a `Table` (fails if the table already exists at the Sequel level)
-- `find_table(name_or_schema)` → a `Table`, or `nil` if the table doesn't exist. Passing the schema struct also sets the returned `Table`'s `.columns`; passing a bare name (`'widgets'` / `:widgets`) does not.
-- `delete_table!(name_or_schema)` — drop it. Takes a bare `Symbol`/`String` name too, so you don't need the original schema in scope to drop a table.
-- `table_exists?(name_or_schema)` → `Bool`
-- `tables()` → `Array` of table-name `Symbol`s
-- `to_s()` → `"Database{<object_id>}"`
-
-### Records (the `Table` instance)
-
-The `Table` you get back carries `.columns` (the schema struct), `.database`, and `.table_name` (a plain `String`, e.g. `'users'`). Its CRUD methods are **instance methods on that object** — there is no `User | Table {}` model composition or `Self.database` static pattern anymore (removed deliberately, so one schema can be bound to more than one database). `source/programs/table.code` has no `Self.` members.
-
-```code
-users := db.find_or_create_table(User)
-
-cooper := users.create(<name := 'Cooper'>)   # attrs are a `:=`-member Struct, not a Dictionary
-users.create(<name := 'Luna'>)
-
-users.all()                    # Array of record Structs
-users.find(cooper.id)          # one record Struct, or nil
-users.find_by(<name := 'Luna'>)  # first match, or nil
-users.where(<name := 'Luna'>)    # Array of matches
-users.update(cooper.id, <name := 'Cooper II'>)
-users.delete(cooper.id)
-users.count()
-```
-
-- **A record is an `Code::Struct`**, named after the schema, built by `Table#row_to_struct` → `Interpreter#build_struct` (`table.rb`). Read members by name (`record.name`, `record.id`); `.to_h` gives the whole row.
-- `find`/`update`/`delete` take a primary key (`pk`). `find_by`/`where`/`create`/`update` take a Struct of `name := value` members.
-- A filter/attrs Struct naming a column the schema doesn't have raises `Code::Table_Invalid_Filter_Column` (checked proactively in `#check_filter_columns!`, before the query runs).
-- **`Bool` round-trip**: SQLite has no boolean type, so a `Bool` column stores 0/1 (or NULL when unset). `#coerce_column_value` maps it back to a real `true`/`false` so `if record.done` and `record.done == true` both behave — before this fix an unset value read as the truthy `Bool` *type* object.
-- **`Date`/`Time`/`Date_Time` round-trip**: read back as the matching wrapper instance (`record.joined_at.year`, comparisons, etc.), GC-safely linked to its global type via `#linked_temporal`.
-
-### Implementation
-
-- Sequel + SQLite. `Database`/`Table` proxy methods: `source/proxies/database.rb`, `source/proxies/table.rb`. Tests: `tests/database_test.rb`, plus the temporal-column round-trip in `tests/temporal_test.rb`.
-- `Database#find_table` is a `proxy_overload` — `Code::Struct` → `#find_table_struct`, `::String` → `#find_table_named`.
-- `#table_name_for` is the single place a table name is derived from a schema struct; every struct-accepting method funnels through it, so the "must be named" assert covers all of them at once.
+- `Sqlite(url)` builds an unconnected `Database`. `@connect` interprets its argument, links it to the `Database` type, and lazily builds and caches the Sequel connection on it (`#interp_intrinsic`'s `connect` case). A second `@connect` on the same `Database` returns the same cached connection. Connecting with no `url` raises `Code::Url_Not_Set_For_Database_Instance`.
+- A schema is a named Struct — one member per column. The struct's `.name` decides the table name (through `Sequel::Inflections`, pluralize/underscore), so an anonymous schema struct raises `Code.assert` in every method that takes one.
+- Column type names are matched by string in `Database#proxy_create_table` (`database.rb`): `Primary_Key` → auto-increment primary key; `String`/`Text` → text; `Int` → integer; `Number` → numeric; `Bool` → boolean (SQLite stores 0/1/NULL); `Date`/`Time`/`Date_Time` → the matching Ruby date/time column; `Flo`/`Float`/`Decimal`/`Blob`/`Binary` → mapped, but no language type backs these yet; an `Enum`-typed member → text.
+- `Database#find_table` is a `proxy_overload` — `Code::Struct` routes to `#find_table_struct`, `::String` to `#find_table_named`. `#table_name_for` is the single place a table name is derived from a schema struct.
+- A record is a `Code::Struct`, named after the schema, built by `Table#row_to_struct` → `Interpreter#build_struct` (`table.rb`). `find`/`update`/`delete` take a primary key; `find_by`/`where`/`create`/`update` take a Struct of `name := value` members. A filter/attrs Struct naming a column the schema does not have raises `Code::Table_Invalid_Filter_Column`, checked in `#check_filter_columns!` before the query runs.
+- **Bool round-trip.** `#coerce_column_value` maps SQLite's 0/1/NULL back to a real `true`/`false`/`nil`.
+- **Date/Time/Date_Time round-trip.** A value reads back as the matching wrapper instance, linked to its global type through `#linked_temporal`.
+- Implementation: Sequel plus SQLite. `Database`/`Table` proxy methods: `source/proxies/database.rb`, `source/proxies/table.rb`. Tests: `tests/database_test.rb`, plus the temporal-column round-trip in `tests/temporal_test.rb`.
 
 ## Web Server Features
 
-The language has built-in web server support:
+See readme.md's "Web Server", "Routes", and "Request & Response" sections for the language-level API and examples.
 
-- **Server class composition** - Create servers by composing with the built-in `Server` class using `|` operator
-- **Route syntax** - Routes defined as `method://path` (e.g., `get://`, `post://users/:id`)
-- **URL parameters** - Use `:param` syntax in routes, accessed via route function parameters
-- **Route precedence** - `#match_route` (`interpreter.rb`) collects every route whose segment count and literal/`:param` segments match, then picks the one with the *fewest* `:param` segments — so a fully literal route always beats a `:param` route for the same path, regardless of declaration order (`get://favicon.ico` wins over an app's own `get://:id`). `#min_by` keeps the first on a tie, matching the old `.find` order. This is what makes `source/programs/server.code`'s built-in `get://favicon.ico` / `get://apple-touch-icon.png` / `get://apple-touch-icon-precomposed.png` routes (all `ok200`) actually shield an app from the browser's automatic icon probes hitting `get://:id`
-- **Query strings** - Available via `request.query` dictionary
-- **Request/Response objects** - Automatically available in route handlers (from `scopes.rb`)
-- **HTTP redirects** - `response.redirect(url)` for POST/Redirect/GET pattern (uses 303 See Other)
-- **Form data** - POST body available via `request.body` dictionary
-- **`@start` directive** - Non-blocking server startup, allows multiple concurrent servers
-- **Graceful shutdown** - Servers stop when program exits
-- **WEBrick backend** - HTTP server implementation in `server_runner.rb`
-
-### Response Methods
-
-- `response.redirect(url)` - Redirect to URL (HTTP 303 See Other, changes POST to GET)
-- `response.status = code` - Set HTTP status code
-- `response.headers[key] = value` - Set response headers
-- `response.body = content` - Set response body
-
-```code
-post://login (;
-    if authenticate(request.body.username, request.body.password)
-        response.redirect("/dashboard")
-    else
-        response.status = 401
-        "Unauthorized"
-    end
-)
-```
+- **Route precedence.** `#match_route` (`interpreter.rb`) collects every route whose segment count and literal/`:param` segments match, then picks the one with the fewest `:param` segments — so a fully literal route always beats a `:param` route for the same path, whatever order they were declared in. `#min_by` keeps the first on a tie. This is what lets `source/programs/server.code`'s built-in `get://favicon.ico` (and the two `apple-touch-icon` routes) shield an app from a browser icon probe hitting `get://:id`.
+- WEBrick implements the HTTP server, in `server_runner.rb`.
 
 ## HTML Rendering
 
-The language supports HTML rendering via the built-in `Dom` type (load `source/programs/html.code`). Any class composing with `Dom` that defines a `render` method will auto-render to HTML when returned from a server route.
+See readme.md's "HTML Elements" section for the language-level API and examples. Load `source/programs/html.code` for the `Dom` type and predefined elements.
 
-```code
-@load 'source/programs/html.code'
-
-Layout | Dom {
-    title,
-
-    Self ( title = 'My Page';
-        ./title = title
-    )
-
-    render (;
-        Html([
-            Head(Title(title)),
-            Body(H1("Hello!"))
-        ])
-    )
-}
-```
-
-**HTML and CSS attributes** use `html_` and `css_` prefixes on declarations:
-
-```code
-Styled_Div | Dom {
-    html_element := 'p'
-    html_class := 'my_class'
-    html_id := 'my_id'
-    css_background_color := 'black'
-    css_color := 'white'
-}
-# => <p class='my_class' id='my_id' style='background-color:black;color:white;'></p>
-```
-
-**Predefined elements** in `source/programs/html.code`: `Html`, `Head`, `Body`, `Title`, `H1`–`H6`, `P`, `Span`, `A`, `Div`, `Form`, `Input`, `Button`, `Ul`, `Ol`, `Li`, `Html_Table` (not `Table` — that name is the ORM type), `Tr`, `Td`, `Th`, and more.
-
-- Routes returning a `Dom` instance automatically render to HTML string
-- HTML rendering only works when `render(;)` is called by a Server instance
-- `html_element` sets the tag name (default `'div'`)
-- Fence blocks starting with `html\n` are treated as raw HTML tokens by the lexer
+- A route returning a `Dom` instance auto-renders to an HTML string.
+- HTML rendering only runs when `render(;)` is called by a Server instance.
+- A fence block starting with `html\n` is treated as raw HTML tokens by the lexer.
 
 ## CSS (`source/programs/css.code`)
 
-CSS is plain data here, no parser involved: a handful of structs build a small AST by hand, and a visitor walks whatever tree you constructed. `@load 'source/programs/css.code'` — it also `@load`s `source/programs/visitor.code` for the shared `Warnings_Visitor` mixin (see below).
+See readme.md's "CSS" section for the AST node structs and formatter/linter API. `@load 'source/programs/css.code'` also loads `source/programs/visitor.code`, for the shared `Warnings_Visitor` mixin.
 
-**AST node structs**: `Property <name: String, value: Any, important: Bool = false>`, `Variable_Declaration <name, value>`, `Css_Function <name, args: Array>`, `Keyframe <values: Array\String, declarations: Array\Property>`, `Color <hex: String>`, `Style_Rule <selectors: Array, declarations: Array, rules: Array = []>`, `At_Rule <name, prelude: String = "", body: Any = nil>`, `Scope_Rule <root: String, limit: String = "", rules: Array = []>`, `Custom_Property_Rule <name, syntax: String, inherits: Bool = false, initial_value: Any = nil>`, `Layer_Order <names: Array\String>`, `Stylesheet <rules: Array\Css>` — `Css | Style_Rule | At_Rule | Scope_Rule | Custom_Property_Rule | Layer_Order <>` is the composed sum-type union all of those (except `Stylesheet` itself) belong to.
-
-```code
-@load 'source/programs/css.code'
-
-rule := Style_Rule(['.card'], [Property('color', 'red'), Property('padding', '8px')])
-
-Css_Formatter_Visitor().format(rule)
-# ".card {\n    color: red;\n    padding: 8px;\n}"
-
-Css_Formatter_Visitor(minify := true).format(rule)
-# ".card{color:red;padding:8px;}"
-```
-
-**`Css_Formatter_Visitor`** — constructed `(indent_size := 4, minify := false)`. `format(node, depth := 0, nested_in_rule := false)` dispatches on `node`'s composed type (`=== Stylesheet`/`Style_Rule`/`At_Rule`/.../`Color`, falling back to `node.to_s()`) to a matching `format_*` method.
-
-- `nested_in_rule` decides whether `format_style_rule` synthesizes a `&` prefix on its own selectors (`format_nested_selector` — only if a selector doesn't already start with `&`/`:`) — it's passed `true` **only** from `format_style_rule`'s own recursive call over `rule.rules` (real CSS nesting, where a parent selector genuinely exists to combine with). Every other caller (`format_stylesheet`'s top-level rules, `format_at_rule`'s/`format_scope_rule`'s own body) leaves it `false`, even though those also increment `depth` — `depth > 0` alone can't tell "really nested inside another selector" apart from "just indented because an `@media`/`@scope` wraps it", which used to wrongly synthesize `&` in the latter case too.
-- `Color`'s shorthand branch (`node.hex.has_all_same_characters?()`) relies on String's positional dot-index (`node.hex.0 * 3` — see the String section above) to repeat a single character three times; the plain branch just returns `node.hex` as-is.
-
-**`Css_Lint_Visitor | Warnings_Visitor`** — `lint(node)` resets `self.warnings` then walks, checking each `Property` for a duplicate name (within the same `Style_Rule`), a hardcoded vendor prefix (`-webkit-`/`-moz-`/`-ms-`/`-o-`), and a redundant zero-unit (`"0px"` where `"0"` would do) via `ZERO_UNITS`/`.any?`. Recurses into `Stylesheet.rules`, `Style_Rule.rules`, `Scope_Rule.rules`, and `At_Rule.body` (when it's an Array). When handed a whole `Stylesheet`, it also runs `check_animation_transform_clash` — a cascade check, not a formatting one: a state rule (`.card:hover`, `:focus`, … — `STATE_PSEUDOS`) that sets `transform` while the base selector (`.card`) runs an `animation`/`animation-name` whose `@keyframes` steps also animate `transform` warns, because the running animation recomputes `transform` every frame and the hover value never shows. Needs the full sheet in view (keyframes + both rules), so it only fires at `Stylesheet` level.
+- `Css_Formatter_Visitor#format`'s `nested_in_rule` flag decides whether `format_style_rule` synthesizes a `&` prefix on its own selectors. It is passed `true` only from `format_style_rule`'s own recursive call over `rule.rules` — real CSS nesting. Every other caller (`format_stylesheet`, `format_at_rule`, `format_scope_rule`) leaves it `false`, even though those also increment `depth` — `depth > 0` alone cannot tell "nested inside another selector" apart from "indented because an `@media`/`@scope` wraps it."
+- `Css_Lint_Visitor | Warnings_Visitor`'s `lint(node)` resets `self.warnings`, then checks each `Property` for a duplicate name, a hardcoded vendor prefix, and a redundant zero-unit. Given a whole `Stylesheet`, it also runs `check_animation_transform_clash` — a state rule that sets `transform` while the base selector runs an `animation` whose keyframes also animate `transform` warns, since the running animation overrides the hover value every frame.
 
 ## Struct-Based HTML (`source/programs/html2.code`)
 
-Same spirit as CSS above, and coexists with `source/programs/html.code`'s `Dom` types rather than replacing them — this one only builds an HTML string, it doesn't hook into the server-side live-render pipeline (route responses, onclick wiring, `dom.js`) the way `Dom` does. `@load 'source/programs/html2.code'` — it also `@load`s `source/programs/visitor.code` and `source/programs/css.code`.
+See readme.md's "Struct-Based HTML" section for the node shape and examples. This coexists with `html.code`'s `Dom` types — it only builds an HTML string, and does not hook into the server-side live-render pipeline (route responses, `onclick` wiring, `dom.js`). `@load 'source/programs/html2.code'` also loads `visitor.code` and `css.code`.
 
-**The one node shape**: `Element <tag: String, attributes: Array\Attribute = [], css: Css = nil, children: Array = []>`. `Attribute <name: String, value: Any>` mirrors `Property` exactly — attributes are an ordered Array, not a Dictionary, so they preserve call-site order and can even collide (see `Html_Lint_Visitor` below). `children` holds a mix of `Element` structs and plain Strings (text nodes); `css`, when set, is any css.code struct.
-
-```code
-@load 'source/programs/html2.code'
-
-page := div([h1('Welcome'), p('Hello!')], [], Style_Rule(['.greeting'], [Property('color', 'blue')]))
-
-Html_Render.render(page)
-# '<div><h1>Welcome</h1><p>Hello!</p><style>.greeting{color:blue;}</style></div>'
-```
-
-**`Html_Formatter_Visitor`** — constructed `(indent_size := 2, minify := false)`, same "one type, a mode flag" shape as `Css_Formatter_Visitor`. `Html_Render`/`Html_Format` are two shared instances (compact/pretty). `render(node, depth := 0)` dispatches on `node === Element` (else calls `node.to_s()` for a bare text child).
-
-- Void tags (`VOID_TAGS`: `area base br col command embed hr img input keygen link meta param source track wbr`) never get a closing tag, in either mode.
-- A single bare-text child stays on one line (`<p>Hello</p>`) rather than always expanding to block style; any other shape (multiple children, or an Element child) expands.
-- `css`, if attached, renders as one more child — an embedded `<style>` block (`css_child`), built via a fresh `Css_Formatter_Visitor` sharing this visitor's own `indent_size`/`minify` — appended with `[el.children, [css_child(el.css)]].flatten()`, not `.concat` (see the Array `concat` gotcha above: `.concat` would permanently corrupt `el.children` in place, duplicating the `<style>` tag on a second render). The exception is a `<style>` element with `css` set on it directly — that formats in place (`Css_Formatter_Visitor(...).format(el.css)`) rather than through `css_child`, so it doesn't nest a second `<style>` inside itself.
-- A `<style>` element with a single non-Element child (already-formatted CSS text, or a raw css.code node it formats now) pretty-prints as a block: `<style>` on its own line, the CSS run through `indent_block` one level deeper, `</style>` back at the tag's indent. This is the only place a multi-line text child gets re-indented — every other text child renders verbatim via `node.to_s()`.
-
-**`Html_Stats_Visitor`** — `analyze(node)` resets `node_count`/`max_depth`/`tag_counts` then walks; `unique_tags()` reads `tag_counts.keys()`; `minified_size(node)`/`pretty_size(node)` just re-render via `Html_Render`/`Html_Format` and read `.length`.
-
-**`Html_Sanitizer_Visitor`** — `sanitize(node)` returns a cleaned copy (the original is untouched; Elements are plain data). Drops `script`/`iframe`/`object`/`embed` tags entirely, along with their children; strips `on*` attributes and `javascript:`-valued `href`/`src` attributes from whatever's left.
-
-**`Html_Lint_Visitor | Warnings_Visitor`** — `lint(node)` resets `self.warnings` then walks, checking for a void element given children, an `<img>` missing `alt`, an empty (non-void) container, and a duplicate attribute name (`check_duplicate_attributes` — a real possibility now that `attributes` is an ordered Array, not a Dictionary).
-
-**Element constructors** — one lowercase function per tag (`div`, `p`, `h1`–`h6`, `href`, `img`, `input`, ..., full parity with `source/programs/html.code`'s predefined element list), each just `Element("tag", attributes, css, children)`. Lowercase, not capitalized like `source/programs/html.code`'s `Div`/`Title`/etc — a capitalized name before `(` routes to type-reference parsing instead of a function declaration.
-
-- `as_children(children)` wraps a single bare child (a String, or one Element) into a one-element Array, so `li("one")` and `li(["one", "two"])` both just work.
-- `merge_attribute(attributes, attr)` gives `href`/`utf8_meta` the same override-in-place-or-append semantics `Dictionary#merge` used to, before `attributes` became an Array: replaces an existing same-named `Attribute` in place, or appends if there isn't one — non-destructive (builds a new Array via `.map`/`.flatten()`, never mutates the caller's own array).
+- `Html_Formatter_Visitor` appends an attached `css` as one more child, an embedded `<style>` block, using `[el.children, [css_child(el.css)]].flatten()` — not `.concat`, which would mutate `el.children` in place and duplicate the `<style>` tag on a second render.
+- `Html_Lint_Visitor | Warnings_Visitor` checks for a void element given children, an `<img>` missing `alt`, an empty non-void container, and a duplicate attribute name — a real possibility now that `attributes` is an ordered Array, not a Dictionary.
+- Element constructors are lowercase (`div`, `p`, `h1`, and so on) — a capitalized name before `(` would route to type-reference parsing instead of a function declaration.
 
 ## Shared Visitor Mixin (`source/programs/visitor.code`)
 
-`Warnings_Visitor` — `warnings := []` plus `warn(message)` (pushes onto it) — composed (`| Warnings_Visitor`) into both `Css_Lint_Visitor` and `Html_Lint_Visitor` above, so neither hand-rolls its own accumulator. Loaded automatically by both `source/programs/css.code` and `source/programs/html2.code`.
+`Warnings_Visitor` (`warnings := []`, plus `warn(message)`) is composed into both `Css_Lint_Visitor` and `Html_Lint_Visitor`, so neither hand-rolls its own accumulator. Loaded automatically by both `css.code` and `html2.code`.
 
 ## File Loading
 
-The `@load` directive allows importing other `.code` files:
+See readme.md's "@load" section for the language-level rules on bare `@load` vs. `some_lib := @load 'file'`, and their examples.
 
-- Interpreter caches parsed expressions in `@cached_expressions_by_filepath` to prevent duplicate parsing
-- Files are loaded into a specified scope via `Interpreter#load_file_into_scope`
-- Expressions are cached keyed by resolved filepath
-- Separately, running (not just parsing) a file into a given scope is deduped per-scope: `Scope#loaded_filepaths` (a `Hash`, keyed by resolved filepath) records the result the first time a file is actually loaded into that scope. A later `@load` of the same file into the *same* scope returns that stored result directly instead of re-running the file — without this, a repeated bare `@load` used to re-run the file's whole body again and could return `nil` instead of the original result. Loading the same file into a *different* scope (e.g. two separate `x := @load 'file'` namespacing calls) still runs it again, since the cache lives on the target scope, not globally — this is what makes namespace isolation actually isolated
-- Comment lexemes are filtered out before parsing, matching `#run`'s top-level behavior — otherwise a trailing comment at the end of a loaded file's function/program body would silently become that body's return value
-- The target scope depends on the call form:
-  - Bare `@load 'file'` merges the file's top-level declarations directly into the current scope (`stack.last`) — `source/programs/global.code` uses this same mechanism, but `Interpreter#run`'s bootstrap passes a fresh `Standard_Library` scope as the target (not `global` itself), so e.g. `String` lands there, not as a direct Global declaration — see Splatting a Scope below
-  - `some_lib := @load 'file'` instead creates a fresh `Code::Scope` named after the left-hand identifier, loads the file into *that*, and assigns it — giving real namespace isolation, e.g. `some_lib.square(5)`
+- `Interpreter@cached_expressions_by_filepath` caches parsed expressions by resolved path, to avoid duplicate parsing.
+- `Scope#loaded_filepaths` (a `Hash`, keyed by resolved filepath) dedupes running a file into a given scope — a later `@load` of the same file into the same scope returns the stored result directly, instead of re-running the file.
+- Comment lexemes are filtered out before parsing, matching `#run`'s own top-level behavior — otherwise a trailing comment at the end of a loaded file's body would become that body's return value.
+- Bare `@load 'file'` merges the file's declarations into `stack.last`. `some_lib := @load 'file'` creates a fresh `Code::Scope` named after the left-hand identifier, and loads the file into that instead.
 
-### Bare (unquoted) paths
+### Bare (Unquoted) Paths
 
-`@load` also accepts a bare, unquoted path — but only when it starts with `./`, `../`, or `~/`:
+`@load` also accepts a bare, unquoted path, when it starts with `./`, `../`, or `~/` — implemented entirely in the lexer (`load_path_pattern?`/`lex_load_path`/`preceded_by_at_load?`, `source/lexer.rb`), which emits an ordinary `:string`-typed lexeme, so the parser and interpreter need no changes.
 
-```code
-@load ./some/file.code
-@load ../utils/thing.code
-@load ~/.config/nvim/script.code
-@load ./tools/blah\ blah/hello.code   # a `\ ` pair is an escaped literal space, same as a shell's own tab-completion
-```
-
-- Implemented entirely in the lexer (`load_path_pattern?`/`lex_load_path`/`preceded_by_at_load?`, `source/lexer.rb`) — it emits an ordinary `:string`-typed lexeme, so the parser and interpreter need no changes at all; `@load ./x` is indistinguishable from `@load './x'` past the lexer
-- The leading marker is mandatory and is what keeps this from colliding with an ordinary `@load some_var` / `@load some_scope.path` expression — a bare `@load asdf/asdf` (no marker) is deliberately left alone and still parses as ordinary division (`asdf / asdf`), exactly as before
-- `preceded_by_at_load?` looks *back* at already-lexed tokens (mirroring `#should_lex_negative_number?`'s own trick) rather than forward, since the decision hinges on what precedes the marker (`@load`), not just what follows it — it also excludes `x.@load` (a dot-qualified reference to the member itself, not the bare directive form)
-- `~`/`.`/`..` resolution is already handled for free by the existing `::File.expand_path` call in `Declarator.resolve_load_filepath` / `Interpreter#load_file_into_scope` — nothing new needed there. This genuinely matches shell semantics (not just the spelling) because `File.expand_path` *is* that resolution: `./x`/`../x` resolve against the process's current working directory, `~/x` against the real home directory, and a chain like `../../x` climbs multiple levels correctly, same as `cd ../..`
-- "Current directory" means the process's cwd when `bin/prog` was launched — **not** the directory containing the `.code` file that wrote the `@load` line. This is pre-existing behavior (the quoted form `@load './x'` always worked this way too, unaffected by this feature) and is exactly how a shell's own relative arguments already behave (resolved against your shell's cwd, never the invoked command's own location) — so it's consistent with terminal intuition, just worth remembering it's "relative to where you launched from," not "relative to this file"
-- Only the literal two characters `~/` are recognized — a real shell's `~otheruser/path` (another user's home) is NOT supported; that text doesn't match the marker at all, so it falls through to ordinary parsing (`~` as the difference-composition operator) and errors. Deliberate scope limit, not a bug: only the current user's own `~/` was ever in scope
-- This reused (and removed) a vestigial, non-functional lexer branch that used to special-case `.` immediately followed by `/` into a dead `:operator` token — it never had any parser-level meaning (a leftover from before `self`/`Self` replaced the old symbolic scope operators; see Scope Keywords above)
+- The leading marker is mandatory, so it does not collide with `@load some_var`. A bare `@load asdf/asdf` with no marker still parses as ordinary division.
+- `preceded_by_at_load?` looks back at already-lexed tokens, since the decision depends on what precedes the marker.
+- `~`/`.`/`..` resolution comes for free from the existing `::File.expand_path` call in `Declarator.resolve_load_filepath` / `Interpreter#load_file_into_scope`.
+- "Current directory" means the process's working directory when `bin/prog` started — not the directory holding the `.code` file that wrote the `@load` line. This matches a shell's own relative-argument behavior.
+- Only the literal two characters `~/` are recognized — `~otheruser/path` is not supported, and falls through to ordinary parsing (`~` as the difference-composition operator).

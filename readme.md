@@ -528,6 +528,20 @@ even_count := for [1, 2, 3, 4, 5, 6] count
 end  # 3
 ```
 
+`by <stride>,<overlap>` slides each window forward by `stride - overlap` elements instead of a full `stride`, so consecutive windows share `overlap` elements instead of being disjoint:
+
+```code
+pairs := for [1, 2, 3, 4, 5, 6] map by 2,1   # stride 2, sliding forward by 1
+    (it.0, it.1)
+end  # [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)] -- every consecutive pair
+
+windows := for [1, 2, 3, 4, 5, 6, 7] map by 3,1   # stride 3, sliding forward by 2
+    (it.0, it.1, it.2)
+end  # [(1, 2, 3), (3, 4, 5), (5, 6, 7)] -- each window shares 1 element with the next
+```
+
+A trailing window that can't reach the full `stride` is dropped, not kept short — unlike the plain no-overlap form above, which keeps a final undersized chunk. `overlap` must be a smaller integer than `stride`.
+
 ## Loop Control
 
 1. `skip` continues to next iteration
@@ -796,6 +810,17 @@ cached()                   # 4 -- didn't run again
 See `examples/statements.code` for the full picture, including `.use_caller_scope`.
 
 ## Numbers
+
+`Number` is the abstract base — never instantiated directly. Each concrete type wraps a Ruby class:
+
+| Language type | Ruby class | literal |
+|---|---|---|
+| `Integer` | `Integer` | `4` |
+| `Float` | `Float` | `4.5` |
+| `Decimal` | `BigDecimal` | none — `Decimal('1.50')` / `Decimal(x)` only |
+| `Number` | — (base) | — |
+
+`Int`, `Flo`, and `Dec` are short aliases for `Integer`, `Float`, and `Decimal` — `4 === Int` and `4 === Integer` are both true, since an alias is the exact same type, not a subtype.
 
 ```code
 n := 42
