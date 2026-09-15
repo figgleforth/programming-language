@@ -4,7 +4,7 @@
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 <img src="assets/icon.svg" style="position:relative;top:1.5px;height:22.5px;" alt="The icon I use for .code files">
 
-Learn about the language below, or [in the learn section](examples/readme.md), or *[click here to get started using it](docs/getting_started.md)*.
+Learn about the language below, or [in the learn section](examples/readme.md), or *[click here to get started using it](source/readme.md)*.
 
 ## Variables
 
