@@ -106,7 +106,7 @@ Pipeline: **Lexer → Parser → Type_Checker → Declarator → Interpreter**. 
 #### Adding a new construct
 
 1. **Lex it** — [`lexer.rb`](lexer.rb)`#output` is one big `if/elsif` dispatching on the current char(s). Add a branch (or a `lex_*` helper called from one) that sets `token.type`/`token.value`.
-   1. `line`/`column`/`line_end`/`column_end`/`source_file` are set automatically around every branch — you don't touch them here.
+   1. `line_start`/`column_start`/`line_end`/`column_end`/`source_file` are set automatically around every branch — you don't touch them here.
    2. Add any new symbols/keywords to the relevant list in [`constants.rb`](shared/constants.rb) (`RESERVED`, `PERCENT_LITERALS`, an operator list, etc.) so they're recognized/reserved.
 2. **Add an AST node** — a new `Code::Foo_Expr < Expression` in [`expressions.rb`](proxies/expressions.rb). Only add `attr_accessor`s for what's structurally new; `value`/`type`/`line..column_end`/`source_file` are inherited.
 3. **Parse it** — add a branch to `Parser#begin_expression` (prefix position) or `#complete_expression` (infix/postfix position) in [`parser.rb`](parser.rb), dispatching on `curr?`/`peek`, calling a new `parse_foo_expr`. Build the `Foo_Expr`, set its location (see below), return it.
@@ -117,7 +117,7 @@ Pipeline: **Lexer → Parser → Type_Checker → Declarator → Interpreter**. 
 
 Worked examples: percent literals (`#parse_percent_literal_expr`/`#interp_percent_literal`), Statement (`#parse_statement_expr`/`#interp_statement`).
 
-#### Lexeme/expression location (`line`, `column`, `line_end`, `column_end`)
+#### Lexeme/expression location (`line_start`, `column_start`, `line_end`, `column_end`)
 
 1. Lexer sets these on every `Lexeme` for free — nothing to do there.
 2. `Expression`s don't get location for free. `Foo_Expr.new(some_lexeme)` only copies `value`/`lexeme`.
