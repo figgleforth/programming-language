@@ -197,6 +197,89 @@ class Structs_Test < Base_Test
 		assert_equal(-1, out)
 	end
 
+	# --- Callsite splat (`...arr`) in struct construction -- mirrors #interp_func_body's own splat
+	# handling (see tests/interpreter_test.rb), but through #interp_struct_call instead.
+
+	def test_callsite_splat_spreads_into_a_bare_struct_call
+		out = Code.interp <<~CODE
+		    p := <a: Number, b: String>
+		    coords := [5, 'hi']
+		    x := p(...coords)
+		    (x.a, x.b)
+		CODE
+		assert_equal [5, 'hi'], out.values
+	end
+
+	def test_callsite_splat_spreads_into_a_named_struct_call
+		out = Code.interp <<~CODE
+		    Point <x: Number, y: Number>
+		    coords := [3, 4]
+		    pt := Point(...coords)
+		    (pt.x, pt.y)
+		CODE
+		assert_equal [3, 4], out.values
+	end
+
+	def test_callsite_splat_can_follow_a_positional_struct_argument
+		out = Code.interp <<~CODE
+		    Rgb <r: Number, g: Number, b: Number>
+		    tail := [128, 64]
+		    c := Rgb(255, ...tail)
+		    (c.r, c.g, c.b)
+		CODE
+		assert_equal [255, 128, 64], out.values
+	end
+
+	def test_callsite_splat_of_a_non_array_raises_in_a_struct_call
+		error = assert_raises Code::Invalid_Callsite_Splat_Argument do
+			Code.interp <<~CODE
+			    Point <x: Number, y: Number>
+			    Point(...5)
+			CODE
+		end
+		assert_match 'Integer', error.message
+	end
+
+	# --- Callsite splat of a Dictionary/Struct/plain Instance -- spreads by name -------------------
+
+	def test_callsite_splat_of_a_dictionary_binds_by_name_in_a_struct_call
+		out = Code.interp <<~CODE
+		    Point <x: Number, y: Number>
+		    pt := Point(...{y: 4, x: 3})
+		    (pt.x, pt.y)
+		CODE
+		assert_equal [3, 4], out.values
+	end
+
+	def test_callsite_splat_of_a_struct_binds_by_name_in_a_struct_call
+		out = Code.interp <<~CODE
+		    Point <x: Number, y: Number>
+		    pt := Point(...<x := 3, y := 4>)
+		    (pt.x, pt.y)
+		CODE
+		assert_equal [3, 4], out.values
+	end
+
+	def test_callsite_splat_of_a_plain_instance_binds_by_declared_member_name_in_a_struct_call
+		out = Code.interp <<~CODE
+		    Coords { x, y, Self ( x, y; self.x = x, self.y = y ) }
+		    Point <x: Number, y: Number>
+		    pt := Point(...Coords(3, 4))
+		    (pt.x, pt.y)
+		CODE
+		assert_equal [3, 4], out.values
+	end
+
+	def test_callsite_splat_of_a_dictionary_with_unknown_key_raises_in_a_struct_call
+		error = assert_raises Code::Unknown_Named_Argument do
+			Code.interp <<~CODE
+			    Point <x: Number, y: Number>
+			    Point(...{x: 3, z: 9})
+			CODE
+		end
+		assert_match 'z', error.message
+	end
+
 	def test_named_member_schema_parses_and_resolves_declared_type
 		out = Code.parse 'Type\\<some_string: String, num: Number> {}'
 		assert_equal ['some_string', 'num'], out.first.tag.names

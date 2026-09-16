@@ -823,6 +823,14 @@ module Code
 			end
 		end
 
+		def parse_callsite_splat
+			dots              = eat '...'
+			prefix            = Prefix_Expr.new
+			prefix.operator   = Lexeme.new(:operator, dots.value)
+			prefix.expression = parse_expression precedence_for(dots.value)
+			set_expr_location prefix, dots, prefix.expression
+		end
+
 		def parse_identifier_expr
 			start = curr_lexeme
 			expr  = Code::Identifier_Expr.new
@@ -1128,7 +1136,7 @@ module Code
 				closing = eat ')'
 				args
 			elsif bare_arg
-				args    = [parse_expression]
+				args = [parse_expression]
 				args << parse_expression while curr? ',' and eat ','
 				closing = args.last
 				args
@@ -1266,6 +1274,9 @@ module Code
 
 			elsif curr? '`'
 				parse_statement_expr
+
+			elsif curr? '...'
+				parse_callsite_splat
 
 			elsif curr?(%w(.. ..<)) && curr?(:operator)
 				parse_beginless_range_expr
@@ -1405,7 +1416,7 @@ module Code
 							number.indices_in_order = expr.right.value.to_s.split '.'
 							number.indices_in_order = number.indices_in_order.map &:to_i
 							copy_location number, expr.right
-							expr.right              = number
+							expr.right = number
 						end
 
 						set_expr_location expr, left, expr.right
@@ -1429,10 +1440,10 @@ module Code
 			call_expr         = curr?('(') && curr?(:delimiter) && (!func_declaration_follows? || spread_lambda_arg)
 			subscript         = curr? '['
 			if call_expr && (precedence_for(curr_lexeme.value) > precedence)
-				receiver       = expr
-				expr           = Code::Call_Expr.new
-				expr.receiver  = receiver
-				closing        = if spread_lambda_arg
+				receiver      = expr
+				expr          = Code::Call_Expr.new
+				expr.receiver = receiver
+				closing       = if spread_lambda_arg
 					func           = parse_func
 					expr.arguments = [func]
 					func

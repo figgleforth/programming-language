@@ -478,6 +478,22 @@ module Code
 		end
 	end
 
+	# `...expr` at a call site needs something with elements or named declarations to spread --
+	# an Array (`Arguments`/`Tuple` included, since both subclass it), a Dictionary, a Struct, or a
+	# plain Type/Instance (see `#plain_type_or_instance?`, interpreter.rb).
+	class Invalid_Callsite_Splat_Argument < Error
+		attr_accessor :value
+
+		def initialize expression, value
+			@value = value
+			super expression
+		end
+
+		def detail_message
+			"`...` needs an Array, Dictionary, Struct, or plain Type/Instance to spread at a call site -- got #{Ascii.bold value.class.name.split('::').last} (`#{value}`)"
+		end
+	end
+
 	class Invalid_Destructuring_Source < Error
 		def detail_message
 			'Only a Tuple or Struct can be destructured with `(...) := ...`'

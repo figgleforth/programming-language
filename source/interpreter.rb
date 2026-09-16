@@ -2940,6 +2940,44 @@ module Code
 				positional = []
 
 				expr.arguments.each do |arg|
+					if callsite_splat_expr? arg
+						spread_value = interpret arg.expression
+
+						case spread_value
+						when Code::Dictionary
+							seen_named = true
+							spread_value.hash.each do |key, value|
+								name = key.to_s
+								raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
+								named_args[name] = value
+							end
+						when Code::Struct
+							seen_named = true
+							spread_value.names.each_with_index do |name, i|
+								next unless name # an unnamed member has nothing to bind a named argument to
+								raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
+								named_args[name] = spread_value.values[i]
+							end
+						when Code::Array
+							raise Code::Positional_Argument_After_Named.new(expr) if seen_named
+							spread_value.values.each do |value|
+								arg_labels << nil
+								positional << value
+							end
+						else
+							if plain_type_or_instance? spread_value
+								seen_named = true
+								spread_value.declarations.each do |name, value|
+									raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
+									named_args[name] = value
+								end
+							else
+								raise Code::Invalid_Callsite_Splat_Argument.new(expr, spread_value)
+							end
+						end
+						next
+					end
+
 					kind, name_or_label, value_expr = classify_argument arg
 
 					# Named arguments must come last -- once you switch to naming arguments, every argument after that has to be named too. A positional argument (bare or labeled) can never follow one.
@@ -3104,6 +3142,14 @@ module Code
 			end
 		end
 
+		def callsite_splat_expr? arg
+			arg.is_a?(Code::Prefix_Expr) && arg.operator&.value == '...'
+		end
+
+		def plain_type_or_instance? value
+			value.instance_of?(Code::Instance) || value.instance_of?(Code::Type)
+		end
+
 		# `<name: String, age: Number>` alone is a structure-only (each named member's declared type, no real data yet; see #interp_struct). `()` is how you turn that struct into an actual instance: the call's own arguments become each member's real value. Goes through #build_struct like every other struct construction so a declared `Struct` type's own body/methods still run.
 		#
 		# Arguments can be positional (matched by index, same order as declared) or named (`name := value`,
@@ -3122,6 +3168,41 @@ module Code
 			seen_named = false
 
 			expr.arguments.each do |arg|
+				if callsite_splat_expr? arg
+					spread_value = interpret arg.expression
+
+					case spread_value
+					when Code::Dictionary
+						seen_named = true
+						spread_value.hash.each do |key, value|
+							name = key.to_s
+							raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
+							named_args[name] = value
+						end
+					when Code::Struct
+						seen_named = true
+						spread_value.names.each_with_index do |name, i|
+							next unless name
+							raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
+							named_args[name] = spread_value.values[i]
+						end
+					when Code::Array
+						raise Code::Positional_Argument_After_Named.new(expr) if seen_named
+						positional.concat spread_value.values
+					else
+						if plain_type_or_instance? spread_value
+							seen_named = true
+							spread_value.declarations.each do |name, value|
+								raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
+								named_args[name] = value
+							end
+						else
+							raise Code::Invalid_Callsite_Splat_Argument.new(expr, spread_value)
+						end
+					end
+					next
+				end
+
 				kind, name_or_label, value_expr = classify_argument arg
 
 				if seen_named && kind != :named
@@ -3637,7 +3718,7 @@ module Code
 				chunks.map do |chunk|
 					Code::Array.new(chunk)
 				end.each_with_index
-				
+
 			elsif values.respond_to? :each_with_index
 				values.each_with_index
 			else

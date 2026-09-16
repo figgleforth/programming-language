@@ -1053,6 +1053,152 @@ class Interpreter_Test < Base_Test
 		assert_equal [1, 2], Code.interp(src).values
 	end
 
+	# --- Callsite splat (`...arr`) -- the calling-end mirror of a variadic param's `x...` --------
+
+	def test_callsite_splat_spreads_an_array_into_positional_arguments
+		out = Code.interp <<~CODE
+		    sum ( a, b, c; a + b + c )
+		    nums := [1, 2, 3]
+		    sum(...nums)
+		CODE
+		assert_equal 6, out
+	end
+
+	def test_callsite_splat_can_follow_ordinary_positional_arguments
+		out = Code.interp <<~CODE
+		    sum ( a, b, c, d; a + b + c + d )
+		    tail := [2, 3, 4]
+		    sum(1, ...tail)
+		CODE
+		assert_equal 10, out
+	end
+
+	def test_callsite_splat_into_a_variadic_parameter
+		out = Code.interp <<~CODE
+		    total ( nums...; acc := 0
+		        for nums
+		            acc += it
+		        end
+		        acc
+		    )
+		    xs := [10, 20, 30]
+		    total(...xs)
+		CODE
+		assert_equal 60, out
+	end
+
+	def test_callsite_splat_works_in_a_constructor_call
+		out = Code.interp <<~CODE
+		    Point { x, y, Self ( x, y; self.x = x, self.y = y ) }
+		    coords := [3, 4]
+		    p := Point(...coords)
+		    (p.x, p.y)
+		CODE
+		assert_equal [3, 4], out.values
+	end
+
+	def test_callsite_splat_of_a_non_array_raises
+		error = assert_raises Code::Invalid_Callsite_Splat_Argument do
+			Code.interp "sum ( a, b; a + b ), sum(...5)"
+		end
+		assert_match 'Integer', error.message
+	end
+
+	def test_callsite_splat_after_named_argument_raises
+		assert_raises Code::Positional_Argument_After_Named do
+			Code.interp "sum ( a, b, c; a + b + c ), sum(a := 1, ...[2, 3])"
+		end
+	end
+
+	# --- Callsite splat of a Dictionary/Struct/plain Instance -- spreads by name -------------------
+
+	def test_callsite_splat_of_a_dictionary_binds_by_name_not_position
+		out = Code.interp <<~CODE
+		    f ( a, b; a - b )
+		    f(...{a: 10, b: 3})
+		CODE
+		assert_equal 7, out
+
+		# Order inside the dictionary doesn't matter, unlike an Array splat -- each key names its own param.
+		out = Code.interp <<~CODE
+		    f ( a, b; a - b )
+		    f(...{b: 3, a: 10})
+		CODE
+		assert_equal 7, out
+	end
+
+	def test_callsite_splat_of_a_struct_binds_by_name
+		out = Code.interp <<~CODE
+		    f ( a, b; a - b )
+		    f(...<a := 10, b := 3>)
+		CODE
+		assert_equal 7, out
+	end
+
+	def test_callsite_splat_of_a_plain_instance_binds_by_declared_member_name
+		out = Code.interp <<~CODE
+		    Coords { a, b, Self ( a, b; self.a = a, self.b = b ) }
+		    f ( a, b; a - b )
+		    f(...Coords(10, 3))
+		CODE
+		assert_equal 7, out
+	end
+
+	def test_callsite_splat_of_a_plain_instance_spreads_every_declaration_including_methods
+		# A plain Instance/Type splat has no way to tell a "data" member apart from a method one --
+		# #plain_type_or_instance? spreads the whole `.declarations` hash as-is. A method member
+		# becomes a named argument holding its own uncalled Code::Func, not whatever value calling it
+		# would produce -- worth knowing before splatting an arbitrary instance: it's everything
+		# declared on it, methods included, not just the fields that look like plain data.
+		out = Code.interp <<~CODE
+		    Coords { x, y, Self ( x, y; self.x = x, self.y = y ), magnitude (; (x * x + y * y) ) }
+		    c := Coords(3, 4)
+		    describe ( x, y, magnitude; (x, y, magnitude) )
+		    describe(...c)
+		CODE
+		x, y, magnitude = out.values
+		assert_equal [3, 4], [x, y]
+		assert_instance_of Code::Func, magnitude
+		assert_equal 'magnitude', magnitude.name.value
+	end
+
+	def test_callsite_splat_of_a_number_still_raises
+		# A bare Number is a Code::Instance under the hood too (every language value is), but it has
+		# its own dedicated proxy class -- #plain_type_or_instance? checks `instance_of?`, not `is_a?`,
+		# specifically so this doesn't silently spread `{'value' => 42}` as a named argument.
+		error = assert_raises Code::Invalid_Callsite_Splat_Argument do
+			Code.interp "f ( a, b; a - b ), f(...42)"
+		end
+		assert_match 'Integer', error.message
+	end
+
+	def test_callsite_splat_of_a_dictionary_can_be_followed_by_more_named_arguments
+		out = Code.interp <<~CODE
+		    f ( a, b, c; "`a`-`b`-`c`" )
+		    f(...{a: 1}, b := 2, c := 3)
+		CODE
+		assert_equal '1-2-3', out
+	end
+
+	def test_callsite_splat_of_a_dictionary_then_a_positional_argument_raises
+		assert_raises Code::Positional_Argument_After_Named do
+			Code.interp "f ( a, b, c; a ), f(...{a: 1}, 2)"
+		end
+	end
+
+	def test_callsite_splat_of_a_dictionary_with_unknown_key_raises
+		error = assert_raises Code::Unknown_Named_Argument do
+			Code.interp "f ( a, b; a - b ), f(...{a: 1, z: 2})"
+		end
+		assert_match 'z', error.message
+	end
+
+	def test_callsite_splat_of_two_dictionaries_with_a_duplicate_key_raises
+		assert_raises Code::Duplicate_Named_Argument do
+			Code.interp "f ( a, b; a - b ), f(...{a: 1}, ...{a: 2, b: 3})"
+		end
+	end
+
 	def test_compound_operator
 		out = Code.interp 'add ( amount := 1, to := 0;
 			to += amount
