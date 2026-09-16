@@ -1,7 +1,6 @@
-+ Since `ident...` is varargs, I think `...ident` should be used on the calling end when you want to splat ident's members at the callsite
 + I hate the flow for managing the declarations that are set on Context, It should be much simpler. Maybe A Ruby class that auto generates the .code class?
 + Clay has a really neat debug sidebar that lets you inspect its layout in realtime.
-+ Rewrite lexer as .code, make it its own library that can lex anything I want using my own declarations of tokens
++ Rewrite lexer in .code, make it its own reusable library that can lex anything I want using my own declarations of tokens
 + Implement https://github.com/tsoding/leaf-venation
 + Implement https://github.com/tsoding/bpe
 + Implement https://github.com/tsoding/piff (https://nathaniel.ai/myers-diff/)
@@ -10,7 +9,7 @@
 + Implement Rope data structure for fun
 + Implement an Ast walker that identifies functions that are contained, and ones that make calls elsewhere. 
 + Typechecker doesn't check static declarations at all
-+ Struct should be an actual struct behind the scenes.
++ Struct should be an actual struct behind the scenes?
 + Try to distill constructs to even simpler shapes. I kinda want features to just click together. Need a webpage? Just @load html, or eventually I'll write premade templates you can just swap in and out. An example came to mind, a scope contains one or more statements, we can generalize scopes to be made up of a body (`{`...`}`), and callable scopes to generalize with a colon (`{`...`;`...`}`)
 + Add a way to transform real code into a runtime Ast, as well as Ast to evaluated code
 + Declaring a parameter in a function as :IDENTIFIER should make it immutable. `fn (INPUT: Array;)`
@@ -157,3 +156,4 @@
 - A `@splat`/`@splatr` param's `: Type` / `: <...>` annotation is enforced at the call (`check_splat_param_type_contract`) -- wrong shape raises `Type_Contract_Violation` there, not an `Undeclared_Identifier` deep in the body. `Type_Contract_Violation` now carries a source location.
 - `bin/drive` self-heals the Ruby version -- run through the `/usr/local/bin/drive` symlink from any directory and it re-execs under `.ruby-version` if the shim picked a different one.
 - Raylib speedrun
+- Since `ident...` is varargs, I think `...ident` should be used on the calling end when you want to splat ident's members at the callsite
