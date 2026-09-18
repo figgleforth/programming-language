@@ -1,15 +1,16 @@
 module Code
 	class Struct < Instance
-		attr_accessor :names, :type_names, :type_objects, :members, :bare_reference_name
+		attr_accessor :names, :type_names, :type_objects, :members, :bare_reference_name, :composed_types
 		attr_reader   :values
 
 		def initialize names = [], type_names = [], types = [], values = []
 			super 'Struct'
-			@name = nil
-			@names        = names
-			@type_names   = type_names
-			@type_objects = types || []
-			@values       = values.dup
+			@name           = nil
+			@names          = names
+			@type_names     = type_names
+			@type_objects   = types || []
+			@values         = values.dup
+			@composed_types = ::Set.new # every struct/type `|`-ed into this one -- see Interpreter#interp_struct_composition
 
 			names.each_with_index do |name, i|
 				next unless name

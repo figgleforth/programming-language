@@ -28,6 +28,11 @@ Array {
 	drop_first := shift
 	remove_one_item_from_front := shift
 
+	# removal
+	delete_if ( fn: (Any -> Bool;); @ruby )
+	delete_at ( index: Int; @ruby )
+	delete ( object_to_delete: Any; @ruby )
+
 	# get one random item
 	random (; @ruby )
 	length (; @ruby )
@@ -44,6 +49,8 @@ Array {
 	get ( index; @ruby )
 	index ( item; @ruby ) # index of the first matching element, or nil if not found
 	insert ( index, things; @ruby )
+
+	zip (other: Array; @ruby )
 
 	find ( func;
 		for values

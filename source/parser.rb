@@ -1419,7 +1419,7 @@ module Code
 							expr.right = number
 						end
 
-						set_expr_location expr, left, expr.right
+						set_expr_location expr, left, expr.right || expr.operator
 						return complete_expression expr, precedence
 					end
 				end

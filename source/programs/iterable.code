@@ -1,10 +1,10 @@
-Iterable {
-	Done {} # todo; I don't like that it's a class
+Stop_Iterating {}
 
+Iterable {
 	collection: Array
 	next (index: Int -> Any;
 		if index >= collection.length()
-			Done()
+			Stop_Iterating()
 		else
 			collection[index]
 		end

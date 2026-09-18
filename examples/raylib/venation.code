@@ -4,37 +4,128 @@ WIDTH := 800
 HEIGHT := 600
 VEIN_COUNT := 1
 ATTRACTOR_COUNT := 5
-
-Point <x: Int, y: Int>
-Attractor | Point <force: Float = 1> # maybe use force to influence vein extrude direction
-Vein <points := []>
+TOO_CLOSE := 150 # pixels
 
 veins := []
-attr_points := []
+attrs := []
+Pixel := Number
 
-random_vec2 (-> Point;
-	x := Number.rand(WIDTH)
-	y := Number.rand(HEIGHT)
-	Point(x, y)
+Vec2 <x: Float = 0, y: Float = 0>
+Point | Vec2 <>
+
+Attractor | Point <
+	force: Float = 1 # maybe use force to influence vein extrude direction
+>
+
+Vein | Point <
+	resistance: Number = 0 # maybe how much it won't be influenced by an attractor
+	influences: Array = []
+>
+
+random_attractor (-> Attractor;
+	x := Float.rand(WIDTH)
+	y := Float.rand(HEIGHT)
+	Attractor(x, y, Number.rand(1.0))
 )
 
-# 0. reset
-veins = []
-attr_points = []
+random_vein (-> Vein;
+	x := Float.rand(WIDTH)
+	y := Float.rand(HEIGHT)
+	Vein(x, y, Number.rand(1.0))
+)
 
-# 1. scatter attractors
-for ATTRACTOR_COUNT
-	attr_points.append(random_vec2())
-end
+distance_between (p1: Point, p2: Point -> Number;
+	distance_between_squared(p1, p2).square_root()
+)
 
-# 2. scatter starting vein points
-for VEIN_COUNT
-	v := Vein()
-	v.points.append(random_vec2())
-	veins.append(v)
-end
+distance_between_squared (p1: Point, p2: Point -> Number;
+	# a^2 + b^2 = c^2
+	a := p2.x - p1.x
+	b := p2.y - p1.y
+	a.squared() + b.squared()
+)
 
-# 3. simulate
+direction (from p1: Point, to p2: Point -> Point;
+	d := p2 - p1
+)
+
+reset (;
+	veins = []
+	attrs = []
+)
+
+randomize_points (attr_count := ATTRACTOR_COUNT, vein_count := VEIN_COUNT;
+	# 1. scatter attractors
+	for attr_count
+		attrs.append(random_attractor())
+	end
+
+	# 2. scatter starting vein points
+	for vein_count
+		veins.append(random_vein())
+	end
+)
+
+
+# - Each attraction point finds its single nearest vein node.
+# - If an attraction point is too close to any vein, DELETE it.
+associate(;
+	@puts "Associating"
+	attr_point_indices_to_delete := []
+
+	attrs.each(attr: Attractor;
+		index := at
+
+		closest_vein: Vein = Vein()
+		closest_distance: Pixel = 100000000
+
+
+		veins.each(vein: Vein;
+			distance := distance_between(attr, vein)
+			if distance < TOO_CLOSE
+				attr_point_indices_to_delete << index
+				skip
+			elif distance < closest_distance
+				closest_distance = distance
+				closest_vein = vein
+			end
+		)
+
+		closest_vein.influences << attr
+	)
+	attr_point_indices_to_delete.each(i;
+		attrs.delete_at(i)
+	)
+)
+
+# - Each influenced vein node averages the directions to all points.
+# - Extend a new vein node 1 step forward in that direction.
+grow (;
+	pending := [] # of Vec2 directions * force for each attractor
+	veins.each(vein: Vein;
+#		force := direction(from: vein, to: attrs.0)
+#		@puts force
+	)
+)
+
+# - If a new node steps near an existing vein, SNAP them together.
+# - Otherwise, keep it as a new branch tip.
+merge (;)
+
+# Runs the entire algorithm.
+# STOP when all attraction points are gone (or unreachable)
+simulate (;
+	reset()
+	randomize_points()
+
+	while true
+		stop if attrs.empty?()
+
+		associate()
+		grow()
+		merge()
+	end
+)
 
 # 4. render with raylib
 Raylib.init_window(WIDTH, HEIGHT, 'Neighborhoods')
@@ -46,20 +137,31 @@ RED := <200, 0, 0>
 ATTR_RADIUS := 22
 VEIN_RADIUS := 22
 
+reset()
+randomize_points()
+
 until Raylib.window_should_close?()
 	stop if Raylib.is_key_pressed?(:escape) || Raylib.is_key_pressed?(:period)
+
+	if Raylib.is_key_pressed?(:r)
+		reset()
+		randomize_points()
+	end
+
+#	associate() if Raylib.is_key_pressed?(:one)
+#	grow() if Raylib.is_key_pressed?(:two)
+#	merge() if Raylib.is_key_pressed?(:three)
+
 
 	Raylib.clear_background(BLACK)
 	Raylib.begin_drawing()
 
-	for attr_points
+	for attrs
 		Raylib.draw_circle(it.x, it.y, ATTR_RADIUS, RED)
 	end
 
 	for veins
-		for it.points
-			Raylib.draw_circle(it.x, it.y, VEIN_RADIUS, WHITE)
-		end
+		Raylib.draw_circle(it.x, it.y, VEIN_RADIUS, WHITE)
 	end
 
 	Raylib.end_drawing()
@@ -67,19 +169,3 @@ end
 
 Raylib.close_window()
 @load ./programs/raylib
-
-### LOOP:
-  1. ASSOCIATE
-     - Each attraction point finds its single nearest vein node.
-     - If an attraction point is too close to any vein, DELETE it.
-
-  2. GROW
-     - Each influenced vein node averages the directions to its assigned points.
-     - Extend a new vein node 1 step forward in that direction.
-
-  3. MERGE (For closed loops / neighborhoods)
-     - If a new node steps near an existing vein, SNAP them together.
-     - Otherwise, keep it as a new branch tip.
-
-  4. STOP when all attraction points are gone (or unreachable).
-###

@@ -55,6 +55,7 @@ require_relative 'interpreter'
 
 require_relative 'repl'
 require_relative 'cli'
+require_relative 'language_server'
 
 module Code
 	ROOT_PATH             = ::File.expand_path('../', __dir__)

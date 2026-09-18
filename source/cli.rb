@@ -13,6 +13,7 @@ module Code
 				check <file>                Run basic type check on file
 
 				repl                        [Very WIP] Enter repl mode
+				lsp                         Start the language server (talks JSON-RPC over stdin/stdout)
 
 				interp <code>               Run code string without hot reload
 				interpf <file>              Run file once without hot reload
@@ -68,6 +69,8 @@ module Code
 				puts INSTRUCTIONS
 			when 'repl'
 				Code::REPL.new.run
+			when 'lsp'
+				Code::Language_Server.new.run
 			when 'check'
 				Code.type_check_file @arg
 			when 'lex'

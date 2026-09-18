@@ -1,4 +1,8 @@
-+ I hate the flow for managing the declarations that are set on Context, It should be much simpler. Maybe A Ruby class that auto generates the .code class?
++ end-of-line `for` expression. `append(it) for collection`
++ Implement `Struct`'s `-`/`+`/etc operators. I should be able to perform arithmetic any two structs regardless of the shape. (cause what if all of them coincidentally have == ops declared for each other). Only raise an error when the two members do not have @operator implementations, or if the fallback Ruby#== does not support them.
++ Rewrite language server because I asked Claude to whip this one up for me to help speed up my flow. I want to write it nicely
++ #maybe_instance should be #definitely_instance. I don't know why I didn't note this sooner, it would simplify some logic for sure, but it would simplify the mental model for me. Especially when I step away for a while then return again.
++ I hate the flow for managing the declarations on Context, It should be much simpler. Definitely some kind of auto generating .code file.
 + Clay has a really neat debug sidebar that lets you inspect its layout in realtime.
 + Rewrite lexer in .code, make it its own reusable library that can lex anything I want using my own declarations of tokens
 + Implement https://github.com/tsoding/leaf-venation

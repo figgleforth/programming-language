@@ -80,11 +80,13 @@ class Iterable_Test < Base_Test
 	# the same way without composing `Iterable` at all.
 	def test_hand_rolled_next_protocol_works_without_composing_iterable
 		out = Code.interp <<~CODE
+			@load 'programs/iterable'
+
 		    Tens {
 		        values := [1, 2, 3]
 		        next (index: Int -> Any;
 		            if index >= values.length()
-		                Done()
+		                Stop_Iterating()
 		            else
 		                values[index] * 10
 		            end

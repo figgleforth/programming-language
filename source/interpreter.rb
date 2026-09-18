@@ -409,7 +409,7 @@ module Code
 		# Returns nil when the vital doesn't apply to this scope kind (`@keys` off a non-Enum).
 		def context_vital key, scope
 			set_of = ->(list) { finish_intrinsic_instance(Code::Set.new.tap { |s| s.set.merge(list) }, 'Set') }
-			name     = scope.name.is_a?(Code::Lexeme) ? scope.name.value : scope.name
+			name   = scope.name.is_a?(Code::Lexeme) ? scope.name.value : scope.name
 
 			case key
 			when 'name' then name
@@ -832,10 +832,10 @@ module Code
 							new_html = render_dom_to_html component
 							html_id  = component.declarations['html_id']
 
-							response.status                 = 200
-							response['Content-Type']        = 'text/html'
+							response.status              = 200
+							response['Content-Type']     = 'text/html'
 							response['X-Code-Target-Id'] = html_id if html_id
-							response.body                   = new_html
+							response.body                = new_html
 							return
 						end
 					rescue => e
@@ -1184,7 +1184,7 @@ module Code
 
 			if name == 'tag'
 				if receiver.is_a?(Code::Scope) && receiver.respond_to?(:tag_instance) && receiver.tag_instance
-					new_tag = tag_struct_for_reassignment value, dot_expr
+					new_tag               = tag_struct_for_reassignment value, dot_expr
 					unless tag_chains_satisfy? receiver.tag_instance, new_tag
 						raise Code::Tag_Signature_Violation.new(dot_expr, tag_display_name(receiver), stringify_for_display(new_tag))
 					end
@@ -3246,13 +3246,14 @@ module Code
 
 			instance = build_struct struct.names, struct.type_names, struct.type_objects, values
 
-			# #build_struct always links a fresh instance's `.types` to the shared, declared `Struct` type alone (`struct_type.types`, generically `['Struct']`) -- if `struct` (the schema being called) is itself named (see #interp_type's bare named struct handling), carry that name over too, own-name-first, so the constructed instance is `Ident | Struct`-shaped, not just generically Struct-shaped: === and a `-> Ident` return-type contract both key off `.types`.
-			schema_name = struct.name
+			# #build_struct always links a fresh instance's `.types` to the shared, declared `Struct` type alone (`struct_type.types`, generically `['Struct']`) -- if `struct` (the schema being called) is itself named (see #interp_type's bare named struct handling), carry its whole `.types` history over too (not just its bare name), so a schema built via composition (`Both | Abc | Def <>`) hands its constructed instances the *same* `{Both, Abc, Def, Struct}` shape it has itself -- === and a `-> Ident` return-type contract both key off `.types`.
+			schema_name             = struct.name
 			if schema_name
-				instance.name = schema_name # `@`-only (`@.name`); a `name` member owns plain `.name`
-				prefix_type instance, schema_name
+				instance.name  = schema_name
+				instance.types = struct.types.dup
 			end
 
+			instance.composed_types = struct.composed_types if struct.composed_types
 			instance
 		end
 
@@ -3509,6 +3510,11 @@ module Code
 				unless right.is_a?(Code::Struct) && right.name.nil?
 					curr_scope.types ||= ::Set.new
 					curr_scope.types.merge right.types
+
+					# Keep `@.composed_types` reading like a history
+					if curr_scope.types.delete? 'Struct'
+						curr_scope.types << 'Struct'
+					end
 				end
 			when '~'
 				# Removal of Code::Type
@@ -3570,7 +3576,8 @@ module Code
 
 		# Struct-flavored sibling of #interp_composition: `Both | Abc | Def <extra: String>` composes *structs*, not Types. Members are positional, so the merge tracks `[name, type_name, type_object, value]` tuples by hand instead of Scope's key-based storage.
 		def interp_struct_composition expr
-			members = [] # accumulator: [[name, type_name, type_object, value], ...]
+			members             = [] # accumulator: [[name, type_name, type_object, value], ...]
+			composed_type_names = ::Set.new # every struct/type name `|`-ed into this one, transitively -- see @.composed_types
 
 			member_index = ->(name) { name && members.index { |m| m[0] == name } }
 
@@ -3578,7 +3585,9 @@ module Code
 				operand = interpret composition_expr.identifier
 
 				operand_members = if operand.is_a? Code::Struct
-					operand.names.each_index.map { |i| [operand.names[i], operand.type_names[i], operand.type_objects[i], operand.values[i]] }
+					operand.names.each_index.map do |i|
+						[operand.names[i], operand.type_names[i], operand.type_objects[i], operand.values[i]]
+					end
 				elsif operand.is_a? Code::Type
 					operand.declarations.map do |name, value|
 						type_name = inferred_type_name value
@@ -3595,6 +3604,10 @@ module Code
 						next if member_index.call(member[0])
 						members << member
 					end
+
+					# Record the operand's own name, plus whatever it was itself composed from, so a chain (`A | B | C`) carries every name forward.
+					composed_type_names << operand.name if operand.respond_to?(:name) && operand.name
+					composed_type_names.merge operand.composed_types if operand.is_a?(Code::Struct) && operand.composed_types
 				when '~'
 					# Removal -- drop any accumulated member whose name the operand also declares.
 					operand_names = operand_members.filter_map { |m| m[0] }
@@ -3633,6 +3646,14 @@ module Code
 
 			names, type_names, types, values = members.empty? ? [[], [], [], []] : members.transpose
 			struct                           = build_struct names, type_names, types, values
+
+			struct.types = struct.types + composed_type_names
+
+			if struct.types.delete? 'Struct'
+				struct.types << 'Struct'
+			end
+
+			struct.composed_types = composed_type_names
 			register_bare_named_struct expr.name, struct, expr
 		end
 
@@ -3749,7 +3770,7 @@ module Code
 							result = interp_func_body next_function, call, arg_values: [iteration]
 							# todo; see how arg_values are wrapped differently from [iteration]
 
-							break if result.is_a?(Code::Instance) && result.name == 'Done'
+							break if result.is_a?(Code::Instance) && result.name == 'Stop_Iterating'
 
 							scope.declare 'it', result
 							scope.declare 'at', iteration
@@ -4279,7 +4300,8 @@ module Code
 
 			# `.name` stays nil here -- an anonymous struct has no name; #register_bare_named_struct
 			# names a bare named one, #interp_struct_call names a constructed schema instance.
-			struct.types           = struct_type.types
+			struct.types = struct_type.types
+
 			struct.enclosing_scope = struct_type
 			run_type_body_on_instance struct_type, struct
 

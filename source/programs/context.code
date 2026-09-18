@@ -1,12 +1,8 @@
-# The `@` expression resolves to a Context. This declaration is the human-readable mirror of
-# Code::Context::MEMBERS -- it carries the docs and drives the `@` display. The functions live on
-# one shared Context; the vitals are computed on demand against whatever scope `@` is reached from.
-
 Context <
 	name: String                        # the scope's own name (nil for an anonymous scope)
 	display_name: String                # name, or a richer form when tagged
 	composed_types: Set                 # Set of every type it composes (own name + `|`/`&`/`~`/`^`)
-	types: Array\String                 # "element" types -- Struct/Enum per-member list; composed_types otherwise
+	types: Array\String                 # "element" types -- Struct/Enum per-member list; falls back to composed_types otherwise
 	type: Any                           # types[0] -- first member type (Struct), forced type (Enum), first composed type
 	object_id: Number                   # Ruby's stable per-object id for this scope
 	size_in_bytes: Integer              # shallow -- this scope object's own slot + buffers, not what it references
@@ -53,3 +49,8 @@ Context <
 
 # The function signature for the second argument to @watch
 Assignee_Assigned := (Any, Any -> Any;)
+
+
+# The `@` expression resolves to a Context. This declaration is the human-readable mirror of
+# Code::Context::MEMBERS -- it carries the docs and drives the `@` display. The functions live on
+# one shared Context; the vitals are computed on demand against whatever scope `@` is reached from.

@@ -22,6 +22,9 @@ module Code
 		proxy :empty?
 		proxy :index
 		proxy :reduce
+		proxy :delete_if
+		proxy :delete_at
+		proxy :delete
 
 		def proxy_Self *args
 			# `Array(1, 2, 3)` -> those elements; `Array([1, 2, 3])` / `Array(other)` -> a lone
@@ -65,6 +68,10 @@ module Code
 
 		def proxy_random
 			values.sample
+		end
+
+		def proxy_zip other_array
+			values.zip other_array.values
 		end
 
 		def proxy_concat other_array
