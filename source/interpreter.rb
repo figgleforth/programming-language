@@ -2226,7 +2226,8 @@ module Code
 			when '>..<' then [start + 1, finish, true]
 			end
 
-			finish_intrinsic_instance Code::Range.new(::Range.new(from, to, exclude_end)), 'Range'
+			ruby_range = ::Range.new from, to, exclude_end
+			finish_intrinsic_instance Code::Range.new(ruby_range), 'Range'
 		end
 
 		# A user-declared @operator with no built-in category of its own. The operand's own overload wins over a global one (#find_operator_overload). Reachable with no overload in scope when the operator is declared inside some other scope (the parser's pre-scan registers it file-wide) — that used to silently evaluate to nil; now it raises.

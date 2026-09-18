@@ -666,11 +666,11 @@ module Code
 			#   :absolute_value_circumfix
 			#
 
-			start        = curr_lexeme
-			it           = Code::Type_Expr.new eat # one of valid_idents
-			it.name      = it.lexeme.value
-			is_type      = Helpers.type_identifier? it.name
-			is_const     = Helpers.constant_identifier? it.name
+			start    = curr_lexeme
+			it       = Code::Type_Expr.new eat # one of valid_idents
+			it.name  = it.lexeme.value
+			is_type  = Helpers.type_identifier? it.name
+			is_const = Helpers.constant_identifier? it.name
 
 			Code.assert is_type || is_const, "Type names can only be Capitalized or UPPERCASE" # todo; proper error
 
@@ -1136,8 +1136,8 @@ module Code
 				closing = eat ')'
 				args
 			elsif bare_arg
-				args = [parse_expression]
-				args << parse_expression while curr? ',' and eat ','
+				args = [parse_expression(precedence_for('for'))] # note; Precedence "for" allows for-loop as a postfix expression
+				args << parse_expression(precedence_for('for')) while curr? ',' and eat ','
 				closing = args.last
 				args
 			else
@@ -1461,6 +1461,34 @@ module Code
 				it.expression = parse_circumfix_expr opening: curr_lexeme.value
 
 				set_expr_location it, it.receiver, it.expression
+				return complete_expression it, precedence
+			end
+
+			if curr? 'for'
+				return expr if precedence_for(curr_lexeme.value) <= precedence
+
+				# @paste from original For_Loop_Expr initialization, with modifications
+				it            = Code::For_Loop_Expr.new
+				it.lexeme     = eat 'for'
+				it.collection = parse_expression
+				it.body = [expr]
+
+				if curr? Code::FOR_VERBS and verb = eat
+					it.type   = verb
+					it.lexeme = verb
+				end
+
+				if curr? 'by' and eat 'by'
+					it.stride = begin_expression
+					# todo: Should I check that it's a number here? Yes.
+
+					if curr? ',' and eat ','
+						it.overlap = begin_expression
+					end
+
+				end
+
+				set_expr_location it, it.lexeme, it.collection
 				return complete_expression it, precedence
 			end
 

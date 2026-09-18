@@ -496,9 +496,9 @@ class Interpreter_Test < Base_Test
 	# inclusive/exclusive end behavior (`..` inclusive, `..<` exclusive end, `>..` exclusive start).
 	def test_array_range_subscript
 		assert_equal [20, 30, 40], Code.interp('[10, 20, 30, 40, 50][1..3]').values
-		assert_equal [20, 30],     Code.interp('[10, 20, 30, 40, 50][1..<3]').values
-		assert_equal [30, 40],     Code.interp('[10, 20, 30, 40, 50][1>..3]').values
-		assert_equal [30],         Code.interp('[10, 20, 30, 40, 50][1>..<3]').values
+		assert_equal [20, 30], Code.interp('[10, 20, 30, 40, 50][1..<3]').values
+		assert_equal [30, 40], Code.interp('[10, 20, 30, 40, 50][1>..3]').values
+		assert_equal [30], Code.interp('[10, 20, 30, 40, 50][1>..<3]').values
 
 		# the result is a real, linked Array -- methods chain off it
 		assert_equal [21, 31, 41], Code.interp('[10, 20, 30, 40, 50][1..3].map((x; x + 1))').values
@@ -513,30 +513,30 @@ class Interpreter_Test < Base_Test
 	# `xs[2..]` -- an endless range (the operator with nothing after it): from the start index to the end.
 	def test_endless_range_subscript
 		assert_equal [30, 40, 50], Code.interp('[10, 20, 30, 40, 50][2..]').values
-		assert_equal [40, 50],     Code.interp('[10, 20, 30, 40, 50][2>..]').values # exclusive start
-		assert_equal 'world',      Code.interp('"hello world"[6..]')
-		assert_equal 5,            Code.interp('[1, 2, 3, 4, 5][0..].length()')
-		assert_equal [3, 4, 5],    Code.interp("r := 2..\n[1, 2, 3, 4, 5][r]").values
+		assert_equal [40, 50], Code.interp('[10, 20, 30, 40, 50][2>..]').values # exclusive start
+		assert_equal 'world', Code.interp('"hello world"[6..]')
+		assert_equal 5, Code.interp('[1, 2, 3, 4, 5][0..].length()')
+		assert_equal [3, 4, 5], Code.interp("r := 2..\n[1, 2, 3, 4, 5][r]").values
 		assert_nil Code.interp('[1, 2, 3][10..]')
 	end
 
 	# `xs[..3]` -- a beginless range (the operator with no left operand): from the start up to the end
 	# index. Negative end indices count from the end (`..-1` is the whole thing, `..-2` all but last).
 	def test_beginless_range_subscript
-		assert_equal [10, 20, 30],         Code.interp('[10, 20, 30, 40, 50][..2]').values
-		assert_equal [10, 20],             Code.interp('[10, 20, 30, 40, 50][..<2]').values # exclusive end
+		assert_equal [10, 20, 30], Code.interp('[10, 20, 30, 40, 50][..2]').values
+		assert_equal [10, 20], Code.interp('[10, 20, 30, 40, 50][..<2]').values # exclusive end
 		assert_equal [10, 20, 30, 40, 50], Code.interp('[10, 20, 30, 40, 50][..-1]').values
-		assert_equal [10, 20, 30, 40],     Code.interp('[10, 20, 30, 40, 50][..-2]').values
-		assert_equal [10, 20, 30, 40],     Code.interp('[10, 20, 30, 40, 50][..<-1]').values
-		assert_equal 'hello worl',         Code.interp('"hello world"[..-2]')
+		assert_equal [10, 20, 30, 40], Code.interp('[10, 20, 30, 40, 50][..-2]').values
+		assert_equal [10, 20, 30, 40], Code.interp('[10, 20, 30, 40, 50][..<-1]').values
+		assert_equal 'hello worl', Code.interp('"hello world"[..-2]')
 
 		# a range operator glued to a following `-` must not lex as one token (`..` then prefix `-`)
 		assert_equal [20, 30, 40, 50], Code.interp('[10, 20, 30, 40, 50][1..-1]').values
 	end
 
 	def test_string_range_subscript
-		assert_equal 'bcd', Code.interp('"abcdef"[1..3]')  # inclusive
-		assert_equal 'bc',  Code.interp('"abcdef"[1..<3]')  # exclusive end
+		assert_equal 'bcd', Code.interp('"abcdef"[1..3]') # inclusive
+		assert_equal 'bc', Code.interp('"abcdef"[1..<3]') # exclusive end
 		assert_equal 'WORLD', Code.interp('"hello world"[6..11].upcase()')
 	end
 
@@ -2850,11 +2850,11 @@ class Interpreter_Test < Base_Test
 	# `@.type` / `@.types` work on any value, not just a Type/Instance (plain `.type`/`.types` stays
 	# user-space). Falls out of #context_for working on any Scope + #maybe_instance wrapping every value.
 	def test_context_type_reads_on_a_plain_value
-		assert_equal 'Array',   Code.interp('[1, 2, 3].@type')
+		assert_equal 'Array', Code.interp('[1, 2, 3].@type')
 		assert_equal 'Integer', Code.interp('4.@type')
-		assert_equal 'String',  Code.interp('"hi".@type')
-		assert_equal 'Range',   Code.interp('(1..5).@type')
-		assert_equal 'Nil',     Code.interp('nil.@type')          # #maybe_instance's nil now goes through #adopt_type
+		assert_equal 'String', Code.interp('"hi".@type')
+		assert_equal 'Range', Code.interp('(1..5).@type')
+		assert_equal 'Nil', Code.interp('nil.@type') # #maybe_instance's nil now goes through #adopt_type
 		assert Code.interp("4.@types.include?('Number')")
 	end
 
@@ -4669,5 +4669,42 @@ class Interpreter_Test < Base_Test
 		f := g.greet
 		f('World')"
 		assert_equal 'HELLO, World!', out
+	end
+
+	def test_end_of_line_for_loop
+		out = Code.interp <<~CODE
+		    items := []		
+		    items.push(it) for 1..5
+		    items
+		CODE
+		assert_equal [1, 2, 3, 4, 5], out.values
+	end
+
+	def test_end_of_line_for_loop_with_parenless_call_in_body
+		printed = capture_stdout do
+			Code.interp '@puts it for 1..5'
+		end
+
+		assert_equal "1\n2\n3\n4\n5\n", printed
+	end
+
+	def test_end_of_line_for_loop_with_map_verb_assigned_to_a_variable
+		# `for`'s precedence has to sit above `:=` (90), or `:=`'s own right-hand side parse
+		# stops at `it * 2` and hands `for [...] map` the whole assignment as its body instead
+		# of the value being assigned -- `doubled` would then never escape the loop.
+		out = Code.interp <<~CODE
+		    doubled := it * 2 for [1, 2, 3] map
+		    doubled
+		CODE
+		assert_equal [2, 4, 6], out.values
+	end
+
+	def test_for_loop_body_scope_still_reaches_the_enclosing_scope
+		out = Code.interp <<~CODE
+		    items := []
+		    items.push(it + 1) for [10, 20, 30]
+		    items
+		CODE
+		assert_equal [11, 21, 31], out.values
 	end
 end
