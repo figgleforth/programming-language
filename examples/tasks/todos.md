@@ -1,3 +1,7 @@
++ for-loops should be allowed to use ./ and ../ to be explicity about which variable they are mentioning. ../ goes to for-loop's enclosing scope, ./ goes to for-loop's scope
++ bug; `(x: Int, y: Int)` interps as an Array instead of Tuple
++ Switch statement / pattern matching (required for `@help` / `@help(expr)`)
++ Hex/binary/octal literals (0xff0000ff, 0b0101), underscore separators (1_000_000), scientific notation (1e10)
 + Implement `Struct`'s `-`/`+`/etc operators. I should be able to perform arithmetic any two structs regardless of the shape. (cause what if all of them coincidentally have == ops declared for each other). Only raise an error when the two members do not have @operator implementations, or if the fallback Ruby#== does not support them.
 + Rewrite language server because I asked Claude to whip this one up for me to help speed up my flow. I want to write it nicely
 + #maybe_instance should be #definitely_instance. I don't know why I didn't note this sooner, it would simplify some logic for sure, but it would simplify the mental model for me. Especially when I step away for a while then return again.
@@ -70,7 +74,6 @@
 + A `Command_Line` class. Lets you execute commands from Prog::String and Prog::Fence. Inspired by Tsoding and Jai.
 + The way Prog::Classes are created differs in many places. I should have some kind of `Interpreter#make klass` that does all the linking to the runtime and stuff
 + Add runtime types for all instantiable constructs in the language
-+ Switch statement / pattern matching: required for `@help` / `help{expr;}` function.
 + Rename global.code to global_scope.code. That's what the global scope will be loaded from, gives me better control. Would be cool to construct different scopes that users can pick to be their global scope, or make their own.
 + Constants should be able to be declared with a type and without a value. The first assignment locks in the value. `VERSION: Number` and assign it once later.
 + Rewrite the `Dom_Renderer` in Backend, and remove the magic rendering whenever a Dom is returned. Make the user render themselves, but implement it for them. Everyone prefers control over magic probably.
