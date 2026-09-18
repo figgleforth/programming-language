@@ -195,7 +195,6 @@ module Code
 
 		# Preserves its @input, interprets given file, then restores its @input.
 		# @param [::String] filepath of the code to load
-		# @param [Code::Scope] scope to load code into
 		# @return The output of the interpreted file
 		def load_file_into_scope filepath, into_scope
 			filepath.insert(-1, '.code') unless filepath.end_with? '.code' # note; I feel like this isn't the smartestest way to achieve this.
