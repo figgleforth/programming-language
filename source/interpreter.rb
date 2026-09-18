@@ -2462,6 +2462,11 @@ module Code
 					referenced.tag_instance                     = build_struct declaration_names, declaration_type_names, supplied.type_objects, resolved_values
 					referenced.tag_instance.bare_reference_name = supplied.bare_reference_name
 
+					if supplied.respond_to?(:types) && supplied.types
+						referenced.tag_instance.types = referenced.tag_instance.types.dup.merge(supplied.types)
+					end
+					referenced.tag_instance.name = supplied.name if supplied.respond_to?(:name) && supplied.name
+
 					# Carry a chained tag (`Ab\Cd\Ef`) across the rebuild above, which only re-associates the top level's own members.
 					if supplied.tag_instance
 						referenced.tag_instance.tag_instance = supplied.tag_instance
@@ -2544,7 +2549,7 @@ module Code
 			type
 		end
 
-		# Resolves one `\` RHS node to a real Code::Struct. An inline literal (`Abc\<Number>`) interprets to one directly; a named reference (`Abc\Task_Schema`) is used as-is if it's already a Struct, or wrapped into the single-unnamed-member equivalent if it's a Type (`Abc\String` behaves like `Abc\<String>`); anything else raises. A named reference also records its own identifier text as `bare_reference_name` (see Struct#bare_reference_name) -- the *only* signal that later tells #tag_display_name to print `Array\String` back out bare instead of falling back to the struct's own `<...>` rendering. A nested `.tag` on the node (`Ab\Cd\Ef`) is resolved recursively and hung off this struct's own `.tag`, so `x.tag.tag` walks the chain; `\<...>` is always terminal.
+		# Resolves one `\` RHS node to a real Code::Struct. An inline literal (`Abc\<Number>`) interprets to one directly; a named reference (`Abc\Task_Schema`) is used as-is if it's already a Struct, or wrapped into the single-unnamed-member equivalent if it's a Type (`Abc\String` behaves like `Abc\<String>`); anything else raises. A named reference also records its own identifier text as `bare_reference_name` (see Struct#bare_reference_name) -- the *only* signal that later tells #tag_display_name to print `Array\String` back out bare instead of falling back to the struct's own `<...>` rendering. A nested `.@tag` on the node (`Ab\Cd\Ef`) is resolved recursively and hung off this struct's own `.@tag`, so `x.@tag.@tag` walks the chain; `\<...>` is always terminal.
 		def resolve_tag_node tag_node, allow_spread: true
 			struct = if tag_node.is_a? Code::Struct_Expr
 				interp_struct tag_node, allow_spread: allow_spread

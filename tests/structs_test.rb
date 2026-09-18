@@ -1281,7 +1281,7 @@ class Structs_Test < Base_Test
 	# Struct Composition -- `Both | Abc | Def <extra: ...>` composes Bare Named Structs the same way `Type | Other {}` composes Types, with `<...>` playing the role `{}` plays for a type declaration.
 
 	def test_parses_struct_composition_trailing_body
-		out = Code.parse 'Both | Abc | Def <>'
+		out  = Code.parse 'Both | Abc | Def <>'
 		expr = out.first
 		assert_kind_of Code::Type_Expr, expr
 		assert_equal 'Both', expr.name
@@ -1292,7 +1292,7 @@ class Structs_Test < Base_Test
 	end
 
 	def test_parses_struct_composition_with_own_extra_members
-		out = Code.parse 'Both2 | Abc <my_own: String>'
+		out  = Code.parse 'Both2 | Abc <my_own: String>'
 		expr = out.first
 		assert_equal ['my_own'], expr.struct_body.names
 		assert_equal %w(String), expr.struct_body.types.map { |member| member.type.value }
@@ -1300,7 +1300,7 @@ class Structs_Test < Base_Test
 
 	# A trailing `<` after a composition chain that doesn't actually parse as a struct member list falls back to an ordinary comparison, same ambiguity #try_parse_struct already resolves for a bare `Ident <...>`.
 	def test_composition_followed_by_real_comparison_still_parses_as_comparison
-		out = Code.parse 'x := A | B < 5'
+		out   = Code.parse 'x := A | B < 5'
 		infix = out.first.right
 		assert_kind_of Code::Infix_Expr, infix
 		assert_equal '<', infix.operator.value
@@ -1513,7 +1513,47 @@ class Structs_Test < Base_Test
 		CODE
 		out = Code.interp src
 		assert_equal true, out.values[0]
-		assert_equal out.values[2], out.values[1] # whatever it is, nil\ and Nil\ agree
+		assert_equal true, out.values[1] # nil\Error() really is shaped like Error, not just "a Struct"
+		assert_equal true, out.values[2] # ... and Nil\Error() agrees
+	end
+
+	# Regression: `interp_type`'s named-tag-reference branch rebuilds the tag through #build_struct,
+	# which only stamps the generic `Struct` type onto it -- `nil\Error().@tag =>= Error` used to come
+	# back false (just `{'Struct'}`, missing `'Error'`) even though `Error()` on its own is correctly
+	# typed. Fixed by carrying `supplied`'s own `.types`/`.name` onto the rebuilt tag instance.
+	def test_named_nil_tag_reference_carries_its_own_type_identity_regression
+		out = Code.interp "Error <message: String>
+		nil\\Error().@tag.@composed_types.include?('Error')"
+		assert_equal true, out
+	end
+
+	# The motivating case: `Panic` composes `Error`'s shape, so a `Panic`-tagged value also satisfies
+	# `=>= Error` -- dispatch has to check the more specific tag first, or a real panic gets silently
+	# handled as a recoverable error.
+	def test_tagged_nil_dispatches_by_structural_specificity
+		src = <<~CODE
+		    Error <message: String>
+		    Panic | Error <>
+
+		    classify (value: Any;
+		        if value.@tag =>= Panic
+		            'panic'
+		        elif value.@tag =>= Error
+		            'error'
+		        else
+		            'ok'
+		        end
+		    )
+
+		    e := nil\\Error()
+		    e.@tag.message = 'recoverable'
+		    p := nil\\Panic()
+		    p.@tag.message = 'unrecoverable'
+
+		    (classify(e), classify(p), classify(1))
+		CODE
+		out = Code.interp src
+		assert_equal ['error', 'panic', 'ok'], out.values
 	end
 
 	def test_bare_nil_tag_reference_still_composes_nil
@@ -1723,5 +1763,13 @@ class Structs_Test < Base_Test
 		    b.inner.val
 		CODE
 		assert_equal 42, out
+	end
+
+	def test_nil_tag_reference_actually_matches_its_named_type
+		out = Code.interp <<~CODE
+		    Error <message: String>
+		    nil\\Error().@tag =>= Error
+		CODE
+		assert_equal true, out
 	end
 end
