@@ -46,11 +46,11 @@ Game {
 
 		# The background texture's handle never changes frame to frame (only its *content* is
 		# re-rendered each frame, in draw), so this only needs binding once, here.
-		background_loc  := Raylib.get_shader_location(self.invert_shader, 'background')
-		time_loc         = Raylib.get_shader_location(self.invert_shader, 'u_time')
-		wobble_speed_loc = Raylib.get_shader_location(self.invert_shader, 'wobble_speed')
-		sin_mult_loc     = Raylib.get_shader_location(self.invert_shader, 'sin_mult')
-		cos_mult_loc     = Raylib.get_shader_location(self.invert_shader, 'cos_mult')
+		background_loc  := Raylib.get_shader_location(self.invert_shader, :background)
+		time_loc         = Raylib.get_shader_location(self.invert_shader, :u_time)
+		wobble_speed_loc = Raylib.get_shader_location(self.invert_shader, :wobble_speed)
+		sin_mult_loc     = Raylib.get_shader_location(self.invert_shader, :sin_mult)
+		cos_mult_loc     = Raylib.get_shader_location(self.invert_shader, :cos_mult)
 
 		Raylib.set_shader_value_float(self.invert_shader, self.sin_mult_loc, sin_mult)
 		Raylib.set_shader_value_float(self.invert_shader, self.cos_mult_loc, cos_mult)

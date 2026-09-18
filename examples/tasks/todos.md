@@ -1,3 +1,4 @@
++ I should be able to use symbols in place of strings in some places like `background_loc  := Raylib.get_shader_location(self.invert_shader, 'background')` => `background_loc  := Raylib.get_shader_location(self.invert_shader, :background)`
 + for-loops should be allowed to use ./ and ../ to be explicity about which variable they are mentioning. ../ goes to for-loop's enclosing scope, ./ goes to for-loop's scope
 + bug; `(x: Int, y: Int)` interps as an Array instead of Tuple
 + Switch statement / pattern matching (required for `@help` / `@help(expr)`)

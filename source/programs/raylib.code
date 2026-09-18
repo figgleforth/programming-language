@@ -24,6 +24,9 @@
 #
 #   Raylib.close_window()
 
+Vector2 <x: Number, y: Number>
+Pixel | Vector2 <>
+
 Raylib {
 	# --- Window / lifecycle ---
 	Self.init_window ( width: Number, height: Number, title: String; @ruby )
@@ -72,10 +75,46 @@ Raylib {
 	Self.unload_render_texture ( render_texture: Any; @ruby )
 	Self.unload_shader ( shader: Any; @ruby )
 
-	# --- Input ---
+	# --- Input: Keyboard ---
 	Self.is_key_down? ( key: Symbol -> Bool; @ruby ) # e.g. Raylib.is_key_down?(:right)
 	Self.is_key_pressed? ( key: Symbol -> Bool; @ruby )
 	Self.key ( name: Symbol -> Number; @ruby ) # e.g. Raylib.key(:right) -> raylib's real KEY_RIGHT integer
+
+	# --- Input: Mouse ---
+	# A button is a symbol -- :left, :right, :middle, :side, :extra, :forward, :back.
+	Self.get_mouse_position ( -> Pixel; @ruby ) # <x, y> struct
+	Self.get_mouse_x ( -> Number; @ruby )
+	Self.get_mouse_y ( -> Number; @ruby )
+	Self.get_mouse_delta ( -> Pixel; @ruby ) # <x, y> moved since last frame
+	Self.get_mouse_wheel_move ( -> Number; @ruby )
+	Self.is_mouse_button_down? ( button: Symbol -> Bool; @ruby )
+	Self.is_mouse_button_pressed? ( button: Symbol -> Bool; @ruby )
+	Self.is_mouse_button_released? ( button: Symbol -> Bool; @ruby )
+
+	# --- Audio ---
+	# A sound/music value is opaque to Backend, same as a texture or shader -- hold onto whatever
+	# these hand back and pass it straight into the next call.
+	Self.init_audio_device (; @ruby )
+	Self.close_audio_device (; @ruby )
+	Self.is_audio_device_ready? ( -> Bool; @ruby )
+
+	Self.load_sound ( path: String -> Any; @ruby )
+	Self.play_sound ( sound: Any; @ruby )
+	Self.stop_sound ( sound: Any; @ruby )
+	Self.is_sound_playing? ( sound: Any -> Bool; @ruby )
+	Self.set_sound_volume ( sound: Any, volume: Number; @ruby ) # 1.0 is max
+	Self.set_sound_pitch ( sound: Any, pitch: Number; @ruby ) # 1.0 is base
+	Self.unload_sound ( sound: Any; @ruby )
+
+	Self.load_music_stream ( path: String -> Any; @ruby )
+	Self.play_music_stream ( music: Any; @ruby )
+	Self.update_music_stream ( music: Any; @ruby ) # call once per frame while playing, or it stops streaming
+	Self.stop_music_stream ( music: Any; @ruby )
+	Self.pause_music_stream ( music: Any; @ruby )
+	Self.resume_music_stream ( music: Any; @ruby )
+	Self.set_music_volume ( music: Any, volume: Number; @ruby ) # 1.0 is max
+	Self.is_music_stream_playing? ( music: Any -> Bool; @ruby )
+	Self.unload_music_stream ( music: Any; @ruby )
 
 	# --- Useful ---
 	Self.get_fps (-> Number; @ruby)

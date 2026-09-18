@@ -153,7 +153,7 @@ module Code
 		end
 
 		def proxy_get_shader_location shader, name
-			self.class.lib.GetShaderLocation shader, name
+			self.class.lib.GetShaderLocation shader, name&.to_s
 		end
 
 		# A GLSL shader's uniform (`uniform float u_time;`) can hold more than just
@@ -228,7 +228,7 @@ module Code
 			self.class.lib.UnloadShader shader
 		end
 
-		# --- Input ---
+		# --- Input: Keyboard ---
 
 		# @param [::Symbol] key
 		def proxy_is_key_down? key
@@ -246,12 +246,147 @@ module Code
 			key_code name
 		end
 
+		# --- Input: Mouse ---
+
+		def proxy_get_mouse_position
+			pixel_from_vector2 self.class.lib.GetMousePosition
+		end
+
+		def proxy_get_mouse_x
+			self.class.lib.GetMouseX
+		end
+
+		def proxy_get_mouse_y
+			self.class.lib.GetMouseY
+		end
+
+		def proxy_get_mouse_delta
+			pixel_from_vector2 self.class.lib.GetMouseDelta
+		end
+
+		def proxy_get_mouse_wheel_move
+			self.class.lib.GetMouseWheelMove
+		end
+
+		# @param [::Symbol] button
+		def proxy_is_mouse_button_down? button
+			self.class.lib.IsMouseButtonDown mouse_button_code(button)
+		end
+
+		# @param [::Symbol] button
+		def proxy_is_mouse_button_pressed? button
+			self.class.lib.IsMouseButtonPressed mouse_button_code(button)
+		end
+
+		# @param [::Symbol] button
+		def proxy_is_mouse_button_released? button
+			self.class.lib.IsMouseButtonReleased mouse_button_code(button)
+		end
+
+		# --- Audio ---
+		#
+		# Sound/Music values are opaque to Backend, the same "hand it back, pass it straight into the
+		# next call" treatment as a Texture2D/Shader gets -- nothing here wraps them in a Code:: type.
+
+		def proxy_init_audio_device
+			self.class.lib.InitAudioDevice
+		end
+
+		def proxy_close_audio_device
+			self.class.lib.CloseAudioDevice
+		end
+
+		def proxy_is_audio_device_ready?
+			self.class.lib.IsAudioDeviceReady
+		end
+
+		def proxy_load_sound path
+			self.class.lib.LoadSound path
+		end
+
+		def proxy_play_sound sound
+			self.class.lib.PlaySound sound
+		end
+
+		def proxy_stop_sound sound
+			self.class.lib.StopSound sound
+		end
+
+		def proxy_is_sound_playing? sound
+			self.class.lib.IsSoundPlaying sound
+		end
+
+		def proxy_set_sound_volume sound, volume
+			self.class.lib.SetSoundVolume sound, volume
+		end
+
+		def proxy_set_sound_pitch sound, pitch
+			self.class.lib.SetSoundPitch sound, pitch
+		end
+
+		def proxy_unload_sound sound
+			self.class.lib.UnloadSound sound
+		end
+
+		def proxy_load_music_stream path
+			self.class.lib.LoadMusicStream path
+		end
+
+		def proxy_play_music_stream music
+			self.class.lib.PlayMusicStream music
+		end
+
+		# Raylib streams music in buffered chunks off the main thread's own timing -- this has to run
+		# once per frame while a stream is meant to be audible, or it silently starves and stops.
+		def proxy_update_music_stream music
+			self.class.lib.UpdateMusicStream music
+		end
+
+		def proxy_stop_music_stream music
+			self.class.lib.StopMusicStream music
+		end
+
+		def proxy_pause_music_stream music
+			self.class.lib.PauseMusicStream music
+		end
+
+		def proxy_resume_music_stream music
+			self.class.lib.ResumeMusicStream music
+		end
+
+		def proxy_set_music_volume music, volume
+			self.class.lib.SetMusicVolume music, volume
+		end
+
+		def proxy_is_music_stream_playing? music
+			self.class.lib.IsMusicStreamPlaying music
+		end
+
+		def proxy_unload_music_stream music
+			self.class.lib.UnloadMusicStream music
+		end
+
 		private
 
 		# @param [::Symbol] name
 		# @return [::Integer]
 		def key_code name
 			self.class.lib.const_get "KEY_#{name.to_s.upcase}"
+		end
+
+		# @param [::Symbol] name
+		# @return [::Integer]
+		def mouse_button_code name
+			self.class.lib.const_get "MOUSE_BUTTON_#{name.to_s.upcase}"
+		end
+
+		def pixel_from_vector2 vector
+			interpreter = Code::Interpreter.current
+			template    = interpreter.global['Pixel'] # Pixel | Vector2 <>      (see programs/raylib.code.)
+			pixel       = interpreter.build_struct template.names, template.type_names, template.type_objects, [vector.x, vector.y]
+			interpreter.adopt_type pixel, 'Pixel'
+			pixel.name = template.name
+			pixel
 		end
 
 		# @param [Code::Array | Code::Struct] collection that responds to &:values
