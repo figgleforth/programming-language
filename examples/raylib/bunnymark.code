@@ -1,0 +1,93 @@
+# Implemented by Claude
+#
+# Port of raylib's official "bunnymark" example (raylib [textures], zlib/libpng licensed --
+# https://www.raylib.com/examples/textures/loader.html?name=textures_bunnymark -- originally by
+# Ramon Santamaria).
+#
+# Hold the left mouse button to spawn 100 bunnies per frame at the cursor, each with its own random
+# velocity and color, bouncing off the window edges forever. A classic way to stress-test how many
+# sprites a renderer can push through before it chokes -- the counter at the top tracks how many
+# batched draw calls that many bunnies need. P pauses the simulation (drawing keeps going, movement
+# doesn't).
+#
+# Honest note on running this in Backend specifically: the original C demo can hold tens of thousands
+# of bunnies at 60fps because each frame is a tight native loop. This is a tree-walking interpreter
+# making a real FFI call per bunny per frame (position update, bounds check, draw) -- expect it to
+# get noticeably slower far sooner than the native version does. MAX_BUNNIES is kept at the original's
+# value below for fidelity to the source; lower it if it bogs down before you're done watching it.
+
+@load 'programs/raylib'
+
+SCREEN_WIDTH  := 800
+SCREEN_HEIGHT := 450
+
+MAX_BUNNIES        := 200 # a safety cap, not a target -- see the file header
+MAX_BATCH_ELEMENTS := 8192  # raylib's own internal batch buffer size -- see rlgl
+
+RAYWHITE := [245, 245, 245]
+BLACK    := [0, 0, 0]
+GREEN    := [0, 228, 48]
+MAROON   := [190, 33, 55]
+
+Bunny <position: Vector2, speed: Vector2, color: Array>
+
+Raylib.init_window(SCREEN_WIDTH, SCREEN_HEIGHT, 'bunnymark')
+# No set_target_fps call -- deliberately uncapped, same as the original, so the frame rate itself
+# shows how the bunny count affects performance.
+
+bunny_texture := Raylib.load_texture('examples/raylib/assets/raybunny.png')
+bunny_width   := Raylib.get_texture_width(bunny_texture)
+bunny_height  := Raylib.get_texture_height(bunny_texture)
+
+bunnies := []
+paused := false
+
+until Raylib.window_should_close?()
+	if Raylib.is_mouse_button_down?(:left)
+		for 1..100
+			skip if bunnies.length() >= MAX_BUNNIES
+
+			color := [Raylib.get_random_value(50, 240), Raylib.get_random_value(80, 240), Raylib.get_random_value(100, 240), 255]
+			bunnies.push(Bunny(Raylib.get_mouse_position(), Vector2(Raylib.get_random_value(-250, 250), Raylib.get_random_value(-250, 250)), color))
+		end
+	end
+
+	if Raylib.is_key_pressed?(:p)
+		paused = !paused
+	end
+
+	if !paused
+		dt := Raylib.get_frame_time()
+		for bunnies
+			it.position = Vector2(it.position.x + it.speed.x * dt, it.position.y + it.speed.y * dt)
+
+			if (it.position.x + bunny_width / 2) > Raylib.get_screen_width() || (it.position.x + bunny_width / 2) < 0
+				it.speed = Vector2(0 - it.speed.x, it.speed.y)
+			end
+			if (it.position.y + bunny_height / 2) > Raylib.get_screen_height() || (it.position.y + bunny_height / 2 - 40) < 0
+				it.speed = Vector2(it.speed.x, 0 - it.speed.y)
+			end
+		end
+	end
+
+	Raylib.begin_drawing()
+	Raylib.clear_background(RAYWHITE)
+
+	for bunnies
+		# NOTE: When raylib's internal batch buffer limit (MAX_BATCH_ELEMENTS) is reached, it flushes
+		# a draw call and starts filling the buffer again -- this is what "batched draw calls" below
+		# is counting, straight from the original example's own comment on this.
+		Raylib.draw_texture(bunny_texture, it.position.x.trunc(), it.position.y.trunc(), it.color)
+	end
+
+	Raylib.draw_rectangle(0, 0, SCREEN_WIDTH, 40, BLACK)
+	Raylib.draw_text("bunnies: `bunnies.length()`", 120, 10, 20, GREEN)
+	Raylib.draw_text("batched draw calls: `1 + bunnies.length() / MAX_BATCH_ELEMENTS`", 320, 10, 20, MAROON)
+
+	Raylib.draw_fps(10, 10)
+
+	Raylib.end_drawing()
+end
+
+Raylib.unload_texture(bunny_texture)
+Raylib.close_window()

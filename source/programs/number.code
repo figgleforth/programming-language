@@ -38,10 +38,14 @@ Number {
 	abs (; @ruby )
 	floor (; @ruby )
 	ceil (; @ruby )
-	round (; @ruby )
+	round ( digits := 0; @ruby ) # e.g. 3.14159.round(2) -> 3.14
 
 	sqrt (; @ruby )
 	square_root := sqrt
+
+	sin (; @ruby ) # radians in, unit-circle Y out
+	cos (; @ruby ) # radians in, unit-circle X out
+	trunc (; @ruby ) # chops the fractional part, toward zero -- 1.9.trunc() is 1, -1.9.trunc() is -1
 
 	even? (; @ruby )
 	odd? (; @ruby )

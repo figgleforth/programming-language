@@ -30,6 +30,15 @@ module Code
 
 		# --- Window / lifecycle ---
 
+		# @param [::Symbol] name
+		def proxy_config_flag name
+			self.class.lib.const_get "FLAG_#{name.to_s.upcase}"
+		end
+
+		def proxy_set_config_flags flags
+			self.class.lib.SetConfigFlags flags
+		end
+
 		def proxy_init_window width, height, title
 			self.class.lib.InitWindow width, height, title
 		end
@@ -50,6 +59,18 @@ module Code
 			self.class.lib.GetFrameTime
 		end
 
+		def proxy_get_time
+			self.class.lib.GetTime
+		end
+
+		def proxy_get_screen_width
+			self.class.lib.GetScreenWidth
+		end
+
+		def proxy_get_screen_height
+			self.class.lib.GetScreenHeight
+		end
+
 		# --- Drawing ---
 
 		def proxy_begin_drawing
@@ -62,6 +83,16 @@ module Code
 
 		def proxy_clear_background color
 			self.class.lib.ClearBackground rgba(color)
+		end
+
+		# --- 2D Camera ---
+
+		def proxy_begin_mode_2d camera
+			self.class.lib.BeginMode2D camera2d(camera)
+		end
+
+		def proxy_end_mode_2d
+			self.class.lib.EndMode2D
 		end
 
 		# --- Shapes ---
@@ -80,6 +111,10 @@ module Code
 
 		def proxy_draw_rectangle_lines x, y, width, height, color
 			self.class.lib.DrawRectangleLines x, y, width, height, rgba(color)
+		end
+
+		def proxy_draw_rectangle_pro rect, origin, rotation, color
+			self.class.lib.DrawRectanglePro rectangle(rect), vector2(origin), rotation, rgba(color)
 		end
 
 		def proxy_draw_line x1, y1, x2, y2, color
@@ -105,6 +140,10 @@ module Code
 			self.class.lib.GetFPS
 		end
 
+		def proxy_get_random_value min, max
+			self.class.lib.GetRandomValue min, max
+		end
+
 		# --- Textures / Shaders / Render targets ---
 		#
 		# Texture2D / RenderTexture2D / Shader / Image values are opaque to Code -- these methods
@@ -114,6 +153,19 @@ module Code
 
 		def proxy_load_texture path
 			self.class.lib.LoadTexture path
+		end
+
+		def proxy_get_texture_width texture
+			texture.width
+		end
+
+		def proxy_get_texture_height texture
+			texture.height
+		end
+
+		# @param [::Symbol] filter
+		def proxy_set_texture_filter texture, filter
+			self.class.lib.SetTextureFilter texture, texture_filter_code(filter)
 		end
 
 		# A placeholder texture built from a plain color -- no external image file needed. Combines
@@ -283,6 +335,47 @@ module Code
 			self.class.lib.IsMouseButtonReleased mouse_button_code(button)
 		end
 
+		# --- Input: Gamepad ---
+
+		def proxy_is_gamepad_available? gamepad
+			self.class.lib.IsGamepadAvailable gamepad
+		end
+
+		# GetGamepadName returns a raw C string pointer -- raylib owns that memory and reuses it, so
+		# read it out to a real Ruby String immediately rather than holding onto the pointer.
+		def proxy_get_gamepad_name gamepad
+			pointer = self.class.lib.GetGamepadName gamepad
+			pointer.null? ? nil : pointer.read_string
+		end
+
+		# @param [::Symbol] button
+		def proxy_is_gamepad_button_down? gamepad, button
+			self.class.lib.IsGamepadButtonDown gamepad, gamepad_button_code(button)
+		end
+
+		# @param [::Symbol] button
+		def proxy_is_gamepad_button_pressed? gamepad, button
+			self.class.lib.IsGamepadButtonPressed gamepad, gamepad_button_code(button)
+		end
+
+		# @param [::Symbol] button
+		def proxy_is_gamepad_button_released? gamepad, button
+			self.class.lib.IsGamepadButtonReleased gamepad, gamepad_button_code(button)
+		end
+
+		def proxy_get_gamepad_axis_count gamepad
+			self.class.lib.GetGamepadAxisCount gamepad
+		end
+
+		# @param [::Symbol] axis
+		def proxy_get_gamepad_axis_movement gamepad, axis
+			self.class.lib.GetGamepadAxisMovement gamepad, gamepad_axis_code(axis)
+		end
+
+		def proxy_set_gamepad_vibration gamepad, left_motor, right_motor, duration
+			self.class.lib.SetGamepadVibration gamepad, left_motor, right_motor, duration
+		end
+
 		# --- Audio ---
 		#
 		# Sound/Music values are opaque to Backend, the same "hand it back, pass it straight into the
@@ -366,7 +459,43 @@ module Code
 			self.class.lib.UnloadMusicStream music
 		end
 
+		# --- Low-level (rlgl) ---
+
+		def proxy_rl_set_texture texture
+			self.class.lib.rlSetTexture texture.id
+		end
+
+		def proxy_rl_begin_quads
+			self.class.lib.rlBegin self.class.lib::RL_QUADS
+		end
+
+		def proxy_rl_end
+			self.class.lib.rlEnd
+		end
+
+		def proxy_rl_color color
+			r, g, b, a = color.values
+			self.class.lib.rlColor4ub r, g, b, a || 255
+		end
+
+		def proxy_rl_normal x, y, z
+			self.class.lib.rlNormal3f x, y, z
+		end
+
+		def proxy_rl_tex_coord u, v
+			self.class.lib.rlTexCoord2f u, v
+		end
+
+		def proxy_rl_vertex x, y
+			self.class.lib.rlVertex2f x, y
+		end
+
 		private
+
+		# @param [::Symbol] name
+		def texture_filter_code name
+			self.class.lib.const_get "TEXTURE_FILTER_#{name.to_s.upcase}"
+		end
 
 		# @param [::Symbol] name
 		# @return [::Integer]
@@ -378,6 +507,18 @@ module Code
 		# @return [::Integer]
 		def mouse_button_code name
 			self.class.lib.const_get "MOUSE_BUTTON_#{name.to_s.upcase}"
+		end
+
+		# @param [::Symbol] name
+		# @return [::Integer]
+		def gamepad_button_code name
+			self.class.lib.const_get "GAMEPAD_BUTTON_#{name.to_s.upcase}"
+		end
+
+		# @param [::Symbol] name
+		# @return [::Integer]
+		def gamepad_axis_code name
+			self.class.lib.const_get "GAMEPAD_AXIS_#{name.to_s.upcase}"
 		end
 
 		def pixel_from_vector2 vector
@@ -402,10 +543,24 @@ module Code
 			self.class.lib::Rectangle.create(x, y, width, height)
 		end
 
-		# A Code [x, y] Array -> a real raylib Vector2.
+		# A Code [x, y] Array (or anything else that responds to &:values with two elements, a
+		# `Vector2`/`Pixel` struct included) -> a real raylib Vector2.
 		def vector2 collection
 			x, y = collection.values
 			self.class.lib::Vector2.create(x, y)
+		end
+
+		# A Code `Camera_2d` struct -> a real raylib Camera2D. `with_target`/`with_offset` take raw
+		# x/y floats, not a Vector2, so this reads straight off `target`/`offset`'s own `.values`
+		# rather than going through #vector2's raylib-Vector2 return.
+		def camera2d struct
+			target_x, target_y = struct['target'].values
+			offset_x, offset_y = struct['offset'].values
+			self.class.lib::Camera2D.new
+				.with_target(target_x, target_y)
+				.with_offset(offset_x, offset_y)
+				.with_rotation(struct['rotation'])
+				.with_zoom(struct['zoom'])
 		end
 	end
 end

@@ -1,0 +1,85 @@
+# Implemented by Claude
+#
+# Port of raylib's official "sprite stacking" example (raylib [textures], zlib/libpng licensed --
+# https://www.raylib.com/examples/textures/loader.html?name=textures_sprite_stacking -- originally
+# by Robin (@RobinsAviary), reviewed by Ramon Santamaria).
+#
+# `booth.png` (examples/raylib/assets/) is a "voxel stack" sprite -- one flat texture that's really
+# STACK_COUNT thin horizontal slices, stacked one under the other. Drawing every slice at almost the
+# same screen position, each one nudged down by `stack_spacing` pixels and all sharing one rotation,
+# reproduces the 3D look of a spinning voxel model using nothing but ordinary 2D texture draws.
+#
+# A/D (or left/right arrows) speed up or slow down the spin. The mouse wheel changes the spacing
+# between slices -- turn it down to flatten the stack, up to stretch it out.
+#
+# Redbooth model (c) 2017-2025 @kluchek, https://github.com/kluchek/vox-models/, CC BY 4.0.
+
+@load 'programs/raylib'
+
+SCREEN_WIDTH  := 800
+SCREEN_HEIGHT := 450
+
+RAYWHITE := [245, 245, 245]
+WHITE    := [255, 255, 255]
+DARKGRAY := [80, 80, 80]
+
+STACK_COUNT  := 122  # how many horizontal slices booth.png is made of
+SPEED_CHANGE := 0.25 # how much A/D change the spin speed by, per key press
+
+Raylib.init_window(SCREEN_WIDTH, SCREEN_HEIGHT, 'sprite stacking')
+Raylib.set_target_fps(60)
+
+booth := Raylib.load_texture('examples/raylib/assets/booth.png')
+
+stack_scale    := 3   # overall scale of the stacked sprite
+stack_spacing  := 2   # vertical gap between each slice, in screen pixels
+rotation_speed := 30  # degrees per second
+rotation       := 0   # current rotation of the whole stack
+
+until Raylib.window_should_close?()
+	# Mouse wheel changes slice separation.
+	stack_spacing += Raylib.get_mouse_wheel_move() * 0.1
+	stack_spacing = stack_spacing.clamp(0, 5)
+
+	# A positive/negative offset to the spin speed, so A/D (or the arrows) spin right/left at
+	# different rates rather than snapping straight to a fixed speed.
+	if Raylib.is_key_down?(:left) || Raylib.is_key_down?(:a)
+		rotation_speed -= SPEED_CHANGE
+	end
+	if Raylib.is_key_down?(:right) || Raylib.is_key_down?(:d)
+		rotation_speed += SPEED_CHANGE
+	end
+
+	rotation += rotation_speed * Raylib.get_frame_time()
+
+	Raylib.begin_drawing()
+	Raylib.clear_background(RAYWHITE)
+
+	# The size of a single slice, and that slice scaled up to drawing size.
+	frame_width   := Raylib.get_texture_width(booth)
+	frame_height  := Raylib.get_texture_height(booth) / STACK_COUNT
+	scaled_width  := frame_width * stack_scale
+	scaled_height := frame_height * stack_scale
+
+	# Draw every slice, back to front (bottom of the stack first, top last), each one rotated to the
+	# same angle and nudged down by its own position in the stack -- see the file header.
+	for 1..STACK_COUNT
+		i := (STACK_COUNT - 1) - at
+
+		source := [0, i * frame_height, frame_width, frame_height]
+		dest   := [SCREEN_WIDTH / 2, (SCREEN_HEIGHT / 2) + (i * stack_spacing) - (stack_spacing * STACK_COUNT / 2), scaled_width, scaled_height]
+		origin := [scaled_width / 2, scaled_height / 2]
+
+		Raylib.draw_texture_pro(booth, source, dest, origin, rotation, WHITE)
+	end
+
+	Raylib.draw_text("A/D to spin\nmouse wheel to change separation (aka 'angle')", 10, 10, 20, DARKGRAY)
+	Raylib.draw_text("current spacing: `stack_spacing.round(1)`", 10, 50, 20, DARKGRAY)
+	Raylib.draw_text("current speed: `rotation_speed.round(2)`", 10, 70, 20, DARKGRAY)
+	Raylib.draw_text('redbooth model (c) kluchek under cc 4.0', 10, 420, 20, DARKGRAY)
+
+	Raylib.end_drawing()
+end
+
+Raylib.unload_texture(booth)
+Raylib.close_window()

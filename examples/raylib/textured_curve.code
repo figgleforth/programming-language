@@ -1,0 +1,262 @@
+# Implemented by Claude
+#
+# Port of raylib's official "textured curve" example (raylib [textures], zlib/libpng licensed --
+# https://www.raylib.com/examples/textures/loader.html?name=textures_bezier -- originally by Jeffery
+# Myers, reviewed by Ramon Santamaria).
+#
+# A road texture is stretched along a cubic Bezier curve by hand-building a strip of quads with
+# rlgl's own immediate-mode vertex calls (the higher-level draw_texture_pro can only ever draw an
+# axis-aligned rectangle, never a skewed/curved quad) -- see draw_textured_curve below.
+#
+# Drag the five colored control points (red/maroon/green/dark-green circles) to reshape the curve.
+# SPACE shows/hides the underlying Bezier curve, +/- widens/narrows the road, left/right arrows add
+# or remove segments.
+#
+# Two raylib functions have no Backend binding and are approximated here instead of adding one just
+# for this example: CheckCollisionPointCircle (`point_in_circle?` below -- a plain distance check)
+# and DrawSplineSegmentBezierCubic (`draw_reference_curve` below -- draws the same Bezier this file
+# already has to compute, as a polyline, instead of raylib's own dedicated spline renderer).
+
+@load 'programs/raylib'
+
+SCREEN_WIDTH  := 800
+SCREEN_HEIGHT := 450
+
+RAYWHITE  := [245, 245, 245]
+BLUE      := [0, 121, 241]
+SKYBLUE   := [102, 191, 255]
+LIGHTGRAY := [200, 200, 200]
+PURPLE    := [200, 122, 255]
+YELLOW    := [253, 249, 0]
+RED       := [230, 41, 55]
+MAROON    := [190, 33, 55]
+GREEN     := [0, 228, 48]
+DARKGREEN := [0, 117, 44]
+DARKGRAY  := [80, 80, 80]
+
+# --- raymath's Vector2 family -- plain math, no native call needed for any of these ---
+
+vector2_add (a: Vector2, b: Vector2 -> Vector2; Vector2(a.x + b.x, a.y + b.y))
+vector2_scale (a: Vector2, s: Number -> Vector2; Vector2(a.x * s, a.y * s))
+vector2_length (a: Vector2 -> Number; (a.x * a.x + a.y * a.y).sqrt())
+
+vector2_normalize (a: Vector2 -> Vector2;
+	len := vector2_length(a)
+	if len == 0
+		Vector2(0, 0)
+	else
+		Vector2(a.x / len, a.y / len)
+	end
+)
+
+# CheckCollisionPointCircle -- distance from `point` to `center`, compared to `radius`. Squared on
+# both sides so it never needs a sqrt.
+point_in_circle? (point: Vector2, center: Vector2, radius: Number -> Bool;
+	dx := point.x - center.x
+	dy := point.y - center.y
+	(dx * dx + dy * dy) <= (radius * radius)
+)
+
+# Fade -- scales a color's alpha by a 0..1 factor. Colors here are plain [r, g, b] / [r, g, b, a]
+# arrays; a 3-element color is treated as fully opaque first.
+fade (color: Array, alpha: Number -> Array;
+	starting_alpha := if color.length() > 3 color.3 else 255 end
+	[color.0, color.1, color.2, (starting_alpha * alpha).trunc()]
+)
+
+Raylib.set_config_flags(Raylib.config_flag(:vsync_hint) | Raylib.config_flag(:msaa_4x_hint))
+Raylib.init_window(SCREEN_WIDTH, SCREEN_HEIGHT, 'textured curve')
+
+road_texture := Raylib.load_texture('examples/raylib/assets/road.png')
+Raylib.set_texture_filter(road_texture, :bilinear)
+
+curve_start_position         := Vector2(80, 100)
+curve_start_position_tangent := Vector2(100, 300)
+curve_end_position           := Vector2(700, 350)
+curve_end_position_tangent   := Vector2(600, 100)
+
+curve_selected_point := nil
+
+show_curve      := false
+curve_width     := 50
+curve_segments  := 24
+
+# One point on the cubic Bezier curve, at `t` (0..1) -- shared by the textured-quad pass and the
+# reference-curve pass below, so they always trace exactly the same shape.
+bezier_point (t: Number -> Vector2;
+	a := (1 - t) ** 3
+	b := 3 * ((1 - t) ** 2) * t
+	c := 3 * (1 - t) * (t ** 2)
+	d := t ** 3
+
+	Vector2(
+		a * curve_start_position.x + b * curve_start_position_tangent.x + c * curve_end_position_tangent.x + d * curve_end_position.x,
+		a * curve_start_position.y + b * curve_start_position_tangent.y + c * curve_end_position_tangent.y + d * curve_end_position.y
+	)
+)
+
+# Walks the curve in `curve_segments` steps, and at each one draws a quad spanning from the previous
+# point to the current one, `curve_width` pixels wide on either side of the curve's own centerline --
+# textured so the road's U axis runs across the road and V runs along its length.
+draw_textured_curve (;
+	step := 1.0 / curve_segments
+
+	previous         := curve_start_position
+	previous_tangent := Vector2(0, 0)
+	previous_v       := 0
+	tangent_set      := false
+
+	for 1..curve_segments
+		current := bezier_point(step * it)
+
+		# The vector from the previous point to this one, and its right-hand normal -- the direction
+		# the road's edges extend out from the centerline at this point.
+		delta  := Vector2(current.x - previous.x, current.y - previous.y)
+		normal := vector2_normalize(Vector2(0 - delta.y, delta.x))
+
+		# How far along the texture's V axis this point is -- total distance travelled so far, scaled
+		# down so the texture repeats every two texture-heights of travel.
+		v := previous_v + vector2_length(delta) / (Raylib.get_texture_height(road_texture) * 2)
+
+		# The very first point has no previous segment to derive a normal from -- borrow this
+		# segment's own normal for it instead.
+		if !tangent_set
+			previous_tangent = normal
+			tangent_set = true
+		end
+
+		prev_pos_normal    := vector2_add(previous, vector2_scale(previous_tangent, curve_width))
+		prev_neg_normal    := vector2_add(previous, vector2_scale(previous_tangent, 0 - curve_width))
+		current_pos_normal := vector2_add(current, vector2_scale(normal, curve_width))
+		current_neg_normal := vector2_add(current, vector2_scale(normal, 0 - curve_width))
+
+		Raylib.rl_set_texture(road_texture)
+		Raylib.rl_begin_quads()
+		Raylib.rl_color([255, 255, 255, 255])
+		Raylib.rl_normal(0, 0, 1)
+
+		Raylib.rl_tex_coord(0, previous_v)
+		Raylib.rl_vertex(prev_neg_normal.x, prev_neg_normal.y)
+
+		Raylib.rl_tex_coord(1, previous_v)
+		Raylib.rl_vertex(prev_pos_normal.x, prev_pos_normal.y)
+
+		Raylib.rl_tex_coord(1, v)
+		Raylib.rl_vertex(current_pos_normal.x, current_pos_normal.y)
+
+		Raylib.rl_tex_coord(0, v)
+		Raylib.rl_vertex(current_neg_normal.x, current_neg_normal.y)
+		Raylib.rl_end()
+
+		previous         = current
+		previous_tangent = normal
+		previous_v       = v
+	end
+)
+
+# The plain, uncolored curve, drawn as a polyline over the finished road -- see the file header for
+# why this isn't raylib's own DrawSplineSegmentBezierCubic.
+draw_reference_curve (;
+	step := 1.0 / curve_segments
+	previous := curve_start_position
+
+	for 1..curve_segments
+		current := bezier_point(step * it)
+		Raylib.draw_line(previous.x, previous.y, current.x, current.y, BLUE)
+		previous = current
+	end
+)
+
+Raylib.set_target_fps(60)
+
+until Raylib.window_should_close?()
+	if Raylib.is_key_pressed?(:space)
+		show_curve = !show_curve
+	end
+	if Raylib.is_key_pressed?(:equal)
+		curve_width += 2
+	end
+	if Raylib.is_key_pressed?(:minus)
+		curve_width -= 2
+	end
+	if curve_width < 2
+		curve_width = 2
+	end
+
+	if Raylib.is_key_pressed?(:left)
+		curve_segments -= 2
+	end
+	if Raylib.is_key_pressed?(:right)
+		curve_segments += 2
+	end
+	if curve_segments < 2
+		curve_segments = 2
+	end
+
+	# If the mouse isn't down, nothing is being dragged -- drop the selection.
+	if !Raylib.is_mouse_button_down?(:left)
+		curve_selected_point = nil
+	end
+
+	# A point was already selected (from a previous frame) -- drag it by however far the mouse moved.
+	if curve_selected_point
+		delta := Raylib.get_mouse_delta()
+		curve_selected_point.x += delta.x
+		curve_selected_point.y += delta.y
+	end
+
+	# Whether or not the mouse is down, see if it's sitting over a control point -- this is what lets
+	# a fresh click grab one, and also drives the yellow hover highlight below.
+	mouse := Raylib.get_mouse_position()
+	if point_in_circle?(mouse, curve_start_position, 6)
+		curve_selected_point = curve_start_position
+	elif point_in_circle?(mouse, curve_start_position_tangent, 6)
+		curve_selected_point = curve_start_position_tangent
+	elif point_in_circle?(mouse, curve_end_position, 6)
+		curve_selected_point = curve_end_position
+	elif point_in_circle?(mouse, curve_end_position_tangent, 6)
+		curve_selected_point = curve_end_position_tangent
+	end
+
+	Raylib.begin_drawing()
+	Raylib.clear_background(RAYWHITE)
+
+	draw_textured_curve()
+
+	if show_curve
+		draw_reference_curve()
+	end
+
+	Raylib.draw_line(curve_start_position.x, curve_start_position.y, curve_start_position_tangent.x, curve_start_position_tangent.y, SKYBLUE)
+	Raylib.draw_line(curve_start_position_tangent.x, curve_start_position_tangent.y, curve_end_position_tangent.x, curve_end_position_tangent.y, fade(LIGHTGRAY, 0.4))
+	Raylib.draw_line(curve_end_position.x, curve_end_position.y, curve_end_position_tangent.x, curve_end_position_tangent.y, PURPLE)
+
+	if point_in_circle?(mouse, curve_start_position, 6)
+		Raylib.draw_circle(curve_start_position.x, curve_start_position.y, 7, YELLOW)
+	end
+	Raylib.draw_circle(curve_start_position.x, curve_start_position.y, 5, RED)
+
+	if point_in_circle?(mouse, curve_start_position_tangent, 6)
+		Raylib.draw_circle(curve_start_position_tangent.x, curve_start_position_tangent.y, 7, YELLOW)
+	end
+	Raylib.draw_circle(curve_start_position_tangent.x, curve_start_position_tangent.y, 5, MAROON)
+
+	if point_in_circle?(mouse, curve_end_position, 6)
+		Raylib.draw_circle(curve_end_position.x, curve_end_position.y, 7, YELLOW)
+	end
+	Raylib.draw_circle(curve_end_position.x, curve_end_position.y, 5, GREEN)
+
+	if point_in_circle?(mouse, curve_end_position_tangent, 6)
+		Raylib.draw_circle(curve_end_position_tangent.x, curve_end_position_tangent.y, 7, YELLOW)
+	end
+	Raylib.draw_circle(curve_end_position_tangent.x, curve_end_position_tangent.y, 5, DARKGREEN)
+
+	Raylib.draw_text('Drag points to move curve, press SPACE to show/hide base curve', 10, 10, 10, DARKGRAY)
+	Raylib.draw_text("Curve width: `curve_width.round()` (Use + and - to adjust)", 10, 30, 10, DARKGRAY)
+	Raylib.draw_text("Curve segments: `curve_segments` (Use LEFT and RIGHT to adjust)", 10, 50, 10, DARKGRAY)
+
+	Raylib.end_drawing()
+end
+
+Raylib.unload_texture(road_texture)
+Raylib.close_window()

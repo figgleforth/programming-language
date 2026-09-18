@@ -88,6 +88,18 @@ module Code
 			Math.sqrt value
 		end
 
+		def proxy_sin
+			Math.sin value
+		end
+
+		def proxy_cos
+			Math.cos value
+		end
+
+		def proxy_trunc
+			value.truncate
+		end
+
 		def proxy_rand max
 			max_val = max.respond_to?(:value) ? max.value : max.to_i
 			::Kernel.rand(max_val + 1)

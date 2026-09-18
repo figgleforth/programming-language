@@ -1,0 +1,137 @@
+# Implemented by Claude
+#
+# Port of raylib's official "smooth pixel-perfect" example (raylib [core], zlib/libpng licensed --
+# https://www.raylib.com/examples/core/loader.html?name=core_smooth_pixelperfect -- originally by
+# Giancamillo Alessandroni, reviewed by Ramon Santamaria).
+#
+# Draws three rotating rectangles into a small, low-resolution render target (the "virtual screen"),
+# then stretches that up to the real window -- the classic pixel-art look. A second camera nudges the
+# *stretched* image by the fractional part of the world camera's own movement each frame, correcting
+# for the whole-virtual-pixel snap the low-res render target otherwise forces every motion into.
+# Press S to toggle PIXEL_SNAPPING on -- that turns the correction *off*, so you see the raw,
+# uncorrected snap instead of the smoothed motion. O toggles overscan (draws slightly past the window
+# edge, hiding the thin gap a non-integer scale factor can leave at the border).
+
+@load 'programs/raylib'
+
+SCREEN_WIDTH  := 800
+SCREEN_HEIGHT := 600
+
+VIRTUAL_SCREEN_WIDTH  := 160/2.0
+VIRTUAL_SCREEN_HEIGHT := 120/2.0
+
+VIRTUAL_RATIO := SCREEN_WIDTH / VIRTUAL_SCREEN_WIDTH
+
+# Scales both the rectangles' spin and the camera's drift together -- turn this down to watch the
+# pixel-snapping/smoothing happen frame by frame instead of it all blurring past.
+SPEED := 0.01
+
+RAYWHITE  := [245, 245, 245]
+LIGHTGRAY := [200, 200, 200]
+BLACK     := [0, 0, 0]
+RED       := [230, 41, 55]
+BLUE      := [0, 121, 241]
+WHITE     := [255, 255, 255]
+DARKBLUE  := [0, 82, 172]
+DARKGREEN := [0, 117, 44]
+
+Raylib.init_window(SCREEN_WIDTH, SCREEN_HEIGHT, 'smooth pixel-perfect')
+Raylib.set_target_fps(60)
+
+world_space_camera  := Camera_2d(Vector2(0, 0), Vector2(0, 0), 0, 1)
+screen_space_camera := Camera_2d(Vector2(0, 0), Vector2(0, 0), 0, 1)
+
+# Everything gets drawn into this small, low-res target first, then stretched up to window size --
+# that stretch is what turns ordinary drawing into a pixel-art look.
+target := Raylib.load_render_texture(VIRTUAL_SCREEN_WIDTH, VIRTUAL_SCREEN_HEIGHT)
+
+rec01 := [70, 35, 20, 20]
+rec02 := [90, 55, 30, 10]
+rec03 := [80, 65, 15, 25]
+
+# The target's height is negative -- flips it right-side up, since a render texture's own Y axis
+# runs the opposite way from the screen's (an OpenGL thing, not a Backend one).
+source_rec := [0, 0, VIRTUAL_SCREEN_WIDTH, 0 - VIRTUAL_SCREEN_HEIGHT]
+origin     := [0, 0]
+
+rotation := 0
+pixel_snapping := false # true = correction off, showing the raw whole-virtual-pixel snap
+overscan := false
+
+until Raylib.window_should_close?()
+	rotation += 60 * SPEED * Raylib.get_frame_time() # 60 degrees per second at SPEED 1.0
+
+	if Raylib.is_key_pressed?(:s)
+		pixel_snapping = !pixel_snapping
+	end
+	if Raylib.is_key_pressed?(:o)
+		overscan = !overscan
+	end
+
+	dest_rec := if overscan
+		[0 - VIRTUAL_RATIO, 0 - VIRTUAL_RATIO, SCREEN_WIDTH + (VIRTUAL_RATIO * 2), SCREEN_HEIGHT + (VIRTUAL_RATIO * 2)]
+	else
+		[(SCREEN_WIDTH - SCREEN_WIDTH / 1.25) / 2, (SCREEN_HEIGHT - SCREEN_HEIGHT / 1.25) / 2, SCREEN_WIDTH / 1.25, SCREEN_HEIGHT / 1.25]
+	end
+
+	# The stretched texture's *real* on-screen scale -- `dest_rec`'s own width divided by the
+	# virtual canvas width. This is NOT the same as VIRTUAL_RATIO once overscan is off: `dest_rec`
+	# deliberately shrinks the image by 1.25 (a visible border), so the real scale is 4, not 5. The
+	# sub-pixel compensation below has to match this *real* scale, or it over/under-corrects for
+	# every whole-virtual-pixel snap and the stretched image visibly jiggles instead of panning
+	# smoothly.
+	display_ratio := dest_rec.2 / VIRTUAL_SCREEN_WIDTH
+
+	# Move the camera in a slow circle, just to have something worth smoothing.
+	time := Raylib.get_time() * SPEED
+	camera_x := (time.sin() * 50) - 10
+	camera_y := time.cos() * 30
+
+	# Split the raw camera position into a whole-pixel part (the world camera snaps to this -- no
+	# sub-pixel jitter on anything actually drawn) and a fractional remainder (the screen camera
+	# nudges the *stretched* image by exactly this much, scaled up to real screen pixels, so the
+	# motion still reads as smooth instead of stair-stepping one virtual pixel at a time).
+	world_target_x := camera_x.trunc()
+	world_target_y := camera_y.trunc()
+	screen_target_x := (camera_x - world_target_x) * display_ratio
+	screen_target_y := (camera_y - world_target_y) * display_ratio
+
+	world_space_camera.target = Vector2(world_target_x, world_target_y)
+	screen_space_camera.target = Vector2(screen_target_x, screen_target_y)
+
+	Raylib.begin_texture_mode(target)
+	Raylib.clear_background(RAYWHITE)
+	Raylib.begin_mode_2d(world_space_camera)
+	Raylib.draw_rectangle_pro(rec01, origin, rotation, BLACK)
+	Raylib.draw_rectangle_pro(rec02, origin, 0 - rotation, RED)
+	Raylib.draw_rectangle_pro(rec03, origin, rotation + 45, BLUE)
+	Raylib.end_mode_2d()
+	Raylib.end_texture_mode()
+
+	Raylib.begin_drawing()
+	Raylib.clear_background(LIGHTGRAY)
+
+	texture := Raylib.render_texture_texture(target)
+	if pixel_snapping
+		# No screen-space camera here -- the raw, uncorrected virtual-pixel snap, unhidden.
+		Raylib.draw_texture_pro(texture, source_rec, dest_rec, origin, 0, WHITE)
+	else
+		Raylib.begin_mode_2d(screen_space_camera)
+		Raylib.draw_texture_pro(texture, source_rec, dest_rec, origin, 0, WHITE)
+		Raylib.end_mode_2d()
+	end
+
+	pixel_snapping_label := if pixel_snapping 'ON' else 'OFF' end
+	overscan_label       := if overscan 'ON' else 'OFF' end
+
+	Raylib.draw_text("Screen resolution: `SCREEN_WIDTH`x`SCREEN_HEIGHT`", 10, 10, 20, DARKBLUE)
+	Raylib.draw_text("World resolution: `VIRTUAL_SCREEN_WIDTH`x`VIRTUAL_SCREEN_HEIGHT`", 10, 40, 20, DARKGREEN)
+	Raylib.draw_text("Pixel snapping: `pixel_snapping_label`", 10, SCREEN_HEIGHT - 60, 20, RED)
+	Raylib.draw_text("Overscan: `overscan_label`", 10, SCREEN_HEIGHT - 30, 20, RED)
+	Raylib.draw_fps(Raylib.get_screen_width() - 95, 10)
+
+	Raylib.end_drawing()
+end
+
+Raylib.unload_render_texture(target)
+Raylib.close_window()
