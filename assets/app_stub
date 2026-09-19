@@ -1,8 +1,0 @@
-#!/bin/bash
-# The "executable" for the Code_Lang_Icon_Stub.app helper bundle (see register_macos_type.sh).
-#
-# This app is never meant to launch for real — macOS Launch Services just
-# needs *some* runnable bundle to scan for the icon/file-type declaration in
-# Info.plist. If it's ever double-clicked by accident, it does nothing and
-# quits immediately.
-exit 0
