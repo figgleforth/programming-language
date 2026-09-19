@@ -2329,31 +2329,52 @@ module Code
 					tuple
 				end
 			when '{}'
-				dict = expr.expressions.reduce(Code::Dictionary.new) do |dict, it|
-					if it.is_a? Code::Identifier_Expr
-						dict.proxy_set it.value.to_sym, nil
-					elsif it.is_a? Code::Infix_Expr
-						case it.operator.value
-						when ':'
-							if it.left.is_a?(Code::Identifier_Expr) || it.left.is_a?(Code::Symbol_Expr) || it.left.is_a?(Code::String_Expr)
-								# note; Deliberately NOT wrap_string_literal_value here, unlike Array/Tuple literals -- Dictionary#hash is handed straight to Ruby-level consumers as a raw Hash (Sequel queries in table.rb chief among them), so wrapping a value into Code::String here broke every DB call passing string attributes. #to_s below just always double-quotes String values instead of matching the original literal's quote char.
-								dict.proxy_set it.left.value.to_sym, interpret(it.right)
-							else
-								# The left operand should be allowed to be any hashable object. It's too early in the project to consider hashing but this'll be a good reminder.
-								raise Code::Invalid_Dictionary_Key.new(it)
-							end
-						else
-							raise Code::Invalid_Dictionary_Infix_Operator.new(it)
-						end
-					end
-					# In case I forget, #reduce requires that the injected value be returned to be passed to the next iteration.
-					dict
+				is_dictionary = expr.expressions.all? do |kv|
+					kv.is(Identifier_Expr) || (kv.is(Infix_Expr) && kv.operator.value == ':')
 				end
-				link_instance_to_type dict, 'Dictionary'
-				dict
+
+				is_dictionary ? interpret_dictionary(expr) : interpret_inline_scope(expr)
 			else
 				raise Code::Unknown_Circumfix_Grouping.new(expr)
 			end
+		end
+
+		# @param expr [Circumfix_Expr]
+		def interpret_inline_scope expr
+			scope = Temporary.new 'Inline Scope'
+			last_expr = nil
+			push_then_pop scope do
+				expr.expressions.each do |it|
+					last_expr = interpret it
+				end
+			end
+			last_expr
+		end
+
+		# @param expr [Circumfix_Expr
+		def interpret_dictionary expr
+			dict = expr.expressions.reduce(Code::Dictionary.new) do |dict, it|
+				if it.is_a? Code::Identifier_Expr
+					dict.proxy_set it.value.to_sym, nil
+				elsif it.is_a? Code::Infix_Expr
+					case it.operator.value
+					when ':'
+						if it.left.is_a?(Code::Identifier_Expr) || it.left.is_a?(Code::Symbol_Expr) || it.left.is_a?(Code::String_Expr)
+							# note; Deliberately NOT wrap_string_literal_value here, unlike Array/Tuple literals -- Dictionary#hash is handed straight to Ruby-level consumers as a raw Hash (Sequel queries in table.rb chief among them), so wrapping a value into Code::String here broke every DB call passing string attributes. #to_s below just always double-quotes String values instead of matching the original literal's quote char.
+							dict.proxy_set it.left.value.to_sym, interpret(it.right)
+						else
+							# The left operand should be allowed to be any hashable object. It's too early in the project to consider hashing but this'll be a good reminder.
+							raise Code::Invalid_Dictionary_Key.new(it)
+						end
+					else
+						raise Code::Invalid_Dictionary_Infix_Operator.new(it)
+					end
+				end
+				# In case I forget, #reduce requires that the injected value be returned to be passed to the next iteration.
+				dict
+			end
+			link_instance_to_type dict, 'Dictionary'
+			dict
 		end
 
 		# @param expr [Code::Call_Expr]

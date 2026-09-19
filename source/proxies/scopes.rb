@@ -128,6 +128,9 @@ module Code
 	end
 
 	class Temporary < Scope
+		def initialize name = 'Temporary'
+			super name
+		end
 	end
 
 	class Type < Scope

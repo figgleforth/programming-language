@@ -608,10 +608,68 @@ class Interpreter_Test < Base_Test
 		assert_nil out
 	end
 
-	def test_invalid_dictionary_infix
-		assert_raises Code::Invalid_Dictionary_Infix_Operator do
-			Code.interp '{ x > x }'
+	def test_standalone_inline_scope
+		out = Code.interp '{ 4815 }'
+		assert_equal 4815, out
+	end
+
+	def test_inline_scope_returns_its_last_expression
+		out = Code.interp <<~CODE
+			{
+				1
+				2
+				3
+			}
+		CODE
+		assert_equal 3, out
+	end
+
+	def test_inline_scope_reads_enclosing_variable
+		out = Code.interp 'x := 10, { x + 5 }'
+		assert_equal 15, out
+	end
+
+	def test_nested_inline_scopes_read_the_outermost_variable
+		out = Code.interp 'x := 7, { { x + 1 } }'
+		assert_equal 8, out
+	end
+
+	def test_inline_scope_declaration_shadows_enclosing_variable
+		out = Code.interp 'x := 1, { x := 2, x }'
+		assert_equal 2, out
+	end
+
+	def test_inline_scope_declaration_does_not_leak_into_enclosing_scope
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+				{ local_thing := 5 }
+				local_thing
+			CODE
 		end
+	end
+
+	def test_inline_scope_declaration_does_not_mutate_enclosing_variable
+		out = Code.interp <<~CODE
+			x := 1
+			{ x := 2 }
+			x
+		CODE
+		assert_equal 1, out
+	end
+
+	def test_inline_scope_reassignment_mutates_enclosing_variable
+		out = Code.interp <<~CODE
+			x := 1
+			{ x = 2 }
+			x
+		CODE
+		assert_equal 2, out
+	end
+
+	def test_inline_scope_is_not_mistaken_for_a_dictionary
+		out = Code.interp '{ 1 + 1 }'
+		refute_kind_of Code::Dictionary, out
+		assert_equal 2, out
 	end
 
 	def test_assigning_function_to_variable

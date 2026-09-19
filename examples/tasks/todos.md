@@ -1,3 +1,4 @@
++ Allow creating different types of standalone scopes. Transparent, Opaque, etc, but with better names
 + Design a concurrency model
 + Switch statement / pattern matching (required for `@help` / `@help(expr)`)
 + Get rid of "comma nil init" because it is in the way of making tuples and destructuring work as I want them to work. That means all `ident,` inits have to be updated, there are probably a lot since that was the original way I was initializing things to nil. I still want a nil-init shorthand, it just cannot be the comma.

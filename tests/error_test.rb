@@ -83,12 +83,6 @@ class Error_Test < Base_Test
 		end
 	end
 
-	def test_invalid_dictionary_infix_operator
-		error = assert_raises Code::Invalid_Dictionary_Infix_Operator do
-			Code.interp '{x + 5}'
-		end
-	end
-
 	def test_missing_argument
 		# todo: Doesn't display code and location
 		assert_raises Code::Missing_Argument do
