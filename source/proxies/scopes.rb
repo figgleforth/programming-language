@@ -223,7 +223,7 @@ module Code
 		FALSE = new(false)
 	end
 
-	# Code::Range is an Instance wrapping a Ruby ::Range -- see source/proxies/range.rb + source/programs/range.code.
+	# Code::Range is an Instance wrapping a Ruby ::Range -- see source/proxies/range.rb + source/code/range.code.
 
 	class Server < Instance
 		DEFAULT_PORT = 8080

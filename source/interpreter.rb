@@ -10,7 +10,7 @@ module Code
 		# Source lines by filepath, keyed the same way #register_source always has -- kept class-level (not per-instance) so Error_Formatter can read a snippet without holding a live Interpreter, which used to be the only reason errors.rb needed a `runtime` reference at all.
 		cache_by_path :cached_source_by_filename # {filepath: [String]}
 
-		# Parsed ASTs by resolved filepath, kept class-level (not per-instance) for the same reason: `source/programs/global.code` (and everything it transitively @loads) is immutable source, identical for every Interpreter in the process, so re-lexing/re-parsing it fresh on every `Code.interp` call was pure waste -- it used to be instance-level, meaning a brand-new Interpreter (which every `Code.interp` call constructs) never saw a warm cache. Doesn't cache the *interpretation* of that AST (each Interpreter still builds its own fresh Standard_Library scope from it), only the lex+parse step, so per-instance isolation (mutating a builtin in one test can't leak into another) is unaffected.
+		# Parsed ASTs by resolved filepath, kept class-level (not per-instance) for the same reason: `source/code/global.code` (and everything it transitively @loads) is immutable source, identical for every Interpreter in the process, so re-lexing/re-parsing it fresh on every `Code.interp` call was pure waste -- it used to be instance-level, meaning a brand-new Interpreter (which every `Code.interp` call constructs) never saw a warm cache. Doesn't cache the *interpretation* of that AST (each Interpreter still builds its own fresh Standard_Library scope from it), only the lex+parse step, so per-instance isolation (mutating a builtin in one test can't leak into another) is unaffected.
 		cache_by_path :cached_expressions_by_filepath # {filepath: [Code::Expression]}
 
 		# Resolved filepaths whose AST has already passed type-checking at least once, kept class-level alongside the cache above. Type-checking is a pure function of the AST (no interpreter state involved) -- a cached, never-changing file that already passed once will always pass, so re-walking it on every subsequent load is pure waste, same as re-parsing was.
@@ -69,7 +69,7 @@ module Code
 			top_level_source_file = current_source_file
 
 			if @stack.empty?
-				# todo; Global should be created by interping source/programs/global.code, which is what I want to rename source/programs/global.code to
+				# todo; Global should be created by interping source/code/global.code, which is what I want to rename source/code/global.code to
 				global  = Global.new
 				@global = global # kept separately from @stack -- #interp_member_access temporarily swaps @stack out for dot-access resolution, so `stack.first` isn't reliably Global the way this needs
 				@stack << global
@@ -202,7 +202,9 @@ module Code
 			resolved_path = if filepath.start_with? 'source/'
 				::File.join ROOT_PATH, filepath
 			else
-				::File.expand_path filepath
+				cwd_relative = ::File.expand_path filepath
+				# `code/x.code` used to only resolve here because of a `code -> source/code` symlink at the project root. Falling back to `source/<filepath>` makes the standard library reachable by this same bare path from any cwd, symlink or not.
+				::File.exist?(cwd_relative) ? cwd_relative : ::File.join(ROOT_PATH, 'source', filepath)
 			end
 
 			# This filepath may have been loaded in the given scope already. We don't want to double load it -- return the same result it produced the first time instead of re-running it (or, without this, silently returning nil).
@@ -286,7 +288,7 @@ module Code
 		# is what let handlers move out of new() and into render(). `render_scope` is `{ anchor:, slot: }`
 		# seeded in #render_dom_to_html; the slot counter advances in depth-first render order.
 		#
-		# An `element_key` (the element's own `key := '...'`, see source/programs/html.code) pins the token by
+		# An `element_key` (the element's own `key := '...'`, see source/code/html.code) pins the token by
 		# name instead of position and does not touch the slot counter -- so a conditional element
 		# appearing or vanishing between renders can't shift its siblings' tokens.
 		def next_render_token render_scope, element_key = nil
@@ -2112,7 +2114,7 @@ module Code
 			end
 		end
 
-		# The literal `Any` type (source/programs/global.code), a universal wildcard -- see #interp_comparison_infix.
+		# The literal `Any` type (source/code/global.code), a universal wildcard -- see #interp_comparison_infix.
 		def any_type? value
 			value.is_a?(Code::Type) && value.name == 'Any'
 		end
@@ -2184,7 +2186,7 @@ module Code
 				# note; ==, !=, <, >, <=, >=, <=> aren't given fixed set-comparison semantics above, so — same as arithmetic — check for a user-declared @operator overload (on left itself, or falling back to left.enclosing_scope for shorthand-constructed instances, or a same-named global operator) before falling back to Ruby's own #==/#<=>/etc.
 				overload = find_operator_overload expr.operator.value, left
 
-				# note; A type declaring `@operator ==` but no `@operator !=` of its own (the common case source/programs/struct.code's Member/Struct are exactly this) used to fall straight through to Ruby's own #!= for `!=`, which is identity-based and ignores the custom == entirely, two structurally-equal Members compared unequal with `!=` even though `==` correctly said they were equal. `!=` now derives from a declared `==` overload (negated) when it has no overload of its own, matching how most languages auto-derive != from ==.
+				# note; A type declaring `@operator ==` but no `@operator !=` of its own (the common case source/code/struct.code's Member/Struct are exactly this) used to fall straight through to Ruby's own #!= for `!=`, which is identity-based and ignores the custom == entirely, two structurally-equal Members compared unequal with `!=` even though `==` correctly said they were equal. `!=` now derives from a declared `==` overload (negated) when it has no overload of its own, matching how most languages auto-derive != from ==.
 				if !overload.is_a?(Code::Func) && expr.operator.value == '!='
 					overload      = find_operator_overload '==', left
 					negate_result = true
@@ -3466,7 +3468,7 @@ module Code
 			# own value, so `@puts`ing a fence printed an object dump instead of its text. Interpret it
 			# first, same as any other String_Expr, to get the real Ruby string.
 			#
-			# `Fence | String {}` (source/programs/fence.code, loaded by source/programs/global.code) is the real declared
+			# `Fence | String {}` (source/code/fence.code, loaded by source/code/global.code) is the real declared
 			# Code-level type for this -- link to it, not 'String' directly, mirroring Code::Fence <
 			# Code::String on the Ruby side. Without linking to *some* declared type here, #stringify_
 			# for_display's `to_s`/`to_string` lookup finds nothing and falls back to returning the
@@ -4142,7 +4144,7 @@ module Code
 			adopt_type Code::Array.new(list), 'Array'
 		end
 
-		# What a variadic param binds -- a Code::Array linked to the `Arguments` type (see source/programs/array.code).
+		# What a variadic param binds -- a Code::Array linked to the `Arguments` type (see source/code/array.code).
 		def wrap_arguments_array list
 			adopt_type Code::Array.new(list), 'Arguments'
 		end
@@ -4302,7 +4304,7 @@ module Code
 			raise Code::Undeclared_Tagged_Type.new(expr)
 		end
 
-		# A value built directly from a string literal gets wrapped into a real Code::String carrying the literal's own `quotation_style`, instead of staying the bare Ruby string #interp_string normally returns. Struct/Member's to_s(;) (source/programs/member.code) and Array/Dictionary/Tuple's to_s(;) (source/programs/array.code, source/programs/dictionary.code, source/programs/global.code) read `.quotation_style` straight off the value to decide how to quote it for display.
+		# A value built directly from a string literal gets wrapped into a real Code::String carrying the literal's own `quotation_style`, instead of staying the bare Ruby string #interp_string normally returns. Struct/Member's to_s(;) (source/code/member.code) and Array/Dictionary/Tuple's to_s(;) (source/code/array.code, source/code/dictionary.code, source/code/global.code) read `.quotation_style` straight off the value to decide how to quote it for display.
 		def wrap_string_literal_value source_expr, value
 			return value unless source_expr.is_a?(Code::String_Expr) && value.is_a?(::String)
 			finish_intrinsic_instance Code::String.new(value, source_expr.quotation_style), 'String'
@@ -4326,7 +4328,7 @@ module Code
 			run_type_body_on_instance struct_type, struct
 
 			# `@.members` -- Code::Member instances, one per member, when the `Member`/`Struct` prog layer
-			# is loaded (`source/programs/struct.code`). The plain quartet (`@names`/`@type_names`/`@type_objects`/
+			# is loaded (`source/code/struct.code`). The plain quartet (`@names`/`@type_names`/`@type_objects`/
 			# `@values`) is already on the struct from Struct#initialize.
 			member_type = find_in_stack 'Member'
 			if member_type.is_a?(Code::Type)

@@ -168,4 +168,4 @@ until Raylib.window_should_close?()
 end
 
 Raylib.close_window()
-@load ./programs/raylib
+@load ./code/raylib

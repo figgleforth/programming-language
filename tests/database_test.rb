@@ -7,8 +7,8 @@ require 'sequel'
 require 'securerandom'
 
 class Database_Test < Base_Test
-	DATABASE = "@load 'programs/database.code'"
-	RECORD   = "@load 'programs/table.code'"
+	DATABASE = "@load 'code/database.code'"
+	RECORD   = "@load 'code/table.code'"
 
 	def before_setup
 		@filepath = "./temp#{SecureRandom.hex}.db"

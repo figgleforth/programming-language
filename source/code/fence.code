@@ -1,0 +1,3 @@
+@load 'code/string'
+
+Fence | String {}

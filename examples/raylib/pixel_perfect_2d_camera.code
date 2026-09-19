@@ -12,7 +12,7 @@
 # uncorrected snap instead of the smoothed motion. O toggles overscan (draws slightly past the window
 # edge, hiding the thin gap a non-integer scale factor can leave at the border).
 
-@load 'programs/raylib'
+@load 'code/raylib'
 
 SCREEN_WIDTH  := 800
 SCREEN_HEIGHT := 600

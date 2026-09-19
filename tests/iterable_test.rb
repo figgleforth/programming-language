@@ -2,8 +2,8 @@ require 'minitest/autorun'
 require_relative '../source/main'
 require_relative 'base_test'
 
-# source/programs/iterable.code: `Iterable` isn't auto-loaded (needs its own `@load`, see
-# source/programs/readme.md) and isn't documented there either -- it's a small, work-in-progress
+# source/code/iterable.code: `Iterable` isn't auto-loaded (needs its own `@load`, see
+# source/code/readme.md) and isn't documented there either -- it's a small, work-in-progress
 # base type (see its own `# todo` comment) that gives a composing type a `next(index -> Any)`
 # method over a `collection: Array` member. `for` doesn't actually require `Iterable` itself --
 # `#interp_for_loop` (source/interpreter.rb) falls back to calling *any* instance's own `next`
@@ -11,7 +11,7 @@ require_relative 'base_test'
 # ready-made way to get one. These tests cover both: composing `Iterable`, and hand-rolling the
 # same `next`/`Done` protocol directly.
 class Iterable_Test < Base_Test
-	ITERABLE = "@load 'programs/iterable.code'"
+	ITERABLE = "@load 'code/iterable.code'"
 
 	def test_composed_iterable_drives_a_for_loop
 		out = Code.interp <<~CODE
@@ -80,7 +80,7 @@ class Iterable_Test < Base_Test
 	# the same way without composing `Iterable` at all.
 	def test_hand_rolled_next_protocol_works_without_composing_iterable
 		out = Code.interp <<~CODE
-			@load 'programs/iterable'
+			@load 'code/iterable'
 
 		    Tens {
 		        values := [1, 2, 3]

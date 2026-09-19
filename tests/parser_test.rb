@@ -1078,7 +1078,7 @@ class Parser_Test < Base_Test
 	end
 
 	def test_fancier_statement_example
-		out = Code.parse "x := `@load 'programs/string'`"
+		out = Code.parse "x := `@load 'code/string'`"
 		assert_kind_of Code::Statement_Expr, out.last.right
 	end
 end

@@ -14,7 +14,7 @@
 #
 # Redbooth model (c) 2017-2025 @kluchek, https://github.com/kluchek/vox-models/, CC BY 4.0.
 
-@load 'programs/raylib'
+@load 'code/raylib'
 
 SCREEN_WIDTH  := 800
 SCREEN_HEIGHT := 450

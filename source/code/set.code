@@ -20,7 +20,7 @@ Set {
 	clear (-> Set; @ruby )
 
 	# --- queries ---
-	# note; Implemented in Code (not @ruby), same reasoning as programs/array.code's `include?` -- a
+	# note; Implemented in Code (not @ruby), same reasoning as code/array.code's `include?` -- a
 	# @ruby proxy falls through to Ruby's Set#include? (hash/eql? identity), which never sees an
 	# Code-level `@operator ==` on a custom element type. Insertion dedup still uses Ruby identity
 	# for non-primitive elements, though -- honoring a custom `==` there would mean giving up the
@@ -146,7 +146,7 @@ Set {
 		"Set{`pieces.join(', ')`}"
 	)
 
-	# note; Element comparison goes through the interpreter (same reasoning as programs/array.code's
+	# note; Element comparison goes through the interpreter (same reasoning as code/array.code's
 	# `==`) so a custom element type's own `@operator ==` overload is honored. `|`/`&`/`-`/`^` are
 	# handled by the Ruby backing -- #interp_logical_infix / #interp_arithmetic_infix reach those
 	# directly and #maybe_instance re-links the result on the next dot access.

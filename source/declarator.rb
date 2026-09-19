@@ -28,7 +28,9 @@ module Code
 			if filepath.start_with? 'source/'
 				::File.join Code::ROOT_PATH, filepath
 			else
-				::File.expand_path filepath
+				cwd_relative = ::File.expand_path filepath
+				# `code/x.code` used to only resolve here because of a `code -> source/code` symlink at the project root. Falling back to `source/<filepath>` makes the code library reachable by this same bare path from any cwd, symlink or not.
+				::File.exist?(cwd_relative) ? cwd_relative : ::File.join(Code::ROOT_PATH, 'source', filepath)
 			end
 		end
 

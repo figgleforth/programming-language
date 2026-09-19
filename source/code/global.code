@@ -1,0 +1,28 @@
+@load 'code/any'
+@load 'code/nil'
+@load 'code/file'
+@load 'code/directory'
+@load 'code/date'
+@load 'code/time'
+@load 'code/date_time'
+@load 'code/number'
+@load 'code/array'
+@load 'code/range'
+@load 'code/set'
+@load 'code/dictionary'
+@load 'code/string'
+@load 'code/symbol'
+@load 'code/fence'
+@load 'code/struct'
+@load 'code/statement'
+@load 'code/enum'
+@load 'code/tuple'
+@load 'code/bool'
+@load 'code/context'
+
+### How to load programs.
+@load 'code/some.code'  # the standard library itself lives in ./source/code/
+@load './this.code'      # relative to wherever you ran bin/program from (cwd)
+@load 'that.code'        # relative to wherever you ran bin/program from (cwd)
+@load 'and_this'         # no .code extension required
+###

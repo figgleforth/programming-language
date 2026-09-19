@@ -1,17 +1,17 @@
-# Second version of tasks.code: identical functionality, built on programs/css.code + programs/html2.code
+# Second version of tasks.code: identical functionality, built on code/css.code + code/html2.code
 # (struct-and-visitor) instead of html.code's Dom types. One real, unavoidable difference:
-# programs/html2.code deliberately doesn't hook into the server-side live-render pipeline (onclick
+# code/html2.code deliberately doesn't hook into the server-side live-render pipeline (onclick
 # wiring, dom.js, X-Code-Target-Id partial updates) the way html.code's Dom does -- it only
 # builds an HTML string (see its own header comment). So every "click a button, something changes"
 # interaction here is a plain HTML form POST + redirect instead of an onclick handler -- same
 # capabilities (add a task, toggle done, edit type/text, see it reflected), just a full page
 # reload to get there instead of an in-place AJAX-style swap.
 
-@load 'programs/database'
-@load 'programs/table'
-@load 'programs/css'
-@load 'programs/html2'
-@load 'programs/server'
+@load 'code/database'
+@load 'code/table'
+@load 'code/css'
+@load 'code/html2'
+@load 'code/server'
 
 Task_Type [TODO BUG DESIGN]
 

@@ -523,7 +523,7 @@ module Code
 
 		def pixel_from_vector2 vector
 			interpreter = Code::Interpreter.current
-			template    = interpreter.global['Pixel'] # Pixel | Vector2 <>      (see programs/raylib.code.)
+			template    = interpreter.global['Pixel'] # Pixel | Vector2 <>      (see code/raylib.code.)
 			pixel       = interpreter.build_struct template.names, template.type_names, template.type_objects, [vector.x, vector.y]
 			interpreter.adopt_type pixel, 'Pixel'
 			pixel.name = template.name

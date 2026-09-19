@@ -1,4 +1,4 @@
-@load 'programs/visitor'
+@load 'code/visitor'
 
 # 1. AST Node Definitions
 Property <name: String, value: Any, important: Bool = false>

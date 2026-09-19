@@ -1,4 +1,4 @@
-# Shared building block for Lint-style visitors (programs/css.code and programs/html2.code both compose
+# Shared building block for Lint-style visitors (code/css.code and code/html2.code both compose
 # this in, rather than each hand-rolling its own `warnings := []` accumulator). `| Warnings_Visitor`
 # gives a visitor a `warnings` member and a `warn` method to push onto it; the visitor's own
 # `visit_*` methods call `warn(...)` as they walk the tree instead of building and returning their

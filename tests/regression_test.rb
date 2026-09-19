@@ -356,7 +356,7 @@ class Regression_Test < Base_Test
 
 		assert_raises Code::Database_Not_Set_For_Table_Instance do
 			Code.interp <<~CODE
-			    @load 'programs/table.code'
+			    @load 'code/table.code'
 
 			    Table().find(1)
 			CODE
@@ -647,7 +647,7 @@ class Regression_Test < Base_Test
 
 	def test_calling_a_bare_struct_literal_constructs_an_instance_regression
 		out = Code.interp <<~CODE
-		    @load 'programs/struct.code'
+		    @load 'code/struct.code'
 		    s := <name: String, age: Number>('Alice', 30)
 		    s.@members.0.value.value
 		CODE
@@ -878,7 +878,7 @@ class Regression_Test < Base_Test
 
 	def test_comparing_two_type_objects_does_not_dispatch_instance_operator_overload_regression
 		out = Code.interp <<~CODE
-		    @load 'programs/struct.code'
+		    @load 'code/struct.code'
 		    a := Member('id', nil, String)
 		    b := Member('id', nil, String)
 		    a == b
@@ -886,7 +886,7 @@ class Regression_Test < Base_Test
 		assert_equal true, out
 
 		out = Code.interp <<~CODE
-		    @load 'programs/struct.code'
+		    @load 'code/struct.code'
 		    sa := <name: String, age: Number>('Alice', 30)
 		    sb := <name: String, age: Number>('Alice', 30)
 		    sc := <name: String, age: Number>('Alice', 99)

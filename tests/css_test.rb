@@ -2,10 +2,10 @@ require 'minitest/autorun'
 require_relative '../source/main'
 require_relative 'base_test'
 
-# source/programs/css.code: the AST node structs, Css_Formatter_Visitor (format + minify), and
+# source/code/css.code: the AST node structs, Css_Formatter_Visitor (format + minify), and
 # Css_Lint_Visitor (duplicate properties, vendor prefixes, redundant zero-units).
 class Css_Test < Base_Test
-	CSS = "@load 'programs/css.code'"
+	CSS = "@load 'code/css.code'"
 
 	# --- Css_Formatter_Visitor -------------------------------------------------
 

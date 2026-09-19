@@ -2,14 +2,14 @@ require 'minitest/autorun'
 require_relative '../source/main'
 require_relative 'base_test'
 
-# `source/programs/context.code` is the human-readable mirror of Code::Context::MEMBERS (see the note there).
+# `source/code/context.code` is the human-readable mirror of Code::Context::MEMBERS (see the note there).
 # The two drift apart the moment someone adds a member to one and forgets the other -- exactly the
 # bug that shipped `splatr`/`splatw` half-wired. Keep them locked together.
 class Context_Test < Base_Test
 	def context_prog_member_names
-		path   = File.join(Code::ROOT_PATH, 'source', 'programs', 'context.code')
+		path   = File.join(Code::ROOT_PATH, 'source', 'code', 'context.code')
 		struct = Code.parse_file(path).find { |expr| expr.is_a?(Code::Struct_Expr) }
-		refute_nil struct, 'expected a `Context <...>` struct declaration in source/programs/context.code'
+		refute_nil struct, 'expected a `Context <...>` struct declaration in source/code/context.code'
 		struct.names.compact
 	end
 

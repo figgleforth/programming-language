@@ -7,7 +7,7 @@ module Code
 	class Context < Instance
 		attr_accessor :subject
 
-		# Source of truth for every `@` member; `source/programs/context.code` mirrors it (tests/context_test.rb).
+		# Source of truth for every `@` member; `source/code/context.code` mirrors it (tests/context_test.rb).
 		#   {} vital  |  { fn: :intrinsic } #interp_intrinsic  |  { fn: :stack } caller's-frame dispatch
 		MEMBERS = {
 			'name' => {},

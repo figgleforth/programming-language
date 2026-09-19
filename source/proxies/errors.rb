@@ -49,7 +49,7 @@ module Code
 				structure = expression.to_s
 			elsif expression.respond_to?(:struct_body) && expression.struct_body && !expression.tag
 				# `Name <...>` / `Name | Other <...>` where `Name` is already a declared type -- a
-				# bare named struct can't reuse the name (rename it, the way source/programs/expressions.code's
+				# bare named struct can't reuse the name (rename it, the way source/code/expressions.code's
 				# `Structure` sidesteps the built-in `Struct`).
 				name = expression.name
 				return "#{Ascii.bold name} is already a declared type — a struct declared as `#{Ascii.bold "#{name} <...>"}` needs a name that isn't taken"

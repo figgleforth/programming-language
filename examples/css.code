@@ -1,8 +1,8 @@
 ### Introduction
 
-`programs/css.code` isn't loaded by default -- it needs an explicit `@load`. CSS is plain data here: a handful of structs (`Property`, `Style_Rule`, `At_Rule`, ...) build a small AST by hand, and a single `Css_Formatter_Visitor` walks whatever tree you built and turns it into a real CSS string. No parser -- you construct the tree directly.
+`code/css.code` isn't loaded by default -- it needs an explicit `@load`. CSS is plain data here: a handful of structs (`Property`, `Style_Rule`, `At_Rule`, ...) build a small AST by hand, and a single `Css_Formatter_Visitor` walks whatever tree you built and turns it into a real CSS string. No parser -- you construct the tree directly.
 ###
-@load 'programs/css.code'
+@load 'code/css.code'
 
 rule := Style_Rule(%string(.box), [ # %string() array shorthand splits by whitespaces to produce ['.box']
 	Property('color', 'red')

@@ -118,13 +118,13 @@ module Code
 			@listener.start
 		end
 
-		# Default: the stdlib dir (the user edits `source/programs/*.code` too) plus the entry file's
+		# Default: the stdlib dir (the user edits `source/code/*.code` too) plus the entry file's
 		# own dir when that sits outside it. `reload`: the whole `source/` tree instead (`.rb` included
 		# there, see `start_watching`'s pattern) -- still plus the entry file's own dir, same as
 		# default, since a program outside `source/` (the common case) needs its own edits watched too.
 		# Listen watches recursively either way.
 		def watch_dirs
-			base_dir  = ::File.join(Code::ROOT_PATH, 'source', *(@reload ? [] : ['programs']))
+			base_dir  = ::File.join(Code::ROOT_PATH, 'source', *(@reload ? [] : ['code']))
 			entry_dir = ::File.dirname(@entry)
 			dirs      = [base_dir]
 			dirs << entry_dir unless entry_dir == base_dir || entry_dir.start_with?("#{base_dir}/")

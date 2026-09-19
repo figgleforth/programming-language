@@ -1,7 +1,7 @@
-@load 'programs/database'
-@load 'programs/table'
-@load 'programs/html'
-@load 'programs/server'
+@load 'code/database'
+@load 'code/table'
+@load 'code/html'
+@load 'code/server'
 
 Task_Type [TODO BUG DESIGN]
 

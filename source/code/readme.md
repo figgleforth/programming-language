@@ -9,12 +9,12 @@ Most files load on their own. The interpreter loads `global.code` at start-up, a
 A few files do not load on their own. You must add an `@load` line for these yourself, when you need them:
 
 ```code
-@load 'programs/html.code'      # the Dom type and predefined HTML elements
-@load 'programs/html2.code'     # a second, struct-based way to build HTML
-@load 'programs/css.code'       # a small CSS builder, formatter, and linter
-@load 'programs/database.code'  # Sqlite and the Database type
-@load 'programs/server.code'    # the Server type and HTTP routes
-@load 'programs/raylib.code'    # 2D game and graphics support (needs the raylib-bindings gem)
+@load 'code/html.code'      # the Dom type and predefined HTML elements
+@load 'code/html2.code'     # a second, struct-based way to build HTML
+@load 'code/css.code'       # a small CSS builder, formatter, and linter
+@load 'code/database.code'  # Sqlite and the Database type
+@load 'code/server.code'    # the Server type and HTTP routes
+@load 'code/raylib.code'    # 2D game and graphics support (needs the raylib-bindings gem)
 ```
 
 A file like this costs nothing until you load it. This keeps a small program small, and a bigger program only as big as it needs to be.
@@ -26,10 +26,6 @@ A few files exist to support another file, and you rarely load them by name your
 - `table.code` supports `database.code` (a `Table` is what a `Database` query gives you back).
 - `member.code` supports `struct.code` (it gives a struct's `<...>` value its `@.members` list).
 - `visitor.code` supports `css.code` and `html2.code` (it holds a small mixin both of them share).
-
-### Why the `@load` line starts with `programs/`
-
-The project root has a shortcut, named `programs`, that points straight at this folder. So the line `@load 'programs/css.code'` works the same way from any `.code` file you run from the project root, including a file in this folder itself.
 
 ### Where to see these in use
 

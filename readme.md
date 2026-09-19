@@ -177,7 +177,7 @@ A bare `@load` hoists too, so imports can live at the bottom of the file instead
 sign := Div([P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-@load 'programs/html.code'
+@load 'code/html.code'
 ```
 
 `Ident := @load 'file'` / `IDENT := @load 'file'` work the same way — only a Capitalized or UPPERCASE left-hand name opts in, since that's what marks it as a namespace rather than an ordinary variable:
@@ -186,9 +186,9 @@ sign.to_s()  # '<div><p>hi</p></div>'
 sign := Html_Lib.Div([Html_Lib.P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-Html_Lib := @load 'programs/html.code'
+Html_Lib := @load 'code/html.code'
 
-# html_lib := @load 'programs/html.code'   -- lowercase stays a plain variable, not hoisted
+# html_lib := @load 'code/html.code'   -- lowercase stays a plain variable, not hoisted
 ```
 
 Plain variable assignments are never hoisted this way — reading one before its own line has actually run still raises `Undeclared_Identifier`, same as any language with top-to-bottom execution:
@@ -1002,8 +1002,8 @@ w.@version        # 2 — an instance reads through to its type's context
 4. The path can also be written bare (unquoted), as long as it starts with `./`, `../`, or `~/` — a `\ ` pair escapes a literal space, the same way a shell's own tab-completion writes one
 
 ```code
-@load 'programs/string.code'
-@load 'programs/array.code'
+@load 'code/string.code'
+@load 'code/array.code'
 @load './my_module.code'
 my_mod := @load './my_module.code'
 my_mod.Some_Type()
@@ -1083,7 +1083,7 @@ supplies := <water: Number = 40, wood: Number = 12>
 3. Boot with `@start_server` (background thread; `@stop_server` to shut one down)
 
 ```code
-@load 'programs/server.code'
+@load 'code/server.code'
 
 App | Server {
     Self (;
@@ -1156,12 +1156,12 @@ get://api/data (;
 
 ## Database
 
-1. `@load 'programs/database.code'` -- this pulls in `programs/table.code` too
+1. `@load 'code/database.code'` -- this pulls in `code/table.code` too
 2. `Sqlite(url)` builds a database; `@connect` opens it and **returns it**
 3. `Sqlite.memory()` for an in-memory db, `Sqlite.local('a/path.db')` for a file at that path verbatim -- the parent directory has to already exist
 
 ```code
-@load 'programs/database.code'
+@load 'code/database.code'
 
 db := @connect Sqlite('./data/app.db')
 ```
@@ -1210,13 +1210,13 @@ users.count()
 
 ## HTML Elements
 
-1. Compose with HTML element types from `programs/html.code`
+1. Compose with HTML element types from `code/html.code`
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
 4. `.to_s()` renders an element and its children to string directly
 
 ```code
-@load 'programs/html.code'
+@load 'code/html.code'
 
 Card | Div {
     css_padding := '1rem'
@@ -1247,13 +1247,13 @@ page := Html([
 
 ## CSS
 
-1. `@load 'programs/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
+1. `@load 'code/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
 2. `Css_Formatter_Visitor` walks a tree of those structs and turns it into a real CSS string -- pretty by default, `minify := true` for one line
 3. A rule nested inside another rule's own `rules` gets a synthesized `&` prefix (real CSS nesting); a rule merely sitting inside an `At_Rule`/`Scope_Rule` body does not, since there's no parent selector for `&` to refer to there
 4. `Css_Lint_Visitor` walks the same kind of tree checking for duplicate properties, hardcoded vendor prefixes, and redundant zero-units (`0px` -> `0`) instead of formatting it. Handed a whole `Stylesheet`, it also warns when a state rule (`.card:hover`, `:focus`, ...) sets `transform` while the base selector runs a keyframe `animation` that also animates `transform` — the running animation recomputes it every frame, so the hover value never shows
 
 ```code
-@load 'programs/css.code'
+@load 'code/css.code'
 
 rule := Style_Rule(['.card'], [Property('color', 'red'), Property('padding', '8px')])
 
@@ -1269,15 +1269,15 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 
 ## Struct-Based HTML
 
-1. `@load 'programs/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `programs/html.code`'s `Dom` types above rather than replacing them -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline (onclick wiring, `dom.js`)
+1. `@load 'code/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `code/html.code`'s `Dom` types above rather than replacing them -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline (onclick wiring, `dom.js`)
 2. `attributes` is an ordered `Array\Attribute` (`Attribute(name, value)`, built the same way `Property` builds a CSS declaration) -- not a Dictionary, so attributes keep their given order and can even collide (see `Html_Lint_Visitor` below)
 3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as one more child, an embedded `<style>` block, wherever it's attached
 4. `Html_Render`/`Html_Format` are two shared `Html_Formatter_Visitor` instances (compact/pretty); void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
-5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attribute names) walk the same tree for their own purposes -- `Html_Lint_Visitor` and `Css_Lint_Visitor` both compose `programs/visitor.code`'s `Warnings_Visitor` mixin for their shared `warnings`/`warn` machinery
+5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attribute names) walk the same tree for their own purposes -- `Html_Lint_Visitor` and `Css_Lint_Visitor` both compose `code/visitor.code`'s `Warnings_Visitor` mixin for their shared `warnings`/`warn` machinery
 
 ```code
-@load 'programs/html2.code'
-@load 'programs/css.code'
+@load 'code/html2.code'
+@load 'code/css.code'
 
 page := div([
     h1('Welcome'),

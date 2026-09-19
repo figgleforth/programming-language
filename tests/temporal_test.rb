@@ -64,8 +64,8 @@ class Temporal_Test < Base_Test
 		File.delete(filepath) if File.exist?(filepath)
 
 		code = <<~CODE
-		    @load 'programs/database.code'
-		    @load 'programs/table.code'
+		    @load 'code/database.code'
+		    @load 'code/table.code'
 		    db := @connect Sqlite('#{filepath}')
 
 		    Log_Schema <

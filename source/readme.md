@@ -30,8 +30,8 @@ Source code moves through five steps, in this order:
 
 ### The subfolders
 
-- **`programs/`** — the `.code` files that ship with the language. This is the standard library. See the readme file in that folder.
-- **`proxies/`** — the Ruby class behind each built-in `.code` type. `proxies/array.rb` is the Ruby half of `programs/array.code`. An `@ruby` proxy method in a `.code` file calls into this class.
+- **`code/`** — the `.code` files that ship with the language. This is the standard library. See the readme file in that folder.
+- **`proxies/`** — the Ruby class behind each built-in `.code` type. `proxies/array.rb` is the Ruby half of `code/array.code`. An `@ruby` proxy method in a `.code` file calls into this class.
 - **`shared/`** — small pieces that many files need: constants, naming-convention helpers, ASCII art, the `@ruby` proxy helper, the error formatter, the DOM renderer, the hot reloader, and the browser assets (`dom.js`, `live_reload.js`, `view_transition.css`).
 
 The sibling folder [`../examples`](../examples) holds runnable `.code` examples, one per language feature.
@@ -130,10 +130,10 @@ Worked examples: percent literals (`#parse_percent_literal_expr`/`#interp_percen
 
 Two files, independently optional — pure-language types skip #2, rare Ruby-only types skip #1:
 
-1. **`programs/foo.code`** — the language-level declaration (`Foo { ... }`). A method that defers to Ruby is just `some_method (; @ruby )`.
+1. **`code/foo.code`** — the language-level declaration (`Foo { ... }`). A method that defers to Ruby is just `some_method (; @ruby )`.
 2. **`proxies/foo.rb`** — `class Foo < Code::Instance` (or `< Code::Type`), inside `module Code`. `extend Ruby_Proxies` + `proxy :method_name` for 1:1 delegation ([`ruby_proxies.rb`](shared/ruby_proxies.rb)), or hand-write `def proxy_method_name(...)` for custom logic. `@ruby` calls `proxy_#{method_name}` on the proxy instance.
 3. **Register the Ruby file** — `require_relative 'proxies/foo'` in [`main.rb`](main.rb)'s "proxies" block (after `proxies/scopes`).
-4. **Load the .code file** — `@load 'programs/foo.code'` in [`programs/global.code`](programs/global.code) for always-on, or leave opt-in for the user's own program to `@load` (e.g. `programs/database.code`).
+4. **Load the .code file** — `@load 'code/foo.code'` in [`code/global.code`](code/global.code) for always-on, or leave opt-in for the user's own program to `@load` (e.g. `code/database.code`).
 5. Nothing else — matching language type ↔ Ruby class is by name, dynamic at construction time (next section).
 
 #### Linking an instance to its runtime type
@@ -169,5 +169,5 @@ Two files, independently optional — pure-language types skip #2, rare Ruby-onl
 | Runtime errors | [`proxies/errors.rb`](proxies/errors.rb) |
 | Ruby-backed built-in types | [`proxies/`](proxies) |
 | `proxy`/`proxy_delegate` helpers | [`shared/ruby_proxies.rb`](shared/ruby_proxies.rb) |
-| Standard library (`.code` side of built-ins) | [`programs/`](programs), auto-loaded via [`programs/global.code`](programs/global.code) |
+| Standard library (`.code` side of built-ins) | [`code/`](standard), auto-loaded via [`code/global.code`](code/global.code) |
 | Entry points (`Code.lex`/`.parse`/`.interp`, `+_file` variants) | [`main.rb`](main.rb) |

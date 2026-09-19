@@ -1,16 +1,16 @@
 # Implemented by Claude
 #
-# Same surface as programs/raylib.code, backed by source/proxies/raylib_ffi.rb instead -- a hand-rolled
+# Same surface as code/raylib.code, backed by source/proxies/raylib_ffi.rb instead -- a hand-rolled
 # FFI binding straight against the system-installed `libraylib` (plain `ffi` gem, `attach_function`
 # per C function) rather than the `raylib-bindings` gem. Two examples of binding an external library,
-# side by side. Not part of the standard library -- opt in with `@load 'programs/raylib_ffi'`. Requires
+# side by side. Not part of the standard library -- opt in with `@load 'code/raylib_ffi'`. Requires
 # `gem install ffi` (usually already present) and `libraylib` installed on the system (e.g.
 # `brew install raylib` on macOS); the library itself is only touched the first time one of these is
 # actually called.
 #
 # A color is a plain Array -- [r, g, b, a] or [r, g, b] (alpha defaults to opaque, 255).
 #
-#   @load 'programs/raylib_ffi'
+#   @load 'code/raylib_ffi'
 #
 #   Raylib_FFI.init_window(800, 450, 'hello raylib_ffi')
 #   Raylib_FFI.set_target_fps(60)

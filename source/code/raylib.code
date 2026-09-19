@@ -4,12 +4,12 @@
 #
 #
 # Thin bindings over the `raylib-bindings` gem (window/drawing/input primitives). Not part of the
-# standard library -- opt in with `@load 'programs/raylib'`. Requires `gem install raylib-bindings`;
+# standard library -- opt in with `@load 'code/raylib'`. Requires `gem install raylib-bindings`;
 # the native library itself is only touched the first time one of these is actually called.
 #
 # A color is a plain Array -- [r, g, b, a] or [r, g, b] (alpha defaults to opaque, 255).
 #
-#   @load 'programs/raylib'
+#   @load 'code/raylib'
 #
 #   Raylib.init_window(800, 450, 'hello raylib')
 #   Raylib.set_target_fps(60)

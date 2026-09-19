@@ -19,7 +19,7 @@ Context <
 	names: Array\String                 # member names
 	type_names: Array\String            # member type names
 	values: Array\Any                   # member values (also an Enum's member values)
-	members: Array\Member               # Array of Member (needs the programs/member.code layer)
+	members: Array\Member               # Array of Member (needs the code/member.code layer)
 
 	#- Enum reflection (nil unless the subject is an Enum)
 	keys: Array\String                  # member names

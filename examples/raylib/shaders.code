@@ -10,7 +10,7 @@
 #
 # Movement is WASD/arrow keys, normalized so a diagonal isn't faster than a cardinal direction.
 
-@load 'programs/raylib'
+@load 'code/raylib'
 
 SCREEN_WIDTH := 800
 SCREEN_HEIGHT := 600

@@ -1,4 +1,4 @@
-@load 'programs/table'
+@load 'code/table'
 
 Sequel_Sqlite_Database {}
 

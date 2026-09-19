@@ -1,11 +1,11 @@
-# Struct-and-render take on programs/html.code, same spirit as programs/css.code: markup is plain,
+# Struct-and-render take on code/html.code, same spirit as code/css.code: markup is plain,
 # immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag
 # Type, no `| Dom` composition, no method-override polymorphism. The two coexist; this one doesn't
 # hook into the server-side rendering pipeline (route responses, onclick wiring, dom.js) the way
-# programs/html.code's Dom types do -- it only builds an HTML string.
+# code/html.code's Dom types do -- it only builds an HTML string.
 
-@load 'programs/visitor'
-@load 'programs/css'
+@load 'code/visitor'
+@load 'code/css'
 
 # -----------------------------------------------------------------------------
 # 1. The one node shape
@@ -28,7 +28,7 @@ Element <tag: String, attributes: Array\Attribute = [], css: Css = nil, children
 
 # -----------------------------------------------------------------------------
 # 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as
-#	 programs/css.code's Css_Formatter_Visitor)
+#	 code/css.code's Css_Formatter_Visitor)
 # -----------------------------------------------------------------------------
 
 Html_Formatter_Visitor {
@@ -36,7 +36,7 @@ Html_Formatter_Visitor {
 	indent_size := DEFAULT_INDENT
 	minify := false
 
-	# Never given a closing tag, regardless of mode -- matches how programs/html.code's own generic
+	# Never given a closing tag, regardless of mode -- matches how code/html.code's own generic
 	# Dom#to_s already never self-closes anything either (no new inconsistency introduced there),
 	# it just means these never emit an *empty* `</tag>` at all, in either mode.
 	VOID_TAGS := %string(area base br col command embed hr img input keygen link meta param source track wbr)
@@ -276,8 +276,8 @@ Html_Lint_Visitor | Warnings_Visitor {
 }
 
 # -----------------------------------------------------------------------------
-# 3. Element constructors (recovers the ergonomics programs/html.code gets from per-tag Types)
-# note; lowercase, not capitalized like programs/html.code's Div/Title/etc -- these are ordinary
+# 3. Element constructors (recovers the ergonomics code/html.code gets from per-tag Types)
+# note; lowercase, not capitalized like code/html.code's Div/Title/etc -- these are ordinary
 # functions, and a capitalized name before `(` routes to type-reference parsing instead of a
 # function declaration (found the hard way writing this file).
 # -----------------------------------------------------------------------------
