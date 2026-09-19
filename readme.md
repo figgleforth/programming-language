@@ -532,15 +532,15 @@ end  # 3
 
 ```code
 pairs := for [1, 2, 3, 4, 5, 6] map by 2,1   # stride 2, sliding forward by 1
-    (it.0, it.1)
-end  # [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)] -- every consecutive pair
+    (it.0, it.?1)
+end  # [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, nil)] -- every consecutive pair, plus a trailing short window
 
 windows := for [1, 2, 3, 4, 5, 6, 7] map by 3,1   # stride 3, sliding forward by 2
-    (it.0, it.1, it.2)
-end  # [(1, 2, 3), (3, 4, 5), (5, 6, 7)] -- each window shares 1 element with the next
+    (it.0, it.?1, it.?2)
+end  # [(1, 2, 3), (3, 4, 5), (5, 6, 7), (7, nil, nil)] -- each window shares 1 element with the next
 ```
 
-A trailing window that can't reach the full `stride` is dropped, not kept short — unlike the plain no-overlap form above, which keeps a final undersized chunk. `overlap` must be a smaller integer than `stride`.
+A trailing window that can't reach the full `stride` is kept short instead of dropped, same as the plain no-overlap form above. Use `.?N` (not `.N`) past index 0 when reading a window's elements, since only the first element is guaranteed to exist. `overlap` must be a smaller integer than `stride`.
 
 ## Loop Control
 
