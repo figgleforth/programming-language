@@ -2094,9 +2094,13 @@ class Interpreter_Test < Base_Test
 		# each step, instead of jumping a full 2 like plain `by 2` would.
 		out = Code.interp "
 		for [1, 2, 3, 4, 5, 6] map by 2,1
-			it.0 + it.1
+			if it.?1 # I'm guarding here because it would raise on not being able to add integer and nil
+				it.0 + it.?1
+			else
+				it.0
+			end
 		end"
-		assert_equal [3, 5, 7, 9, 11], out.values
+		assert_equal [3, 5, 7, 9, 11, 6], out.values
 	end
 
 	def test_for_loop_by_stride_with_overlap_wider_window
@@ -2104,9 +2108,9 @@ class Interpreter_Test < Base_Test
 		# a step of (3 - 1) = 2.
 		out = Code.interp "
 		for [1, 2, 3, 4, 5, 6, 7] map by 3,1
-			(it.0, it.1, it.2)
+			(it.0, it.?1, it.?2)
 		end"
-		assert_equal [[1, 2, 3], [3, 4, 5], [5, 6, 7]], out.values.map(&:values)
+		assert_equal [[1, 2, 3], [3, 4, 5], [5, 6, 7],  [7, nil, nil]], out.values.map(&:values)
 	end
 
 	def test_for_loop_overlap_drops_a_trailing_short_window
@@ -2116,29 +2120,41 @@ class Interpreter_Test < Base_Test
 		# leftover `5` here.
 		out = Code.interp "
 		for [1, 2, 3, 4, 5] map by 2,1
-			(it.0, it.1)
+			(it.0, it.?1)
 		end"
-		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5]], out.values.map(&:values)
+		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5], [5, nil]], out.values.map(&:values)
 	end
 
 	def test_for_loop_overlap_works_with_select_reject_and_count
 		select_out = Code.interp "
 		for [1, 2, 3, 4, 5, 6] select by 2,1
-			it.0 + it.1 > 5
+			if it.?1
+				it.0 + it.1 > 5
+			else
+				it.0 > 5
+			end
 		end"
-		assert_equal [[3, 4], [4, 5], [5, 6]], select_out.values.map(&:values)
+		assert_equal [[3, 4], [4, 5], [5, 6], [6]], select_out.values.map(&:values)
 
 		reject_out = Code.interp "
 		for [1, 2, 3, 4, 5, 6] reject by 2,1
-			it.0 + it.1 > 5
+			if it.?1
+				it.0 + it.1 > 5
+			else
+				it.0 > 5
+			end
 		end"
 		assert_equal [[1, 2], [2, 3]], reject_out.values.map(&:values)
 
 		count_out = Code.interp "
 		for [1, 2, 3, 4, 5, 6] count by 2,1
-			it.0 + it.1 > 5
+			if it.?1
+				it.0 + it.1 > 5
+			else
+				it.0 > 5
+			end
 		end"
-		assert_equal 3, count_out
+		assert_equal 4, count_out
 	end
 
 	def test_for_loop_by_stride_with_odd_overlap
@@ -2150,7 +2166,7 @@ class Interpreter_Test < Base_Test
 		for [1, 2, 3, 4, 5, 6, 7, 8, 9] map by 5,3
 			it
 		end"
-		assert_equal [[1, 2, 3, 4, 5], [3, 4, 5, 6, 7], [5, 6, 7, 8, 9]], out.values.map(&:values)
+		assert_equal [[1, 2, 3, 4, 5], [3, 4, 5, 6, 7], [5, 6, 7, 8, 9], [7, 8, 9], [9]], out.values.map(&:values)
 	end
 
 	def test_for_loop_stride_and_overlap_from_variables
@@ -2160,9 +2176,9 @@ class Interpreter_Test < Base_Test
 		stride := 2
 		overlap := 1
 		for [1, 2, 3, 4, 5, 6] map by stride,overlap
-			(it.0, it.1)
+			(it.0, it.?1)
 		end"
-		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5], [5, 6]], out.values.map(&:values)
+		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, nil]], out.values.map(&:values)
 	end
 
 	def test_for_loop_overlap_must_be_smaller_than_stride
@@ -4706,5 +4722,23 @@ class Interpreter_Test < Base_Test
 		    items
 		CODE
 		assert_equal [11, 21, 31], out.values
+	end
+
+	def test_eol_for_stride
+		out = Code.interp <<~CODE
+			items := []
+			items.push(it) for [4, 8, 15, 16, 23, 42] by 2
+			items
+		CODE
+		assert_equal [[4,8], [15,16], [23,42]], out.values.map(&:values)
+	end
+
+	def test_eol_for_stride_and_overlap
+		out = Code.interp <<~CODE
+			items := []
+			items.push(it) for [4, 8, 15, 16, 23, 42] by 3,1
+			items
+		CODE
+		assert_equal [[4,8,15], [15,16,23], [23,42]], out.values.map(&:values)
 	end
 end

@@ -1424,7 +1424,7 @@ module Code
 			elsif receiver.is_a? Code::Array
 				# Array has no `[]=` of its own -- without this it'd fall through to Instance#[]=, declaring a bogus member instead of writing `.values`.
 				index                  = key.is_a?(Code::Number) ? key.value : key
-				unless index.is_a?(::Integer) && index.between?(-receiver.values.length, receiver.values.length - 1)
+				unless index.is_a?(::Integer) && index.between?(-receiver.values.length, receiver.values.length - 1) # refactor; this check is repeated 3 times in this file.
 					raise Code::Invalid_Array_Index.new(target)
 				end
 				receiver.values[index] = value
@@ -1874,15 +1874,29 @@ module Code
 		# The dot sub-handlers below all take the receiver #interp_dot_infix already interpreted rather than re-interpreting expr.left themselves — re-interpreting ran the receiver expression's side effects (calls, constructions) a second or third time.
 		# Bounds/type-checked element access for `.N`/`.N.M...` dot-index syntax on an Array/Tuple -- plain `values[index]` (Ruby's own Array#[]) silently returns nil past the end, and silently truncates a non-integer index (e.g. `.0.1` lexes as the single float 0.1, which Ruby's [] truncates to index 0) -- both looked like a legitimate result instead of a mistake.
 		def array_index_value collection, index, expr
+			def valid_index? index, length
+				index.is_a?(::Integer) && index.between?(-length, length - 1)
+			end
+
+			silent_dot_access = expr.operator.value == '.?' # we won't raise anything, just return nil instead
+
 			if collection.is_a? Code::String
 				chars = collection.value.chars
-				unless index.is_a?(::Integer) && index.between?(-chars.length, chars.length - 1)
+				unless valid_index? index, chars.length
+					if silent_dot_access
+						return nil
+					end
+
 					raise Code::Invalid_Array_Index.new(expr)
 				end
 				return maybe_instance chars[index]
 			end
 
-			unless index.is_a?(::Integer) && index.between?(-collection.values.length, collection.values.length - 1)
+			unless valid_index? index, collection.values.length
+				if silent_dot_access
+					return nil
+				end
+
 				raise Code::Invalid_Array_Index.new(expr)
 			end
 			collection.values[index]
@@ -2464,7 +2478,8 @@ module Code
 					if supplied.respond_to?(:types) && supplied.types
 						referenced.tag_instance.types = referenced.tag_instance.types.dup.merge(supplied.types)
 					end
-					referenced.tag_instance.name = supplied.name if supplied.respond_to?(:name) && supplied.name
+
+					referenced.tag_instance.name                = supplied.name if supplied.respond_to?(:name) && supplied.name
 
 					# Carry a chained tag (`Ab\Cd\Ef`) across the rebuild above, which only re-associates the top level's own members.
 					if supplied.tag_instance
@@ -3735,7 +3750,7 @@ module Code
 					(0...values_array.length).step(step).map do |i|
 						values_array[i, stride]
 					end.select do |chunk|
-						chunk.length == stride
+						chunk.length <= stride
 					end
 				else
 					values.each_slice(stride).to_a
