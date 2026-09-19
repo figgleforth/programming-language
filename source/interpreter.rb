@@ -2327,7 +2327,7 @@ module Code
 				else
 					values = expr.expressions.map { |e| interpret(e) }
 					tuple  = Code::Tuple.new values
-					link_instance_to_type tuple, 'Tuple'
+					adopt_type tuple, 'Tuple'
 					tuple.declarations['values'] = tuple.values
 					tuple
 				end

@@ -354,6 +354,16 @@ class Interpreter_Test < Base_Test
 		assert_equal ["Hello", "from", "Tuple"], out.values.last.values
 	end
 
+	def test_tuple_reports_its_own_type_not_array
+		out = Code.interp '
+			t := (1, 2)
+			(t.@type, t.@types, t.@name)'
+		type, types, name = out.values
+		assert_equal 'Tuple', type
+		assert_equal ['Tuple'], types.values
+		assert_equal 'Tuple', name
+	end
+
 	def test_empty_dictionary
 		out = Code.interp '{}'
 		assert_kind_of Code::Dictionary, out

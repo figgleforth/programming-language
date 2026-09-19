@@ -4,11 +4,10 @@ module Code
 		extend Ruby_Proxies
 		attr_accessor :values
 
-		def initialize values = []
-			super 'Array'
+		def initialize values = [], name = 'Array'
+			super name
 			@values                 = values || []
 			@declarations['values'] = @values
-			::Array
 		end
 
 		proxy_delegate 'values'
@@ -131,7 +130,7 @@ module Code
 
 	class Tuple < Code::Array
 		def initialize values = []
-			super values
+			super values, 'Tuple'
 		end
 
 		def inspect
