@@ -351,7 +351,7 @@ class Structs_Test < Base_Test
 		    String\\<dict: Dictionary> { to_s (; "dict-named" ) }
 		    String\\<other: Dictionary> { to_s (; "other-named" ) }
 
-		    a := String\\<{x=1}>()
+		    a := String\\<{x:1}>()
 		    a.to_s()
 		CODE
 		assert_equal 'dict-named', out
@@ -360,7 +360,7 @@ class Structs_Test < Base_Test
 		    String\\<dict: Dictionary> { to_s (; "dict-named" ) }
 		    String\\<other: Dictionary> { to_s (; "other-named" ) }
 
-		    a := String\\<other := {x=1}>()
+		    a := String\\<other := {x:1}>()
 		    a.to_s()
 		CODE
 		assert_equal 'other-named', out
@@ -369,7 +369,7 @@ class Structs_Test < Base_Test
 		    String\\<dict: Dictionary> { to_s (; "dict-named" ) }
 		    String\\<other: Dictionary> { to_s (; "other-named" ) }
 
-		    a := String\\<dict := {x=1}>()
+		    a := String\\<dict := {x:1}>()
 		    a.to_s()
 		CODE
 		assert_equal 'dict-named', out
@@ -700,8 +700,8 @@ class Structs_Test < Base_Test
 		    		final += "}"
 		    	)
 		    }
-		    a := String\\<{x=0, y=1, z=2}>()
-		    b := String\\<{x=0, y=1, z=2}>("My dict: ")
+		    a := String\\<{x:0, y:1, z:2}>()
+		    b := String\\<{x:0, y:1, z:2}>("My dict: ")
 		    (a.to_s(), b.to_s())
 		CODE
 		out = Code.interp src
@@ -728,7 +728,7 @@ class Structs_Test < Base_Test
 		    Abc\\<dict: Dictionary> {
 		    	Self (;)
 		    }
-		    z := Abc\\<{x=1}>
+		    z := Abc\\<{x:1}>
 		    zz := z()
 		    zz.@tag.@members
 		CODE

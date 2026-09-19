@@ -2334,7 +2334,7 @@ module Code
 						dict.proxy_set it.value.to_sym, nil
 					elsif it.is_a? Code::Infix_Expr
 						case it.operator.value
-						when ':', '='
+						when ':'
 							if it.left.is_a?(Code::Identifier_Expr) || it.left.is_a?(Code::Symbol_Expr) || it.left.is_a?(Code::String_Expr)
 								# note; Deliberately NOT wrap_string_literal_value here, unlike Array/Tuple literals -- Dictionary#hash is handed straight to Ruby-level consumers as a raw Hash (Sequel queries in table.rb chief among them), so wrapping a value into Code::String here broke every DB call passing string attributes. #to_s below just always double-quotes String values instead of matching the original literal's quote char.
 								dict.proxy_set it.left.value.to_sym, interpret(it.right)

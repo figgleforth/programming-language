@@ -386,31 +386,31 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation
-		out = Code.interp '{ x:0 y=1 z}'
+		out = Code.interp '{ x:0 y:1 z}'
 		refute_instance_of NilClass, out.hash.values.first
 		refute_instance_of NilClass, out.hash.values[1]
 		assert_instance_of NilClass, out.hash.values.last
 	end
 
 	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation_and_commas
-		out = Code.interp '{ x:4, y=8, z}'
+		out = Code.interp '{ x:4, y:8, z}'
 		assert_equal 4, out.hash.values.first
 		assert_equal 8, out.hash.values[1]
 		assert_instance_of NilClass, out.hash.values.last
 	end
 
 	def test_create_dictionary_with_local_value
-		out = Code.interp 'x:=4, y:=2, { x=x, y=y }'
+		out = Code.interp 'x:=4, y:=2, { x:x, y:y }'
 		assert_equal out.hash, { x: 4, y: 2 }
 	end
 
 	def test_symbol_as_dictionary_keys
-		out = Code.interp '{ :x = 1 }'
+		out = Code.interp '{ :x : 1 }'
 		assert_equal out.hash, { x: 1 }
 	end
 
 	def test_string_as_dictionary_keys
-		out = Code.interp '{ "x" = 1 }'
+		out = Code.interp '{ "x" : 1 }'
 		assert_equal out.hash, { x: 1 }
 	end
 
@@ -420,7 +420,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_equals_as_dictionary_infix_operator
-		out = Code.interp 'x := 123, { x = x }'
+		out = Code.interp 'x := 123, { x : x }'
 		assert_equal out.hash, { x: 123 }
 	end
 
@@ -433,13 +433,13 @@ class Interpreter_Test < Base_Test
 		out = Code.interp '{ a b c }.values()'
 		assert_equal [nil, nil, nil], out.values
 
-		out = Code.interp '{ a=1, b= "two", c: :three }.values()'
+		out = Code.interp '{ a:1, b: "two", c: :three }.values()'
 		assert_equal [1, "two", :three], out.values
 
-		out = Code.interp '{ a=1, b="two", c: :three }.values()'
+		out = Code.interp '{ a:1, b:"two", c: :three }.values()'
 		assert_equal [1, "two", :three], out.values
 
-		out = Code.interp '{ a=1, b:"two", c: :three }.values()'
+		out = Code.interp '{ a:1, b:"two", c: :three }.values()'
 		assert_equal [1, "two", :three], out.values
 	end
 
@@ -452,7 +452,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_dictionary_subscript_string_and_symbol_do_not_behave_differently
-		out = Code.interp "dict := {x=4815}
+		out = Code.interp "dict := {x:4815}
 		(dict['x'], dict[:x])"
 		assert_equal [4815, 4815], out.values
 	end
@@ -573,12 +573,12 @@ class Interpreter_Test < Base_Test
 
 	def test_too_many_dictionary_subscript_arguments
 		assert_raises Code::Too_Many_Subscript_Expressions do
-			Code.interp "dict := {x=4815}
+			Code.interp "dict := {x:4815}
 			dict[:x, 123]"
 		end
 
 		assert_raises Code::Too_Many_Subscript_Expressions do
-			Code.interp "dict := {x=4815}
+			Code.interp "dict := {x:4815}
 			dict[:x, 123] = 162342"
 		end
 	end
@@ -3505,8 +3505,8 @@ class Interpreter_Test < Base_Test
 	def test_dictionary_in_for_loops
 		out = Code.interp <<~CODE
 		    dict := {
-		    	x = 4,
-		    	y = 8
+		    	x : 4,
+		    	y : 8
 		    }
 
 		    collection := []
@@ -3523,8 +3523,8 @@ class Interpreter_Test < Base_Test
 	def test_dictionary_in_for_loops_key_and_value_builtins
 		out = Code.interp <<~CODE
 		    dict := {
-		    	x = 4,
-		    	y = 8
+		    	x : 4,
+		    	y : 8
 		    }
 
 		    collection := []
@@ -3541,9 +3541,9 @@ class Interpreter_Test < Base_Test
 	def test_dictionary_in_for_loops_stride_is_ignored
 		out = Code.interp <<~CODE
 		    dict := {
-		    	a = 15,
-		    	b = 16,
-				c = 23
+		    	a : 15,
+		    	b : 16,
+				c : 23
 		    }
 
 		    collection := []

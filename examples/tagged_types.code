@@ -5,7 +5,7 @@ Put `\<...>` right after a Type name, instead of on its own, and you get somethi
 String\<Dictionary> { to_s (; "I'm a dict-tagged string" ) }
 String\<Number>     { to_s (; "I'm a number-tagged string" ) }
 
-@assert String\<{x=1}>().to_s() == "I'm a dict-tagged string", '{x=1} is a Dictionary, so it should match the Dictionary-tagged variant'
+@assert String\<{x:1}>().to_s() == "I'm a dict-tagged string", '{x:1} is a Dictionary, so it should match the Dictionary-tagged variant'
 @assert String\<5>().to_s() == "I'm a number-tagged string", '5 is a Number, so it should match the Number-tagged variant'
 
 # Matching isn't exact-name-only: a value satisfies a member if its own type composes what's
@@ -19,8 +19,8 @@ When two variants would otherwise match by type alone, name the member at the re
 Table_With_Opts\<dict: Dictionary>  { to_s (; "dict-named" ) }
 Table_With_Opts\<other: Dictionary> { to_s (; "other-named" ) }
 
-@assert Table_With_Opts\<dict := {x=1}>().to_s() == 'dict-named', 'naming the member at the reference site should pick the "dict" variant'
-@assert Table_With_Opts\<other := {x=1}>().to_s() == 'other-named', 'naming the member at the reference site should pick the "other" variant'
+@assert Table_With_Opts\<dict := {x:1}>().to_s() == 'dict-named', 'naming the member at the reference site should pick the "dict" variant'
+@assert Table_With_Opts\<other := {x:1}>().to_s() == 'other-named', 'naming the member at the reference site should pick the "other" variant'
 
 
 ### Reference vs. declaration
