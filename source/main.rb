@@ -59,7 +59,7 @@ require_relative 'language_server'
 
 module Code
 	ROOT_PATH             = ::File.expand_path('../', __dir__)
-	STANDARD_LIBRARY_PATH = ::File.join(ROOT_PATH, 'source', 'code', 'global.code')
+	STANDARD_LIBRARY_PATH = ::File.join(ROOT_PATH, 'code', 'global.code')
 
 	extend Helpers
 

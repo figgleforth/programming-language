@@ -7,7 +7,7 @@ require_relative 'base_test'
 class Interpreter_Test < Base_Test
 	def test_global_program
 		refute_raises RuntimeError do
-			Code.interp_file './source/code/global.code'
+			Code.interp_file './code/global.code'
 		end
 	end
 

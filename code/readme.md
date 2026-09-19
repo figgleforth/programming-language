@@ -29,4 +29,4 @@ A few files exist to support another file, and you rarely load them by name your
 
 ### Where to see these in use
 
-The [`examples`](../../examples) folder at the project root has a short, runnable `.code` file for almost every feature in this folder.
+The [`examples`](../examples) folder at the project root has a short, runnable `.code` file for almost every feature in this folder.

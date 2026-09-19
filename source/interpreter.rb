@@ -199,13 +199,8 @@ module Code
 		def load_file_into_scope filepath, into_scope
 			filepath.insert(-1, '.code') unless filepath.end_with? '.code' # note; I feel like this isn't the smartestest way to achieve this.
 
-			resolved_path = if filepath.start_with? 'source/'
-				::File.join ROOT_PATH, filepath
-			else
-				cwd_relative = ::File.expand_path filepath
-				# `code/x.code` used to only resolve here because of a `code -> source/code` symlink at the project root. Falling back to `source/<filepath>` makes the standard library reachable by this same bare path from any cwd, symlink or not.
-				::File.exist?(cwd_relative) ? cwd_relative : ::File.join(ROOT_PATH, 'source', filepath)
-			end
+			cwd_relative  = ::File.expand_path filepath
+			resolved_path = ::File.exist?(cwd_relative) ? cwd_relative : ::File.join(ROOT_PATH, filepath)
 
 			# This filepath may have been loaded in the given scope already. We don't want to double load it -- return the same result it produced the first time instead of re-running it (or, without this, silently returning nil).
 			return into_scope.loaded_filepaths[resolved_path] if into_scope.loaded_filepaths.key? resolved_path

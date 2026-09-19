@@ -25,13 +25,8 @@ module Code
 		def self.resolve_load_filepath filepath
 			filepath = filepath.dup
 			filepath << '.code' unless filepath.end_with? '.code'
-			if filepath.start_with? 'source/'
-				::File.join Code::ROOT_PATH, filepath
-			else
-				cwd_relative = ::File.expand_path filepath
-				# `code/x.code` used to only resolve here because of a `code -> source/code` symlink at the project root. Falling back to `source/<filepath>` makes the code library reachable by this same bare path from any cwd, symlink or not.
-				::File.exist?(cwd_relative) ? cwd_relative : ::File.join(Code::ROOT_PATH, 'source', filepath)
-			end
+			cwd_relative = ::File.expand_path filepath
+			::File.exist?(cwd_relative) ? cwd_relative : ::File.join(Code::ROOT_PATH, filepath)
 		end
 
 		attr_accessor :input
