@@ -2295,6 +2295,242 @@ class Interpreter_Test < Base_Test
 		assert_equal [1, 2, 3, 4, 5], out.values
 	end
 
+	def test_traditional_for_loop_collects_ascending_counter_values
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 5, i++
+				result << it
+			end
+			result
+		CODE
+		assert_equal [0, 1, 2, 3, 4], out.values
+	end
+
+	def test_traditional_for_loop_at_tracks_the_zero_based_iteration_not_the_counter
+		out = Code.interp <<~CODE
+			result := []
+			for i := 10, i < 15, i++
+				result << (it, at)
+			end
+			result
+		CODE
+		assert_equal [[10, 0], [11, 1], [12, 2], [13, 3], [14, 4]], out.values.map(&:values)
+	end
+
+	def test_traditional_for_loop_exposes_the_counter_by_its_own_declared_name
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 3, i++
+				result << i
+			end
+			result
+		CODE
+		assert_equal [0, 1, 2], out.values
+	end
+
+	def test_traditional_for_loop_runs_zero_times_when_the_condition_starts_false
+		out = Code.interp <<~CODE
+			count := 0
+			for i := 5, i < 0, i++
+				count += 1
+			end
+			count
+		CODE
+		assert_equal 0, out
+	end
+
+	def test_traditional_for_loop_supports_a_decrementing_counter
+		out = Code.interp <<~CODE
+			result := []
+			for i := 3, i > 0, i--
+				result << it
+			end
+			result
+		CODE
+		assert_equal [3, 2, 1], out.values
+	end
+
+	def test_traditional_for_loop_supports_a_step_modifier_other_than_one
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 10, i += 2
+				result << it
+			end
+			result
+		CODE
+		assert_equal [0, 2, 4, 6, 8], out.values
+	end
+
+	def test_traditional_for_loop_skip
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 5, i++
+				if it == 2
+					skip
+				end
+				result << it
+			end
+			result
+		CODE
+		assert_equal [0, 1, 3, 4], out.values
+	end
+
+	def test_traditional_for_loop_stop
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 5, i++
+				if it == 2
+					stop
+				end
+				result << it
+			end
+			result
+		CODE
+		assert_equal [0, 1], out.values
+	end
+
+	def test_nested_traditional_for_loops_keep_independent_counters
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 2, i++
+				for j := 0, j < 2, j++
+					result << (i, j)
+				end
+			end
+			result
+		CODE
+		assert_equal [[0, 0], [0, 1], [1, 0], [1, 1]], out.values.map(&:values)
+	end
+
+	def test_traditional_for_loop_with_a_less_than_or_equal_condition
+		out = Code.interp <<~CODE
+			result := []
+			for i := 1, i <= 5, i++
+				result << it
+			end
+			result
+		CODE
+		assert_equal [1, 2, 3, 4, 5], out.values
+	end
+
+	def test_traditional_for_loop_supports_a_negative_starting_counter
+		out = Code.interp <<~CODE
+			result := []
+			for i := -3, i < 3, i++
+				result << it
+			end
+			result
+		CODE
+		assert_equal [-3, -2, -1, 0, 1, 2], out.values
+	end
+
+	def test_traditional_for_loop_condition_can_reference_an_enclosing_variable
+		out = Code.interp <<~CODE
+			limit := 4
+			result := []
+			for i := 0, i < limit, i++
+				result << it
+			end
+			result
+		CODE
+		assert_equal [0, 1, 2, 3], out.values
+	end
+
+	def test_traditional_for_loop_supports_a_compound_assignment_step
+		out = Code.interp <<~CODE
+			result := []
+			for i := 20, i > 0, i -= 5
+				result << it
+			end
+			result
+		CODE
+		assert_equal [20, 15, 10, 5], out.values
+	end
+
+	def test_traditional_for_loop_skip_and_stop_together
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 10, i++
+				if it == 2
+					skip
+				end
+				if it == 5
+					stop
+				end
+				result << it
+			end
+			result
+		CODE
+		assert_equal [0, 1, 3, 4], out.values
+	end
+
+	def test_traditional_for_loop_body_reaches_the_enclosing_scope
+		out = Code.interp <<~CODE
+			items := []
+			for i := 0, i < 3, i++
+				items.push(it + 1)
+			end
+			items
+		CODE
+		assert_equal [1, 2, 3], out.values
+	end
+
+	# A bare (no verb) for-loop's own value is the last expression its body evaluated, same as an
+	# inline scope `{ ... }` -- not a collected array (that's what the `map` verb is for).
+	def test_traditional_for_loop_value_is_the_last_body_expression
+		out = Code.interp <<~CODE
+			result := for i := 0, i < 3, i++
+				i * 2
+			end
+			result
+		CODE
+		assert_equal 4, out
+	end
+
+	# The counter is declared into a scope the loop pushes and pops itself, so it's gone once the
+	# loop ends -- same block-scoping as a function local (see test_declare_inside_function_scope_
+	# does_not_leak_out) or an inline scope's `:=` (see test_inline_scope_declaration_does_not_
+	# leak_into_enclosing_scope).
+	def test_traditional_for_loop_counter_does_not_leak_past_the_loop
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+				for i := 0, i < 3, i++
+				end
+				i
+			CODE
+		end
+	end
+
+	def test_traditional_for_loop_return_exits_the_enclosing_function
+		out = Code.interp <<~CODE
+			find_first_even ( list;
+				for i := 0, i < 5, i++
+					if list[i] % 2 == 0
+						return list[i]
+					end
+				end
+				-1
+			)
+			find_first_even([1, 3, 4, 5, 7])
+		CODE
+		assert_equal 4, out
+	end
+
+	def test_traditional_for_loop_return_value_when_never_found
+		out = Code.interp <<~CODE
+			find_first_even ( list;
+				for i := 0, i < 5, i++
+					if list[i] % 2 == 0
+						return list[i]
+					end
+				end
+				-1
+			)
+			find_first_even([1, 3, 5, 7, 9])
+		CODE
+		assert_equal(-1, out)
+	end
+
 	def test_while_loop_skip
 		out = Code.interp "
 		result := []
@@ -4959,6 +5195,42 @@ class Interpreter_Test < Base_Test
 		    doubled
 		CODE
 		assert_equal [2, 4, 6], out.values
+	end
+
+	# --- End-of-line C-style for loop ----------------------------------------
+
+	def test_end_of_line_for_loop_in_c_form
+		out = Code.interp <<~CODE
+			items := []
+			items.push(it) for i := 0, i < 5, i++
+			items
+		CODE
+		assert_equal [0, 1, 2, 3, 4], out.values
+	end
+
+	def test_end_of_line_for_loop_in_c_form_with_parenless_call_in_body
+		printed = capture_stdout do
+			Code.interp '@puts it for i := 0, i < 3, i++'
+		end
+
+		assert_equal "0\n1\n2\n", printed
+	end
+
+	def test_end_of_line_for_loop_in_c_form_assigned_to_a_variable
+		out = Code.interp <<~CODE
+			result := it for i := 0, i < 3, i++
+			result
+		CODE
+		assert_equal 2, out
+	end
+
+	def test_end_of_line_for_loop_in_c_form_with_a_decrementing_counter
+		out = Code.interp <<~CODE
+			items := []
+			items.push(it) for i := 3, i > 0, i--
+			items
+		CODE
+		assert_equal [3, 2, 1], out.values
 	end
 
 	def test_for_loop_body_scope_still_reaches_the_enclosing_scope

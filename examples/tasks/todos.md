@@ -1,3 +1,4 @@
++ All loops (for/while/until) and ifs should support `when`/`else`
 + Allow creating different types of standalone scopes. Transparent, Opaque, etc, but with better names
 + Design a concurrency model
 + Switch statement / pattern matching (required for `@help` / `@help(expr)`)

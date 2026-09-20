@@ -1389,7 +1389,7 @@ module Code
 			current_value = interpret expr.expression
 
 			valid_value = current_value.is_a?(::Numeric)
-			raise Invalid_Increment_Decrement_Operand.new(expr,expr.expression) unless valid_value
+			raise Invalid_Increment_Decrement_Operand.new(expr, expr.expression) unless valid_value
 
 			updated_value = if expr.operator.value == '--'
 				current_value - 1
@@ -3748,19 +3748,72 @@ module Code
 			register_bare_named_struct expr.name, struct, expr
 		end
 
-		# @param for_loop_expr [Code::For_Loop_Expr]
-		def interp_for_loop for_loop_expr
-			stride  = interpret(for_loop_expr.stride) if for_loop_expr.stride
-			overlap = interpret(for_loop_expr.overlap) if for_loop_expr.overlap
+		#
+		#   for  i := 0  ,  i < 10  ,  i++
+		#        \————/     \————/     \—/
+		#        |          |          |
+		#        |          |          step
+		#        |          condition
+		#        counter
+		#
+		# @param expr [Code::For_Loop_Expr]
+		def interp_traditional_for_loop expr
+			last_expr = nil
+
+			begin
+				scope = Temporary.new 'For Loop'
+				push_scope scope
+
+				counter = interpret expr.counter
+
+				last_expr = catch :stop do
+					iteration = 0
+					while interpret expr.condition
+						scope.declare 'it', find_in_stack(expr.counter.left.value) # the identifier of the counter
+						scope.declare 'at', iteration
+
+						catch :skip do
+							# one iteration
+							expr.body.each do |e|
+								last_expr = interpret e # the expressions here could include skip and stop, which will trigger the catches here
+
+								if last_expr.is_a? Code::Return
+									throw :stop, last_expr
+								end
+							end
+						end
+
+						iteration += 1
+						interpret expr.step
+					end
+
+					last_expr
+				end
+			ensure
+				Code.assert pop_scope == scope
+			end
+
+			last_expr
+		end
+
+		# @param expr [Code::For_Loop_Expr]
+		def interp_for_loop expr
+			if expr.counter && expr.condition && expr.step
+				return interp_traditional_for_loop expr
+			end
+
+			stride  = interpret(expr.stride) if expr.stride
+			overlap = interpret(expr.overlap) if expr.overlap
+			# counter, condition, modifier
 
 			Code.assert stride.nil? || stride.is_a?(::Integer), "Stride must be an integer" if stride
 			Code.assert overlap.nil? || overlap.is_a?(::Integer), "Overlap must be an integer" if overlap
 			Code.assert overlap.nil? || overlap < stride, "Overlap must be smaller than the stride" if overlap
 
-			loop_type = for_loop_expr.type&.value || 'each' # one of Code::FOR_VERBS
+			loop_type = expr.type&.value || 'each' # one of Code::FOR_VERBS
 			result    = nil
 
-			collection = interpret for_loop_expr.collection
+			collection = interpret expr.collection
 			values     = case collection
 			when Code::Dictionary
 				collection.hash
@@ -3800,7 +3853,7 @@ module Code
 						scope.declare 'key', index
 					end
 					catch :skip do
-						for_loop_expr.body.each do |e|
+						expr.body.each do |e|
 							body_result = interpret e
 							throw(:stop, body_result) if body_result.is_a? Code::Return
 						end
@@ -3842,7 +3895,7 @@ module Code
 			# we've returned the collection above and are going to treat it differently
 			if elements.equal? collection
 				# todo; assert that this function takes an Int
-				raise Non_Iterable_Collection_In_For_Loop.new(for_loop_expr, collection) unless collection.is_a?(Code::Instance) && collection.has?('next')
+				raise Non_Iterable_Collection_In_For_Loop.new(expr, collection) unless collection.is_a?(Code::Instance) && collection.has?('next')
 
 				next_function = collection.get('next') # The actual signature of this functin is next(Int->Any;)
 				begin
@@ -3868,7 +3921,7 @@ module Code
 							iteration += 1
 
 							catch :skip do
-								for_loop_expr.body.each do |e|
+								expr.body.each do |e|
 									for_loop_body_result = interpret e
 									throw(:stop, for_loop_body_result) if for_loop_body_result.is_a? Code::Return
 								end

@@ -277,7 +277,9 @@ module Code
 			end
 		end
 
+		#
 		#   for <collection> [map/select/reject] [by <stride>[,<overlap>]]
+		#       it, at
 		#   end
 		#
 		#   for items map by 2
@@ -289,22 +291,38 @@ module Code
 		#   end
 		#
 		def parse_for_loop_expr
-			start         = curr_lexeme
-			it            = Code::For_Loop_Expr.new
-			it.lexeme     = eat 'for'
-			it.collection = parse_expression
+			start     = curr_lexeme
+			it        = Code::For_Loop_Expr.new
+			it.lexeme = eat 'for'
 
-			if curr? Code::FOR_VERBS and verb = eat
-				it.type   = verb
-				it.lexeme = verb
-			end
+			lexemes = peek_until "\n"
 
-			if curr? 'by' and eat 'by'
-				it.stride = begin_expression
-				# todo: Should I check that it's a number here? Yes.
+			exactly_two_commas      = lexemes.count { _1.is(',') } == 2
+			exactly_one_declaration = lexemes.count { _1.is(':=') } == 1
+			valid_traditional_loop  = exactly_two_commas && exactly_one_declaration
 
-				if curr? ',' and eat ','
-					it.overlap = begin_expression
+			if valid_traditional_loop
+				it.counter = parse_expression
+				eat ','
+				it.condition = parse_expression
+				eat ','
+				it.step = parse_expression
+
+			else
+				it.collection = parse_expression
+
+				if curr? Code::FOR_VERBS and verb = eat
+					it.type   = verb
+					it.lexeme = verb
+				end
+
+				if curr? 'by' and eat 'by'
+					it.stride = begin_expression
+
+					if curr? ',' and eat ','
+						it.overlap = begin_expression
+						# Code.assert it.overlap.is_a? ::Integer
+					end
 				end
 			end
 
@@ -1468,27 +1486,43 @@ module Code
 				return expr if precedence_for(curr_lexeme.value) <= precedence
 
 				# @paste from original For_Loop_Expr initialization, with modifications
-				it            = Code::For_Loop_Expr.new
-				it.lexeme     = eat 'for'
-				it.collection = parse_expression
-				it.body = [expr]
+				it        = Code::For_Loop_Expr.new
+				it.lexeme = eat 'for'
+				it.body   = [expr]
 
-				if curr? Code::FOR_VERBS and verb = eat
-					it.type   = verb
-					it.lexeme = verb
-				end
+				lexemes = peek_until "\n"
 
-				if curr? 'by' and eat 'by'
-					it.stride = begin_expression
-					# todo: Should I check that it's a number here? Yes.
+				exactly_two_commas      = lexemes.count { _1.is(',') } == 2
+				exactly_one_declaration = lexemes.count { _1.is(':=') } == 1
+				valid_traditional_loop  = exactly_two_commas && exactly_one_declaration
 
-					if curr? ',' and eat ','
-						it.overlap = begin_expression
+				if valid_traditional_loop
+					it.counter = parse_expression
+					eat ','
+					it.condition = parse_expression
+					eat ','
+					it.step = parse_expression
+
+				else
+					it.collection = parse_expression
+
+					if curr? Code::FOR_VERBS and verb = eat
+						it.type   = verb
+						it.lexeme = verb
 					end
 
+					if curr? 'by' and eat 'by'
+						it.stride = begin_expression
+						# todo: Should I check that it's a number here? Yes.
+
+						if curr? ',' and eat ','
+							it.overlap = begin_expression
+						end
+
+					end
 				end
 
-				set_expr_location it, it.lexeme, it.collection
+				set_expr_location it, it.lexeme, (it.step || it.overlap || it.stride || it.collection)
 				return complete_expression it, precedence
 			end
 

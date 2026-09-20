@@ -502,6 +502,44 @@ for [1, 2, 3, 4, 5, 6] by 2
 end
 ```
 
+## C-Style For Loops
+
+1. `for <counter>, <condition>, <step> ... end` -- a counter declaration, a condition, and a step, comma-separated
+2. The counter is also readable by its own declared name, in addition to `it`/`at`
+3. `it` mirrors the counter's own value -- if the step skips by more than 1, so does `it`
+4. `at` is always the true, plain iteration count -- 0, 1, 2, 3... regardless of what the counter does
+5. The counter is scoped to the loop -- it doesn't exist once the loop ends
+6. Any step expression works, not just `++`/`--` (`+=`, `-=`, etc.)
+7. Also works as an end-of-line loop: `<expr> for <counter>, <condition>, <step>`
+
+```code
+for i := 0, i < 5, i++
+    @puts i       # 0, 1, 2, 3, 4 -- same as `it`
+end
+
+# Counting down
+for i := 5, i > 0, i--
+    @puts it      # 5, 4, 3, 2, 1
+end
+
+# Any step expression works
+for i := 0, i < 10, i += 2
+    @puts it      # 0, 2, 4, 6, 8
+end
+
+# it vs at: it tracks the counter, at always tracks the iteration count
+for i := 0, i < 10, i += 3
+    @puts it      # 0, 3, 6, 9   -- the counter, skipping by 3
+    @puts at      # 0, 1, 2, 3   -- always +1 per iteration, no matter the step
+end
+
+i   # Undeclared_Identifier -- the counter didn't leak past `end`
+
+# End-of-line form
+items := []
+items.push(it) for i := 0, i < 5, i++
+```
+
 ## For Loop Verbs
 
 1. `map` transforms each element

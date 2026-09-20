@@ -46,6 +46,57 @@ end
 @assert consecutive_pairs == [['red', 'blue'], ['blue', 'green'], ['green', 'yellow'], ['yellow', 'orange'], ['orange', 'purple'], ['purple']], 'stride 2 overlap 1 should walk every consecutive pair'
 
 
+### C-style for loops
+
+`for <counter>, <condition>, <step> ... end` -- a counter declaration, a condition, and a step, comma-separated, instead of iterating a collection. The counter is readable by its own declared name, not just `it`. Sawyer numbers each ration as he hands it out:
+###
+rations_handed_out := []
+for day := 1, day <= 5, day++
+	rations_handed_out.push(day)
+end
+@assert rations_handed_out == [1, 2, 3, 4, 5], 'a C-style for loop should walk the counter from start to condition'
+
+
+### The step isn't limited to ++/--
+
+Any expression works as the step, including a decrement or a jump by more than one. Rose rations the last of the water, pouring out two cups at a time:
+###
+cups_remaining := []
+for cups := 10, cups > 0, cups -= 2
+	cups_remaining.push(it)
+end
+@assert cups_remaining == [10, 8, 6, 4, 2], 'the step can be any expression, not just ++/--'
+
+
+### it tracks the counter, at tracks the true iteration count
+
+`it` mirrors the counter -- if the step skips by more than one, so does `it`. `at` doesn't; it's always the plain iteration count, 0, 1, 2, 3... no matter what the counter does. Supplies only get dropped every third day, but Hurley still wants to know which delivery number he's on:
+###
+deliveries := []
+for day := 0, day < 10, day += 3
+	deliveries.push((it, at))
+end
+@assert deliveries == [(0, 0), (3, 1), (6, 2), (9, 3)], 'it should follow the counter while at counts plain iterations'
+
+
+### The counter doesn't leak past the loop
+
+Same scoping as a function local -- once `end` is reached, the counter is gone:
+###
+for day := 1, day <= 3, day++
+end
+# day    # raises Code::Undeclared_Identifier -- the counter only exists inside the loop
+
+
+### C-style loops work end-of-line too
+
+The same `<counter>, <condition>, <step>` clauses work after an end-of-line `for`, same as a collection would:
+###
+survivor_log := []
+survivor_log.push(day) for day := 1, day <= 3, day++
+@assert survivor_log == [1, 2, 3], 'the end-of-line form should support the C-style clauses too'
+
+
 ### Verbs: map
 
 A verb after the collection turns `for` into a transformation that returns a value, instead of just running side effects. `map` transforms every element:

@@ -224,7 +224,8 @@ module Code
 	end
 
 	class For_Loop_Expr < Expression
-		attr_accessor :collection, :stride, :overlap, :body
+		attr_accessor :collection, :stride, :overlap, :body # c_like
+		attr_accessor :counter, :condition, :step # modern
 	end
 
 	class Fence_Expr < Expression
