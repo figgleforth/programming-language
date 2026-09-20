@@ -2333,14 +2333,14 @@ module Code
 					kv.is(Identifier_Expr) || (kv.is(Infix_Expr) && kv.operator.value == ':')
 				end
 
-				is_dictionary ? interpret_dictionary(expr) : interpret_inline_scope(expr)
+				is_dictionary ? interp_dictionary(expr) : interp_inline_scope(expr)
 			else
 				raise Code::Unknown_Circumfix_Grouping.new(expr)
 			end
 		end
 
 		# @param expr [Circumfix_Expr]
-		def interpret_inline_scope expr
+		def interp_inline_scope expr
 			scope = Temporary.new 'Inline Scope'
 			last_expr = nil
 			push_then_pop scope do
@@ -2352,10 +2352,11 @@ module Code
 		end
 
 		# @param expr [Circumfix_Expr
-		def interpret_dictionary expr
+		def interp_dictionary expr
 			dict = expr.expressions.reduce(Code::Dictionary.new) do |dict, it|
 				if it.is_a? Code::Identifier_Expr
-					dict.proxy_set it.value.to_sym, nil
+					existing_value = find_in_stack it.value # returns nil if not found
+					dict.proxy_set it.value.to_sym, existing_value
 				elsif it.is_a? Code::Infix_Expr
 					case it.operator.value
 					when ':'

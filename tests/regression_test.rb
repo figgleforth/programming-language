@@ -369,12 +369,36 @@ class Regression_Test < Base_Test
 	end
 
 	def test_accessing_dictionary_keys_with_dot
-		# todo: I plan to make the x inside {x} to set x to whatever x happens to evaluate to. When that happens, {x}.x should return 123!
 		out = Code.interp <<~CODE
 		    x := 123
-		    {x}.x
+		    {x y:456 z:789}.z
 		CODE
-		assert_nil out
+		assert_equal 789, out
+	end
+
+	def test_dictionary_keys_pick_up_existing_values
+		out = Code.interp <<~CODE
+			x := 4815
+			{x, y: 23, z: 42}
+		CODE
+		assert_equal [4815, 23, 42], out.hash.values
+	end
+
+	def test_curly_braces_with_known_identifier_becomes_dictionary
+		out = Code.interp <<~CODE
+			x := 4
+			{x}
+		CODE
+		assert_kind_of Code::Dictionary, out
+		assert_equal 4, out.proxy_get('x')
+	end
+
+	def test_curly_braces_with_inline_declaration_becomes_inline_scope
+		out = Code.interp <<~CODE
+			{x := 8}
+		CODE
+		assert_kind_of ::Integer, out
+		assert_equal 8, out # inline scopes just evaluate expressions as if there was no scope, so the result is returned.
 	end
 
 	def test_parsing_bug_from_issue_80
