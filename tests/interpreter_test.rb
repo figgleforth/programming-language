@@ -3510,6 +3510,184 @@ class Interpreter_Test < Base_Test
 		assert_equal 25, out
 	end
 
+	def test_prefix_increment_returns_the_new_value_and_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x, ++x)
+		CODE
+		assert_equal [5, 6], out.values
+	end
+
+	def test_prefix_decrement_returns_the_new_value_and_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x, --x)
+		CODE
+		assert_equal [5, 4], out.values
+	end
+
+	def test_prefix_increment_works_on_a_float
+		out = Code.interp <<~CODE
+			x := 5.5
+			(x, ++x)
+		CODE
+		assert_equal [5.5, 6.5], out.values
+	end
+
+	def test_prefix_decrement_works_on_a_float
+		out = Code.interp <<~CODE
+			x := 5.5
+			(x, --x)
+		CODE
+		assert_equal [5.5, 4.5], out.values
+	end
+
+	def test_prefix_increment_on_a_bare_literal_returns_the_computed_value
+		out = Code.interp '++1'
+		assert_equal 2, out
+	end
+
+	def test_prefix_decrement_on_a_bare_literal_returns_the_computed_value
+		out = Code.interp '--1'
+		assert_equal 0, out
+	end
+
+	def test_prefix_increment_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x, ++(x), x)
+		CODE
+		assert_equal [5, 6, 5], out.values
+	end
+
+	def test_prefix_decrement_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x, --(x), x)
+		CODE
+		assert_equal [5, 4, 5], out.values
+	end
+
+	def test_prefix_increment_raises_on_a_non_numeric_operand
+		assert_raises Code::Invalid_Increment_Decrement_Operand do
+			Code.interp <<~CODE
+				x := "hi"
+				++x
+			CODE
+		end
+	end
+
+	def test_prefix_decrement_raises_on_a_non_numeric_operand
+		assert_raises Code::Invalid_Increment_Decrement_Operand do
+			Code.interp <<~CODE
+				x := "hi"
+				--x
+			CODE
+		end
+	end
+
+	def test_postfix_increment_returns_the_old_value_and_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x++, x)
+		CODE
+		assert_equal [5, 6], out.values
+	end
+
+	def test_postfix_decrement_returns_the_old_value_and_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x--, x)
+		CODE
+		assert_equal [5, 4], out.values
+	end
+
+	def test_postfix_increment_works_on_a_float
+		out = Code.interp <<~CODE
+			x := 5.5
+			(x++, x)
+		CODE
+		assert_equal [5.5, 6.5], out.values
+	end
+
+	def test_postfix_decrement_works_on_a_float
+		out = Code.interp <<~CODE
+			x := 5.5
+			(x--, x)
+		CODE
+		assert_equal [5.5, 4.5], out.values
+	end
+
+	def test_postfix_increment_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x, (x)++, x)
+		CODE
+		assert_equal [5, 5, 5], out.values
+	end
+
+	def test_postfix_decrement_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
+		out = Code.interp <<~CODE
+			x := 5
+			(x, (x)--, x)
+		CODE
+		assert_equal [5, 5, 5], out.values
+	end
+
+	def test_postfix_increment_raises_on_a_non_numeric_operand
+		assert_raises Code::Invalid_Increment_Decrement_Operand do
+			Code.interp <<~CODE
+				x := "hi"
+				x++
+			CODE
+		end
+	end
+
+	def test_postfix_decrement_raises_on_a_non_numeric_operand
+		assert_raises Code::Invalid_Increment_Decrement_Operand do
+			Code.interp <<~CODE
+				x := "hi"
+				x--
+			CODE
+		end
+	end
+
+	def test_precedence_fix_postfix_increment_inside_a_declaration_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			result := x++
+			(result, x)
+		CODE
+		assert_equal [5, 6], out.values
+	end
+
+	def test_precedence_fix_postfix_decrement_inside_a_declaration_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			result := x--
+			(result, x)
+		CODE
+		assert_equal [5, 4], out.values
+	end
+
+	def test_precedence_fix_prefix_increment_inside_a_declaration_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			result := ++x
+			(result, x)
+		CODE
+		assert_equal [6, 6], out.values
+	end
+
+	def test_precedence_fix_prefix_decrement_inside_a_declaration_mutates_the_variable
+		out = Code.interp <<~CODE
+			x := 5
+			result := --x
+			(result, x)
+		CODE
+		assert_equal [4, 4], out.values
+	end
+
 	def test_pipeing_with_operator_overloads
 		out = Code.interp <<~CODE
 		    @operator -> @infix 300 ( left, right;

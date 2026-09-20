@@ -16,10 +16,10 @@ module Code
 	COMMENT_PREFIX                    = '#'
 	BLOCK_COMMENT_DELIMITER           = '###'
 	FENCE_DELIMITER                   = '```'
-	PREFIX                            = %w(! - + ~ not return)
+	PREFIX                            = %w(! - + ~ not return -- ++)
 	INFIX                             = %w( + - ^ * ** / % ~ == === =!= =>= =<= =/= ? . .? = := : ||= &&= **= <<= >>= += -= *= |= /= %= &= ^= =~ !~ && || & | << >>
  .. >.. ..< >..< != <= >= < > <=> < > and or )
-	POSTFIX                           = %w() # note: ; can never be a postfix, it's reserved
+	POSTFIX                           = %w(++ --) # note: ; can never be a postfix, it's reserved
 	CIRCUMFIX                         = %w( \( [ { | )
 	CIRCUMFIX_GROUPINGS               = { '(' => '()', '{' => '{}', '[' => '[]', '|' => '||' }
 	LOGICAL_OPERATORS                 = %w(&& & || | and or)
@@ -52,6 +52,7 @@ module Code
 	RESERVED = %w(
 		[ { ( , _ . .? .. ) } ]
 		: ; + - * ** / % ~
+		++ --
 		= := ||= &&= **= <<= >>= += -= *= |= /= %= &= ^=
 		== != <= >= < > === =!= =/= =<= =>=
 		! ? ?? !! && || & | << >>
@@ -80,7 +81,7 @@ module Code
 		'**' => 1000,
 
 		# Unary
-		'!' => 900, 'not' => 900, '\\' => 900,
+		'!' => 900, 'not' => 900, '\\' => 900, '++' => 900, '--' => 900,
 
 		# Multiplicative
 		'*' => 800, '/' => 800, '%' => 800,

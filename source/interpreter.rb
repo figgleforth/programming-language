@@ -1381,9 +1381,52 @@ module Code
 			end
 		end
 
+		# @param expr [Code::Prefix_Expr | Code::Postfix_Expr]
+		def interp_increment_decrement_pre_or_postfix expr
+			pre  = expr.is Prefix_Expr # returns new value
+			post = expr.is Postfix_Expr # returns old value
+
+			current_value = interpret expr.expression
+
+			valid_value = current_value.is_a?(::Numeric)
+			raise Invalid_Increment_Decrement_Operand.new(expr,expr.expression) unless valid_value
+
+			updated_value = if expr.operator.value == '--'
+				current_value - 1
+			elsif expr.operator.value == '++'
+				current_value + 1
+			else
+				raise "unreachable"
+			end
+
+			return_value = if pre
+				updated_value
+			elsif post
+				current_value
+			else
+				raise "should never raise"
+			end
+
+			if expr.expression.is Identifier_Expr
+				scope                        = scope_for_identifier expr.expression
+				scope[expr.expression.value] = updated_value
+			else
+				# The expression was something like --(1+2) or --1, it would have been evaluated above
+				updated_value
+			end
+
+			return_value
+		end
+
 		def interp_prefix expr
 			# note: See constants.rb PREFIX for exhaustive list of language-defined prefixes
 			case expr.operator.value
+			when '--'
+				# decrement value of original, return new value
+				interp_increment_decrement_pre_or_postfix expr
+			when '++'
+				# increment value of original, return new value
+				interp_increment_decrement_pre_or_postfix expr
 			when '-'
 				-interpret(expr.expression)
 			when '+'
@@ -1404,6 +1447,31 @@ module Code
 				else
 					raise Code::Unhandled_Prefix.new(expr)
 				end
+			end
+		end
+
+		# @param expr [Code::Postfix_Expr]
+		def interp_postfix expr
+			# note: See constants.rb POSTFIX for exhaustive list of language-defined postfixes
+			case expr.operator.value
+			when '--'
+				# decrement value of original, return old value
+				interp_increment_decrement_pre_or_postfix expr
+			when '++'
+				# increment value of original, return old value
+				interp_increment_decrement_pre_or_postfix expr
+			else
+				# 1) look up the opreator (expr.operator.value) as it should be a normal func in the scope.
+				# 2) call it with expr.expression as its argument. It should only take one argument.
+				postfix_overloaded_func = find_in_stack expr.operator.value
+
+				if !postfix_overloaded_func
+					raise "Could not find #{expr.operator.value} declared anywhere man!"
+				end
+
+				call           = Code::Call_Expr.new
+				call.arguments = [expr.expression]
+				interp_func_body postfix_overloaded_func, call
 			end
 		end
 
@@ -2250,22 +2318,6 @@ module Code
 			call_operator_overload overload, expr, [left, right]
 		end
 
-		# @param expr [Code::Postfix_Expr]
-		def interp_postfix expr
-			# note: See constants.rb POSTFIX for exhaustive list of language-defined postfixes. Currently there are no built-in postfix operators.
-			# 1) look up the opreator (expr.operator.value) as it should be a normal func in the scope.
-			# 2) call it with expr.expression as its argument. It should only take one argument.
-			postfix_overloaded_func = find_in_stack expr.operator.value
-
-			if !postfix_overloaded_func
-				raise "Could not find #{expr.operator.value} declared anywhere man!"
-			end
-
-			call           = Code::Call_Expr.new
-			call.arguments = [expr.expression]
-			interp_func_body postfix_overloaded_func, call
-		end
-
 		# @param expr [Code::Percent_Literal_Expr < Code::Circumfix_Expr]
 		def interp_percent_literal expr
 			literal_expr_class = case expr.kind
@@ -2341,7 +2393,7 @@ module Code
 
 		# @param expr [Circumfix_Expr]
 		def interp_inline_scope expr
-			scope = Temporary.new 'Inline Scope'
+			scope     = Temporary.new 'Inline Scope'
 			last_expr = nil
 			push_then_pop scope do
 				expr.expressions.each do |it|
