@@ -207,10 +207,6 @@ module Code
 		attr_accessor :operator, :identifier
 	end
 
-	class Conditional_Expr < Expression
-		attr_accessor :condition, :when_true, :when_false
-	end
-
 	class Call_Expr < Expression
 		attr_accessor :receiver, :arguments
 	end
@@ -221,11 +217,6 @@ module Code
 
 	class Array_Index_Expr < Expression
 		attr_accessor :indices_in_order
-	end
-
-	class For_Loop_Expr < Expression
-		attr_accessor :collection, :stride, :overlap, :body # c_like
-		attr_accessor :counter, :condition, :step # modern
 	end
 
 	class Fence_Expr < Expression
@@ -249,5 +240,21 @@ module Code
 		# ```html
 		# ```
 		attr_accessor :body, :element
+	end
+
+	class Conditional_Expr < Expression
+		attr_accessor :condition, :when_true, :when_false
+		attr_accessor :when_cases, :when_bodies
+	end
+
+	class For_Loop_Expr < Expression
+		attr_accessor :collection, :stride, :overlap, :body # my way
+		attr_accessor :counter, :condition, :step # c-like
+		attr_accessor :when_cases, :when_bodies, :when_else_case
+	end
+
+	class When_Expr < Prefix_Expr
+		# attr_accessor :operator ('when'), :expression
+		attr_accessor :body
 	end
 end

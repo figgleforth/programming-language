@@ -5259,4 +5259,8 @@ class Interpreter_Test < Base_Test
 		CODE
 		assert_equal [[4,8,15], [15,16,23], [23,42]], out.values.map(&:values)
 	end
+
+	def test_when_is_valid_identifier_outside_of_for_and_conditional_loops
+		assert_equal 42, Code.interp("when := 42")
+	end
 end

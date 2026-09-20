@@ -1985,7 +1985,7 @@ module Code
 		def interp_dot_array_or_tuple scope, expr
 			case
 			when expr.right.is(Code::Func_Expr) && expr.right.name.value == 'each'
-				interp_each_loop scope, expr.right
+				interp_functional_form_of_each_loop scope, expr.right
 				scope
 
 			when expr.right.is(Code::Number_Expr)
@@ -2003,7 +2003,7 @@ module Code
 		end
 
 		def interp_dot_range range, expr
-			return interp_each_loop range, expr.right if expr.right.is(Code::Func_Expr) && expr.right.name.value == 'each'
+			return interp_functional_form_of_each_loop range, expr.right if expr.right.is(Code::Func_Expr) && expr.right.name.value == 'each'
 			interp_dot_scope range, expr
 		end
 
@@ -2033,7 +2033,7 @@ module Code
 			raise
 		end
 
-		def interp_each_loop collection, func_expr
+		def interp_functional_form_of_each_loop collection, func_expr
 			collection.each do |it|
 				each_scope                 = Code::Scope.new 'each(;)'
 				each_scope.enclosing_scope = stack.last
@@ -3758,39 +3758,43 @@ module Code
 		#
 		# @param expr [Code::For_Loop_Expr]
 		def interp_traditional_for_loop expr
+			for_scope = Temporary.new 'For Loop'
 			last_expr = nil
 
 			begin
-				scope = Temporary.new 'For Loop'
-				push_scope scope
-
+				push_scope for_scope
 				counter = interpret expr.counter
 
 				last_expr = catch :stop do
 					iteration = 0
 					while interpret expr.condition
-						scope.declare 'it', find_in_stack(expr.counter.left.value) # the identifier of the counter
-						scope.declare 'at', iteration
+						begin
+							iteration_scope = Temporary.new("For Loop Scope Iteration #{iteration}")
+							push_scope iteration_scope
+							iteration_scope.declare 'it', find_in_stack(expr.counter.left.value) # the identifier of the counter
+							iteration_scope.declare 'at', iteration
 
-						catch :skip do
-							# one iteration
-							expr.body.each do |e|
-								last_expr = interpret e # the expressions here could include skip and stop, which will trigger the catches here
+							catch :skip do
+								expr.body.each do |e|
+									last_expr = interpret e # the expressions here could include skip and stop, which will trigger the catches here
 
-								if last_expr.is_a? Code::Return
-									throw :stop, last_expr
+									if last_expr.is_a? Code::Return
+										throw :stop, last_expr
+									end
 								end
 							end
-						end
 
-						iteration += 1
-						interpret expr.step
+							iteration += 1
+							interpret expr.step
+						ensure
+							Code.assert pop_scope == iteration_scope
+						end
 					end
 
 					last_expr
 				end
 			ensure
-				Code.assert pop_scope == scope
+				Code.assert pop_scope == for_scope
 			end
 
 			last_expr
@@ -3844,14 +3848,16 @@ module Code
 			iterate_body = -> (element, index) do
 				body_result = nil
 				begin
-					scope = Scope.new('for_loop')
-					push_scope scope
+					scope = Scope.new("For-loop Iteration #{index}")
 					scope.declare 'it', element
 					scope.declare 'at', index
 					if collection.is_a? Code::Dictionary
 						scope.declare 'value', element
 						scope.declare 'key', index
 					end
+
+					push_scope scope
+
 					catch :skip do
 						expr.body.each do |e|
 							body_result = interpret e
@@ -3859,7 +3865,7 @@ module Code
 						end
 					end
 				ensure
-					pop_scope
+					Code.assert pop_scope == scope
 				end
 				body_result
 			end
@@ -3898,27 +3904,21 @@ module Code
 				raise Non_Iterable_Collection_In_For_Loop.new(expr, collection) unless collection.is_a?(Code::Instance) && collection.has?('next')
 
 				next_function = collection.get('next') # The actual signature of this functin is next(Int->Any;)
-				begin
-					scope = Scope.new('for_loop')
-					push_scope scope
 
-					# todo; construct a Call_Expr receiver/arguments from the original Func_Expr
-					# call = Code::Call_Expr.new
-					# call.receiver = interpret next_function
-					# call.arguments = [iteration]
-					# result_of_next = interpret next_function # I need the Func_Expr
-					for_loop_body_result = catch :stop do
-						iteration = 0
-						while true
-							call   = Code::Call_Expr.new
-							result = interp_func_body next_function, call, arg_values: [iteration]
-							# todo; see how arg_values are wrapped differently from [iteration]
+				for_loop_body_result = catch :stop do
+					iteration = 0
+					while true
+						call   = Code::Call_Expr.new
+						result = interp_func_body next_function, call, arg_values: [iteration]
+						# todo; see how arg_values are wrapped differently from [iteration]
 
-							break if result.is_a?(Code::Instance) && result.name == 'Stop_Iterating'
+						break if result.is_a?(Code::Instance) && result.name == 'Stop_Iterating'
 
+						begin
+							scope = Scope.new("For-loop Iteration #{iteration}")
 							scope.declare 'it', result
 							scope.declare 'at', iteration
-							iteration += 1
+							push_scope scope
 
 							catch :skip do
 								expr.body.each do |e|
@@ -3926,10 +3926,12 @@ module Code
 									throw(:stop, for_loop_body_result) if for_loop_body_result.is_a? Code::Return
 								end
 							end
+						ensure
+							Code.assert pop_scope == scope
 						end
+
+						iteration += 1
 					end
-				ensure
-					pop_scope
 				end
 				for_loop_body_result
 			else
@@ -3975,6 +3977,7 @@ module Code
 
 		def interp_conditional expr
 			# All conditional forms (if/unless/while/until) use #truthy? uniformly now -- `if`/`while` used to require the condition be the literal value `true`, so `if [1,2,3]` never took its true branch.
+
 			case expr.type.value
 			when 'while', 'until', 'elwhile', 'elswhile'
 				result    = nil
@@ -3982,19 +3985,20 @@ module Code
 
 				index           = 0
 				on_skip_handler = Proc.new do
-					index += 1
-					stack.last.declare 'at', index
-
-					expr.when_true.each do |stmt|
-						result = interpret(stmt)
+					expr.when_true.each do |_expr|
+						result = interpret(_expr)
 					end
 				end
 
 				iteration_proc = Proc.new do
 					catch :skip do
 						on_skip_handler.call
+						index += 1
 					end
+
 					condition = interpret(expr.condition)
+
+					index += 1
 				end
 
 				catch :stop do
@@ -4019,8 +4023,7 @@ module Code
 
 				return result
 			else
-				# `unless` is just `if` with when_true/when_false swapped -- both branches used to be
-				# separately maintained copies of this same body-selection + running logic.
+				# `unless` is just `if` with when_true/when_false swapped -- both branches used to be separately maintained copies of this same body-selection + running logic.
 				condition   = interpret expr.condition
 				truthy_body = expr.type.value == 'unless' ? expr.when_false : expr.when_true
 				falsy_body  = expr.type.value == 'unless' ? expr.when_true : expr.when_false
@@ -4029,9 +4032,11 @@ module Code
 				if body.is_a? Code::Conditional_Expr
 					interp_conditional body
 				else
+					last_value = nil
 					body.each.inject(nil) do |result, expr|
-						interpret expr
+						last_value = interpret expr
 					end
+					last_value
 				end
 			end
 		end

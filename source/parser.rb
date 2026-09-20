@@ -328,15 +328,57 @@ module Code
 
 			reduce_newlines
 
-			it.body = []
+			it.body           = []
+			it.when_cases     = []
+			it.when_else_case = []
+
 			until curr? 'end'
-				it.body << parse_expression
+				if curr? 'when'
+					it.when_cases << parse_when_expr
+				elsif curr? 'else'
+					eat 'else'
+					until curr? 'end'
+						it.when_else_case << parse_expression
+					end
+				else
+					it.body << parse_expression
+				end
+
 				reduce_newlines
 			end
-			it.body = it.body.compact
+
+			it.body           = it.body.compact
+			it.when_cases     = it.when_cases.compact
+			it.when_else_case = it.when_else_case.compact
 
 			closing = eat 'end'
 			set_expr_location it, start, closing
+		end
+
+
+		#
+		# when <condition>
+		#     body
+		# when/else/elsif/elif/end <--- terminators of the body
+		#
+		# This is only used inside for-loops and if-family, otherwise "when" identifier is free to use
+		def parse_when_expr
+			# When_Expr < Prefix_Expr
+			# attr_accessor :operator, :expression
+			start         = curr_lexeme
+			it            = When_Expr.new
+			it.operator   = eat 'when'
+			it.expression = parse_expression
+			it.body       = []
+
+			until curr? %w(when else elsif elif end)
+				expr = parse_expression
+				it.body << expr if expr
+			end
+
+			it.body = it.body.compact
+
+			set_expr_location it, start, it.expression
 		end
 
 		def parse_conditional_expr
@@ -347,13 +389,19 @@ module Code
 			it.condition  = parse_expression
 			it.when_true  = []
 			it.when_false = []
+			it.when_cases = [] # only collected in the if_true branch
 			reduce_newlines
 
 			# @clean
 
 			until curr? %w(end else elif elsif elwhile elswhile)
-				expr = parse_expression
-				it.when_true << expr if expr
+				if curr? 'when'
+					it.when_cases << parse_when_expr
+				else
+					expr = parse_expression
+					it.when_true << expr if expr
+				end
+
 				reduce_newlines
 			end
 
