@@ -1,3 +1,5 @@
++ Composable functions. `step1 | step2 | step2 (input; ... )` where each composed function fits the shape of input for the prvious output, and fits the shape of output for the next step.
++ Reuse call site labels as named arguments.
 + A function should be able to say it returns nothing. Proposed spellings: `f {->Nil;}`, or a new `Void`/`None` type.
 + Support any Numeric-like system that can be incremented. Example: `Standard_Deck | Numeric`, `card := deck.random()` gives a card, `card += 1` gives the next card in the deck.
 + A `Symbol` is not wrapped the way a String or Number is. It stays a raw Ruby Symbol with no runtime type of its own.
@@ -70,6 +72,7 @@
 + Should `Fence_Expr` extend `String_Expr` or `Statement_Expr`? Both make sense — a fence is basically a multiline string that can carry a header, like ` ```md `/` ```css `/` ```html `.
 + A `Command_Line` type, letting a program run shell commands from a `String`/`Fence`. Inspired by Tsoding and Jai.
 + Runtime types for every instantiable construct still have a gap: `Symbol` has none at all (see the Symbol entry above). Audit for other raw, un-typed runtime values beyond Symbol.
++ `Func` is a second instance of the gap that Symbol faces. `Code::Func` extends `Code::Scope`, not `Code::Type`. Only `Code::Type` has a `types` accessor. `interp_func` never calls `adopt_type`/`link_instance_to_type`. A function value cannot pass an `===`/`=>=` check, and `@.type`/`@.types` fail on it. Before calling `adopt_type` on a `Func`, give `Func` its own `types` accessor, or make a typed function a `Type`/`Instance` subtype instead of a bare `Scope` subtype.
 + Rename `code/global.code` to `code/global_scope.code` — that is literally what the global scope loads from. Would also make it easier to let a user construct and pick their own global scope later.
 + Constants should be declarable with a type and no value, locking in on the first assignment: `VERSION: Number` now, assign once later. Not possible today — even a typed constant's first assignment already raises `Cannot_Reassign_Constant`.
 + Rewrite `Dom_Renderer` in the language itself, and remove the automatic rendering that happens whenever a route returns a `Dom` instance. Let the user render explicitly, with a helper doing the heavy lifting — control over magic, most likely.
@@ -155,7 +158,6 @@
 - Type aliases resolve in contract checks: `-> Int` returning an `Integer`, `x: Int = 4`, `x: Dec = Decimal(...)` all pass. Runtime `type_contract_satisfied?` resolves an alias to its real type's composed set; the static checker gets a small `TYPE_ALIASES` map.
 - A `@splat`/`@splatr` param's `: Type` / `: <...>` annotation is enforced at the call (`check_splat_param_type_contract`) -- wrong shape raises `Type_Contract_Violation` there, not an `Undeclared_Identifier` deep in the body. `Type_Contract_Violation` now carries a source location.
 - `bin/drive` self-heals the Ruby version -- run through the `/usr/local/bin/drive` symlink from any directory and it re-execs under `.ruby-version` if the shim picked a different one.
-- Raylib speedrun
 - Since `ident...` is varargs, I think `...ident` should be used on the calling end when you want to splat ident's members at the callsite
 - end-of-line `for` expression. `append(it) for collection`
 - I should be able to use symbols in place of strings in some places like `background_loc  := Raylib.get_shader_location(self.invert_shader, 'background')` => `background_loc  := Raylib.get_shader_location(self.invert_shader, :background)`
