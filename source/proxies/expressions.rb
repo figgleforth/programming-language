@@ -255,6 +255,6 @@ module Code
 
 	class When_Expr < Prefix_Expr
 		# attr_accessor :operator ('when'), :expression
-		attr_accessor :body
+		attr_accessor :body, :condition
 	end
 end

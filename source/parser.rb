@@ -363,12 +363,10 @@ module Code
 		#
 		# This is only used inside for-loops and if-family, otherwise "when" identifier is free to use
 		def parse_when_expr
-			# When_Expr < Prefix_Expr
-			# attr_accessor :operator, :expression
 			start         = curr_lexeme
 			it            = When_Expr.new
 			it.operator   = eat 'when'
-			it.expression = parse_expression
+			it.condition = parse_expression
 			it.body       = []
 
 			until curr? %w(when else elsif elif end)
@@ -378,7 +376,7 @@ module Code
 
 			it.body = it.body.compact
 
-			set_expr_location it, start, it.expression
+			set_expr_location it, start, it.condition
 		end
 
 		def parse_conditional_expr

@@ -528,9 +528,6 @@ module Code
 			when Code::Float then 'Float'
 			when Code::Decimal then 'Decimal'
 			when Code::Number then 'Number'
-			when ::Integer then 'Integer'
-			when ::Float then 'Float'
-			when ::BigDecimal then 'Decimal'
 			when Code::String then 'String'
 			when Code::Array then 'Array'
 			when Code::Range then 'Range'
@@ -538,11 +535,16 @@ module Code
 			when Code::Bool then 'Bool'
 			when Code::Instance then value.types.first
 			when Code::Type then value.name
-			# todo: Why are these here? Excluding the else clause
-			when true, false then 'Bool'
+
+			when ::Integer then 'Integer'
+			when ::Float then 'Float'
+			when ::BigDecimal then 'Decimal'
 			when ::String then 'String'
 			when ::Array then 'Array'
 			when ::Hash then 'Dictionary'
+			when ::Symbol then 'Symbol'
+
+			when true, false then 'Bool'
 			else nil
 			end
 		end
@@ -4024,21 +4026,76 @@ module Code
 				return result
 			else
 				# `unless` is just `if` with when_true/when_false swapped -- both branches used to be separately maintained copies of this same body-selection + running logic.
+				# `when_cases` dispatch regardless of whether `condition` is truthy or falsy. The `when` checks `condition`'s own value, not "did the if-branch run". `else` only runs as a fallback: on the falsy path, and only once no `when_case` has matched.
 				condition   = interpret expr.condition
 				truthy_body = expr.type.value == 'unless' ? expr.when_false : expr.when_true
 				falsy_body  = expr.type.value == 'unless' ? expr.when_true : expr.when_false
-				body        = truthy?(condition) ? truthy_body : falsy_body
 
-				if body.is_a? Code::Conditional_Expr
-					interp_conditional body
+				if truthy? condition
+					last_value = run_conditional_body truthy_body
+
+					matched, when_value = dispatch_when_cases expr
+					matched ? when_value : last_value
 				else
-					last_value = nil
-					body.each.inject(nil) do |result, expr|
-						last_value = interpret expr
-					end
-					last_value
+					matched, when_value = dispatch_when_cases expr
+
+					matched ? when_value : run_conditional_body(falsy_body)
 				end
 			end
+		end
+
+		def run_conditional_body body
+			return interp_conditional body if body.is_a? Code::Conditional_Expr
+
+			last_value = nil
+			body.each { |e| last_value = interpret e }
+			last_value
+		end
+
+		# a matching when_case overrides the branch's own last_value; first match wins, no fallthrough
+		def dispatch_when_cases expr
+			last_value = nil
+
+			matched = expr.when_cases&.find do |when_case|
+				# `=>=` is a type/structure check, not a value check.
+				# Two different Symbols (or Numbers, or Strings) are `=>=` to each other since they share a composed type. So using it for every when_case would fail in cases like :a =>= :b.
+				#
+				# The idea then is:
+				#   Use `=>=` only when the when_case's own value is a bare Type (`when Number`)
+				#   Use `==`  otherwise (`when :two`, `when 123`).
+				#
+				# Not yet implemented: a when_case whose condition references `it` directly (e.g. `when it == :three`) should be run as its own condition check, bypassing this comparison entirely.
+
+				when_scope   = Temporary.new 'When Scope'
+				case_matched = false
+
+				begin
+					when_scope.declare 'it', interpret(expr.condition) # condition declared above, representing the base conditional, which is different from the when case's condition.
+					push_scope when_scope # note; The when condition depends on having it's own scope with `it` declared. So the Temporary When scope must be pushed by this point.
+
+					when_value = interpret when_case.condition
+					bare_type  = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
+
+					comparison          = Infix_Expr.new
+					comparison.operator = Lexeme.new :operator, (bare_type ? '=>=' : '==')
+					comparison.left     = expr.condition
+					comparison.right    = when_case.condition
+
+					if interpret comparison
+						when_case.body.each do |case_body_expr|
+							last_value = interpret case_body_expr
+						end
+
+						case_matched = true
+					end
+				ensure
+					Code.assert pop_scope == when_scope
+				end
+
+				case_matched
+			end
+
+			[!!matched, last_value]
 		end
 
 		# The value-producing Context functions (`@puts`, `@assert`, `@connect`, ...). Args are

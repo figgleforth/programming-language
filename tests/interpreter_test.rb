@@ -5263,4 +5263,385 @@ class Interpreter_Test < Base_Test
 	def test_when_is_valid_identifier_outside_of_for_and_conditional_loops
 		assert_equal 42, Code.interp("when := 42")
 	end
+
+	# --- `when` dispatch attached to `if`/`unless` -----------------------------------------------
+
+	def test_when_matches_a_plain_value_with_equality
+		out = Code.interp <<~CODE
+			result := if :two
+				"body-value"
+			when :one
+				"one"
+			when :two
+				"two"
+			end
+			result
+		CODE
+		assert_equal 'two', out
+	end
+
+	def test_when_does_not_match_a_different_value_of_the_same_type
+		# `=>=` is a type/structure check, not a value check -- two different Symbols (or Numbers,
+		# or Strings) are `=>=` to each other since they share a composed type. A plain-value
+		# when_case must only match its own exact value, not any other value of the same type.
+		out = Code.interp <<~CODE
+			result := if :two
+				"body-value"
+			when :one
+				"one"
+			end
+			result
+		CODE
+		assert_equal 'body-value', out
+	end
+
+	def test_when_matches_a_bare_type_via_is_a_check
+		out = Code.interp <<~CODE
+			result := if 5
+				"body-value"
+			when String
+				"string-case"
+			when Number
+				"number-case"
+			end
+			result
+		CODE
+		assert_equal 'number-case', out
+	end
+
+	def test_when_first_match_wins_no_fallthrough
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				if 5
+				when Number
+					@puts "first"
+				when 5
+					@puts "second"
+				end
+			CODE
+		end
+		assert_equal "'first'\n", printed
+	end
+
+	def test_when_falls_through_to_the_if_bodys_own_value_when_nothing_matches
+		out = Code.interp <<~CODE
+			result := if 5
+				"body-value"
+			when String
+				"string-case"
+			end
+			result
+		CODE
+		assert_equal 'body-value', out
+	end
+
+	def test_when_a_match_overrides_the_if_bodys_own_value
+		out = Code.interp <<~CODE
+			result := if 5
+				"body-value"
+			when Number
+				"number-case"
+			end
+			result
+		CODE
+		assert_equal 'number-case', out
+	end
+
+	def test_when_if_body_runs_even_when_a_when_case_overrides_the_result
+		printed = nil
+		result  = nil
+
+		printed = capture_stdout do
+			result = Code.interp <<~CODE
+				if 5
+					@puts "if-ran"
+				when Number
+					"number-case"
+				end
+			CODE
+		end
+
+		assert_equal 'number-case', result
+		assert_equal "'if-ran'\n", printed
+	end
+
+	def test_when_dispatches_against_a_falsy_condition_too
+		# `when` checks `condition`'s own value, not "did the if-branch run" -- a `when` can match
+		# even when the overall `if` took its falsy path.
+		out = Code.interp <<~CODE
+			result := if false
+				"body-value"
+			when true
+				"true-case"
+			when false
+				"false-case"
+			end
+			result
+		CODE
+		assert_equal 'false-case', out
+	end
+
+	def test_when_if_body_does_not_run_when_condition_is_falsy
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				if false
+					@puts "if-ran"
+				when false
+					@puts "when-ran"
+				end
+			CODE
+		end
+		assert_equal "'when-ran'\n", printed
+	end
+
+	def test_when_a_match_on_the_falsy_path_skips_else
+		out = Code.interp <<~CODE
+			result := if false
+				"body-value"
+			when true
+				"true-case"
+			when false
+				"false-case"
+			else
+				"else-value"
+			end
+			result
+		CODE
+		assert_equal 'false-case', out
+	end
+
+	def test_when_else_runs_as_a_fallback_when_no_when_case_matches_on_the_falsy_path
+		out = Code.interp <<~CODE
+			result := if false
+			when true
+				"true-case"
+			else
+				"else-value"
+			end
+			result
+		CODE
+		assert_equal 'else-value', out
+	end
+
+	def test_when_else_still_runs_when_there_are_no_when_cases_at_all
+		out = Code.interp <<~CODE
+			result := if false
+				"body-value"
+			else
+				"else-value"
+			end
+			result
+		CODE
+		assert_equal 'else-value', out
+	end
+
+	def test_when_bare_it_case_acts_as_a_catch_all
+		out = Code.interp <<~CODE
+			result := if 999
+			when :one
+				"one"
+			when it
+				"fallback"
+			end
+			result
+		CODE
+		assert_equal 'fallback', out
+	end
+
+	def test_when_it_is_bound_to_the_conditions_own_value_inside_a_matched_case
+		out = Code.interp <<~CODE
+			if 42
+			when Number
+				it
+			end
+		CODE
+		assert_equal 42, out
+	end
+
+	def test_when_it_does_not_leak_past_the_conditional
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+				if 5
+				when Number
+					99
+				end
+				it
+			CODE
+		end
+	end
+
+	def test_when_works_with_unless
+		out = Code.interp <<~CODE
+			result := unless true
+			when :never
+				"never"
+			else
+				"else-case"
+			end
+			result
+		CODE
+		assert_equal 'else-case', out
+	end
+
+	def test_when_works_inside_an_elsif_branchs_own_when_group
+		# Each branch's `when` group is independent -- the outer `if`'s cases only ever compare
+		# against the outer condition, and the `elsif`'s cases only against its own.
+		out = Code.interp <<~CODE
+			result := if false
+			when :never
+				"never"
+			elsif :thing
+				"elsif-body"
+			when :thing
+				"elsif-match"
+			end
+			result
+		CODE
+		assert_equal 'elsif-match', out
+	end
+
+	# --- Deeper nesting -- switches inside switches, three levels ------------------------------
+
+	def test_when_works_across_three_chained_elsif_branches_each_with_its_own_when_group
+		out = Code.interp <<~CODE
+			result := if false
+			when :never
+				"never"
+			elsif false
+			when :also_never
+				"also-never"
+			elsif :thing
+				"elsif-body"
+			when :thing
+				"elsif-match"
+			end
+			result
+		CODE
+		assert_equal 'elsif-match', out
+	end
+
+	def test_when_it_shadows_correctly_three_levels_of_nested_switches_deep
+		# Each nested `if`/`when` pushes its own `it` binding on top of the outer one -- while a
+		# nested switch is running, `it` refers to its own condition; once it finishes, the
+		# enclosing switch's own `it` is visible again, unclobbered.
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				if :outer
+				when :outer
+					@puts it
+					if :middle
+					when :middle
+						@puts it
+						if :inner
+						when :inner
+							@puts it
+						end
+						@puts it
+					end
+					@puts it
+				end
+			CODE
+		end
+		assert_equal "outer\nmiddle\ninner\nmiddle\nouter\n", printed
+	end
+
+	def test_when_nested_three_levels_deep_propagates_the_innermost_matched_value
+		out = Code.interp <<~CODE
+			result := if :outer
+			when :outer
+				inner := if :middle
+				when :middle
+					innermost := if :inner
+					when :inner
+						"deepest"
+					end
+					innermost
+				end
+				inner
+			end
+			result
+		CODE
+		assert_equal 'deepest', out
+	end
+
+	def test_when_nested_switch_falls_back_to_its_own_body_value_when_nothing_matches
+		out = Code.interp <<~CODE
+			result := if :outer
+			when :outer
+				inner := if 5
+					"middle-body-value"
+				when String
+					"middle-string-case"
+				end
+				inner
+			end
+			result
+		CODE
+		assert_equal 'middle-body-value', out
+	end
+
+	def test_when_elsif_branchs_when_case_contains_a_further_nested_switch_two_levels_deep
+		out = Code.interp <<~CODE
+			result := if false
+			when :never
+				"never"
+			elsif :thing
+				"elsif-body"
+			when :thing
+				inner := if :deep_outer
+				when :deep_outer
+					deepest := if :deep_inner
+					when :deep_inner
+						"deep-match"
+					end
+					deepest
+				end
+				inner
+			end
+			result
+		CODE
+		assert_equal 'deep-match', out
+	end
+
+	def test_when_traces_execution_order_through_an_elsif_and_two_further_nested_switches
+		# Same shape as test_when_elsif_branchs_when_case_contains_a_further_nested_switch_two_levels_
+		# deep, but every body is a @puts instead of a value -- this traces exactly which branches
+		# actually ran, and in what order, rather than only checking the final value.
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				if false
+					@puts "outer-if-body"
+				when :never
+					@puts "outer-when-never"
+				elsif :thing
+					@puts "elsif-body"
+				when :thing
+					@puts "elsif-when-thing"
+					if :deep_outer
+						@puts "deep-outer-if-body"
+					when :deep_outer
+						@puts "deep-outer-when-match"
+						if :deep_inner
+							@puts "deep-inner-if-body"
+						when :deep_inner
+							@puts "deep-inner-when-match"
+						end
+					end
+				end
+			CODE
+		end
+
+		expected = [
+			'elsif-body',
+			'elsif-when-thing',
+			'deep-outer-if-body',
+			'deep-outer-when-match',
+			'deep-inner-if-body',
+			'deep-inner-when-match',
+		].map { |line| "'#{line}'\n" }.join
+
+		# outer-if-body and outer-when-never must NOT appear: the outer condition is falsy, so its
+		# own if-body never runs, and :never doesn't match false.
+		assert_equal expected, printed
+	end
 end
