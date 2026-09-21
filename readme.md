@@ -1605,6 +1605,16 @@ lying ( a -> Number; 'not a number' )
 lying(5)   # raises Code::Type_Contract_Violation — declared Number, actually returned String
 ```
 
+A `Nil` return type is like a void function, it swallows whatever you try to return and will return `nil` instead.
+
+```code
+nothing ( anything: Any -> Nil;
+	anything
+)
+
+(nothing(123), nothing('456'), nothing(nothing)) # (nil, nil, nil)
+```
+
 ## Structs
 
 1. `<...>` attaches runtime-inspectable metadata (a struct) to a standalone value. Tagging a *Type* itself uses `\` instead — `Array\<String> {}` (inline literal), `Array\Task_Schema {}` (named reference to a declared struct or Type), `Primary_Key\4815` (a bare integer "version tag")

@@ -5953,4 +5953,50 @@ class Interpreter_Test < Base_Test
 			.map { |line| "#{line}\n" }.join
 		assert_equal expected, printed
 	end
+
+	def test_forced_nil_return_type
+		out = Code.interp <<~CODE
+		    nothing ( anything: Any -> Nil;
+				anything
+			)
+			(nothing(123), nothing('456'), nothing(nothing))
+		CODE
+		assert_equal 3, out.values.count
+		assert_equal [nil, nil, nil], out.values
+	end
+
+	def test_forced_nil_return_type_with_explicit_return
+		out = Code.interp <<~CODE
+		    go ( x: Number -> Nil;
+				return x
+			)
+			(go(5), go(-5))
+		CODE
+		assert_equal [nil, nil], out.values
+	end
+
+	def test_forced_nil_return_type_on_instance_method
+		out = Code.interp <<~CODE
+		    Thing {
+				go ( x: Number -> Nil;
+					x
+				)
+			}
+			Thing().go(5)
+		CODE
+		assert_nil out
+	end
+
+	def test_forced_nil_return_type_still_runs_body_side_effects
+		out = Code.interp <<~CODE
+		    tally := 0
+			go ( x: Number -> Nil;
+				tally = tally + x
+				x
+			)
+			result := go(5)
+			(result, tally)
+		CODE
+		assert_equal [nil, 5], out.values
+	end
 end

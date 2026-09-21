@@ -3206,11 +3206,10 @@ module Code
 			return_value = result.is_a?(Code::Return) ? result.value : result
 
 			if func.func_signature.return_type
-				# Compositional, not exact-name -- a `-> Table` returning a `Task`-composed value is a safe
-				# covariant return. `#type_contract_satisfied?` also short-circuits `-> Any` (the universal
-				# wildcard) and an exact name match before this compositional check.
+				return nil if func.func_signature.return_type == 'Nil'
+
 				actual_type = type_name_to_string return_value
-				unless type_contract_satisfied?(return_value, func.func_signature.return_type)
+				unless type_contract_satisfied? return_value, func.func_signature.return_type
 					raise Code::Type_Contract_Violation.new(expr, type_contract_display(func.func_signature.return_type), actual_type)
 				end
 			end

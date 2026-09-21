@@ -1,6 +1,5 @@
 + Composable functions. `step1 | step2 | step2 (input; ... )` where each composed function fits the shape of input for the prvious output, and fits the shape of output for the next step.
 + Reuse call site labels as named arguments.
-+ A function should be able to say it returns nothing. Proposed spellings: `f {->Nil;}`, or a new `Void`/`None` type.
 + Support any Numeric-like system that can be incremented. Example: `Standard_Deck | Numeric`, `card := deck.random()` gives a card, `card += 1` gives the next card in the deck.
 + A `Symbol` is not wrapped the way a String or Number is. It stays a raw Ruby Symbol with no runtime type of its own.
 + Replace comma nil-init (`ident,`) with semicolon nil-init (`ident;`), so a bare comma stays free for tuples and destructuring. Only legal inside `{ }` bodies, not `()`/`[]`. Many existing `ident,` sites need updating.
@@ -165,3 +164,4 @@
 - All loops (for/while/until) and ifs should support `when`/`else`
 - Switch statement (required for `@help` / `@help(expr)`)
 - Numbers support underscore separators (`1_000_000`). The second consecutive underscore breaks the number, so only 1 underscore between numbers is allowed.
+- A function should be able to say it returns nothing. Proposed spellings: `f {->Nil;}`, or a new `Void`/`None` type.
