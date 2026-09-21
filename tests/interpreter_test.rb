@@ -5644,4 +5644,313 @@ class Interpreter_Test < Base_Test
 		# own if-body never runs, and :never doesn't match false.
 		assert_equal expected, printed
 	end
+
+	# --- `when` dispatch attached to `for` loops -------------------------------------------------
+
+	def test_when_matches_a_plain_value_per_element_in_a_collection_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for [1, 2, 3]
+				result.push("body")
+			when 2
+				result.push("matched-two")
+			end
+			result
+		CODE
+		assert_equal ['body', 'body', 'matched-two', 'body'], out.values
+	end
+
+	def test_when_does_not_match_a_different_value_of_the_same_type_in_a_collection_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for [1, 2, 3]
+			when 99
+				result.push("matched")
+			end
+			result
+		CODE
+		assert_equal [], out.values
+	end
+
+	def test_when_matches_a_bare_type_per_element_in_a_collection_for_loop
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				for [1, "two", 3]
+					@puts "iter"
+				when String
+					@puts "string-case"
+				when Number
+					@puts "number-case"
+				end
+			CODE
+		end
+		expected = ["iter", "number-case", "iter", "string-case", "iter", "number-case"]
+			.map { |line| "'#{line}'\n" }.join
+		assert_equal expected, printed
+	end
+
+	def test_when_first_match_wins_in_a_collection_for_loop
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				for [5]
+				when Number
+					@puts "first"
+				when 5
+					@puts "second"
+				end
+			CODE
+		end
+		assert_equal "'first'\n", printed
+	end
+
+	def test_own_body_value_wins_when_nothing_matches_in_a_collection_for_loop
+		out = Code.interp <<~CODE
+			result := for [1, 2, 3]
+				"body-value"
+			when String
+				"string-case"
+			end
+			result
+		CODE
+		assert_equal 'body-value', out
+	end
+
+	def test_when_overrides_the_for_loops_own_return_value
+		out = Code.interp <<~CODE
+			result := for [1, 2, 3]
+				"body-value"
+			when Number
+				"number-case"
+			end
+			result
+		CODE
+		assert_equal 'number-case', out
+	end
+
+	def test_when_else_runs_as_a_fallback_in_a_collection_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for [1, 2, 3]
+				result.push("body")
+			when String
+				result.push("string-case")
+			else
+				result.push("else-case")
+			end
+			result
+		CODE
+		assert_equal ['body', 'else-case', 'body', 'else-case', 'body', 'else-case'], out.values
+	end
+
+	def test_when_else_does_not_run_when_a_case_matches_in_a_collection_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for [1, 2, 3]
+				result.push("body")
+			when Number
+				result.push("number-case")
+			else
+				result.push("else-case")
+			end
+			result
+		CODE
+		assert_equal ['body', 'number-case'] * 3, out.values
+	end
+
+	def test_when_bare_it_case_acts_as_a_catch_all_in_a_collection_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for [1, 2, 3]
+			when :never
+				result.push("never")
+			when it
+				result.push(it)
+			end
+			result
+		CODE
+		assert_equal [1, 2, 3], out.values
+	end
+
+	def test_when_at_is_still_correct_alongside_when_dispatch_in_a_collection_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for [10, 20, 30]
+				result.push(at)
+			when Number
+				nil
+			end
+			result
+		CODE
+		assert_equal [0, 1, 2], out.values
+	end
+
+	def test_when_it_does_not_leak_past_a_collection_for_loop
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+				for [1, 2, 3]
+				when Number
+					"x"
+				end
+				it
+			CODE
+		end
+	end
+
+	def test_when_matches_the_counters_value_in_a_c_style_for_loop
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				for x := 0, x < 3, x++
+					@puts "iter"
+				when 1
+					@puts "matched-one"
+				end
+			CODE
+		end
+		expected = ["iter", "iter", "matched-one", "iter"].map { |line| "'#{line}'\n" }.join
+		assert_equal expected, printed
+	end
+
+	def test_when_it_references_the_counter_not_the_loop_condition_in_a_c_style_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for x := 0, x < 3, x++
+			when it
+				result.push(it)
+			end
+			result
+		CODE
+		assert_equal [0, 1, 2], out.values
+	end
+
+	def test_when_else_runs_as_a_fallback_in_a_c_style_for_loop
+		out = Code.interp <<~CODE
+			result := []
+			for x := 0, x < 3, x++
+				result.push("body")
+			when 1
+				result.push(it)
+			else
+				result.push("else")
+			end
+			result
+		CODE
+		assert_equal ['body', 'else', 'body', 1, 'body', 'else'], out.values
+	end
+
+	def test_when_works_with_the_iterator_protocol_for_loop
+		out = Code.interp <<~CODE
+			@load 'code/iterable'
+
+			Tens {
+				values := [1, 2, 3]
+				next (index: Int -> Any;
+					if index >= values.length()
+						Stop_Iterating()
+					else
+						values[index] * 10
+					end
+				)
+				Done {}
+			}
+
+			result := []
+			for Tens()
+				result.push("body")
+			when 20
+				result.push("matched-twenty")
+			end
+			result
+		CODE
+		assert_equal ['body', 'body', 'matched-twenty', 'body'], out.values
+	end
+
+	def test_when_else_runs_as_a_fallback_with_the_iterator_protocol_for_loop
+		out = Code.interp <<~CODE
+			@load 'code/iterable'
+
+			Tens {
+				values := [1, 2, 3]
+				next (index: Int -> Any;
+					if index >= values.length()
+						Stop_Iterating()
+					else
+						values[index] * 10
+					end
+				)
+				Done {}
+			}
+
+			result := []
+			for Tens()
+				result.push("body")
+			when 20
+				result.push("matched-twenty")
+			else
+				result.push("else-case")
+			end
+			result
+		CODE
+		assert_equal ['body', 'else-case', 'body', 'matched-twenty', 'body', 'else-case'], out.values
+	end
+
+	def test_when_traces_execution_order_through_a_collection_for_loop
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				for [1, "two", 3]
+					@puts "iter"
+				when String
+					@puts "string-case"
+				when Number
+					@puts "number-case"
+				else
+					@puts "else-case"
+				end
+			CODE
+		end
+		expected = ["iter", "number-case", "iter", "string-case", "iter", "number-case"]
+			.map { |line| "'#{line}'\n" }.join
+		assert_equal expected, printed
+	end
+
+	def test_when_nested_three_levels_deep_across_for_loops_and_if_switches
+		# A for-loop's when-case body contains an if/when switch, whose own matching case body
+		# contains a further nested for-loop with its own when -- three levels, mixing both
+		# constructs, all still resolving correctly.
+		out = Code.interp <<~CODE
+			result := []
+			for [1, 2, 3]
+			when 2
+				if :inner
+				when :inner
+					for [10, 20]
+					when 20
+						result.push("deepest")
+					end
+				end
+			end
+			result
+		CODE
+		assert_equal ['deepest'], out.values
+	end
+
+	def test_when_it_shadows_correctly_through_nested_for_loops_with_a_plain_if_inside
+		printed = capture_stdout do
+			Code.interp <<~CODE
+				for [1, 2]
+					@puts it
+					for [10, 20]
+						@puts it
+						if it > 15
+							@puts it
+						end
+						@puts it
+					end
+					@puts it
+				end
+			CODE
+		end
+		expected = [1, 10, 10, 20, 20, 20, 1, 2, 10, 10, 20, 20, 20, 2]
+			.map { |line| "#{line}\n" }.join
+		assert_equal expected, printed
+	end
 end

@@ -3784,6 +3784,16 @@ module Code
 										throw :stop, last_expr
 									end
 								end
+
+								if expr.when_cases
+									matched, when_value = dispatch_when_cases expr, find_in_stack(expr.counter.left.value)
+
+									if matched
+										last_expr = when_value
+									elsif expr.when_else_case&.any?
+										expr.when_else_case.each { |e| last_expr = interpret e }
+									end
+								end
 							end
 
 							iteration += 1
@@ -3802,6 +3812,21 @@ module Code
 			last_expr
 		end
 
+		# All forms of for loops support when-switches.
+		#
+		#   for x:=0, x<2, x++      # don't support verbs here yet
+		#       when it   # it references x
+		#       else      # runs only if `when` present but none triggered. syntax error if present otherwise
+		#   end
+		#
+		#   for collection
+		#       when ...
+		#       else      # also runs only if `when` present but none triggered
+		#   end
+		#
+		#   for collection verb
+		#   end
+		#
 		# @param expr [Code::For_Loop_Expr]
 		def interp_for_loop expr
 			if expr.counter && expr.condition && expr.step
@@ -3865,6 +3890,16 @@ module Code
 							body_result = interpret e
 							throw(:stop, body_result) if body_result.is_a? Code::Return
 						end
+
+						if expr.when_cases
+							matched, when_value = dispatch_when_cases expr, element
+
+							if matched
+								body_result = when_value
+							elsif expr.when_else_case&.any?
+								expr.when_else_case.each { |e| body_result = interpret e }
+							end
+						end
 					end
 				ensure
 					Code.assert pop_scope == scope
@@ -3926,6 +3961,16 @@ module Code
 								expr.body.each do |e|
 									for_loop_body_result = interpret e
 									throw(:stop, for_loop_body_result) if for_loop_body_result.is_a? Code::Return
+								end
+
+								if expr.when_cases
+									matched, when_value = dispatch_when_cases expr, result
+
+									if matched
+										for_loop_body_result = when_value
+									elsif expr.when_else_case&.any?
+										expr.when_else_case.each { |e| for_loop_body_result = interpret e }
+									end
 								end
 							end
 						ensure
@@ -4025,6 +4070,8 @@ module Code
 
 				return result
 			else
+				# Handle if/unless here.
+				#
 				# `unless` is just `if` with when_true/when_false swapped -- both branches used to be separately maintained copies of this same body-selection + running logic.
 				# `when_cases` dispatch regardless of whether `condition` is truthy or falsy. The `when` checks `condition`'s own value, not "did the if-branch run". `else` only runs as a fallback: on the falsy path, and only once no `when_case` has matched.
 				condition   = interpret expr.condition
@@ -4034,10 +4081,10 @@ module Code
 				if truthy? condition
 					last_value = run_conditional_body truthy_body
 
-					matched, when_value = dispatch_when_cases expr
+					matched, when_value = dispatch_when_cases expr, condition
 					matched ? when_value : last_value
 				else
-					matched, when_value = dispatch_when_cases expr
+					matched, when_value = dispatch_when_cases expr, condition
 
 					matched ? when_value : run_conditional_body(falsy_body)
 				end
@@ -4053,7 +4100,7 @@ module Code
 		end
 
 		# a matching when_case overrides the branch's own last_value; first match wins, no fallthrough
-		def dispatch_when_cases expr
+		def dispatch_when_cases expr, it_value = nil
 			last_value = nil
 
 			matched = expr.when_cases&.find do |when_case|
@@ -4070,18 +4117,17 @@ module Code
 				case_matched = false
 
 				begin
-					when_scope.declare 'it', interpret(expr.condition) # condition declared above, representing the base conditional, which is different from the when case's condition.
+					when_scope.declare 'it', it_value # condition declared above, representing the base conditional, which is different from the when case's condition.
 					push_scope when_scope # note; The when condition depends on having it's own scope with `it` declared. So the Temporary When scope must be pushed by this point.
 
 					when_value = interpret when_case.condition
-					bare_type  = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
 
-					comparison          = Infix_Expr.new
-					comparison.operator = Lexeme.new :operator, (bare_type ? '=>=' : '==')
-					comparison.left     = expr.condition
-					comparison.right    = when_case.condition
+					bare_type     = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
+					fake          = Infix_Expr.new
+					fake.operator = Lexeme.new :operator, bare_type ? '=>=' : '=='
+					matched_case  = interp_comparison_infix fake, it_value, when_value
 
-					if interpret comparison
+					if matched_case
 						when_case.body.each do |case_body_expr|
 							last_value = interpret case_body_expr
 						end
