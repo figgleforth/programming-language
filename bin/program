@@ -15,6 +15,6 @@ if wanted_ruby && RUBY_VERSION != wanted_ruby && !ENV['CODE_RUBY_SELECTED']
 	exec({ 'RBENV_VERSION' => wanted_ruby, 'CODE_RUBY_SELECTED' => '1' }, ruby, bin_path, *ARGV)
 end
 
-require_relative '../source/main.rb'
+require_relative '../ruby/main.rb'
 
 Code::CLI.run ARGV

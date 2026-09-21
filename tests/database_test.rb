@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 require 'net/http'
 require 'uri'
@@ -7,8 +7,8 @@ require 'sequel'
 require 'securerandom'
 
 class Database_Test < Base_Test
-	DATABASE = "@load 'code/database.code'"
-	RECORD   = "@load 'code/table.code'"
+	DATABASE = "@load 'lang/database.code'"
+	RECORD   = "@load 'lang/table.code'"
 
 	def before_setup
 		@filepath = "./temp#{SecureRandom.hex}.db"

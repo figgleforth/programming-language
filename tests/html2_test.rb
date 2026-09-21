@@ -1,12 +1,12 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
-# source/code/html2.code: the Element/Attribute structs, Html_Formatter_Visitor (render + minify, void
+# lang/html2.code: the Element/Attribute structs, Html_Formatter_Visitor (render + minify, void
 # tags, embedded css), Html_Stats_Visitor, Html_Sanitizer_Visitor, Html_Lint_Visitor, and the
 # lowercase element constructors.
 class Html2_Test < Base_Test
-	HTML = "@load 'code/html2.code'"
+	HTML = "@load 'lang/html2.code'"
 
 	# --- Html_Formatter_Visitor: render -----------------------------------------
 

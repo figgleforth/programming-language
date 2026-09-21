@@ -1,6 +1,6 @@
 require 'minitest/autorun'
 require 'tmpdir'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 class File_Test < Base_Test

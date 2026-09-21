@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 # TYPE_IDENT [ ... ]                    -- bare form (needs a comma / 2+ items / a member form, else it's a subscript)
@@ -167,7 +167,7 @@ class Enums_Test < Base_Test
 	# The same bug, as it actually surfaced: a struct member typed with a user-declared enum displayed its type as "Instance" instead of the real enum name.
 	def test_struct_member_typed_with_an_enum_displays_the_real_enum_name_regression
 		out = Code.interp <<~CODE
-		    @load 'code/struct.code'
+		    @load 'lang/struct.code'
 		    Task_Type [ TODO, BUG ]
 		    s := <kind: Task_Type = Task_Type.TODO>
 		    s.to_s()

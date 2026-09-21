@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 class Temporal_Test < Base_Test
@@ -64,8 +64,8 @@ class Temporal_Test < Base_Test
 		File.delete(filepath) if File.exist?(filepath)
 
 		code = <<~CODE
-		    @load 'code/database.code'
-		    @load 'code/table.code'
+		    @load 'lang/database.code'
+		    @load 'lang/table.code'
 		    db := @connect Sqlite('#{filepath}')
 
 		    Log_Schema <

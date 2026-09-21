@@ -1,0 +1,28 @@
+@load 'lang/any'
+@load 'lang/nil'
+@load 'lang/file'
+@load 'lang/directory'
+@load 'lang/date'
+@load 'lang/time'
+@load 'lang/date_time'
+@load 'lang/number'
+@load 'lang/array'
+@load 'lang/range'
+@load 'lang/set'
+@load 'lang/dictionary'
+@load 'lang/string'
+@load 'lang/symbol'
+@load 'lang/fence'
+@load 'lang/struct'
+@load 'lang/statement'
+@load 'lang/enum'
+@load 'lang/tuple'
+@load 'lang/bool'
+@load 'lang/context'
+
+### How to load programs.
+@load 'lang/some.code'  # the standard library itself lives in ./lang/
+@load './this.code'      # relative to wherever you ran bin/program from (cwd)
+@load 'that.code'        # relative to wherever you ran bin/program from (cwd)
+@load 'and_this'         # no .code extension required
+###

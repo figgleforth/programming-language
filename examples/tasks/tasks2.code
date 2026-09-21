@@ -1,17 +1,17 @@
-# Second version of tasks.code: identical functionality, built on code/css.code + code/html2.code
+# Second version of tasks.code: identical functionality, built on lang/css.code + lang/html2.code
 # (struct-and-visitor) instead of html.code's Dom types. One real, unavoidable difference:
-# code/html2.code deliberately doesn't hook into the server-side live-render pipeline (onclick
+# lang/html2.code deliberately doesn't hook into the server-side live-render pipeline (onclick
 # wiring, dom.js, X-Code-Target-Id partial updates) the way html.code's Dom does -- it only
 # builds an HTML string (see its own header comment). So every "click a button, something changes"
 # interaction here is a plain HTML form POST + redirect instead of an onclick handler -- same
 # capabilities (add a task, toggle done, edit type/text, see it reflected), just a full page
 # reload to get there instead of an in-place AJAX-style swap.
 
-@load 'code/database'
-@load 'code/table'
-@load 'code/css'
-@load 'code/html2'
-@load 'code/server'
+@load 'lang/database'
+@load 'lang/table'
+@load 'lang/css'
+@load 'lang/html2'
+@load 'lang/server'
 
 Task_Type [TODO BUG DESIGN]
 
@@ -167,7 +167,7 @@ app := App()
 
 CASCADIA_FONT_LINK := link([
 	Attribute("rel", "stylesheet"),
-	Attribute("href", "https://cdn.jsdelivr.net/npm/@fontsource/cascadia-mono@5.0.1/index.css")
+	Attribute("href", "https://cdn.jsdelivr.net/npm/@fontruby/cascadia-mono@5.0.1/index.css")
 ])
 
 TERMINAL_CSS := Style_Rule(["body"], [Property("background-color", "#051308"), Property("color", "#fff")])

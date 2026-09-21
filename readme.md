@@ -3,7 +3,7 @@
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 
-Learn about the language below, or [in the learn section](examples/readme.md), or *[click here to get started using it](source/readme.md)*.
+Learn about the language below, or [in the learn section](examples/readme.md), or *[click here to get started using it](ruby/readme.md)*.
 
 ## Variables
 
@@ -177,7 +177,7 @@ A bare `@load` hoists too, so imports can live at the bottom of the file instead
 sign := Div([P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-@load 'code/html.code'
+@load 'lang/html.code'
 ```
 
 `Ident := @load 'file'` / `IDENT := @load 'file'` hoist too — only a Capitalized or UPPERCASE name opts in:
@@ -186,9 +186,9 @@ sign.to_s()  # '<div><p>hi</p></div>'
 sign := Html_Lib.Div([Html_Lib.P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-Html_Lib := @load 'code/html.code'
+Html_Lib := @load 'lang/html.code'
 
-# html_lib := @load 'code/html.code'   -- lowercase stays a plain variable, not hoisted
+# html_lib := @load 'lang/html.code'   -- lowercase stays a plain variable, not hoisted
 ```
 
 A plain variable is never hoisted — reading it before its line runs still raises `Undeclared_Identifier`:
@@ -1077,8 +1077,8 @@ w.@version        # 2 — an instance reads through to its type's context
 4. The path can also be written bare (unquoted), as long as it starts with `./`, `../`, or `~/` — a `\ ` pair escapes a literal space, the same way a shell's own tab-completion writes one
 
 ```code
-@load 'code/string.code'
-@load 'code/array.code'
+@load 'lang/string.code'
+@load 'lang/array.code'
 @load './my_module.code'
 my_mod := @load './my_module.code'
 my_mod.Some_Type()
@@ -1158,7 +1158,7 @@ supplies := <water: Number = 40, wood: Number = 12>
 3. Boot with `@start_server` (background thread; `@stop_server` to shut one down)
 
 ```code
-@load 'code/server.code'
+@load 'lang/server.code'
 
 App | Server {
     Self (;
@@ -1231,12 +1231,12 @@ get://api/data (;
 
 ## Database
 
-1. `@load 'code/database.code'` -- this pulls in `code/table.code` too
+1. `@load 'lang/database.code'` -- this pulls in `lang/table.code` too
 2. `Sqlite(url)` builds a database; `@connect` opens it and **returns it**
 3. `Sqlite.memory()` for an in-memory db, `Sqlite.local('a/path.db')` for a file at that path verbatim -- the parent directory has to already exist
 
 ```code
-@load 'code/database.code'
+@load 'lang/database.code'
 
 db := @connect Sqlite('./data/app.db')
 ```
@@ -1285,13 +1285,13 @@ users.count()
 
 ## HTML Elements
 
-1. Compose with HTML element types from `code/html.code`
+1. Compose with HTML element types from `lang/html.code`
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
 4. `.to_s()` renders an element and its children to string directly
 
 ```code
-@load 'code/html.code'
+@load 'lang/html.code'
 
 Card | Div {
     css_padding := '1rem'
@@ -1322,13 +1322,13 @@ page := Html([
 
 ## CSS
 
-1. `@load 'code/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
+1. `@load 'lang/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
 2. `Css_Formatter_Visitor` walks the tree into a real CSS string -- pretty by default, `minify := true` for one line
 3. A rule nested inside another rule's `rules` gets a synthesized `&` prefix; a rule inside an `At_Rule`/`Scope_Rule` body does not, since there's no parent selector to refer to
 4. `Css_Lint_Visitor` checks for duplicate properties, hardcoded vendor prefixes, and redundant zero-units (`0px` -> `0`). Given a whole `Stylesheet`, it also warns when a state rule (`:hover`, `:focus`, ...) sets `transform` while the base selector runs a keyframe `animation` that also animates it -- the animation overrides the hover value every frame
 
 ```code
-@load 'code/css.code'
+@load 'lang/css.code'
 
 rule := Style_Rule(['.card'], [Property('color', 'red'), Property('padding', '8px')])
 
@@ -1344,15 +1344,15 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 
 ## Struct-Based HTML
 
-1. `@load 'code/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `code/html.code`'s `Dom` types above -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline
+1. `@load 'lang/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `lang/html.code`'s `Dom` types above -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline
 2. `attributes` is an ordered `Array\Attribute`, not a Dictionary -- attributes keep their given order and can even collide (see `Html_Lint_Visitor` below)
 3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as an embedded `<style>` child wherever it's attached
 4. `Html_Render`/`Html_Format` are compact/pretty formatter instances; void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
 5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attributes) walk the same tree for their own purposes
 
 ```code
-@load 'code/html2.code'
-@load 'code/css.code'
+@load 'lang/html2.code'
+@load 'lang/css.code'
 
 page := div([
     h1('Welcome'),

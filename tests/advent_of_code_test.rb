@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 # The Advent of Code solutions in examples/aoc/ crunch real puzzle input and are slow (day 4 brute-forces

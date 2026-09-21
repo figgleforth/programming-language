@@ -1,7 +1,7 @@
-@load 'code/database'
-@load 'code/table'
-@load 'code/html'
-@load 'code/server'
+@load 'lang/database'
+@load 'lang/table'
+@load 'lang/html'
+@load 'lang/server'
 
 Task_Type [TODO BUG DESIGN]
 
@@ -182,7 +182,7 @@ My_Canvas | Canvas {
 
 Cascadia_Font_Link | Link {
     html_rel  := 'stylesheet'
-    html_href := 'https://cdn.jsdelivr.net/npm/@fontsource/cascadia-mono@5.0.1/index.css'
+    html_href := 'https://cdn.jsdelivr.net/npm/@fontruby/cascadia-mono@5.0.1/index.css'
 }
 
 Terminal_Canvas_Page | Html {

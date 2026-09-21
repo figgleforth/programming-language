@@ -1,0 +1,73 @@
+Number {
+	value,
+
+	Self ( value := 0;
+		self.value = value
+	)
+
+
+	# note; Comparison and arithmetic both run straight on `value`, the wrapped Ruby Numeric, so mixed
+	# Integer/Float/Decimal operands behave the way Ruby's own numeric tower does. Integer division
+	# stays lossy (`7 / 2` is `3`) -- that's Ruby's `Integer#/`. Kept here as the canonical `@operator`
+	@operator <=> @infix ( left: Number, right: Number -> Number;
+		left.value <=> right.value
+	)
+
+	@operator < @infix ( left: Number, right: Number -> Bool;
+		(left <=> right) < 0
+	)
+
+	@operator > @infix ( left: Number, right: Number -> Bool;
+		(left <=> right) > 0
+	)
+
+	@operator <= @infix ( left: Number, right: Number -> Bool;
+		(left <=> right) <= 0
+	)
+
+	@operator >= @infix ( left: Number, right: Number -> Bool;
+		(left <=> right) >= 0
+	)
+
+	Self.rand ( max := 1.0; @ruby )
+
+	numerator (; @ruby )
+	denominator (; @ruby )
+	clamp ( min, max; @ruby )
+	to_s (; @ruby )
+	abs (; @ruby )
+	floor (; @ruby )
+	ceil (; @ruby )
+	round ( digits := 0; @ruby ) # e.g. 3.14159.round(2) -> 3.14
+
+	sqrt (; @ruby )
+	square_root := sqrt
+
+	sin (; @ruby ) # radians in, unit-circle Y out
+	cos (; @ruby ) # radians in, unit-circle X out
+	trunc (; @ruby ) # chops the fractional part, toward zero -- 1.9.trunc() is 1, -1.9.trunc() is -1
+
+	even? (; @ruby )
+	odd? (; @ruby )
+	to_i (; @ruby )
+	to_f (; @ruby )
+
+	squared (-> Number;
+		value * value
+	)
+}
+
+# The concrete numeric types, mirroring Ruby. Each wraps the matching Ruby class (see
+# src/external/ruby/number.rb): an integer literal is an `Integer`, a literal with a fractional part
+# is a `Float`, and `Decimal(...)` wraps a BigDecimal. All compose `Number`, so `4 =>= Number` and
+# every `Number` method is inherited.
+Integer | Number {}
+Float | Number {}
+Decimal | Number {}
+
+# Short aliases -- Ruby has no equivalent, but the temporal structs (lang/date.code etc) and DB
+# schema columns lean on the brevity. `Int` is-a `Integer` is-a `Number`.
+Int := Integer
+Flo := Float
+Dec := Decimal
+Num := Number

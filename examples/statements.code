@@ -48,7 +48,7 @@ z := `5 * 5`
 
 A context call like `@load` is an ordinary expression too, so wrapping one in backticks defers it the same way -- build the Statement now, run the load later.
 ###
-loader := `@load 'code/string'`
+loader := `@load 'lang/string'`
 loader()
 @assert 'prog'.upcase() == 'PROG', 'the deferred @load should have run once the Statement was called'
 

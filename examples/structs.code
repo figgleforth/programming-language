@@ -13,10 +13,10 @@ type_names := pair.@types.values.map((it;
 
 ### Two layers, don't confuse them
 
-- Code::Member/Code::Struct (Ruby, source/proxies/struct.rb + member.rb) -- the low-level engine behind every `<...>` literal above. Always present, no load required.
-- Member/Struct (Code, code/struct.code + member.code) -- a separate, higher-level layer built on top, loaded by default as part of the standard library (`code/global.code` -- `@load 'code/struct.code'` here is redundant, just explicit). Gives you a proper Code-level Struct type with a real `@.members` array, `has?`/`include?`, and a custom `==` operator, so a `<...>` literal actually runs a real declared type's body instead of being a bare Ruby struct.
+- Code::Member/Code::Struct (Ruby, ruby/proxies/struct.rb + member.rb) -- the low-level engine behind every `<...>` literal above. Always present, no load required.
+- Member/Struct (Code, lang/struct.code + member.code) -- a separate, higher-level layer built on top, loaded by default as part of the standard library (`lang/global.code` -- `@load 'lang/struct.code'` here is redundant, just explicit). Gives you a proper Code-level Struct type with a real `@.members` array, `has?`/`include?`, and a custom `==` operator, so a `<...>` literal actually runs a real declared type's body instead of being a bare Ruby struct.
 ###
-@load 'code/struct.code'
+@load 'lang/struct.code'
 
 
 ### Members

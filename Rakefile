@@ -1,5 +1,5 @@
 require 'minitest/test_task'
-require_relative 'source/main'
+require_relative 'ruby/main'
 require 'pp'
 
 task :default => [:test, :cloc]

@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 class Declarator_Test < Base_Test
@@ -143,7 +143,7 @@ class Declarator_Test < Base_Test
 		    sign := Div([P('hi')])
 		    result := sign.to_s()
 
-		    @load 'code/html.code'
+		    @load 'lang/html.code'
 
 		    result
 		CODE
@@ -159,7 +159,7 @@ class Declarator_Test < Base_Test
 		    sign := Div([P('hi')])
 		    result := sign.to_s()
 
-		    @load 'code/html.code'
+		    @load 'lang/html.code'
 		CODE
 		assert_equal '<div><p>hi</p></div>', out
 	end
@@ -171,7 +171,7 @@ class Declarator_Test < Base_Test
 		    sign := Html_Lib.Div([Html_Lib.P('hi')])
 		    result := sign.to_s()
 
-		    Html_Lib := @load 'code/html.code'
+		    Html_Lib := @load 'lang/html.code'
 
 		    result
 		CODE
@@ -183,7 +183,7 @@ class Declarator_Test < Base_Test
 			Code.interp <<~CODE
 			    sign := html_lib.Div([html_lib.P('hi')])
 
-			    html_lib := @load 'code/html.code'
+			    html_lib := @load 'lang/html.code'
 			CODE
 		end
 	end
@@ -193,7 +193,7 @@ class Declarator_Test < Base_Test
 	# (bare merge, named isolation, forward-declaration hoisting) is unaffected.
 	def test_bare_path_load_works_the_same_as_a_quoted_path
 		out = Code.interp <<~CODE
-		    @load ./code/html.code
+		    @load ./lang/html.code
 		    Div([P('hi')]).to_s()
 		CODE
 		assert_equal '<div><p>hi</p></div>', out
@@ -204,7 +204,7 @@ class Declarator_Test < Base_Test
 		    sign := Html_Lib.Div([Html_Lib.P('hi')])
 		    result := sign.to_s()
 
-		    Html_Lib := @load ./code/html.code
+		    Html_Lib := @load ./lang/html.code
 
 		    result
 		CODE

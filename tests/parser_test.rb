@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 require 'timeout'
 
@@ -1078,7 +1078,7 @@ class Parser_Test < Base_Test
 	end
 
 	def test_fancier_statement_example
-		out = Code.parse "x := `@load 'code/string'`"
+		out = Code.parse "x := `@load 'lang/string'`"
 		assert_kind_of Code::Statement_Expr, out.last.right
 	end
 end

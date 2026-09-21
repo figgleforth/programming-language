@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 # These tests are mostly in chronological order. I may have inserted some at times. It would be great to preserve this order.
@@ -7,7 +7,7 @@ require_relative 'base_test'
 class Interpreter_Test < Base_Test
 	def test_global_program
 		refute_raises RuntimeError do
-			Code.interp_file './code/global.code'
+			Code.interp_file './lang/global.code'
 		end
 	end
 
@@ -812,7 +812,7 @@ class Interpreter_Test < Base_Test
 
 	# `.name`/`.types` are `@`-only (`@.name`/`@.composed_types`), stored as plain Ruby attrs; when the backing Ruby class is shared with a *composed* type (`Tasks | Table {}` resolves to Code::Table, a Ruby-backed builtin), that class's own Type#initialize baked its own name ("Table") into the attr at construction, which `build_instance_of_type` must overwrite with the real composed type's name.
 	def test_composed_instance_reports_its_own_name_not_the_proxy_ruby_class_regression
-		out = Code.interp "@load 'code/table'
+		out = Code.interp "@load 'lang/table'
 			Tasks | Table {}
 			t := Tasks()
 			(t.@name, t.@composed_types)"
@@ -1761,7 +1761,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_loading_external_source_files
-		out = Code.interp "@load 'code/global.code'
+		out = Code.interp "@load 'lang/global.code'
 		(Bool, Bool())"
 
 		assert_instance_of Code::Type, out.values[0]
@@ -3351,7 +3351,7 @@ class Interpreter_Test < Base_Test
 
 	def test_html_fence_in_route_handler
 		out = Code.interp "
-		@load 'code/server.code'
+		@load 'lang/server.code'
 
 		App | Server {
 			get:// home (;
@@ -4605,7 +4605,7 @@ class Interpreter_Test < Base_Test
 	def test_struct_member_display_regression
 		%w(" ').each do |q|
 			out = Code.interp <<~CODE
-			    @load 'code/struct.code'
+			    @load 'lang/struct.code'
 			    quad := <1, id := 2, ix: Number, String>(4, 8, 1, #{q}five#{q})
 			    quad.to_s()
 			CODE
@@ -4616,7 +4616,7 @@ class Interpreter_Test < Base_Test
 	def test_string_equality_regression
 		assert Code.interp('String("Alice") == String("Alice")')
 		out = Code.interp <<~CODE
-		    @load 'code/struct.code'
+		    @load 'lang/struct.code'
 		    s := <name: String>("Alice")
 		    s.@members.0.value == "Alice"
 		CODE
@@ -4632,11 +4632,11 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	# Same class of bug in backend/member.code/backend/struct.code's own `==` overloads -- each assumed its right operand was already Member/Struct-shaped.
+	# Same class of bug in backend/member.lang/backend/struct.code's own `==` overloads -- each assumed its right operand was already Member/Struct-shaped.
 	def test_member_and_struct_not_equal_to_nil_regression
 		refute_raises do
 			out = Code.interp <<~CODE
-			    @load 'code/struct.code'
+			    @load 'lang/struct.code'
 			    m := Member('x', String, 4)
 			    s := <1, 2>
 			    (m != nil, m == nil, s != nil, s == nil)
@@ -4929,7 +4929,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_fancier_statement_example
-		out = Code.interp "x := `@load 'code/string'`"
+		out = Code.interp "x := `@load 'lang/string'`"
 		assert_kind_of Code::Statement, out
 	end
 
@@ -5839,7 +5839,7 @@ class Interpreter_Test < Base_Test
 
 	def test_when_works_with_the_iterator_protocol_for_loop
 		out = Code.interp <<~CODE
-			@load 'code/iterable'
+			@load 'lang/iterable'
 
 			Tens {
 				values := [1, 2, 3]
@@ -5866,7 +5866,7 @@ class Interpreter_Test < Base_Test
 
 	def test_when_else_runs_as_a_fallback_with_the_iterator_protocol_for_loop
 		out = Code.interp <<~CODE
-			@load 'code/iterable'
+			@load 'lang/iterable'
 
 			Tens {
 				values := [1, 2, 3]

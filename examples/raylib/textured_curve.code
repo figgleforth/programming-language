@@ -17,7 +17,7 @@
 # and DrawSplineSegmentBezierCubic (`draw_reference_curve` below -- draws the same Bezier this file
 # already has to compute, as a polyline, instead of raylib's own dedicated spline renderer).
 
-@load 'code/raylib'
+@load 'lang/raylib'
 
 SCREEN_WIDTH  := 800
 SCREEN_HEIGHT := 450

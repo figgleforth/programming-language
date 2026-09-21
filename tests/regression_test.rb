@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 class Regression_Test < Base_Test
@@ -353,7 +353,7 @@ class Regression_Test < Base_Test
 
 		assert_raises Code::Database_Not_Set_For_Table_Instance do
 			Code.interp <<~CODE
-			    @load 'code/table.code'
+			    @load 'lang/table.code'
 
 			    Table().find(1)
 			CODE
@@ -668,7 +668,7 @@ class Regression_Test < Base_Test
 
 	def test_calling_a_bare_struct_literal_constructs_an_instance_regression
 		out = Code.interp <<~CODE
-		    @load 'code/struct.code'
+		    @load 'lang/struct.code'
 		    s := <name: String, age: Number>('Alice', 30)
 		    s.@members.0.value.value
 		CODE
@@ -899,7 +899,7 @@ class Regression_Test < Base_Test
 
 	def test_comparing_two_type_objects_does_not_dispatch_instance_operator_overload_regression
 		out = Code.interp <<~CODE
-		    @load 'code/struct.code'
+		    @load 'lang/struct.code'
 		    a := Member('id', nil, String)
 		    b := Member('id', nil, String)
 		    a == b
@@ -907,7 +907,7 @@ class Regression_Test < Base_Test
 		assert_equal true, out
 
 		out = Code.interp <<~CODE
-		    @load 'code/struct.code'
+		    @load 'lang/struct.code'
 		    sa := <name: String, age: Number>('Alice', 30)
 		    sb := <name: String, age: Number>('Alice', 30)
 		    sc := <name: String, age: Number>('Alice', 99)

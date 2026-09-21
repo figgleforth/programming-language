@@ -16,7 +16,7 @@
 # get noticeably slower far sooner than the native version does. MAX_BUNNIES is kept at the original's
 # value below for fidelity to the source; lower it if it bogs down before you're done watching it.
 
-@load 'code/raylib'
+@load 'lang/raylib'
 
 SCREEN_WIDTH  := 800
 SCREEN_HEIGHT := 450

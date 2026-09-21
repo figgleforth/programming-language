@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 class Structs_Test < Base_Test
@@ -724,7 +724,7 @@ class Structs_Test < Base_Test
 
 	def test_tagged_reference_has_members_populated
 		out = Code.interp <<~CODE
-		    @load 'code/struct.code'
+		    @load 'lang/struct.code'
 		    Abc\\<dict: Dictionary> {
 		    	Self (;)
 		    }
@@ -738,7 +738,7 @@ class Structs_Test < Base_Test
 
 	def test_members_array_stays_positionally_aligned_with_unnamed_members
 		out = Code.interp <<~CODE
-		    @load 'code/struct.code'
+		    @load 'lang/struct.code'
 		    s := <name: String, Number>('Alice', 42)
 		    s.@members
 		CODE
@@ -829,7 +829,7 @@ class Structs_Test < Base_Test
 
 	def test_struct_typed_param_accepts_structurally_compatible_argument
 		refute_raises do
-			out = Code.interp "@load 'code/member.code'
+			out = Code.interp "@load 'lang/member.code'
 				f ( right: <name: String, type: Any, value: Any>; right.name )
 				m := Member('x', String, 4)
 				f(m)"
@@ -866,7 +866,7 @@ class Structs_Test < Base_Test
 
 	def test_struct_typed_param_works_on_operator_overloads
 		refute_raises do
-			out = Code.interp "@load 'code/member.code'
+			out = Code.interp "@load 'lang/member.code'
 				Thing {
 					@operator ~ @infix ( left, right: <name: String>; right.name )
 				}

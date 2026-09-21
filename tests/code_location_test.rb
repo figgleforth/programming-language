@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 # Every Code::Expression subclass should carry an accurate span: the very first lexeme's own

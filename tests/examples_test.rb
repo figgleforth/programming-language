@@ -1,5 +1,5 @@
 require 'minitest/autorun'
-require_relative '../source/main'
+require_relative '../ruby/main'
 require_relative 'base_test'
 
 # Runs every examples/*.code file end to end and asserts none of them raise -- these are meant to be

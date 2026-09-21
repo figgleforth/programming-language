@@ -1,8 +1,8 @@
 ### Introduction
 
-`code/html.code` isn't loaded by default -- it needs an explicit `@load`. It declares one generic `Dom` type plus a predefined element for each common tag (`Div`, `P`, `H1`, `A`, ...), each just `Dom` composed with its own `html_element` tag name. Calling `.to_s()` renders an element (and its `children`) straight to an HTML string.
+`lang/html.code` isn't loaded by default -- it needs an explicit `@load`. It declares one generic `Dom` type plus a predefined element for each common tag (`Div`, `P`, `H1`, `A`, ...), each just `Dom` composed with its own `html_element` tag name. Calling `.to_s()` renders an element (and its `children`) straight to an HTML string.
 ###
-@load 'code/html.code'
+@load 'lang/html.code'
 
 sign := Div([P('Welcome to the beach')])
 @assert sign.to_s() == '<div><p>Welcome to the beach</p></div>', 'to_s() should render the element and its children'
