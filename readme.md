@@ -579,6 +579,54 @@ end  # [(1, 2, 3), (3, 4, 5), (5, 6, 7), (7, nil, nil)] -- each window shares 1 
 
 A trailing window that can't reach the full `stride` is kept short instead of dropped, same as the plain no-overlap form above. Use `.?N` (not `.N`) past index 0 when reading a window's elements, since only the first element is guaranteed to exist. `overlap` must be a smaller integer than `stride`.
 
+## `when`
+
+1. `when` attaches to `if`/`elif`/`unless`, and to `for`.
+2. `when` expressions have a subject you can reference via `it`
+3. A `when` compares its own value against the block's own subject.
+4. For `if`/`elif`/`unless`, `it` is the condition's own value.
+5. For `for`, `it` is the current element.
+6. For `for` with traditional syntax, `it` is the looping variable.
+7. The block's own body always runs first. A matching `when` then replaces the block's own value.
+8. The first matching `when` wins. No other `when` runs after it.
+9. `when` compares with `==` for a plain value (a number, a string, a symbol, `true`/`false`). `when` compares with `=>=` (an is-a check) for a bare Type.
+10. A bare `when it` matches every time. Use it as a catch-all case.
+11. `else` runs only when no `when` matches.
+12. One `end` closes the whole block. A `when` clause has no `end` of its own.
+13. Each `elif` branch has its own separate group of `when` clauses.
+14. `it` inside a matching `when` case holds the value the `when` matched against.
+15. A plain `if`/`unless` with no `when` attached does not declare `it`. Only `for`, `.each`, and a `when` clause declare `it`.
+
+```code
+result := if 100
+    'ran the if body'
+when 100
+    'perfect'
+when Number
+    'a number, but not perfect'
+else
+    'not a number'
+end  # 'perfect' -- the first match wins, even though `Number` would also match
+
+for [1, 'two', 3]
+    @puts 'body runs first'
+when String
+    @puts 'a string'
+when Number
+    @puts 'a number'
+end
+
+# else runs once per iteration, only when nothing matched that iteration
+for [1, 2, 3]
+when 99
+    @puts 'never matches'
+else
+    @puts 'else runs each time'
+end
+```
+
+`when` does not run inside `while`/`until` yet.
+
 ## Loop Control
 
 1. `skip` continues to next iteration
