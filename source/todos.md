@@ -1,100 +1,94 @@
-+ Switch statement / pattern matching (required for `@help` / `@help(expr)`)
-+ Allow creating different types of standalone scopes. Transparent, Opaque, etc, but with better names
-+ Design a concurrency model
-+ Get rid of "comma nil init" because it is in the way of making tuples and destructuring work as I want them to work. That means all `ident,` inits have to be updated, there are probably a lot since that was the original way I was initializing things to nil. I still want a nil-init shorthand, it just cannot be the comma.
-+ for-loops should be allowed to use ./ and ../ to be explicity about which variable they are mentioning. ../ goes to for-loop's enclosing scope, ./ goes to for-loop's scope
-+ Hex/binary/octal literals (0xff0000ff, 0b0101), underscore separators (1_000_000), scientific notation (1e10)
-+ Implement `Struct`'s `-`/`+`/etc operators. I should be able to perform arithmetic any two structs regardless of the shape. (cause what if all of them coincidentally have == ops declared for each other). Only raise an error when the two members do not have @operator implementations, or if the fallback Ruby#== does not support them.
-+ Rewrite language server because I asked Claude to whip this one up for me to help speed up my flow. I want to write it nicely
-+ #maybe_instance should be #definitely_instance. I don't know why I didn't note this sooner, it would simplify some logic for sure, but it would simplify the mental model for me. Especially when I step away for a while then return again.
-+ I hate the flow for managing the declarations on Context, It should be much simpler. Definitely some kind of auto generating .code file.
-+ Clay has a really neat debug sidebar that lets you inspect its layout in realtime.
-+ Rewrite lexer in .code, make it its own reusable library that can lex anything I want using my own declarations of tokens
++ A function should be able to say it returns nothing. Proposed spellings: `f {->Nil;}`, or a new `Void`/`None` type.
++ Support any Numeric-like system that can be incremented. Example: `Standard_Deck | Numeric`, `card := deck.random()` gives a card, `card += 1` gives the next card in the deck.
++ A `Symbol` is not wrapped the way a String or Number is. It stays a raw Ruby Symbol with no runtime type of its own.
++ Replace comma nil-init (`ident,`) with semicolon nil-init (`ident;`), so a bare comma stays free for tuples and destructuring. Only legal inside `{ }` bodies, not `()`/`[]`. Many existing `ident,` sites need updating.
++ Design and implement pattern matching for `when`-cases.
++ Allow different kinds of standalone scopes (Transparent, Opaque, ...). Names still needed.
++ Design a concurrency model.
++ Maybe `for`-loops should let the body pick between the loop's own scope and its enclosing scope explicitly. The old idea was `./`/`../`, but those are gone now — `self`/`Self` are the only scope keywords left, and neither one fits a loop body. Needs a fresh mechanism.
++ Support hex (`0xff0000ff`), binary (`0b0101`), and octal literals, plus scientific notation (`1e10`).
++ Implement `Struct`'s `-`/`+`/etc operators, so arithmetic works between any two structs regardless of shape. Only raise when a member pair has no `@operator` and Ruby's own fallback `==` cannot handle them either.
++ Rewrite the language server by hand instead of the first version, which was written quickly with AI help.
++ Rename `#maybe_instance` to `#definitely_instance`. Would simplify the mental model, especially returning to the code after time away.
++ Simplify the flow for managing declarations on Context. An auto-generating `.code` file is one option.
++ Clay has a debug sidebar that inspects its layout in real time — worth taking inspiration from.
++ Rewrite the lexer in `.code` itself, as its own reusable library that can lex anything from a declared token set.
 + Implement https://github.com/tsoding/leaf-venation
 + Implement https://github.com/tsoding/bpe
 + Implement https://github.com/tsoding/piff (https://nathaniel.ai/myers-diff/)
-+ Implement https://github.com/tsoding/randomart this one is really cool. I downloaded the paper already.
++ Implement https://github.com/tsoding/randomart — the paper is already downloaded.
 + Implement https://github.com/tsoding/subframes (https://x.com/FreyaHolmer/status/1718979996125925494)
-+ Implement Rope data structure for fun
-+ Implement an Ast walker that identifies functions that are contained, and ones that make calls elsewhere. 
-+ Typechecker doesn't check static declarations at all
-+ Struct should be an actual struct behind the scenes?
-+ Try to distill constructs to even simpler shapes. I kinda want features to just click together. Need a webpage? Just @load html, or eventually I'll write premade templates you can just swap in and out. An example came to mind, a scope contains one or more statements, we can generalize scopes to be made up of a body (`{`...`}`), and callable scopes to generalize with a colon (`{`...`;`...`}`)
-+ Add a way to transform real code into a runtime Ast, as well as Ast to evaluated code
-+ Declaring a parameter in a function as :IDENTIFIER should make it immutable. `fn (INPUT: Array;)`
-+ Come up with default "nil" states for all intrinsic types. Number should be 0, as an example.
-+ Give `puts` alias of `p` and pretty print `pp`
-+ `to_s(;)` remains the normal printed version. `to_string(;)` the full word is pretty print version. It should be async. Maybe `@nicely` for pretty print. Or `@pretty`, `@pp` like Ruby, etc.
-+ `Timer` type that lets you give it a callback. Dispatch with some @word
-+ `Duration` to represent a Range specifically for Date_Time 
-+ Ability to write setter functions like `[]=` as operators.
-+ Reuse `@ruby` for variable declarations as well, to indicate that the value is set by external Ruby. `x: String = @ruby`, `y := @ruby`. The following would not work, nor make sense: `z = @ruby`.
-+ Use ::String#squeeze for things like reducing newlines
-+ Support html templating so that you can load an HTML file and give it variables to fill out
-+ `@size_in_bytes` on `Identity` -- `ObjectSpace.memsize_of(self)`, the scope object's own shallow footprint (its slot + directly-malloc'd buffers, NOT what it references). Cheap, O(1), always present. Honest about being shallow.
-+ `@footprint` / `@footprint(deep: true)` on `Identity` -- a bounded, deduped reachable-object-graph walk (`require 'objspace'`; `ObjectSpace.reachable_objects_from` + a visited Set keyed by object_id, summing `memsize_of`). "Bytes retained by this subtree, shared objects counted once." Default frontier stops at Global / the `Standard_Library` scope / `Class`/`Module` objects / frozen shared objects (Symbols, frozen literals); `deep: true` only stops at cycles. Reusable for a scope, a user-declared Type (frontier excludes its `enclosing_scope` chain -> "this type + its method AST + static data"), or any value. This is the real "how big is my thing" feature.
-+ Add sugar for Decimal numbers. `4.8d`. And floats `15.16f`.
-+ Syntax for readonly
-+ Composition in type annotations: `x: Array|Set` (value's `.types` must `=>=` `[Array, Set]`, `.type` is the leftmost operand). Does not parse today; net-new parser surface at every `: Type` site (`parse_identifier_expr`, `parse_func` params, signature literals). A bare composition still can't be instantiated (`Array|Set()`) — name it first — this is annotation-only.
-+ `backend/interpreter/view_transition.css` is still empty (`::view-transition-old(root)`/`::view-transition-new(root)` hold no rules) — it's spliced into every matching response but does nothing yet, so pages get the browser's default cross-fade. Plan: pull a small set of real view-transition CSS examples from online collections and build a few named presets from them, likely via a `Css` type (wrapping a `Fence`) with a custom `+` operator overload for layering presets — tested and confirmed a composition-based (`|`) accumulator approach doesn't work for this, since it silently drops the losing side's whole body, not just its value.
-+ Arithmetic operations on a struct should attempt to find the arithmetic operator between positions 0 and 0 of the two operand structs. If the operator is found, then it just works. `<a: Int> + <b: Int> = <(a+b): Int>`
-+ A `confirm()`-style native dialog option for onclick handlers (blocking OS-native yes/no, like `alert()`/`window.confirm()`) — needs new client-side JS in `dom.js`, since it's synchronous/browser-native, not a DOM element the swap runtime can just render.
-+ A real hover-triggered Popover — the Popover API only opens on click or a direct JS call, never on hover alone. `html_title` (native tooltip) already covers plain hover hints with zero new code; a hover-triggered popover would need new client-side JS.
-+ A `Random` stdlib primitive — checked, Backend has no way to generate a random value today. Needed for the probability-based game idea, likely useful well beyond it. See `projects/games/weighted-random-mission-game.md`.
-+ A `Grid`/`Image` stdlib type: width, height, a flat array of small structured cells, read/write one at a time, generate procedurally. No image codec (PNG/JPEG) needed — pairs with the existing jsonb-column todo for storage, and an HTML5 `<canvas>` client-side for rendering. See `projects/games/weighted-random-mission-game.md`.
-+ Expose Backend's own AST as real, constructible, walkable Backend values (capture a Statement, convert to a node tree, inspect/transform/re-execute) — a real language capability, not a web feature. Queued after the current web-features build order finishes. See `projects/bigger-bets/runtime-ast-exposure.md`.
++ Implement a Rope data structure, for fun.
++ Implement an AST walker that finds which functions are self-contained and which call out elsewhere.
++ The type checker does not check static declarations at all.
++ Should `Struct` be a real struct behind the scenes?
++ Distill constructs down to simpler, more composable shapes — features should click together. Example: need a web page, just `@load html`, or eventually swap in a premade template. One idea: generalize a scope to a body (`{ ... }`), and a callable scope to a body with a colon (`{ ...; ... }`).
++ Add a way to turn real code into a runtime AST, and an AST back into evaluated code. See also the AST-exposure item below.
++ A parameter declared as `:IDENTIFIER` should be immutable. Example: `fn (INPUT: Array;)`.
++ Give `puts` a `p` alias, and add a `pp` pretty-print alias.
++ A `Timer` type that takes a callback, dispatched with some `@word`.
++ A `Duration` type — a `Range` specifically for `Date_Time`.
++ Ability to write setter operators, like `[]=`.
++ Reuse `@ruby` for variable declarations, not just function bodies: `x: String = @ruby`, `y := @ruby`. Plain `z = @ruby` (no declaration) should stay invalid.
++ Use Ruby's `::String#squeeze` for things like collapsing repeated newlines. Not yet used for that anywhere.
++ Support HTML templating: load an HTML file and fill in variables.
++ `@footprint` / `@footprint(deep: true)` on `Identity` — a bounded, deduped reachable-object-graph walk (`ObjectSpace.reachable_objects_from` plus a visited Set keyed by `object_id`, summing `memsize_of`). "Bytes retained by this subtree, shared objects counted once." Default frontier stops at Global, the `Standard_Library` scope, `Class`/`Module` objects, and frozen shared objects (Symbols, frozen literals); `deep: true` only stops at cycles. Useful for a scope, a user Type, or any value.
++ Add sugar for Decimal numbers (`4.8d`) and Floats (`15.16f`).
++ Syntax for read-only.
++ Composition in type annotations: `x: Array|Set` (the value's `.types` must be a superset of `[Array, Set]`; `.type` is the leftmost operand). Does not parse today — needs new parser surface at every `: Type` site. A bare composition still could not be instantiated directly (`Array|Set()`) — give it a name first; this is annotation-only.
++ `source/shared/view_transition.css` is spliced into every matching response but still has empty rule bodies (`::view-transition-old(root)`/`::view-transition-new(root)`), so pages only get the browser's default cross-fade. Plan: pull real view-transition CSS examples from online collections, build a few named presets, likely as a `Css` type wrapping a `Fence` with a custom `+` operator for layering presets. A composition-based (`|`) accumulator does not work for this — it silently drops the losing side's whole body, not just its value.
++ Arithmetic on structs could match by position: find the operator between member 0 and member 0 of each operand struct. `<a: Int> + <b: Int> = <(a+b): Int>`. Related to the general struct-arithmetic idea above.
++ A `confirm()`-style native dialog for onclick handlers — a blocking OS-native yes/no, like `alert()`/`window.confirm()`. Needs new client-side JS in `dom.js`, since it is synchronous and browser-native, not a DOM element the swap runtime can render.
++ A real hover-triggered Popover. The Popover API only opens on click or a direct JS call, never on hover alone. `html_title` (native tooltip) already covers plain hover hints for free; a hover popover needs new client-side JS.
++ A `Random` stdlib primitive — the language has no way to generate a random value today. See `sandbox/weighted-random-mission-game.md`.
++ A `Grid`/`Image` stdlib type: width, height, a flat array of small structured cells, read/write one at a time, generate procedurally. No image codec (PNG/JPEG) needed — an HTML5 `<canvas>` can render client-side. See `sandbox/weighted-random-mission-game.md`.
++ Expose the language's own AST as real, constructible, walkable values — capture a Statement, convert it to a node tree, inspect/transform/re-execute it. A real language capability, not a web feature. See `sandbox/bigger-bets/runtime-ast-exposure.md`.
 + Swap WEBrick for Falcon.
-+ Interpreter concurrency is the hard part, not the transport. N live connections, each able to push a frame that invokes a Backend handler, against shared mutable `stack` / Global / `@servers`. Two options, decide before writing handler dispatch: (a) serialize every handler invocation through one fiber/loop -- simple, correct, caps throughput, probably fine for an educational language; (b) fiber-per-connection with strict per-connection scope isolation -- a real interpreter redesign.
-+ `ws://` route form parallel to `get://` etc., handler gets a connection object (`send` / `on_message` / `on_open` / `on_close`). Client-side: manual reconnect + missed-message catch-up (no `EventSource` auto-reconnect), heartbeat ping/pong.
-+ Sequencing: sits at/after build-order Step 3 (durable addresses, IN PROGRESS) -- build on its address registry, not the older `Socket_Session` sketch in `1_websocket-live-updates.md`. The transport-agnostic core (`Topic` / `subscribe` / `broadcast`, the "table write -> notify watchers" hook, `dom.js` receive-and-swap) is shared with Step 5 (live table subscriptions). Chat / live cursors are net-new examples on top.
-+ Design docs: `projects/next-gen-features/1_websocket-live-updates.md`, `1_websocket-registry-shapes.md`, `2_live-table-subscriptions.md`, `bigger-bets/2_durable-addresses.md`. `bigger-bets/0_webtransport.md` stays shelved (no mature Ruby HTTP/3 server).
-+ Real-time collaborative editing on `Table`: two users editing the same row at once, merged automatically instead of one overwriting the other. Needs CRDT logic, not just a one-way live push. Builds on the Falcon + WebSockets entry above (bidirectional channel + live cursors) plus the push-channel groundwork in `projects/bigger-bets/`.
-+ AI as a language-level primitive, not a chat widget bolted on: a route handler that can ask an LLM to query or mutate `Table` data directly, with tool-calling wired in at the language level.
-+ `html_id` has to be set for interactive Dom elements at the moment. It would be neat to abstract that away.
-+ Switch `data-prog-onclick`/`data-prog-id`'s underlying id from Ruby's default `Object#hash` (`dom_renderer.rb`, `interpreter.rb`'s `add_onclick_handler`/`add_input_element`) to `SecureRandom.hex`/`.uuid`.
++ Interpreter concurrency is the hard part, not the transport. N live connections, each able to push a frame that invokes a handler, against shared mutable `stack`/Global/`@servers`. Two options, decide before writing handler dispatch: (a) serialize every handler invocation through one fiber/loop — simple, correct, caps throughput, probably fine for an educational language; (b) fiber-per-connection with strict per-connection scope isolation — a real interpreter redesign.
++ A `ws://` route form parallel to `get://`, etc. The handler gets a connection object (`send`/`on_message`/`on_open`/`on_close`). Client side: manual reconnect plus missed-message catch-up (no `EventSource` auto-reconnect), heartbeat ping/pong.
++ Sequencing note: the websocket work sits after the durable-addresses build step; build on that address registry, not an older `Socket_Session` sketch. The transport-agnostic core (`Topic`/`subscribe`/`broadcast`, the "table write -> notify watchers" hook, `dom.js` receive-and-swap) is shared with live table subscriptions; chat and live cursors are examples on top.
++ Design docs live in `sandbox/next-gen-features/` and `sandbox/bigger-bets/`. `sandbox/bigger-bets/0_webtransport.md` stays shelved — no mature Ruby HTTP/3 server yet.
++ Real-time collaborative editing on `Table`: two users editing the same row at once, merged automatically instead of one overwriting the other. Needs CRDT logic, not just a one-way live push. Builds on the Falcon-plus-WebSockets work above.
++ AI as a language-level primitive, not a bolted-on chat widget: a route handler that can ask an LLM to query or mutate `Table` data directly, with tool-calling wired in at the language level.
++ `html_id` has to be set by hand on every interactive Dom element right now. Worth abstracting away.
 + Ask Claude to play a sound effect when the timer panics.
-+ Add `@type <instance|type>` directive that returns the types of the given scope. This is to avoid having to declare .types at runtime on the object.
-+ Comparing two bare tagged-type references directly via `==` (e.g. `Array\String == Array\String`, or two `Member`s whose `.type` is a tagged reference) crashes with `Cannot_Call_Instance_Member_On_Type`. `find_operator_overload`'s `enclosing_scope` fallback finds Array's own `==` overload (copied onto the tagged variant's blueprint body) and dispatches it, but that overload assumes a real Array instance (`.length()`, `.get(at)`), not a bare Type. Pre-existing, not caused by the `Array\String` struct-display fix below.
-+ Maybe get rid of structured types `Type<Struct>` because that interferes with struct syntax. I like structured types, the concept is great, but I should choose a different operator for that
-+ Finalize Enums (`::`): type annotations (`Task_Type :: Number { ... }`, per-member `: Type`) are parsed and stored (`.type`/`.types`) but never enforced anywhere -- no `Type_Contract_Violation` on a mismatch. Decide whether/how to enforce before relying on enums for anything type-sensitive; not documented as a real feature yet, see readme.md/CLAUDE.md notes.
-+ Reserch whether FFI with systems languages like C, C++ possible? I think yes.
-+ Be able to compose with parts of a class. Like `|Thing.all_functions`, `&Thing.specific_function`, `.variables`, `.constants`, etc.
-+ A few of the Advent of Code tests are super slow because they crunch a lot of data. One of them was like 50% of the entire testing time. I don't want to leave them completely untested. Look into maybe some env var that tracks number of times tests have run, then every n full test runs (maybe 100) then test those as well.
-+ Make all directives passthrough (return the expression given) or at least as many it makes sense for
-+ `@connect <Database>` should return `(db: Database, ok: Bool)`. And then add `Database.connect{-><Database, Bool>;}` to hide the directive. It'll be easier for the user, not having to remember @ vs not.
-+ Untested stdlib methods found via audit (2026-08-16): `response.redirect`, `Statement(other)` construction path, `Struct#has?`, `Array#prepend`, `Database#delete_table`, `String#to_md5_hash`, `Server#ok200`
-+ Current limitation: `@push_scope`/`@pop_scope` only accept a bare identifier naming something already bound (a Type name or a variable); a literal or a constructor call (`Number(4)`) is rejected, since it builds a fresh object on every evaluation and can never satisfy the identity check on pop. Figure out how to make instances work too, not just Types/existing variables (numbers, strings, etc.).
-+ Add classic for-loop `for i := 0, i < 10, i++`
-+ `test/interpreter_test.rb` (3251 lines, biggest test file) is organized chronologically, not by topic. Split it into `functions_test.rb`, `privacy_test.rb`, `loops_test.rb`, `collections_test.rb`, `operators_test.rb`, `unpack_test.rb`, `declarations_test.rb`, `statements_test.rb`, `file_loading_test.rb`; fold type-decl/composition tests into existing `composition_test.rb`, maybe fold routes/html-fence into `server_test.rb`. Maybe do this opportunistically, not as a standalone refactor.
-+ Ask Claude to come up with with tangible examples of how various custom operator precedences would behave in IRL examples with standard operators. Just something I can see and visually understand.
-+ Multiple return values: `{-> Abc, Def; }` or named `{-> a: Abc, b: Def; }` or named with defaults `{-> a: Int = 1; }`. Doesn't change anything for caller, but lets you define default output and a variable to use in the body. I suppose if you return a tuple of them like `f {-> a := 1, b := 2; }`, you can expand or whatever I called it. `a, b := f()`. And notice you don't need to have a body when there are defaults. I guess even without a default, things can be nil'd or something.
-+ Add `%hash()` that converts expressions to string, then hashes the string.
-+ Add `%dict()` that converts expressions to string, then creates a dictionary with those keys and nil values
-+ Add `Statement.new{Statement;}` so you can create statements programmatically as well as with the backtick literal.
-+ Make `Fence_Expr` extend `String_Expr`? Or `Statement_Expr`? Both make sense, it's basically a multiline string, that can have a header, like ```md\n``` or css, html, etc
-+ Every value passed around inside of Backend should be an Prog::Class of some kind. calling `#maybe_instance` in `#interp_circumfix` for starters.
-+ A `Command_Line` class. Lets you execute commands from Prog::String and Prog::Fence. Inspired by Tsoding and Jai.
-+ The way Prog::Classes are created differs in many places. I should have some kind of `Interpreter#make klass` that does all the linking to the runtime and stuff
-+ Add runtime types for all instantiable constructs in the language
-+ Rename global.code to global_scope.code. That's what the global scope will be loaded from, gives me better control. Would be cool to construct different scopes that users can pick to be their global scope, or make their own.
-+ Constants should be able to be declared with a type and without a value. The first assignment locks in the value. `VERSION: Number` and assign it once later.
-+ Rewrite the `Dom_Renderer` in Backend, and remove the magic rendering whenever a Dom is returned. Make the user render themselves, but implement it for them. Everyone prefers control over magic probably.
-+ Table associations (`belongs_to`/`has_many`)
++ Comparing two bare tagged-type references directly with `==` (e.g. `Array\String == Array\String`, or two `Member`s whose `.type` is a tagged reference) crashes with `Cannot_Call_Instance_Member_On_Type`. `find_operator_overload`'s `enclosing_scope` fallback finds Array's own `==` overload and dispatches it, but that overload assumes a real Array instance (`.length()`, `.get(at)`), not a bare Type.
++ Maybe drop structured types (`Type<Struct>`) — the concept is good, but the `<...>` operator clashes with struct syntax. Consider a different operator.
++ Finalize Enums: each member's own `: Type` annotation, and the enum's overall backing type, are parsed and stored but never enforced — nothing raises on a mismatch. Decide whether and how to enforce this before relying on Enum typing for anything. See readme.md/CLAUDE.md's Enum notes; also related to the enum-member-typing gap in bugs.md.
++ Research whether FFI with a systems language (C, C++) is possible. Likely yes.
++ Be able to compose with parts of a class: `|Thing.all_functions`, `&Thing.specific_function`, `.variables`, `.constants`, etc.
++ `@connect <Database>` should return `(db: Database, ok: Bool)` instead of raising on failure. Then add `Database.connect{-><Database, Bool>;}` to hide the directive, so the caller does not need to remember `@` vs. not.
++ Untested stdlib methods, from a 2026-08-16 audit, still without direct test coverage: `Statement(other)` construction path, `Array#prepend`, `String#to_md5_hash`, `Server#ok200`.
++ `@push_scope`/`@pop_scope` only accept a bare identifier naming something already bound (a Type name or an existing variable). A literal or a constructor call (`Number(4)`) is rejected, since it builds a fresh object every evaluation and can never satisfy the identity check on pop. Figure out how to support instances too, not just Types and existing variables.
++ Add a classic C-style for-loop: `for i := 0, i < 10, i++`.
++ `tests/interpreter_test.rb` is still the biggest test file (about 6000 lines) and still organized chronologically, not by topic. Some splitting has already happened (`collections_test.rb`, `structs_test.rb`, `scopes_test.rb`, `declarator_test.rb`, and others now exist); consider splitting out the rest by topic (functions, loops, operators, statements) opportunistically, not as a standalone refactor.
++ Ask Claude to build tangible, visual examples of how various custom operator precedences behave next to standard operators.
++ Multiple return values: `{-> Abc, Def;}`, or named (`{-> a: Abc, b: Def;}`), or named with defaults (`{-> a: Int = 1;}`). Does not change the caller, just lets the body define default outputs and names to use. A tuple return (`f {-> a := 1, b := 2;}`) could then destructure: `a, b := f()`. Does not parse today — a comma in this position currently raises a raw Ruby error instead of a clean one.
++ Add `%hash()`, converting its expressions to a string, then hashing the string.
++ Add `%dict()`, converting its expressions to a string, then building a dictionary with those keys and nil values.
++ Add `Statement.new{Statement;}`, so a Statement can be built programmatically as well as with the backtick literal.
++ Should `Fence_Expr` extend `String_Expr` or `Statement_Expr`? Both make sense — a fence is basically a multiline string that can carry a header, like ` ```md `/` ```css `/` ```html `.
++ A `Command_Line` type, letting a program run shell commands from a `String`/`Fence`. Inspired by Tsoding and Jai.
++ Runtime types for every instantiable construct still have a gap: `Symbol` has none at all (see the Symbol entry above). Audit for other raw, un-typed runtime values beyond Symbol.
++ Rename `code/global.code` to `code/global_scope.code` — that is literally what the global scope loads from. Would also make it easier to let a user construct and pick their own global scope later.
++ Constants should be declarable with a type and no value, locking in on the first assignment: `VERSION: Number` now, assign once later. Not possible today — even a typed constant's first assignment already raises `Cannot_Reassign_Constant`.
++ Rewrite `Dom_Renderer` in the language itself, and remove the automatic rendering that happens whenever a route returns a `Dom` instance. Let the user render explicitly, with a helper doing the heavy lifting — control over magic, most likely.
++ Table associations (`belongs_to`/`has_many`).
 + Add jsonb-like column support to databases.
-+ No JSON encode/decode exposed to Backend: `require 'json'` only used internally, for example when parsing POST bodies (`interpreter.rb`).
-+ No outbound HTTP client: Backend can serve requests but can't make them.
-+ No `ENV`/config access: only I/O primitive is `File`.
-+ No in-Backend testing facility: Minitest only tests the interpreter itself. Backend has an `@assert` command taking condition and message.
++ No JSON encode/decode exposed to the language — `require 'json'` is only used internally (e.g. parsing POST bodies).
++ No outbound HTTP client — the language can serve requests but cannot make them.
++ No `ENV`/config access — the only I/O primitive is `File`.
++ No in-language testing facility beyond `@assert`/`@refute` (both already passthrough — see bugs.md-adjacent notes). Minitest still only tests the interpreter itself, not language-level test writing.
 - Stride overlap for `for x by n,overlap` implemented: `parse_for_loop_expr` accepts an optional `,<overlap>` after `by <stride>` (new `For_Loop_Expr#overlap`), and `interp_for_loop` slides each `stride`-wide window forward by `stride - overlap` elements instead of a full `stride`, so consecutive windows share `overlap` elements (`by 2,1` walks every consecutive pair, `by 3,1` walks 3-wide windows sharing 1 element with the next). A trailing window that can't reach the full `stride` is kept short, same as the plain no-overlap chunking (`each_slice`) above -- only a window's first element is guaranteed, so a body indexing past `it.0` should use `.?N` (returns `nil` past the end) instead of `.N` (raises). `overlap` must be an integer smaller than `stride`.
-+ `help {expr;}` or `@help` that accepts any expression and returns information about the Type, primitive, function, etc. Literally any expression should be able to be described given its AST. You even have access to the live values so the information can be dynamic to reflect what the user is actually asking about.
-+ Improve error messaging. `backend/shared/error_formatter.rb` doesn't display source code properly for some expressions. They have to override `#detail_message`.
-+ Some kind of `to_s;` and `inspect;` equivalents for printing objects
-+ A way to get capitalization at runtime `:Identifier, :identifier, :IDENTIFIER` from any given identifier.
-+ Ability to coerce types when declaring http routes. `put://survivors/:name { name: String; }`
-+ Currently `func{a;}` must be called with parens `func(a)` otherwise `func` evaluates to a pointer to this func. I want to borrow from Jai: `x := func.*` should give you the pointer, `func` and `func()` should be a calls as usual, and then somehow I need to parse arguments without parens.
-+ Add another version of `@puts` that prints the expression as a string. Like `@puts! "`(1+2)`"` should print `(1+2) => 3`
-+ Add a builtin debugger, `@debug` maybe. It should stop execution and let you step through, and treat the current place as a repl that you can do whatever in. My hunch is a separate Interpreter#output, like #debug_output that is capable of interrupting the stream of expressions being interpreted. `@debug when_condition_true` would be neat too.
-+ When the only argument to a function call is a function like `map({it; ...})`, let user just splat it like `map(it; ...)` and I even like how Swift (I think) let's you pass it as a trailing block after the call itself like `map() {it; ... }`.
++ Add `@help {expr;}` (or `@help`) that accepts any expression and describes its Type, primitive, or function from the AST — with access to the live value, so the description can reflect what the user is actually asking about.
++ Improve error messages: `source/shared/error_formatter.rb` does not display source code properly for some expressions. They need to override `#detail_message`.
++ Add a generic `to_s;`/`inspect;` pair for printing objects. `to_s`/`to_string` already cover String and Array's own quoted form; a broader, type-agnostic equivalent is still missing.
++ A way to read an identifier's own casing at runtime — `:Identifier`, `:identifier`, `:IDENTIFIER` — from any given name.
++ Ability to coerce types when declaring an HTTP route: `put://survivors/:name { name: String; }`. Does not parse today.
++ Right now `func{a;}` must be called with parens (`func(a)`) or `func` evaluates to a pointer to the function. Borrow from Jai: `x := func.*` gets the pointer explicitly, `func`/`func()` stay ordinary calls, and unparenthesized call arguments would need their own parsing.
++ Add a variant of `@puts` that also prints the expression as a string: `@puts! "`(1+2)`"` should print `(1+2) => 3`.
++ Add a built-in debugger, maybe `@debug`. It should stop execution and drop into a REPL scoped to that point in the program. Likely needs a dedicated `Interpreter#debug_output`, able to interrupt the stream of expressions being interpreted. `@debug when_condition_true` (conditional breakpoint) would be neat too.
++ Swift-style trailing-block call sugar: `map() {it; ...}` after the call itself. The plain splat form (`xs.map(x; x * 2)`, no parens around the block) already works; only the trailing-block-after-parens form is still missing, and currently fails to parse.
 - Validate whether the precedence is even used when declaring an operator. Yes, it is.
 - `backend/interpreter/interpreter.rb`: array `<<` is special-cased in the interpreter instead of being a real operator declaration on `Array`; revisit once operator declarations exist.
 - Add Type set comparison operators
@@ -167,3 +161,5 @@
 - I should be able to use symbols in place of strings in some places like `background_loc  := Raylib.get_shader_location(self.invert_shader, 'background')` => `background_loc  := Raylib.get_shader_location(self.invert_shader, :background)`
 - bug; `(x: Int, y: Int)` interps as an Array instead of Tuple
 - All loops (for/while/until) and ifs should support `when`/`else`
+- Switch statement (required for `@help` / `@help(expr)`)
+- Numbers support underscore separators (`1_000_000`). The second consecutive underscore breaks the number, so only 1 underscore between numbers is allowed.
