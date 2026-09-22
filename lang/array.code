@@ -139,7 +139,7 @@ Array {
 
 	# note; Implemented in Backend, same reason as include? above the the Ruby-level Array#== (array.rb)compares elements with Ruby's own native == via the underlying Ruby array, and never sees an Backend-level `@operator ==` overload on a custom Instance (e.g. two structurally-equal Members compared unequal). Declaring this here takes precedence over that Ruby fallback(an operand's own declarations are always checked before it -- see #find_operator_overload).
 	@operator == @infix ( left, right;
-		if !right or left.length() != right.length()
+		if !right.?length or !left.length or left.length() != right.length()
 			return false
 		end
 
