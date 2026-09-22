@@ -1,3 +1,5 @@
++ Support hex (`0xff0000ff`), binary (`0b0101`), and octal literals, plus scientific notation (`1e10`).
++ Add sugar for Decimal numbers (`4.8d`) and Floats (`15.16f`).
 + Ability to distinguish between instances and references
 + A webapp that watches the .code files and gives you AST, error messages, etc. Keep the app open in a window while you edit .code files to see type and syntax checking upon every file save. Checks for dirty git files and loads all of them on the page for you to watch as you work on the project.
 + Composable functions. `step1 | step2 | step3 (input; ... )` where each composed function fits the shape of input for the prvious output, and fits the shape of output for the next step. If this doesn't work, then maybe an operator like `:>` that does the same thing. `step1() :> step2() :> step3()`
@@ -10,7 +12,6 @@
 + Allow different kinds of standalone scopes (Transparent, Opaque, ...). Names still needed.
 + Design a concurrency model.
 + Maybe `for`-loops should let the body pick between the loop's own scope and its enclosing scope explicitly. The old idea was `./`/`../`, but those are gone now — `self`/`Self` are the only scope keywords left, and neither one fits a loop body. Needs a fresh mechanism.
-+ Support hex (`0xff0000ff`), binary (`0b0101`), and octal literals, plus scientific notation (`1e10`).
 + Implement `Struct`'s `-`/`+`/etc operators, so arithmetic works between any two structs regardless of shape. Only raise when a member pair has no `@operator` and Ruby's own fallback `==` cannot handle them either.
 + Rewrite the language server by hand instead of the first version, which was written quickly with AI help.
 + Rename `#maybe_instance` to `#definitely_instance`. Would simplify the mental model, especially returning to the code after time away.
@@ -37,7 +38,6 @@
 + Use Ruby's `::String#squeeze` for things like collapsing repeated newlines. Not yet used for that anywhere.
 + Support HTML templating: load an HTML file and fill in variables.
 + `@footprint` / `@footprint(deep: true)` on `Identity` — a bounded, deduped reachable-object-graph walk (`ObjectSpace.reachable_objects_from` plus a visited Set keyed by `object_id`, summing `memsize_of`). "Bytes retained by this subtree, shared objects counted once." Default frontier stops at Global, the `Standard_Library` scope, `Class`/`Module` objects, and frozen shared objects (Symbols, frozen literals); `deep: true` only stops at cycles. Useful for a scope, a user Type, or any value.
-+ Add sugar for Decimal numbers (`4.8d`) and Floats (`15.16f`).
 + Syntax for read-only.
 + `ruby/shared/view_transition.css` is spliced into every matching response but still has empty rule bodies (`::view-transition-old(root)`/`::view-transition-new(root)`), so pages only get the browser's default cross-fade. Plan: pull real view-transition CSS examples from online collections, build a few named presets, likely as a `Css` type wrapping a `Fence` with a custom `+` operator for layering presets. A composition-based (`|`) accumulator does not work for this — it silently drops the losing side's whole body, not just its value.
 + Arithmetic on structs could match by position: find the operator between member 0 and member 0 of each operand struct. `<a: Int> + <b: Int> = <(a+b): Int>`. Related to the general struct-arithmetic idea above.

@@ -49,6 +49,7 @@ String {
 	to_f (; @ruby )
 	to_i (; @ruby )
 	trim (; @ruby )
+	squeeze (; @ruby )
 
 	lines (;
 		value.split('\n')
