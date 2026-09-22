@@ -26,7 +26,7 @@ Sqlite | Database {
 		self.url = url
 	)
 
-	Self.local (at_path path := 'demo.db';
+	Self.local (path := 'demo.db';
 		path += '.db' unless path.end_with?('.db')
 		Sqlite(path)
 	)

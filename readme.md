@@ -51,18 +51,7 @@ _privately_do ( x, y, z; )
 
 ## Labeled & Named Function Arguments
 
-**Labels** — a param declared as two identifiers in a row (`label name`) can be called `label: value`. Matches by position; wrong label raises `Argument_Label_Mismatch`.
-
-```code
-send_message ( to person, saying text;
-    "To `person`: `text`"
-)
-
-send_message(to: 'Jack', saying: 'Found fresh water')  # positional and labeled both work
-send_message('Sayid', 'Meet at the caves')
-```
-
-**Named arguments** — `name := value` at a call site binds by the callee's declared param name, order-independent. Positional args (bare or labeled) must come first; once you name one, the rest must be named too.
+**Named arguments** — `name := value` at a call site binds by the callee's declared param name, order-independent. `name: value` is an alternate spelling of the same thing — the two are interchangeable. Positional args must come first; once you name one, the rest must be named too.
 
 ```code
 sub ( a, b; a - b )
@@ -70,6 +59,7 @@ sub ( a, b; a - b )
 sub(a := 1, b := 2)   # -1
 sub(b := 2, a := 1)   # -1 reordered, same result
 sub(1, b := 2)        # -1 positional then named is fine
+sub(a: 1, b: 2)        # -1 -- `:` works exactly like `:=`
 
 # sub(a := 1, 2)       raises Positional_Argument_After_Named
 # sub(a := 1, a := 2)  raises Duplicate_Named_Argument

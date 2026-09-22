@@ -330,13 +330,6 @@ class Parser_Test < Base_Test
 		out = Code.parse 'named ( with_param; )'
 		assert_equal 'named', out.first.name.value
 		assert_equal 1, out.first.parameters.count
-		refute out.first.parameters.first.label
-		refute out.first.parameters.first.default
-		refute out.first.parameters.first.type
-
-		out = Code.parse '( labeled param; )'
-		assert_equal 'labeled', out.first.parameters.first.label.value
-		assert out.first.parameters.first.label
 		refute out.first.parameters.first.default
 		refute out.first.parameters.first.type
 
@@ -344,16 +337,10 @@ class Parser_Test < Base_Test
 		assert out.first.parameters.first.default
 		assert_kind_of Code::Number_Expr, out.first.parameters.first.default
 
-		out = Code.parse 'named ( and_labeled with_default := 8; )'
-		assert_equal 'and_labeled', out.first.parameters.first.label.value
-		assert_equal 'with_default', out.first.parameters.first.name.value
-		assert_equal 'named', out.first.name.value
-
-		out = Code.parse 'named ( with, multiple, even labeled := 4, params := 5; )'
-		assert_equal 4, out.first.parameters.count
-		assert_equal out.first.parameters.map(&:label), [nil, nil, Code::Lexeme.new(:identifier, 'even'), nil]
-		assert_equal out.first.parameters.map(&:name), %w(with multiple labeled params).map { Code::Lexeme.new(:identifier, _1) }
-		assert_equal out.first.parameters.map(&:default).map(&:nil?), [true, true, false, false]
+		out = Code.parse 'named ( with, multiple, params := 5; )'
+		assert_equal 3, out.first.parameters.count
+		assert_equal out.first.parameters.map(&:name), %w(with multiple params).map { Code::Lexeme.new(:identifier, _1) }
+		assert_equal out.first.parameters.map(&:default).map(&:nil?), [true, true, false]
 	end
 
 	def test_function_bodies

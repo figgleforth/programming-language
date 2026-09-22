@@ -48,7 +48,7 @@ module Code
 	end
 
 	class Param_Expr < Expression
-		attr_accessor :name, :label, :type, :default, :add_to_readable, :add_to_writable, :variadic
+		attr_accessor :name, :type, :default, :add_to_readable, :add_to_writable, :variadic
 	end
 
 	class Func_Expr < Expression
@@ -58,9 +58,8 @@ module Code
 			sig = name&.value || ''
 			sig += '('
 			sig += parameters.map do |param|
-				label   = param.label ? "#{param.label.value}:" : ''
 				default = param.default ? "=#{param.default.value}" : ''
-				"#{label}#{param.name.value}#{default}"
+				"#{param.name.value}#{default}"
 			end.join(',')
 			sig += Code::FUNCTION_BODY_DELIMITER
 			sig += ')'

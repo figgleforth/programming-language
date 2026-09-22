@@ -425,23 +425,7 @@ module Code
 	class Composition_Outside_Type_Declaration < Error
 	end
 
-	class Argument_Label_Mismatch < Error
-		attr_accessor :expected, :actual
-
-		def initialize expression, expected, actual
-			@expected = expected
-			@actual   = actual
-			super expression
-		end
-
-		def detail_message
-			expected_label = expected ? "#{expected}:" : 'no label'
-			actual_label   = actual ? "#{actual}:" : 'no label'
-			"Expected #{Ascii.bold expected_label}, got #{Ascii.bold actual_label}"
-		end
-	end
-
-	# A named argument (`name := value`) appeared, and then a bare positional or labeled argument followed it. Named arguments must come last in a call -- once you switch to naming arguments, every argument after that has to be named too.
+	# A named argument (`name := value`) appeared, and then a bare positional argument followed it. Named arguments must come last in a call -- once you switch to naming arguments, every argument after that has to be named too.
 	class Positional_Argument_After_Named < Error
 		def detail_message
 			'Positional arguments must come before named arguments (`name := value`) in a call'
@@ -462,7 +446,7 @@ module Code
 		end
 	end
 
-	# A param was supplied both positionally (or by label) and by name in the same call, e.g. `add(1, a := 2)` where `a` is the first declared param.
+	# A param was supplied both positionally and by name in the same call, e.g. `add(1, a := 2)` where `a` is the first declared param.
 	class Argument_Given_By_Name_And_Position < Error
 		attr_accessor :name
 

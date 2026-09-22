@@ -796,48 +796,47 @@ class Regression_Test < Base_Test
 		assert_equal 7, Code.interp("Global.total := 7\ntotal")
 	end
 
-	def test_labeled_call_arguments_regression
+	def test_colon_named_call_arguments_regression
 		src = <<~CODE
-		    send_greeting ( to person; person )
+		    send_greeting ( person; person )
 		CODE
 
-		# A labeled call matches the declared label at that position.
-		assert_equal 42, Code.interp("#{src}\nsend_greeting(to: 42)")
+		# `name: value` binds by the param's declared name, same as `name := value`.
+		assert_equal 42, Code.interp("#{src}\nsend_greeting(person: 42)")
 
-		# Labels are opt-in at the call site -- a bare positional call still works even though the
-		# param declares a label.
+		# A bare positional call still works.
 		assert_equal 42, Code.interp("#{src}\nsend_greeting(42)")
 
-		# A label that doesn't match the declared one raises, whether the param has a different label...
-		assert_raises(Code::Argument_Label_Mismatch) do
+		# A name that matches no declared param raises.
+		assert_raises(Code::Unknown_Named_Argument) do
 			Code.interp("#{src}\nsend_greeting(wrong: 42)")
 		end
 
-		# ...or no label at all.
-		assert_raises(Code::Argument_Label_Mismatch) do
+		# Once an argument is named, every argument after it must be named too.
+		assert_raises(Code::Positional_Argument_After_Named) do
 			Code.interp('add ( a, b; a + b )
 				add(a: 1, 2)')
 		end
 
-		# Labels work through constructors too (`Self(;)` params).
+		# `:` works through constructors too (`Self(;)` params).
 		out = Code.interp <<~CODE
 		    Point {
 		    	x,
 		    	y,
-		    	Self ( at x, at y;
+		    	Self ( x, y;
 		    		self.x = x
 		    		self.y = y
 		    	)
 		    }
-		    p := Point(at: 3, at: 4)
+		    p := Point(x: 3, y: 4)
 		    (p.x, p.y)
 		CODE
 		assert_equal [3, 4], out.values
 
-		# Labels compose with defaults normally -- omitting a labeled, defaulted arg still falls back.
+		# `:` composes with defaults normally -- omitting a named, defaulted arg still falls back.
 		out = Code.interp <<~CODE
-		    greet ( with name := "World"; "Hello, `name`" )
-		    (greet(), greet(with: "Backend"))
+		    greet ( name := "World"; "Hello, `name`" )
+		    (greet(), greet(name: "Backend"))
 		CODE
 		assert_equal ['Hello, World', 'Hello, Backend'], out.values
 	end

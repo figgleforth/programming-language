@@ -3024,9 +3024,6 @@ module Code
 			nameless_param = func.parameters.find { |param| param.name.nil? }
 			raise Code::Invalid_Parameter_Name.new(expr, nameless_param.type.value) if nameless_param
 
-			# note; Evaluate arguments in caller's scope (before pushing function scopes). A labeled argument (`to: someone`) parses as a plain `:` Infix_Expr, and a named argument (`to := someone`) as a plain `:=` Infix_Expr (same production named struct members use) -- #classify_argument unwraps either rather than letting #interpret try to resolve `to` as an identifier and raise Undeclared_Identifier.
-			# A caller that already evaluated the operands (operator-overload dispatch in #interp_infix) passes them via arg_values so their side effects don't run a second time; labels/named args only exist in real call syntax, so neither applies there.
-			arg_labels = []
 			named_args = {}
 			arg_values ||= begin
 				seen_named = false
@@ -3054,7 +3051,6 @@ module Code
 						when Code::Array
 							raise Code::Positional_Argument_After_Named.new(expr) if seen_named
 							spread_value.values.each do |value|
-								arg_labels << nil
 								positional << value
 							end
 						else
@@ -3073,17 +3069,16 @@ module Code
 
 					kind, name_or_label, value_expr = classify_argument arg
 
-					# Named arguments must come last -- once you switch to naming arguments, every argument after that has to be named too. A positional argument (bare or labeled) can never follow one.
-					if seen_named && kind != :named
+					# Named arguments must come last -- once you switch to naming arguments, every argument after that has to be named too. A bare positional argument can never follow one. `label: value` is folded into `:named` here -- it's just an alternate spelling of `label := value`, matched by declared parameter name like any other named argument.
+					if seen_named && kind == :positional
 						raise Code::Positional_Argument_After_Named.new(expr)
 					end
 
-					if kind == :named
+					if kind == :named || kind == :labeled
 						seen_named = true
 						raise Code::Duplicate_Named_Argument.new(expr, name_or_label) if named_args.key? name_or_label
 						named_args[name_or_label] = interpret value_expr
 					else
-						arg_labels << (kind == :labeled ? name_or_label : nil)
 						positional << interpret(value_expr)
 					end
 				end
@@ -3156,12 +3151,6 @@ module Code
 					raise Code::Missing_Argument.new(expr)
 				end
 
-				# Labels are positional, not a lookup key -- a labeled argument at position `i` must match that position's declared label (Swift/ObjC-style), never used to reorder arguments. A bare, unlabeled argument is always accepted regardless of whether the param declares a label -- labels are opt-in at the call site, not mandatory. Named arguments bypass label-checking entirely -- they're matched by declared name, not position, so there's no positional label to compare against.
-				supplied_label = arg_labels[i]
-				if !has_named && supplied_label && supplied_label != param.label&.value
-					raise Code::Argument_Label_Mismatch.new(expr, param.label&.value, supplied_label)
-				end
-
 				check_struct_type_contract param, value, expr if param.type.is_a?(Code::Struct_Expr)
 				check_splat_param_type_contract param, value, expr
 
@@ -3218,10 +3207,12 @@ module Code
 		end
 
 		# Classifies a call argument's syntactic form:
-		#   - `name := value` (named)   -- parses as a plain `:=` Infix_Expr, same production a struct
+		#   - `name := value` (named)  -- parses as a plain `:=` Infix_Expr, same production a struct
 		#     member's bare default uses. Matched by the callee's declared param *name*, not position.
-		#   - `label: value` (labeled)  -- parses as a plain `:` Infix_Expr, same production named
-		#     struct members use. Matched against whatever label is declared at that *position*.
+		#   - `name: value` (labeled)  -- parses as a plain `:` Infix_Expr, same production named
+		#     struct members use. #interp_func_body folds this into :named, treating it as an alternate
+		#     spelling of `name := value`. Other callers don't: #interp_struct_call treats it as plain
+		#     positional, and #split_dom_prop_arguments's `kind == :named` check simply skips it.
 		#   - anything else (positional)
 		# Returns [kind, name_or_label, value_expr] -- name_or_label is nil for :positional. Never interprets `arg`/the name-or-label side itself; that's the caller's job once it knows which expression actually holds the real value.
 		def classify_argument arg

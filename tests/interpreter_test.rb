@@ -99,7 +99,7 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_complex_func_declaration
-		out = Code.interp 'run ( a, labeled b, c := 4, labeled d := 8;
+		out = Code.interp 'run ( a, b, c := 4, d := 8;
 			c + d
 		)'
 		assert_equal 4, out.parameters.count
@@ -107,20 +107,16 @@ class Interpreter_Test < Base_Test
 
 		a = out.parameters[0]
 		assert_equal 'a', a.name.value
-		refute a.label
 		refute a.default
 
 		b = out.parameters[1]
-		assert b.label
-		assert_equal 'labeled', b.label.value
+		assert_equal 'b', b.name.value
 		refute b.default
 
 		c = out.parameters[2]
 		assert c.default
-		refute c.label
 
 		d = out.parameters[3]
-		assert d.label
 		assert d.default
 
 		assert_instance_of Code::Infix_Expr, out.expressions.last
@@ -917,11 +913,11 @@ class Interpreter_Test < Base_Test
 		assert_equal [3, 4], out.values
 	end
 
-	# Labels (`:`, checked positionally against the declared label) and named arguments (`:=`, bound by declared name) are separate mechanisms with separate syntax -- a call can use a label on an early positional argument, then switch to named arguments for the rest.
-	def test_named_call_arguments_are_distinct_from_labels
+	# `label: value` is now an alternate spelling of `name := value` -- both bind by the param's declared name, order-independent, and can be freely mixed in the same call.
+	def test_colon_syntax_is_an_alternate_spelling_of_named_arguments
 		out = Code.interp <<~CODE
-		    send ( to person, subject := 'hi'; "`person`: `subject`" )
-		    send(to: 'Alice', subject := 'bye')
+		    send ( person, subject := 'hi'; "`person`: `subject`" )
+		    send(person: 'Alice', subject: 'bye')
 		CODE
 		assert_equal 'Alice: bye', out
 	end
@@ -1070,10 +1066,10 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	def test_labeled_argument_with_a_variadic_tail
+	def test_colon_named_argument_with_a_variadic_tail
 		out = Code.interp <<~CODE
-		    f ( to a, rest...; (a, rest) )
-		    f(to: 1, 2, 3)
+		    f ( a, rest...; (a, rest) )
+		    f(a: 1, rest: [2, 3])
 		CODE
 		assert_equal 1, out.values[0]
 		assert_equal [2, 3], out.values[1].values

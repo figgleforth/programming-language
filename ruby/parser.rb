@@ -598,10 +598,7 @@ module Code
 					param.type   = parse_func
 					param.lexeme = param.type.lexeme || nested_start
 				else
-					if curr? :identifier, :identifier
-						param.label  = eat :identifier
-						param.lexeme = eat :identifier
-					elsif curr? :identifier
+					if curr? :identifier
 						param.lexeme = eat :identifier
 					end
 
@@ -639,7 +636,7 @@ module Code
 					end
 				end
 
-				# The branches above only recognise real param-list tokens (names, `: Type`, labels, defaults, `->`). A stray token they all skipped (a number, a string, an operator) -- raise before touching `param`'s location, since nothing was actually parsed for it (`param.lexeme`/`.type`/`.default` all still nil) -- or the `until` loop spins forever.
+				# The branches above only recognise real param-list tokens (names, `: Type`, defaults, `->`). A stray token they all skipped (a number, a string, an operator) -- raise before touching `param`'s location, since nothing was actually parsed for it (`param.lexeme`/`.type`/`.default` all still nil) -- or the `until` loop spins forever.
 				raise "unexpected #{curr_lexeme.value.inspect} in function parameter list" if @i == before_i
 
 				func.parameters << param

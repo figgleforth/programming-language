@@ -1,46 +1,32 @@
 ### Introduction
 
-A parameter declared as two identifiers in a row -- `label name` -- can be called either positionally or with `label: value` at the call site. Matching is purely positional: the label just has to match whatever's declared at that same param index, it's never used to reorder arguments.
+`name: value` at a call site is an alternate spelling of `name := value` (examples/named_arguments.code) -- both bind an argument by the callee's declared param *name*, order-independent.
 ###
-send_message ( to person, body text;
+send_message ( person, text;
 	"To `person`: `text`"
 )
 
-@assert send_message(to: 'Jack', body: 'Found fresh water') == 'To Jack: Found fresh water', 'labeled arguments should match by position'
-@assert send_message('Sayid', 'Meet at the caves') == 'To Sayid: Meet at the caves', 'labels are opt-in -- a bare positional call should still work'
+@assert send_message(person: 'Jack', text: 'Found fresh water') == 'To Jack: Found fresh water', 'a colon argument binds by the param''s declared name'
+@assert send_message('Sayid', 'Meet at the caves') == 'To Sayid: Meet at the caves', 'naming is opt-in -- a bare positional call still works'
 
 
-### Labels are opt-in per call, per argument
+### `:` and `:=` can mix in one call
 
-Nothing forces every call to use labels -- a labeled param can still be called positionally.
+Both spellings bind the same way, so a call can freely use either for any argument.
 ###
-@assert send_message('Kate', body: 'Watch the fire') == 'To Kate: Watch the fire', 'positional and labeled arguments can mix in one call'
-@assert send_message(to: 'Hurley', ':)') == 'To Hurley: :)', 'either argument can be labeled independently of the other'
+@assert send_message(person: 'Hurley', text := ':)') == 'To Hurley: :)', 'the `:` and `:=` spellings are interchangeable'
 
 
-### A wrong label raises
+### Positional first, then named -- never the other way
 
-Supplying a label that doesn't match what's declared at that position raises `Code::Argument_Label_Mismatch`, including using a label where none was declared at all.
+A call can start with bare positional arguments and switch to `:`/`:=` partway through, but not switch back.
 ###
-# send_message(from: 'Jack', body: 'oops')  -- raises Code::Argument_Label_Mismatch: Expected to:, got from:
+@assert send_message('Kate', text: 'Watch the fire') == 'To Kate: Watch the fire', 'positional then named is fine'
+
+# send_message(person: 'Kate', 'Watch the fire')  -- raises Code::Positional_Argument_After_Named
 
 
-### The same label can repeat
+### A name that matches no declared parameter raises
 
-Two params can share one label -- nothing requires labels to be unique, matching the Swift convention this feature borrows from.
 ###
-Point {
-	x, y,
-
-	Self ( at x, at y;
-		self.x = x
-		self.y = y
-	)
-
-	to_s (;
-		"(`x`, `y`)"
-	)
-}
-
-p := Point(at: 3, at: 4)
-@assert p.to_s() == '(3, 4)', 'a repeated label should still bind to each declared param by position'
+# send_message(from: 'Jack', text: 'oops')  -- raises Code::Unknown_Named_Argument: from is not a declared parameter
