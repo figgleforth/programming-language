@@ -162,7 +162,7 @@ module Code
 				depth += 1 if token.value == '('
 				depth -= 1 if token.value == ')'
 
-				return true if token.value == Code::FUNCTION_DELIMITER && depth == 1
+				return true if token.value == Code::FUNCTION_BODY_DELIMITER && depth == 1
 				return false if depth <= 0 && token.value == ')'
 			end
 			false
@@ -185,7 +185,7 @@ module Code
 				depth -= 1 if token.value == ')'
 				return false if depth <= 0
 
-				return true if token.value == Code::FUNCTION_DELIMITER
+				return true if token.value == Code::FUNCTION_BODY_DELIMITER
 				next if token.type == :newline
 				next if %i[identifier Identifier].include? token.type
 				next if PARAM_LIST_TOKEN_VALUES.include? token.value
@@ -355,7 +355,6 @@ module Code
 			set_expr_location it, start, closing
 		end
 
-
 		#
 		# when <condition>
 		#     body
@@ -363,11 +362,11 @@ module Code
 		#
 		# This is only used inside for-loops and if-family, otherwise "when" identifier is free to use
 		def parse_when_expr
-			start         = curr_lexeme
-			it            = When_Expr.new
-			it.operator   = eat 'when'
+			start        = curr_lexeme
+			it           = When_Expr.new
+			it.operator  = eat 'when'
 			it.condition = parse_expression
-			it.body       = []
+			it.body      = []
 
 			until curr? %w(when else elsif elif end)
 				expr = parse_expression
@@ -525,6 +524,33 @@ module Code
 			set_expr_location expr, start, closing
 		end
 
+		def is_valid_return_expr? expr
+				if expr.is_a? Identifier_Expr
+					# Any
+					# aaa: Any
+					symbol_type = Code.type_of_identifier expr.lexeme.value
+					bare_type   = TYPE_IDENTIFIER.include? symbol_type
+					named_type  = expr.kind == :identifier
+					bare_type || named_type
+				elsif expr.is_a? Infix_Expr
+					# bbb: String = ''
+					# ccc := 4
+					expr.operator.value == '=' || expr.operator.value == ':='
+				elsif expr.is_a? Circumfix_Expr
+					# (Nil_Init, Identifier, Infix, Circumfix, ...)
+					tuple        = expr.grouping == '()'
+					valid_values = expr.expressions.all? { |it| is_valid_return_expr?(it) }
+					tuple && valid_values
+				elsif expr.is_a? Type_Expr
+					# Any | Nil | Etc
+					true
+				elsif expr.is_a? Struct_Expr
+					true
+				else
+					false
+				end
+			end
+
 		def parse_func
 			start            = curr_lexeme
 			func             = Code::Func_Expr.new
@@ -545,15 +571,9 @@ module Code
 			eat '('
 			reduce_newlines
 
-			until curr? Code::FUNCTION_DELIMITER
+			until curr?(FUNCTION_RETURN_DELIMITER) || curr?(FUNCTION_BODY_DELIMITER)
 				before_i    = @i
 				param_start = curr_lexeme
-
-				if curr? '->' and eat '->'
-					# A function (named or anonymous) declaring its own return type inline, at the end of its param list: `(a: Number -> Number; ... )`. Distinct from `identifier: Type (...)`, which is a signature reference/alias, not an implementation declaring its own type.
-					func.type = begin_expression
-					next
-				end
 
 				param = Code::Param_Expr.new
 
@@ -573,6 +593,7 @@ module Code
 					param.type   = eat
 					param.lexeme = param.type
 				elsif curr? '('
+					# reminder; This branch is for parenthesized type signatures as type annotations
 					nested_start = curr_lexeme
 					param.type   = parse_func
 					param.lexeme = param.type.lexeme || nested_start
@@ -594,11 +615,13 @@ module Code
 
 					if curr?(':', TYPE_IDENTIFIER)
 						eat ':'
-						param.type     = begin_expression # picks up a trailing `\<...>`/`\Name` itself (readable as param.type.tag), see #parse_identifier_expr
+						param.type     = begin_expression
+						# ^ picks up a trailing `\<...>`/`\Name` itself (readable as param.type.tag), see #parse_identifier_expr
 						param.variadic = true if %w(Arguments Args).include? param.type&.value
 					elsif curr?(':', '<')
 						eat ':'
-						param.type = parse_struct # bare struct annotation, e.g. `right: <name: String, type: Any, value: Any>` -- structural rather than nominal, see #check_struct_type_contract
+						param.type = parse_struct
+						# ^ bare struct annotation, e.g. `right: <name: String, type: Any, value: Any>` -- structural rather than nominal, see #check_struct_type_contract
 					elsif curr?(':', '(')
 						eat ':'
 						# A param typed with an inline func signature, e.g. `callable: (;)`/`callable: (Number -> Number;)` -- unlike the top-level self-declaring signature form, there's no name here to attach to, so this is a plain recursive #parse_func call, not routed through the `func.type && !has_real_body` -> Func_Signature_Expr repackaging at the bottom of #parse_func. Without this branch, the `:` was never consumed here (only TYPE_IDENTIFIER/`<` were recognized after it), so the outer param loop kept re-reading the same un-consumed `:` forever -- an infinite loop, not a parse error.
@@ -625,7 +648,24 @@ module Code
 				reduce_newlines
 			end
 
-			eat Code::FUNCTION_DELIMITER if curr? Code::FUNCTION_DELIMITER
+			# now we are either at ; or ->
+			if curr? FUNCTION_RETURN_DELIMITER
+				eat FUNCTION_RETURN_DELIMITER
+
+				return_expr = parse_expression
+				if return_expr.is_a? Circumfix_Expr
+					# todo; Aggregate all the invalid types, but for now just the first to raise
+					return_expr.expressions.each do |it|
+						raise Invalid_Return_Type_In_Function.new(it, it) unless is_valid_return_expr? it
+					end
+				else
+					raise Invalid_Return_Type_In_Function.new(return_expr, return_expr) unless is_valid_return_expr? return_expr
+				end
+
+				func.type = return_expr
+			end
+
+			eat FUNCTION_BODY_DELIMITER
 			reduce_newlines
 
 			until curr? ')'
@@ -1360,7 +1400,7 @@ module Code
 				# todo: Don't just discard the comma, make tuples implied when commas are found in #complete_expression
 				eat and nil
 
-			elsif curr? FUNCTION_DELIMITER
+			elsif curr? FUNCTION_BODY_DELIMITER
 				raise Code::Reserved_Function_Delimiter.new curr_lexeme
 
 			elsif curr?(:delimiter) && NEWLINES.include?(curr_lexeme.value)

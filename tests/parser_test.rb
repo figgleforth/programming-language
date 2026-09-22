@@ -837,6 +837,95 @@ class Parser_Test < Base_Test
 		assert_equal 2, out.first.params[1].type.parameters.length
 	end
 
+	def test_return_type_bare_type
+		out = Code.parse "f (-> Any; 4)"
+		assert_kind_of Code::Identifier_Expr, out.first.type
+		assert_equal 'Any', out.first.type.value
+		assert_equal :Identifier, out.first.type.kind
+	end
+
+	def test_return_type_composition
+		out = Code.parse "f (-> Any | Nil; 1)"
+		assert_kind_of Code::Type_Expr, out.first.type
+		assert_equal 'Any', out.first.type.name
+		assert_equal 1, out.first.type.expressions.length
+		assert_kind_of Code::Composition_Expr, out.first.type.expressions.first
+		assert_equal '|', out.first.type.expressions.first.operator.value
+		assert_equal 'Nil', out.first.type.expressions.first.identifier.value
+	end
+
+	def test_return_type_struct
+		out = Code.parse "f (-> <name: String>; 1)"
+		assert_kind_of Code::Struct_Expr, out.first.type
+		assert_equal ['name'], out.first.type.names
+		assert_equal 'String', out.first.type.types.first.type.value
+	end
+
+	def test_return_type_named_tuple_shape
+		out = Code.parse "f (-> (Any, aaa: Any, bbb: Int = 15, ccc := '16'); (1,2,3,4))"
+		func_type = out.first.type
+		assert_kind_of Code::Circumfix_Expr, func_type
+		assert_equal '()', func_type.grouping
+		assert_equal 4, func_type.expressions.length
+
+		bare, aaa, bbb, ccc = func_type.expressions
+
+		assert_kind_of Code::Identifier_Expr, bare
+		assert_equal 'Any', bare.value
+
+		assert_kind_of Code::Identifier_Expr, aaa
+		assert_equal 'aaa', aaa.value
+		assert_equal 'Any', aaa.type.value
+
+		assert_kind_of Code::Infix_Expr, bbb
+		assert_equal '=', bbb.operator.value
+		assert_equal 'bbb', bbb.left.value
+		assert_equal 'Int', bbb.left.type.value
+		assert_equal 15, bbb.right.value
+
+		assert_kind_of Code::Infix_Expr, ccc
+		assert_equal ':=', ccc.operator.value
+		assert_equal 'ccc', ccc.left.value
+		assert_equal '16', ccc.right.value
+	end
+
+	def test_return_type_single_element_tuple
+		out = Code.parse "f (-> (Any,); 1)"
+		func_type = out.first.type
+		assert_kind_of Code::Circumfix_Expr, func_type
+		assert_equal 1, func_type.expressions.length
+		assert_equal 'Any', func_type.expressions.first.value
+	end
+
+	def test_return_type_with_no_arrow_leaves_type_nil
+		out = Code.parse "f (a, b; a + b)"
+		refute out.first.type
+	end
+
+	def test_invalid_bare_return_type_raises
+		assert_raises Code::Invalid_Return_Type_In_Function do
+			Code.parse "f (-> 4; 1)"
+		end
+
+		assert_raises Code::Invalid_Return_Type_In_Function do
+			Code.parse "f (-> 'oops'; 1)"
+		end
+
+		assert_raises Code::Invalid_Return_Type_In_Function do
+			Code.parse "f (-> 1+2; 1)"
+		end
+	end
+
+	# Matches the original bug report: an otherwise-valid named tuple return type with one bad slot
+	# (a plain arithmetic expression) should point at that slot specifically, not the whole tuple.
+	def test_invalid_slot_inside_otherwise_valid_tuple_return_type_raises
+		error = assert_raises Code::Invalid_Return_Type_In_Function do
+			Code.parse "f (-> (Any, 1+2); 1)"
+		end
+		assert_kind_of Code::Infix_Expr, error.expression
+		assert_equal '+', error.expression.operator.value
+	end
+
 	def test_double_less_than_is_operator
 		out = Code.parse '<<'
 		assert_kind_of Code::Operator_Expr, out.first

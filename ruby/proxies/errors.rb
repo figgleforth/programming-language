@@ -124,6 +124,12 @@ module Code
 		end
 	end
 
+	class Invalid_Return_Type_In_Function < Error
+		def detail_message
+			"Invalid expression used as a function return type"
+		end
+	end
+
 	class Receiver_Is_Nil < Error
 		# `expression` is the `.`/`.?` Code::Infix_Expr whose left side evaluated to nil, for both reads
 		# (`task.type`) and writes (`task.type = x`). `.right.value` is the member being reached for;

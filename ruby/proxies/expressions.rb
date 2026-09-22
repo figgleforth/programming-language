@@ -62,7 +62,7 @@ module Code
 				default = param.default ? "=#{param.default.value}" : ''
 				"#{label}#{param.name.value}#{default}"
 			end.join(',')
-			sig += Code::FUNCTION_DELIMITER
+			sig += Code::FUNCTION_BODY_DELIMITER
 			sig += ')'
 			sig
 		end

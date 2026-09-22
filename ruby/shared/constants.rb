@@ -8,7 +8,8 @@ module Code
 	CONTEXT_OPERATOR                  = '@'
 	CONTEXT_ARG_TERMINATORS           = %W( \n \r \) \} \] \, \; )
 	NIL_INIT_POSTFIX                  = ','
-	FUNCTION_DELIMITER                = ';'
+	FUNCTION_RETURN_DELIMITER         = '->'
+	FUNCTION_BODY_DELIMITER           = ';'
 	PERCENT_LITERALS                  = %w(string symbol str Str STR sym Sym SYM)
 	FOR_VERBS                         = %w(each map select reject count)
 	BROWSER_VIEW_SIZE                 = 'browser_view_size'

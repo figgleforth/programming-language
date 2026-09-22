@@ -1,8 +1,9 @@
++ A webapp that watches the .code files and gives you AST, error messages, etc. Keep the app open in a window while you edit .code files to see type and syntax checking upon every file save. Checks for dirty git files and loads all of them on the page for you to watch as you work on the project.
 + Composable functions. `step1 | step2 | step2 (input; ... )` where each composed function fits the shape of input for the prvious output, and fits the shape of output for the next step.
 + Reuse call site labels as named arguments.
 + Support any Numeric-like system that can be incremented. Example: `Standard_Deck | Numeric`, `card := deck.random()` gives a card, `card += 1` gives the next card in the deck.
 + A `Symbol` is not wrapped the way a String or Number is. It stays a raw Ruby Symbol with no runtime type of its own.
-+ Replace comma nil-init (`ident,`) with semicolon nil-init (`ident;`), so a bare comma stays free for tuples and destructuring. Only legal inside `{ }` bodies, not `()`/`[]`. Many existing `ident,` sites need updating.
++ Replace comma nil-init (`ident,`) with semicolon nil-init (`ident;`), so a bare comma stays free for tuples and destructuring. Only legal inside `{ }` bodies, not `()`/`[]`. Many existing `ident,` sites need updating. As long as comma is reserved here, destructuring will require parens: `(a, b, c, d) := f()`
 + Design and implement pattern matching for `when`-cases.
 + Allow different kinds of standalone scopes (Transparent, Opaque, ...). Names still needed.
 + Design a concurrency model.
