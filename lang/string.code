@@ -49,17 +49,19 @@ String {
 	to_f (; @ruby )
 	to_i (; @ruby )
 	trim (; @ruby )
-	squeeze (; @ruby )
+	squeeze ( args... -> String; @ruby )
 
 	lines (;
 		value.split('\n')
 	)
 
 	has_all_same_characters? (;
-		value.squeeze.length <= 1
+		value.squeeze().length <= 1
 	)
 
-	split_by_spaces (; split(' ') )
+	split_by_spaces (;
+		split(' ')
+	)
 }
 
 Str := String
