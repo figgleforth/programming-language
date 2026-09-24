@@ -378,16 +378,16 @@ class Regression_Test < Base_Test
 
 	def test_dictionary_keys_pick_up_existing_values
 		out = Code.interp <<~CODE
-			x := 4815
-			{x, y: 23, z: 42}
+		    x := 4815
+		    {x, y: 23, z: 42}
 		CODE
 		assert_equal [4815, 23, 42], out.hash.values
 	end
 
 	def test_curly_braces_with_known_identifier_becomes_dictionary
 		out = Code.interp <<~CODE
-			x := 4
-			{x}
+		    x := 4
+		    {x}
 		CODE
 		assert_kind_of Code::Dictionary, out
 		assert_equal 4, out.proxy_get('x')
@@ -395,7 +395,7 @@ class Regression_Test < Base_Test
 
 	def test_curly_braces_with_inline_declaration_becomes_inline_scope
 		out = Code.interp <<~CODE
-			{x := 8}
+		    {x := 8}
 		CODE
 		assert_kind_of ::Integer, out
 		assert_equal 8, out # inline scopes just evaluate expressions as if there was no scope, so the result is returned.
@@ -423,10 +423,10 @@ class Regression_Test < Base_Test
 		    )
 		    total(1, 2, 3) + (10..12).sum()
 		CODE
-		assert_equal 39, out  # 6 + 33
+		assert_equal 39, out # 6 + 33
 
 		assert_equal [2, 3, 4], Code.interp('(1>..<5).to_a()').values
-		assert_equal '1..5',    Code.interp('(1..5).to_s()')
+		assert_equal '1..5', Code.interp('(1..5).to_s()')
 	end
 
 	# Regression: types loaded via `variable = @load 'file.code'` were missing enclosing_scope in interp_type
@@ -1160,5 +1160,73 @@ class Regression_Test < Base_Test
 
 		# An actual String element still displays quoted, unaffected.
 		assert_equal "['hi']", Code.interp("['hi'].to_s()")
+	end
+
+	def test_when_matches_a_bare_type_reference_subject
+		out = Code.interp <<~CODE
+		    Animal { }
+		    result := if Animal
+		    	"body-value"
+		    when Animal
+		    	"matched"
+		    end
+		    result
+		CODE
+		assert_equal 'matched', out
+	end
+
+	def test_when_matches_a_type_instance_subject
+		out = Code.interp <<~CODE
+		    Animal { }
+		    result := if Animal()
+		    	"body-value"
+		    when Animal
+		    	"matched"
+		    end
+		    result
+		CODE
+		assert_equal 'matched', out
+	end
+
+	def test_when_matches_a_bare_struct_reference_subject
+		out = Code.interp <<~CODE
+		    Add_Expr <left: Any, right: Any>
+		    result := if Add_Expr
+		    	"body-value"
+		    when Add_Expr
+		    	"matched"
+		    end
+		    result
+		CODE
+		assert_equal 'matched', out
+	end
+
+	def test_when_matches_a_constructed_struct_instance_subject
+		out = Code.interp <<~CODE
+		    Add_Expr <left: Any, right: Any>
+		    result := if Add_Expr(1, 2)
+		    	"body-value"
+		    when Add_Expr
+		    	"matched"
+		    end
+		    result
+		CODE
+		assert_equal 'matched', out
+	end
+
+	def test_when_struct_instance_does_not_match_an_unrelated_struct_type
+		out = Code.interp <<~CODE
+		    Add_Expr <left: Any, right: Any>
+		    Var_Expr <name: String>
+		    result := if Var_Expr('x')
+		    	"body-value"
+		    when Add_Expr
+		    	"wrong"
+		    when Var_Expr
+		    	"right"
+		    end
+		    result
+		CODE
+		assert_equal 'right', out
 	end
 end

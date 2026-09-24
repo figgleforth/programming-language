@@ -1,6 +1,6 @@
-+ Support hex (`0xff0000ff`), binary (`0b0101`), and octal literals, plus scientific notation (`1e10`).
++ Currently I cannot distinguish between Struct references and instances. Code::Struct < Instance, whereas Code::Type < Scope, then Code::Instance < Type. It seems like a good idea to generalize Struct < Scope, then a new unique Ruby class to represent the instance.
 + Add sugar for Decimal numbers (`4.8d`) and Floats (`15.16f`).
-+ Ability to distinguish between instances and references
++ Ability to distinguish between instances and references at runtime
 + A webapp that watches the .code files and gives you AST, error messages, etc. Keep the app open in a window while you edit .code files to see type and syntax checking upon every file save. Checks for dirty git files and loads all of them on the page for you to watch as you work on the project.
 + Composable functions. `step1 | step2 | step3 (input; ... )` where each composed function fits the shape of input for the prvious output, and fits the shape of output for the next step. If this doesn't work, then maybe an operator like `:>` that does the same thing. `step1() :> step2() :> step3()`
 + Reuse call site labels as named arguments.
@@ -162,3 +162,4 @@
 - Change structured types syntax from `Type<Struct>` to `Type\Struct`
 - Add a classic C-style for-loop: `for i := 0, i < 10, i++`.
 - Stride overlap for `for x by n,overlap` implemented: `parse_for_loop_expr` accepts an optional `,<overlap>` after `by <stride>` (new `For_Loop_Expr#overlap`), and `interp_for_loop` slides each `stride`-wide window forward by `stride - overlap` elements instead of a full `stride`, so consecutive windows share `overlap` elements (`by 2,1` walks every consecutive pair, `by 3,1` walks 3-wide windows sharing 1 element with the next). A trailing window that can't reach the full `stride` is kept short, same as the plain no-overlap chunking (`each_slice`) above -- only a window's first element is guaranteed, so a body indexing past `it.0` should use `.?N` (returns `nil` past the end) instead of `.N` (raises). `overlap` must be an integer smaller than `stride`.
+- Support hex (`0xff0000ff`), binary (`0b0101`), and octal literals, plus scientific notation (`1e10`).

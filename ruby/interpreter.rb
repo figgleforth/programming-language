@@ -4112,10 +4112,13 @@ module Code
 
 					when_value = interpret when_case.condition
 
-					bare_type     = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
-					fake          = Infix_Expr.new
-					fake.operator = Lexeme.new :operator, bare_type ? '=>=' : '=='
-					matched_case  = interp_comparison_infix fake, it_value, when_value
+					bare_type      = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
+					bare_struct    = when_value.is_a?(Code::Struct)
+					bare           = bare_type || bare_struct
+
+					infix          = Infix_Expr.new
+					infix.operator = Lexeme.new :operator, bare ? '=>=' : '=='
+					matched_case   = interp_comparison_infix infix, it_value, when_value
 
 					if matched_case
 						when_case.body.each do |case_body_expr|
