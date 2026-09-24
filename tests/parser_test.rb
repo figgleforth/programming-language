@@ -26,6 +26,213 @@ class Parser_Test < Base_Test
 		assert_equal :float, out.first.type
 	end
 
+	# Each alternate number kind now parses to its own dedicated subclass, not the shared base -- while a plain integer/float still stays a bare Code::Number_Expr. All four remain `is_a? Code::Number_Expr` (they subclass it), so nothing that only cares about "is this a number" needs to change.
+	def test_number_literal_kinds_parse_to_their_own_subclass
+		out = Code.parse '0b1010'
+		assert_instance_of Code::Binary_Expr, out.first
+		assert_kind_of Code::Number_Expr, out.first
+
+		out = Code.parse '0xff'
+		assert_instance_of Code::Hexadecimal_Expr, out.first
+		assert_kind_of Code::Number_Expr, out.first
+
+		out = Code.parse '1e10'
+		assert_instance_of Code::Scientific_Notation_Expr, out.first
+		assert_kind_of Code::Number_Expr, out.first
+
+		out = Code.parse '4'
+		assert_instance_of Code::Number_Expr, out.first
+		refute_instance_of Code::Binary_Expr, out.first
+		refute_instance_of Code::Hexadecimal_Expr, out.first
+		refute_instance_of Code::Scientific_Notation_Expr, out.first
+
+		out = Code.parse '2.3'
+		assert_instance_of Code::Number_Expr, out.first
+	end
+
+	def test_binary_literal_parses_to_the_correct_integer_value
+		out = Code.parse '0b1010'
+		assert_kind_of Code::Number_Expr, out.first
+		assert_equal :binary, out.first.type
+		assert_equal 10, out.first.value
+
+		out = Code.parse '0b0'
+		assert_equal 0, out.first.value
+	end
+
+	def test_hexadecimal_literal_parses_to_the_correct_integer_value
+		out = Code.parse '0xff'
+		assert_kind_of Code::Number_Expr, out.first
+		assert_equal :hexadecimal, out.first.type
+		assert_equal 255, out.first.value
+
+		out = Code.parse '0xff00ffff'
+		assert_equal 4278255615, out.first.value
+	end
+
+	def test_scientific_notation_literal_parses
+		out = refute_raises { Code.parse '1e10' }
+		assert_kind_of Code::Number_Expr, out.first
+		assert_equal :scientific_notation, out.first.type
+		assert_equal 1e10, out.first.value
+
+		out = refute_raises { Code.parse '1.5e-10' }
+		assert_equal 1.5e-10, out.first.value
+	end
+
+	def test_hexadecimal_literal_composes_in_an_expression
+		out = Code.parse '0xff + 1'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+
+		assert_kind_of Code::Number_Expr, out.first.left
+		assert_equal :hexadecimal, out.first.left.type
+		assert_equal 255, out.first.left.value
+
+		assert_kind_of Code::Number_Expr, out.first.right
+		assert_equal :integer, out.first.right.type
+		assert_equal 1, out.first.right.value
+	end
+
+	def test_binary_literal_composes_in_an_expression
+		out = Code.parse '0b101 + 0b1'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+
+		assert_kind_of Code::Number_Expr, out.first.left
+		assert_equal :binary, out.first.left.type
+		assert_equal 5, out.first.left.value
+
+		assert_kind_of Code::Number_Expr, out.first.right
+		assert_equal :binary, out.first.right.type
+		assert_equal 1, out.first.right.value
+	end
+
+	def test_scientific_notation_literal_composes_in_an_expression
+		out = Code.parse '1e2 + 1'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+
+		assert_kind_of Code::Number_Expr, out.first.left
+		assert_equal :scientific_notation, out.first.left.type
+		assert_equal 100.0, out.first.left.value
+
+		assert_kind_of Code::Number_Expr, out.first.right
+		assert_equal :integer, out.first.right.type
+		assert_equal 1, out.first.right.value
+	end
+
+	def test_negative_hexadecimal_literal
+		out = refute_raises { Code.parse '-0xff' }
+		assert_equal 1, out.count
+		assert_kind_of Code::Number_Expr, out.first
+		assert_equal :hexadecimal, out.first.type
+		assert_equal(-255, out.first.value)
+	end
+
+	def test_negative_binary_literal
+		out = refute_raises { Code.parse '-0b101' }
+		assert_equal 1, out.count
+		assert_kind_of Code::Number_Expr, out.first
+		assert_equal :binary, out.first.type
+		assert_equal(-5, out.first.value)
+	end
+
+	def test_arithmetic_between_number_and_binary
+		out = Code.parse '6 + 0b10'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+		assert_equal [6, :integer], [out.first.left.value, out.first.left.type]
+		assert_equal [2, :binary], [out.first.right.value, out.first.right.type]
+
+		out = Code.parse '0b10 - 6'
+		assert_equal '-', out.first.operator.value
+		assert_equal [2, :binary], [out.first.left.value, out.first.left.type]
+		assert_equal [6, :integer], [out.first.right.value, out.first.right.type]
+	end
+
+	def test_arithmetic_between_number_and_hexadecimal
+		out = Code.parse '6 * 0x4'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '*', out.first.operator.value
+		assert_equal [6, :integer], [out.first.left.value, out.first.left.type]
+		assert_equal [4, :hexadecimal], [out.first.right.value, out.first.right.type]
+
+		out = Code.parse '0x4 / 6'
+		assert_equal '/', out.first.operator.value
+		assert_equal [4, :hexadecimal], [out.first.left.value, out.first.left.type]
+		assert_equal [6, :integer], [out.first.right.value, out.first.right.type]
+	end
+
+	def test_arithmetic_between_number_and_scientific_notation
+		out = Code.parse '6 + 1e1'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+		assert_equal [6, :integer], [out.first.left.value, out.first.left.type]
+		assert_equal [10.0, :scientific_notation], [out.first.right.value, out.first.right.type]
+
+		out = Code.parse '1e1 - 6'
+		assert_equal '-', out.first.operator.value
+		assert_equal [10.0, :scientific_notation], [out.first.left.value, out.first.left.type]
+		assert_equal [6, :integer], [out.first.right.value, out.first.right.type]
+	end
+
+	def test_arithmetic_between_binary_and_hexadecimal
+		out = Code.parse '0b10 + 0x4'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+		assert_equal [2, :binary], [out.first.left.value, out.first.left.type]
+		assert_equal [4, :hexadecimal], [out.first.right.value, out.first.right.type]
+
+		out = Code.parse '0x4 * 0b10'
+		assert_equal '*', out.first.operator.value
+		assert_equal [4, :hexadecimal], [out.first.left.value, out.first.left.type]
+		assert_equal [2, :binary], [out.first.right.value, out.first.right.type]
+	end
+
+	def test_arithmetic_between_binary_and_scientific_notation
+		out = Code.parse '0b10 + 1e1'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+		assert_equal [2, :binary], [out.first.left.value, out.first.left.type]
+		assert_equal [10.0, :scientific_notation], [out.first.right.value, out.first.right.type]
+
+		out = Code.parse '1e1 - 0b10'
+		assert_equal '-', out.first.operator.value
+		assert_equal [10.0, :scientific_notation], [out.first.left.value, out.first.left.type]
+		assert_equal [2, :binary], [out.first.right.value, out.first.right.type]
+	end
+
+	def test_arithmetic_between_hexadecimal_and_scientific_notation
+		out = Code.parse '0x4 + 1e1'
+		assert_kind_of Code::Infix_Expr, out.first
+		assert_equal '+', out.first.operator.value
+		assert_equal [4, :hexadecimal], [out.first.left.value, out.first.left.type]
+		assert_equal [10.0, :scientific_notation], [out.first.right.value, out.first.right.type]
+
+		out = Code.parse '1e1 * 0x4'
+		assert_equal '*', out.first.operator.value
+		assert_equal [10.0, :scientific_notation], [out.first.left.value, out.first.left.type]
+		assert_equal [4, :hexadecimal], [out.first.right.value, out.first.right.type]
+	end
+
+	# A chain of all four kinds together, left-associative like any other `+` chain: `((6 + 0b10) + 0x4) + 1e1`.
+	def test_arithmetic_chain_across_all_four_number_kinds
+		out = Code.parse '6 + 0b10 + 0x4 + 1e1'
+		top = out.first
+		assert_kind_of Code::Infix_Expr, top
+		assert_equal [10.0, :scientific_notation], [top.right.value, top.right.type]
+
+		mid = top.left
+		assert_kind_of Code::Infix_Expr, mid
+		assert_equal [4, :hexadecimal], [mid.right.value, mid.right.type]
+
+		inner = mid.left
+		assert_kind_of Code::Infix_Expr, inner
+		assert_equal [6, :integer], [inner.left.value, inner.left.type]
+		assert_equal [2, :binary], [inner.right.value, inner.right.type]
+	end
+
 	def test_numbers_with_prefixes
 		out = Code.parse '-42'
 		assert_kind_of Code::Number_Expr, out.first

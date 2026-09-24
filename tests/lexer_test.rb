@@ -200,9 +200,9 @@ class Lexer_Test < Base_Test
 		assert_equal 3, out.count
 
 		# `..` (range) and `...` (variadic) are distinct tokens -- `..` no longer swallows a third dot.
-		assert_equal %w(1 .. 5),   Code.lex('1..5').map(&:value)
-		assert_equal %w(x ...),    Code.lex('x...').map(&:value)
-		assert_equal %w(1 ..< 5),  Code.lex('1..<5').map(&:value)
+		assert_equal %w(1 .. 5), Code.lex('1..5').map(&:value)
+		assert_equal %w(x ...), Code.lex('x...').map(&:value)
+		assert_equal %w(1 ..< 5), Code.lex('1..<5').map(&:value)
 		assert_equal %w(1 >..< 5), Code.lex('1>..<5').map(&:value)
 
 		out = Code.lex 'a, B, 5, "cool"'
@@ -496,10 +496,10 @@ class Lexer_Test < Base_Test
 	# #preceded_by_at_load? in lexer.rb.
 	def test_load_bare_path_forms
 		{
-			'@load ./foo'                     => './foo',
-			'@load ../foo/bar'                => '../foo/bar',
-			'@load ~/foo'                     => '~/foo',
-			'@load ~/.config/nvim/init.code'  => '~/.config/nvim/init.code',
+			'@load ./foo'                    => './foo',
+			'@load ../foo/bar'               => '../foo/bar',
+			'@load ~/foo'                    => '~/foo',
+			'@load ~/.config/nvim/init.code' => '~/.config/nvim/init.code',
 		}.each do |src, expected_path|
 			out = Code.lex src
 			assert_equal 3, out.length, src
@@ -523,14 +523,14 @@ class Lexer_Test < Base_Test
 	def test_load_without_a_marker_is_not_treated_as_a_path
 		out = Code.lex '@load asdf/asdf.code'
 		assert_equal [
-			[:operator, '@'],
-			[:identifier, 'load'],
-			[:identifier, 'asdf'],
-			[:operator, '/'],
-			[:identifier, 'asdf'],
-			[:operator, '.'],
-			[:identifier, 'code'],
-		], out.map { |t| [t.type, t.value] }
+			             [:operator, '@'],
+			             [:identifier, 'load'],
+			             [:identifier, 'asdf'],
+			             [:operator, '/'],
+			             [:identifier, 'asdf'],
+			             [:operator, '.'],
+			             [:identifier, 'code'],
+		             ], out.map { |t| [t.type, t.value] }
 	end
 
 	# `x.@load` is a dot-qualified reference to the member itself, not the bare `@load` directive
@@ -539,4 +539,91 @@ class Lexer_Test < Base_Test
 		out = Code.lex 'x.@load ./foo'
 		refute_includes out.map(&:type), :string
 	end
+
+	def test_hexadecimal_literals
+		out = Code.lex '0xff00ffff'
+		assert_equal %i(hexadecimal), out.map(&:type)
+		assert_equal 'ff00ffff', out.first.value # the `0x` prefix itself is not kept
+		assert_equal 1, out.count
+	end
+
+	def test_binary_literals
+		out = Code.lex '0b10101010'
+		assert_equal %i(binary), out.map(&:type)
+		assert_equal '10101010', out.first.value # the `0b` prefix itself is not kept
+		assert_equal 1, out.count
+	end
+
+	def test_scientific_notation_literals
+		out = Code.lex '1e10'
+		assert_equal %i(scientific_notation), out.map(&:type)
+		assert_equal '1e10', out.first.value
+		assert_equal 1, out.count
+	end
+
+	def test_scientific_notation_literals_with_decimal_points
+		out = Code.lex '1.5e-10'
+		assert_equal %i(scientific_notation), out.map(&:type)
+		assert_equal '1.5e-10', out.first.value
+		assert_equal 1, out.count
+	end
+
+	def test_scientific_notation_literals_with_explicit_exponent_sign
+		out = Code.lex '2.3e+5'
+		assert_equal %i(scientific_notation), out.map(&:type)
+		assert_equal '2.3e+5', out.first.value
+		assert_equal 1, out.count
+
+		out = Code.lex '1e-10'
+		assert_equal %i(scientific_notation), out.map(&:type)
+		assert_equal '1e-10', out.first.value
+		assert_equal 1, out.count
+	end
+
+	def test_scientific_notation_literals_with_a_negative_mantissa
+		out = Code.lex '-1.5e-10'
+		assert_equal %i(scientific_notation), out.map(&:type)
+		assert_equal '-1.5e-10', out.first.value
+		assert_equal 1, out.count
+	end
+
+	def test_scientific_notation_literals_with_a_zero_exponent
+		out = Code.lex '5e0'
+		assert_equal %i(scientific_notation), out.map(&:type)
+		assert_equal '5e0', out.first.value
+		assert_equal 1, out.count
+	end
+
+	def test_scientific_notation_literals_with_underscored_exponent_digits
+		out = Code.lex '1.0e-1_0'
+		assert_equal %i(scientific_notation), out.map(&:type)
+		assert_equal '1.0e-10', out.first.value # underscore digit-separators are stripped, same as in an ordinary number
+		assert_equal 1, out.count
+	end
+
+	def test_uppercase_e_is_not_scientific_notation
+		out = Code.lex '1E10'
+		assert_equal %i(scientific_notation), out.map(&:type)
+	end
+
+	def test_uppercase_binary_prefix
+		out = Code.lex '0B1010'
+		assert_equal %i(binary), out.map(&:type)
+		assert_equal %w(1010), out.map(&:value)
+		assert_equal 1, out.count
+	end
+
+	def test_uppercase_hex_prefix_is_not_recognized
+		out = Code.lex '0Xff'
+		assert_equal %i(hexadecimal), out.map(&:type)
+		assert_equal %w(ff), out.map(&:value)
+		assert_equal 1, out.count
+	end
+
+	def test_number_followed_by_an_e_identifier_does_not_raise
+		out = refute_raises { Code.lex '1entry' }
+		assert_equal %i(number identifier), out.map(&:type)
+		assert_equal %w(1 entry), out.map(&:value)
+	end
+
 end

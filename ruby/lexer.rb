@@ -43,8 +43,8 @@ module Code
 		end
 
 		def mark_end lexeme
-			lexeme.line_end = @line
-			lexeme.column_end = [1, @column-1].max # Column can be 1 after a newline, and I want to follow convention (at least RubyMine's convention) of starting at column 1 not 0.
+			lexeme.line_end   = @line
+			lexeme.column_end = [1, @column - 1].max # Column can be 1 after a newline, and I want to follow convention (at least RubyMine's convention) of starting at column 1 not 0.
 		end
 
 		def whitespace? char = curr
@@ -67,8 +67,20 @@ module Code
 			char&.match? Code::NUMERIC_REGEX
 		end
 
-		def negative_number?
-			curr == '-' && numeric?(peek) && should_lex_negative_number?(@lexemes)
+		def binary_literal? char = curr
+			negative = (char == '-' && peek == '0') && peek(2)&.downcase == 'b' && numeric?(peek(3))
+			positive = char == '0'                  && peek&.downcase == 'b' && numeric?(peek(2))
+			negative || positive
+		end
+
+		def hex_literal? char = curr
+			negative = (char == '-' && peek == '0') && peek(2)&.downcase == 'x' && (alphanumeric?(peek(3)) || numeric?(peek(3)))
+			positive = char == '0'                  && peek&.downcase == 'x' && (alphanumeric?(peek(2)) || numeric?(peek(2)))
+			negative || positive
+		end
+
+		def negative_number? char = curr
+			char == '-' && numeric?(peek) && should_lex_negative_number?(@lexemes)
 		end
 
 		def alpha? char = curr
@@ -211,6 +223,40 @@ module Code
 			str
 		end
 
+		def lex_alternate_number
+			if binary_literal? # 0b10101010
+				sign = eat if '+-'.include? curr
+				eat '0' and eat # b or B
+				literal = ::String.new
+				literal << eat while chars? && !whitespace?
+
+				invalid = literal.chars.find { |c| !'01'.include?(c) } # todo; Find all instead of just the first
+				raise "Invalid literal digit `#{invalid}` used." if invalid
+
+				make_lexeme do |lexeme|
+					lexeme.type  = :binary
+					lexeme.value = "#{sign}#{literal}"
+				end
+
+			elsif hex_literal? # 0xff00ffff
+				sign = eat if '+-'.include? curr
+				eat '0' and eat # x or X
+				literal = ::String.new
+				literal << eat while chars? && !whitespace?
+
+				invalid = literal.chars.find { |c| !HEX_DIGITS.include?(c.downcase) } # todo; Find all instead of just the first
+				raise "Invalid hexadecimal digit `#{invalid}` used." if invalid
+
+				make_lexeme do |lexeme|
+					lexeme.type  = :hexadecimal
+					lexeme.value = "#{sign}#{literal}"
+				end
+				# note; scientific notation is handled in lex_number because its the simplest way I can think of to make this work quickly.
+			else
+				raise "Unreachable in #lex_alternate_number"
+			end
+		end
+
 		def lex_number
 			def eat_number
 				it    = ::String.new
@@ -227,11 +273,25 @@ module Code
 				it.strip
 			end
 
-			make_lexeme do |lexeme|
+			lexeme = make_lexeme do |lexeme|
 				prefix       = eat if %w(+ -).include? curr
 				lexeme.type  = :number
 				lexeme.value = "#{prefix}#{eat_number}"
 			end
+
+			if curr&.downcase == 'e' && !identifier?(peek) && !whitespace?(peek)
+				 # Here I can maybe reasonably assume it is scientific notation
+				eat # e or E
+				sign = eat if %w(+ -).include? curr
+
+				if numeric?
+					lexeme.value = "#{lexeme.value}e#{sign}#{eat_number}"
+					lexeme.type  = :scientific_notation
+				else
+					raise 'My assumption was wrong'
+				end
+			end
+			lexeme
 		end
 
 		def lex_string
@@ -498,8 +558,11 @@ module Code
 				elsif delimiter?
 					lex_delimiter
 
+				elsif binary_literal? || hex_literal?
+					lex_alternate_number
+
 				elsif numeric? || negative_number?
-					lex_number
+					lexeme = lex_number
 
 				elsif route_pattern?
 					lex_route

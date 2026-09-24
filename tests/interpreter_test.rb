@@ -183,6 +183,54 @@ class Interpreter_Test < Base_Test
 		assert_equal 8, Code.interp('(1 + (2 * 3 / 4) % 5) << 2')
 	end
 
+	def test_alternate_number_kinds_evaluate_to_a_plain_number
+		assert_equal 10, Code.interp('0b1010')
+		assert_kind_of ::Integer, Code.interp('0b1010')
+
+		assert_equal 255, Code.interp('0xff')
+		assert_kind_of ::Integer, Code.interp('0xff')
+
+		assert_equal 1e10, Code.interp('1e10')
+		assert_kind_of ::Float, Code.interp('1e10')
+
+		assert_equal Code.interp('255'), Code.interp('0xff')
+		assert_equal Code.interp('10'), Code.interp('0b1010')
+	end
+
+	def test_arithmetic_between_number_and_binary
+		assert_equal 8, Code.interp('6 + 0b10')
+		assert_equal(-4, Code.interp('0b10 - 6'))
+	end
+
+	def test_arithmetic_between_number_and_hexadecimal
+		assert_equal 24, Code.interp('6 * 0x4')
+		assert_equal 0, Code.interp('0x4 / 6') # integer division -- 4 / 6 truncates to 0
+	end
+
+	def test_arithmetic_between_number_and_scientific_notation
+		assert_equal 16.0, Code.interp('6 + 1e1')
+		assert_equal 4.0, Code.interp('1e1 - 6')
+	end
+
+	def test_arithmetic_between_binary_and_hexadecimal
+		assert_equal 6, Code.interp('0b10 + 0x4')
+		assert_equal 8, Code.interp('0x4 * 0b10')
+	end
+
+	def test_arithmetic_between_binary_and_scientific_notation
+		assert_equal 12.0, Code.interp('0b10 + 1e1')
+		assert_equal 8.0, Code.interp('1e1 - 0b10')
+	end
+
+	def test_arithmetic_between_hexadecimal_and_scientific_notation
+		assert_equal 14.0, Code.interp('0x4 + 1e1')
+		assert_equal 40.0, Code.interp('1e1 * 0x4')
+	end
+
+	def test_arithmetic_chain_across_all_four_number_kinds
+		assert_equal 22.0, Code.interp('6 + 0b10 + 0x4 + 1e1')
+	end
+
 	def test_nested_type_declaration
 		out = Code.interp '
 		Computer {

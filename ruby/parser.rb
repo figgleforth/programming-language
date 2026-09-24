@@ -525,31 +525,31 @@ module Code
 		end
 
 		def is_valid_return_expr? expr
-				if expr.is_a? Identifier_Expr
-					# Any
-					# aaa: Any
-					symbol_type = Code.type_of_identifier expr.lexeme.value
-					bare_type   = TYPE_IDENTIFIER.include? symbol_type
-					named_type  = expr.kind == :identifier
-					bare_type || named_type
-				elsif expr.is_a? Infix_Expr
-					# bbb: String = ''
-					# ccc := 4
-					expr.operator.value == '=' || expr.operator.value == ':='
-				elsif expr.is_a? Circumfix_Expr
-					# (Nil_Init, Identifier, Infix, Circumfix, ...)
-					tuple        = expr.grouping == '()'
-					valid_values = expr.expressions.all? { |it| is_valid_return_expr?(it) }
-					tuple && valid_values
-				elsif expr.is_a? Type_Expr
-					# Any | Nil | Etc
-					true
-				elsif expr.is_a? Struct_Expr
-					true
-				else
-					false
-				end
+			if expr.is_a? Identifier_Expr
+				# Any
+				# aaa: Any
+				symbol_type = Code.type_of_identifier expr.lexeme.value
+				bare_type   = TYPE_IDENTIFIER.include? symbol_type
+				named_type  = expr.kind == :identifier
+				bare_type || named_type
+			elsif expr.is_a? Infix_Expr
+				# bbb: String = ''
+				# ccc := 4
+				expr.operator.value == '=' || expr.operator.value == ':='
+			elsif expr.is_a? Circumfix_Expr
+				# (Nil_Init, Identifier, Infix, Circumfix, ...)
+				tuple        = expr.grouping == '()'
+				valid_values = expr.expressions.all? { |it| is_valid_return_expr?(it) }
+				tuple && valid_values
+			elsif expr.is_a? Type_Expr
+				# Any | Nil | Etc
+				true
+			elsif expr.is_a? Struct_Expr
+				true
+			else
+				false
 			end
+		end
 
 		def parse_func
 			start            = curr_lexeme
@@ -1170,21 +1170,44 @@ module Code
 		end
 
 		def parse_number_expr
-			start       = curr_lexeme
-			expr        = Code::Number_Expr.new start
-			expr.lexeme = eat(:number)
-			if expr.lexeme.value.count('.') > 1
-				expr                  = Code::Array_Index_Expr.new expr.lexeme
-				expr.indices_in_order = expr.lexeme.value.split '.'
-				expr.indices_in_order = expr.indices_in_order.map &:to_i
-				# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2].
-			elsif expr.lexeme.value.include? '.'
-				expr.type  = :float
+			start = lexeme = eat
+
+			case lexeme.type
+			when :binary
+				expr  = Code::Binary_Expr.new start
+				expr.type  = :binary
+				expr.value = expr.value.to_i(2)
+
+			when :hexadecimal
+				expr  = Code::Hexadecimal_Expr.new start
+				expr.type  = :hexadecimal
+				expr.value = expr.value.to_i(16)
+
+			when :scientific_notation
+				expr  = Code::Scientific_Notation_Expr.new start
+				expr.type  = :scientific_notation
 				expr.value = expr.value.to_f
+
+			when :number
+				expr  = Code::Number_Expr.new start
+				if expr.lexeme.value.count('.') > 1
+					expr                  = Code::Array_Index_Expr.new expr.lexeme
+					expr.indices_in_order = expr.lexeme.value.split '.'
+					expr.indices_in_order = expr.indices_in_order.map &:to_i
+					# It's important not to convert number.value here to anything to preserve the variant number of dots in the string. I think this'll be cool syntax, 2d_array.1.2 would be the equivalent of 2d_array[1][2].
+				elsif expr.lexeme.value.include? '.'
+					expr.type  = :float
+					expr.value = expr.value.to_f
+				else
+					expr.type  = :integer
+					expr.value = expr.value.to_i
+				end
+
 			else
-				expr.type  = :integer
-				expr.value = expr.value.to_i
+				raise "Unreachable in #parse_number_expr: #{expr.inspect}"
+
 			end
+
 			copy_location expr, start
 		end
 
@@ -1385,7 +1408,7 @@ module Code
 			elsif curr? :operator
 				parse_operator_expr
 
-			elsif curr? :number
+			elsif curr? %i(number binary hexadecimal scientific_notation)
 				parse_number_expr
 
 			elsif curr? :string

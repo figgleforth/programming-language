@@ -137,6 +137,12 @@ module Code
 		# https://stackoverflow.com/a/18533211/1426880
 		# https://stackoverflow.com/a/1235891/1426880
 	end
+	class Binary_Expr < Number_Expr
+	end
+	class Hexadecimal_Expr < Number_Expr
+	end
+	class Scientific_Notation_Expr < Number_Expr
+	end
 
 	class Symbol_Expr < Expression
 		def initialize lexeme

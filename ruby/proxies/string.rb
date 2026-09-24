@@ -32,7 +32,10 @@ module Code
 		proxy :start_with?
 		proxy :end_with?
 		proxy :gsub
-		proxy :squeeze
+
+		def proxy_squeeze *args
+			Code::String.new value.squeeze(*args)
+		end
 
 		def proxy_to_md5_hash
 			Digest::MD5.hexdigest value
