@@ -1,3 +1,9 @@
++ Generics idea again. `Array\$My_Type { push($My_Type;...) pop(-> $My_Type;...) }`. If you declare this, then you dont have to implement individual variants like `Array\Expression` or `Array\Lexeme`. You simply: `lexemes: Array\Lexeme = []`, `lexemes := Array\Lexeme()`, interpreter will find the generic, then replace the $ cash-prefixed types with the variant you are using. `$My_Type` here should be a named type or named struct, anything else besides type/struct? idk.
++ Same generics mechanic should apply to functions: `add (a: $Addable_Thing, b: $Addable_Thing;...)` maybe?
++ In lang/expressions.code, I wrote a bunch of enums at the bottom, eg: `Privacy [PUBLIC PRIVATE]`. It might seem to be too ambiguious to parse but it works. Anyway, I'd like to have anonymouse enums: `privacy: [PUBLIC PRIVATE]` and you can only ever assign an identifier matching :CAPITALIZATION, and exactly spelled like its members. `privacy: [PRI PUB] = .PUB`. I think Jai has something like this, but with keywords.
++ The runtime construct `Statement` name would be better used elsewhere. Rename the runtime construct to `Lazy_Code` or `Lazy`, etc.
++ Be able to destructure agruments if they are able to be destructured like: `fn: ((k,v), index ;)`
++ Add mechanism for runtime objects to opt into destructuring, by declaring the shapes it supports, like: `(k,v,i);`, `(k,v),accumulator;` etc
 + Currently I cannot distinguish between Struct references and instances. Code::Struct < Instance, whereas Code::Type < Scope, then Code::Instance < Type. It seems like a good idea to generalize Struct < Scope, then a new unique Ruby class to represent the instance.
 + Add sugar for Decimal numbers (`4.8d`) and Floats (`15.16f`).
 + Ability to distinguish between instances and references at runtime

@@ -1,20 +1,10 @@
-# todo; write Array\Expression and so on
+### Structs (mirroring ruby/proxies/expressions.rb)
+I need to map these 1:1 first, then I'll see what modifications I'd like to make.
+Then anything.@expression will give you a fresh build of the expression found in the scope/stack.
+Should it be fresh every time you call it? It seems reasonable right now without thinking into it.
 
-# Enums
-Http_Method [GET PUT PATCH POST DELETE HEAD OPTIONS CONNECT TRACE]
-Percent_Literal_Type [str Str STR string sym Sym SYM symbol] # turns out this works too, not just ALL CAPS
-Literal_Type [STRING SYMBOL NUMBER FENCE HTML]
-Fixity [PREFIX POSTFIX INFIX CIRCUMFIX]
-Quotation_Style [SINGLE DOUBLE]
-Privacy [PUBLIC PRIVATE]
-Binding [INSTANCE STATIC]
-
-# Structs
-Anylike | Expression <>
-Numberlike | Expression <>
-Html_Fence | Fencelike <>
-Nil_Init | Infix <>
-
+After that, I'll write an LLVM IR generator using my own structs mirroring theirs. (See https://llvm.org/docs/LangRef.html#high-level-structure). I'm so excited to learn llvm!
+###
 Code_Location <
 	source_file: String # or maybe we should add Path?
 
@@ -35,7 +25,7 @@ Lexeme <
 	location: Code_Location
 >
 
-Expression <
+Expression | Code_Location <
 	lexemes: Array\Lexeme
 	value: Any
 >
@@ -82,7 +72,7 @@ Structure | Expression < # todo; call this Struct, rename intrinsic to Structure
 	declared_name: String
 >
 
-Enum | Expression <
+Enumeration | Expression <
 	name: String
 	type: Any
 	expressions: Array\Expression
@@ -181,10 +171,39 @@ Fencelike | Expression <
 	body: String
 >
 
-Statement | Expression <
+Lazy_Expression | Expression < # Was `Statement` but that name is taken by the runtime Statement. I should rename that to Lazy_Code.
 	expression: Expression
 >
 
 Comment | Expression  <
 	body: String
 >
+
+### Useful
+###
+
+Array\Expression {
+	push ( item: Expression; @ruby )
+	prepend ( item: Expression; @ruby )
+	pop (-> Expression; @ruby )
+	shift (-> Expression; @ruby )
+}
+
+Expressions := Array\Expression
+
+# Enums
+Http_Method [GET PUT PATCH POST DELETE HEAD OPTIONS CONNECT TRACE]
+Percent_Literal_Type [str Str STR string sym Sym SYM symbol] # turns out this works too, not just ALL CAPS
+Literal_Type [STRING SYMBOL NUMBER FENCE HTML]
+Fixity [PREFIX POSTFIX INFIX CIRCUMFIX]
+Quotation_Style [SINGLE DOUBLE]
+Privacy [PUBLIC PRIVATE]
+Binding [INSTANCE STATIC]
+
+# Structs
+Anylike | Expression <>
+Numberlike | Expression <>
+Html_Fence | Fencelike <>
+Css_Fence | Fencelike <>
+Javascript_Fence | Fencelike <>
+Nil_Init | Infix <>
