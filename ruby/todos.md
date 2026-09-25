@@ -24,13 +24,6 @@
 + Simplify the flow for managing declarations on Context. An auto-generating `.code` file is one option.
 + Clay has a debug sidebar that inspects its layout in real time — worth taking inspiration from.
 + Rewrite the lexer in `.code` itself, as its own reusable library that can lex anything from a declared token set.
-+ Implement https://github.com/tsoding/leaf-venation
-+ Implement https://github.com/tsoding/bpe
-+ Implement https://github.com/tsoding/piff (https://nathaniel.ai/myers-diff/)
-+ Implement https://github.com/tsoding/randomart — the paper is already downloaded.
-+ Implement https://github.com/tsoding/subframes (https://x.com/FreyaHolmer/status/1718979996125925494)
-+ Implement a Rope data structure, for fun.
-+ Implement an AST walker that finds which functions are self-contained and which call out elsewhere.
 + The type checker does not check static declarations at all.
 + Should `Struct` be a real struct behind the scenes?
 + Distill constructs down to simpler, more composable shapes — features should click together. Example: need a web page, just `@load html`, or eventually swap in a premade template. One idea: generalize a scope to a body (`{ ... }`), and a callable scope to a body with a colon (`{ ...; ... }`).
@@ -90,6 +83,13 @@
 + Add a variant of `@puts` that also prints the expression as a string: `@puts! "`(1+2)`"` should print `(1+2) => 3`.
 + Add a built-in debugger, maybe `@debug`. It should stop execution and drop into a REPL scoped to that point in the program. Likely needs a dedicated `Interpreter#debug_output`, able to interrupt the stream of expressions being interpreted. `@debug when_condition_true` (conditional breakpoint) would be neat too.
 + Swift-style trailing-block call sugar: `map() {it; ...}` after the call itself. The plain splat form (`xs.map(x; x * 2)`, no parens around the block) already works; only the trailing-block-after-parens form is still missing, and currently fails to parse.
++ Implement https://github.com/tsoding/leaf-venation
++ Implement https://github.com/tsoding/bpe
++ Implement https://github.com/tsoding/piff (https://nathaniel.ai/myers-diff/)
++ Implement https://github.com/tsoding/randomart — the paper is already downloaded.
++ Implement https://github.com/tsoding/subframes (https://x.com/FreyaHolmer/status/1718979996125925494)
++ Implement a Rope data structure, for fun.
++ Implement an AST walker that finds which functions are self-contained and which call out elsewhere.
 - Validate whether the precedence is even used when declaring an operator. Yes, it is.
 - `backend/interpreter/interpreter.rb`: array `<<` is special-cased in the interpreter instead of being a real operator declaration on `Array`; revisit once operator declarations exist.
 - Add Type set comparison operators
