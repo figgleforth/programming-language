@@ -9,6 +9,11 @@ module Code
 			# Per-declared-type member/method registry, keyed by qualified type name ("Web_Application", "Array\Web_Server" for a tagged type
 			@type_info  = Hash.new { |h, k| h[k] = { members: {}, methods: {} } }
 			@type_stack = [] # qualified type names currently being walked, innermost last
+
+			# `Ident := SomeType` (a bare, uncalled type reference, no `()`) -- maps the alias's own
+			# name to the real qualified type name it stands for, so `Ident()` resolves methods
+			# through the same @type_info entry the real type registered under. See #check_inferred_declaration.
+			@type_aliases = {}
 		end
 
 		def output
@@ -66,10 +71,12 @@ module Code
 
 		def register_func expr
 			return unless expr.name
-			return unless expr.parameters.any?(&:type)
 			return if expr.parameters.any?(&:variadic) # variadic arity / element typing isn't statically modeled
 
-			param_types = expr.parameters.map { |p| p.type&.value unless p.type.is_a?(Code::Struct_Expr) } # structural params aren't checked statically
+			param_types = expr.parameters.map do |p|
+			    # structural params aren't checked statically
+				p.type&.value unless p.type.is_a?(Code::Struct_Expr) # todo;  add #check_struct
+			end
 			declare :funcs, expr.name.value, param_types
 			@type_info[@type_stack.last][:methods][expr.name.value] = param_types if @type_stack.last
 		end
@@ -141,9 +148,14 @@ module Code
 			names.compact
 		end
 
-		# `x := Type(...)` / `x := Type<Struct>(...)`.
+		# `x := Type(...)` / `x := Type<Struct>(...)` / `Ident := SomeType`
 		def check_inferred_declaration expr
 			return unless expr.left.is_a? Code::Identifier_Expr
+
+			if (aliased = qualified_type_name(expr.right))
+				@type_aliases[expr.left.value] = aliased
+				return
+			end
 
 			constructed = constructed_type_name expr.right
 			return unless constructed
@@ -164,7 +176,7 @@ module Code
 			when Code::Type_Expr
 				qualified_type_name receiver
 			when Code::Identifier_Expr
-				receiver.value if Helpers.type_identifier? receiver.value
+				@type_aliases.fetch(receiver.value, receiver.value) if Helpers.type_identifier? receiver.value
 			end
 		end
 
@@ -193,6 +205,19 @@ module Code
 			Type_Mismatch.new expr, declared.join(' | '), inferred
 		end
 
+		def check_return_type expr
+			return nil unless expr.type
+			return nil if expr.type.is_a? Code::Struct_Expr # structural annotations aren't checked statically
+			return nil if expr.expressions.empty?
+
+			declared = annotation_type_names expr.type
+			inferred = infer_type expr.expressions.last
+			return nil if inferred.nil?
+			return nil if declared.any? { |name| types_compatible? name, inferred }
+
+			raise Code::Type_Contract_Violation.new(expr.expressions.last, declared.join(' | '), inferred)
+		end
+
 		# `nil` means there is no error with the expression. The pattern for most of the cases is just: recurse into child expressions and collect errors.
 		# @return nil, Error, or Array of Errors.
 		def check expr
@@ -215,7 +240,9 @@ module Code
 			when Code::Func_Expr
 				# #register_func runs before the new scope is pushed, so the function's own name is declared into the *enclosing* scope (visible to siblings, and to the function's own body too since lookups search outward so recursive calls still resolve).
 				register_func expr
-				with_new_scope { check expr.parameters + expr.expressions }
+				body_errors = with_new_scope { check expr.parameters + expr.expressions }
+				check_return_type expr # raises directly -- see its own comment
+				body_errors
 			when Code::Type_Expr
 				if expr.expressions
 					@type_stack.push qualified_type_name(expr)

@@ -152,6 +152,121 @@ class Type_Checker_Test < Base_Test
 		assert_type_error { Code.type_check "add ( a: Number, b: Number; a + b ), add('bad', 2)" }
 	end
 
+	def test_method_call_arg_mismatch_is_caught
+		assert_type_error do
+			Code.type_check <<~CODE
+				Box { push ( item: String; item ) }
+				b := Box()
+				b.push(123)
+			CODE
+		end
+	end
+
+	def test_method_call_correct_arg_passes
+		refute_type_error do
+			Code.type_check <<~CODE
+				Box { push ( item: String; item ) }
+				b := Box()
+				b.push('ok')
+			CODE
+		end
+	end
+
+	def test_method_call_unannotated_param_is_not_checked
+		refute_type_error do
+			Code.type_check <<~CODE
+				Box { drop ( item; item ) }
+				b := Box()
+				b.drop(123)
+			CODE
+		end
+	end
+
+	def test_tagged_type_method_call_arg_mismatch_is_caught
+		assert_type_error do
+			Code.type_check <<~CODE
+				Tag {}
+				Box\\Tag { push ( item: String; item ) }
+				b := Box\\Tag()
+				b.push(123)
+			CODE
+		end
+	end
+
+	def test_tagged_type_method_call_unannotated_param_is_not_checked
+		refute_type_error do
+			Code.type_check <<~CODE
+				Tag {}
+				Box\\Tag { drop ( item; item ) }
+				b := Box\\Tag()
+				b.drop(123)
+			CODE
+		end
+	end
+
+	def test_method_call_through_a_type_alias_is_caught
+		# `Aliased := Box\Tag` (a bare, uncalled type reference) is recorded in @type_aliases,
+		# mapping the alias's own name to the real qualified type name ("Box\Tag") that
+		# @type_info's methods/members were actually registered under (#check_inferred_declaration).
+		# #constructed_type_name resolves an Identifier_Expr receiver through that map before
+		# falling back to the identifier's own name, so `b := Aliased()` still statically knows
+		# `b` is really a `Box\Tag`.
+		assert_type_error do
+			Code.type_check <<~CODE
+				Tag {}
+				Box\\Tag { push ( item: String; item ) }
+				Aliased := Box\\Tag
+				b := Aliased()
+				b.push(123)
+			CODE
+		end
+	end
+
+	def test_method_call_through_a_type_alias_with_correct_arg_passes
+		refute_type_error do
+			Code.type_check <<~CODE
+				Tag {}
+				Box\\Tag { push ( item: String; item ) }
+				Aliased := Box\\Tag
+				b := Aliased()
+				b.push('ok')
+			CODE
+		end
+	end
+
+	def test_method_return_type_mismatch_is_caught
+		error = assert_raises Code::Type_Contract_Violation do
+			Code.type_check <<~CODE
+				Box { pop (-> String; 123 ) }
+				b := Box()
+				b.pop()
+			CODE
+		end
+		assert_equal 'String', error.contract
+		assert_equal 'Integer', error.actual
+	end
+
+	def test_method_return_type_match_passes
+		refute_type_error do
+			Code.type_check <<~CODE
+				Box { pop (-> String; 'ok' ) }
+				b := Box()
+				b.pop()
+			CODE
+		end
+	end
+
+	def test_method_return_type_with_non_literal_body_is_skipped
+		# Last expression is an identifier, not a literal -- unknown statically, so no error.
+		refute_type_error do
+			Code.type_check <<~CODE
+				Box { pop (-> String; x := 123, x ) }
+				b := Box()
+				b.pop()
+			CODE
+		end
+	end
+
 	def test_bug_that_needs_fixing
 		# todo: This test should fail
 		refute_type_error { Code.type_check "name: String = nil\nname = 1234" }
