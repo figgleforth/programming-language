@@ -40,7 +40,7 @@ make_stats ( filepath: String -> Task_List_Stats;
 	)
 )
 
-files := ['examples/tasks/bugs.md' 'examples/tasks/design.md' 'examples/tasks/todos.md'] # note; optional commas
+files := ['ruby/bugs.md' 'ruby/design.md' 'ruby/todos.md'] # note; optional commas
 for files
 	@puts make_stats(filepath := it).to_s(compact := false)
 end
