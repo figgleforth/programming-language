@@ -225,29 +225,29 @@ module Code
 
 		def lex_alternate_number
 			if binary_literal? # 0b10101010
-				sign = eat if '+-'.include? curr
-				eat '0' and eat # b or B
-				literal = ::String.new
-				literal << eat while chars? && !whitespace?
-
-				invalid = literal.chars.find { |c| !'01'.include?(c) } # todo; Find all instead of just the first
-				raise "Invalid literal digit `#{invalid}` used." if invalid
-
 				make_lexeme do |lexeme|
+					sign = eat if '+-'.include? curr
+					eat '0' and eat # b or B
+					literal = ::String.new
+					literal << eat while chars? && !whitespace?
+
+					invalid = literal.chars.find { |c| !'01'.include?(c) } # todo; Find all instead of just the first
+					raise "Invalid literal digit `#{invalid}` used." if invalid
+
 					lexeme.type  = :binary
 					lexeme.value = "#{sign}#{literal}"
 				end
 
 			elsif hex_literal? # 0xff00ffff
-				sign = eat if '+-'.include? curr
-				eat '0' and eat # x or X
-				literal = ::String.new
-				literal << eat while chars? && !whitespace?
-
-				invalid = literal.chars.find { |c| !HEX_DIGITS.include?(c.downcase) } # todo; Find all instead of just the first
-				raise "Invalid hexadecimal digit `#{invalid}` used." if invalid
-
 				make_lexeme do |lexeme|
+					sign = eat if '+-'.include? curr
+					eat '0' and eat # x or X
+					literal = ::String.new
+					literal << eat while chars? && !whitespace?
+
+					invalid = literal.chars.find { |c| !HEX_DIGITS.include?(c.downcase) } # todo; Find all instead of just the first
+					raise "Invalid hexadecimal digit `#{invalid}` used." if invalid
+
 					lexeme.type  = :hexadecimal
 					lexeme.value = "#{sign}#{literal}"
 				end
@@ -287,6 +287,7 @@ module Code
 				if numeric?
 					lexeme.value = "#{lexeme.value}e#{sign}#{eat_number}"
 					lexeme.type  = :scientific_notation
+					mark_end lexeme
 				else
 					raise 'My assumption was wrong'
 				end

@@ -12,10 +12,6 @@ module Code
 			error.class.name.split('::').last
 		end
 
-		def error_name_styled
-			Code::Ascii.bold(Code::Ascii.red(error_name))
-		end
-
 		# The snippet already carries everything -- why, where, and what, branching off the
 		# highlighted span itself so it all reads at a glance. Falls back to a plain
 		# "detail message, then name at location" when there's no snippet to hang that tree off
@@ -29,7 +25,7 @@ module Code
 		end
 
 		def name_at_location
-			"#{error_name_styled} at #{location_coords}"
+			"#{error_name} at #{location_coords}"
 		end
 
 		def location_coords
@@ -117,7 +113,7 @@ module Code
 		# (where), `error_name` (what) -- whichever of those are actually present, most-specific
 		# first. A single item skips the branch entirely (`╰──` straight to it, no `┬`).
 		def pointer_tree visual_start
-			items = [error.detail_message, location_coords, error_name_styled].compact
+			items = [error.detail_message, location_coords, error_name].compact
 			return [] if items.empty?
 
 			gutter = Code::Ascii.cyan("#{' '.rjust(5)}  ") + (" " * visual_start)

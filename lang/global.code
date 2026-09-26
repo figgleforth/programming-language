@@ -1,5 +1,6 @@
 @load 'lang/any'
 @load 'lang/nil'
+@load 'lang/errors'
 @load 'lang/file'
 @load 'lang/directory'
 @load 'lang/date'

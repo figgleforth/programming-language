@@ -4112,9 +4112,9 @@ module Code
 
 					when_value = interpret when_case.condition
 
-					bare_type      = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
-					bare_struct    = when_value.is_a?(Code::Struct)
-					bare           = bare_type || bare_struct
+					bare_type   = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
+					bare_struct = when_value.is_a?(Code::Struct)
+					bare        = bare_type || bare_struct
 
 					infix          = Infix_Expr.new
 					infix.operator = Lexeme.new :operator, bare ? '=>=' : '=='
@@ -4147,7 +4147,15 @@ module Code
 				label   = subject && (subject.name.is_a?(Code::Lexeme) ? subject.name.value : subject.name)
 				label   ||= subject && subject.class.name.split('::').last
 				"@#{label}"
-			when 'puts'
+			when 'err'
+				stringified_args = args.map { |v| stringify_for_display(v, show_quotes: true) }
+				output           = wrap_prog_array(stringified_args) # passthrough @pasted
+				output.values.each { warn _1 }
+				args.first # note; First because `@err thing, "message"` means you can omit the message or not, it doesn't matter to the passthough-mechanic of @err, it's going to just poop out the first thing it was given, while print errors for all aruments
+			when 'panic', 'raise' # note; The names of these are placeholders
+				# Raise real runtime errors. Allow's snapshot test to support multiple errors in a test case rather than failing on the first.
+				raise stringify_for_display(interpret(args.first), show_quotes: false)
+			when 'puts', 'out'
 				args.each { |v| puts stringify_for_display(v, show_quotes: true) } # todo: settable output stream
 				args.length == 1 ? args.first : (args.empty? ? nil : wrap_prog_array(args)) # passthrough
 			when 'pputs' # pretty puts
@@ -4183,11 +4191,6 @@ module Code
 				raise Code::Invalid_Server_Argument.new(at) unless server.is_a? Code::Instance
 				stop_server server
 				server
-
-				# name, args, at = nil, receiver = nil
-			when 'watch'
-				# register arg1 as the assignment type to watch
-			when 'watch_recursive'
 			end
 		end
 

@@ -1,0 +1,2 @@
+@out 1
+x: String = 123    # error: Type_Mismatch

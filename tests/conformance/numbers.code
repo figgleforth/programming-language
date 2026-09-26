@@ -1,0 +1,5 @@
+@out 4 # out: 4
+@out 8.0 # out: 8.0
+@out 1e1 # out: 10.0
+@out 0b0110 # out: 6
+@out 0xab12 # out: 43794

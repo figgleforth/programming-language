@@ -128,6 +128,24 @@ module Code
 			Hash.new # missing/unreadable file -- not this pass's job to raise; the real @load will, once actually reached
 		end
 
+		# @param [Code::Infix_Expr] expr a `:=` or `=`
+		# @return [Code::Declaration, Hash, nil]
+		def declare_assignment expr
+			left = expr.left
+			case left
+			when Circumfix_Expr
+				# destructuring `(a, b) := source` declares each plain-identifier target -- a `thing.member` target reassigns an existing member instead
+				left.expressions.grep(Identifier_Expr).to_h { |ident| [ident.value, Declaration[ident.value, nil, expr]] }
+			when Infix_Expr
+				# `Self.x := value` declares a static on the type (same shape Interpreter#static_var_declaration_expr? checks) -- any other dot target (`self.x = v`, `thing.member = v`) writes a member that already exists
+				if expr.operator.value == ':=' && left.operator&.value == '.' && left.left.is_a?(Identifier_Expr) && !left.left.scope_operator && left.left.value == 'Self'
+					Declaration[left.right.value, resolve_value(expr.right), expr]
+				end
+			else
+				Declaration[left.value, resolve_value(expr.right), expr]
+			end
+		end
+
 		# @param [Code::Expression] expr to declare
 		# @return [Code::Declaration, Hash, nil]
 		def declare expr
@@ -164,10 +182,7 @@ module Code
 			when Nil_Init_Expr
 				Declaration[expr.left.value, expr.right, expr]
 			when Infix_Expr
-				case expr.operator.value
-				when ':=', '='
-					Declaration[expr.left.value, resolve_value(expr.right), expr]
-				end
+				declare_assignment expr if %w(:= =).include? expr.operator.value
 			when Percent_Literal_Expr
 				# %string(...)/%symbol(...) is a flat list of literal items, never declarations
 			when Circumfix_Expr

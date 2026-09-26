@@ -1,3 +1,4 @@
++ Spend time thinking about Error messaging, specifically the names of the errors, the message they convey, and the snippet of code (if any) they should be showing.
 + Errors should be rewritten in .code for the runtime, Ruby just produces an instance of the runtime error.
 + Generics idea again. `Array\$My_Type { push($My_Type;...) pop(-> $My_Type;...) }`. If you declare this, then you dont have to implement individual variants like `Array\Expression` or `Array\Lexeme`. You simply: `lexemes: Array\Lexeme = []`, `lexemes := Array\Lexeme()`, interpreter will find the generic, then replace the $ cash-prefixed types with the variant you are using. `$My_Type` here should be a named type or named struct, anything else besides type/struct? idk.
 + Same generics mechanic should apply to functions: `add (a: $Addable_Thing, b: $Addable_Thing;...)` maybe?

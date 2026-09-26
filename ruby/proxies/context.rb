@@ -32,14 +32,16 @@ module Code
 
 			'to_s' => { fn: :intrinsic },
 			'puts' => { fn: :intrinsic },
+			'out' => { fn: :intrinsic },
+			'err' => { fn: :intrinsic },
 			'sleep' => { fn: :intrinsic },
 			'assert' => { fn: :intrinsic },
 			'refute' => { fn: :intrinsic },
+			'raise' => { fn: :intrinsic },
+			'panic' => { fn: :intrinsic },
 			'connect' => { fn: :intrinsic },
 			'start_server' => { fn: :intrinsic },
 			'stop_server' => { fn: :intrinsic },
-			'watch' => { fn: :intrinsic },
-			'watch_recursive' => { fn: :intrinsic },
 
 			'load' => { fn: :stack },
 			'declare' => { fn: :stack },

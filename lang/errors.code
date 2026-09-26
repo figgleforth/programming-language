@@ -1,0 +1,3 @@
+@load 'lang/string'
+
+Error <message: String>

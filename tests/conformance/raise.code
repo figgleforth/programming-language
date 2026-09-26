@@ -1,0 +1,6 @@
+@load 'lang/errors'
+
+@out 1             # out: 1
+@err 2             # err: 2
+@raise "boom"      # error: boom
+@out 3

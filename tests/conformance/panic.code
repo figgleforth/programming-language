@@ -1,0 +1,3 @@
+@out 1             # out: 1
+@panic "boom"      # error: boom
+@out 3

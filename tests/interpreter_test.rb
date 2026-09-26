@@ -3133,6 +3133,15 @@ class Interpreter_Test < Base_Test
 		assert_equal "'Walt!'\n", printed # strings always display single-quoted
 	end
 
+	def test_out_directive
+		# @paste from #test_puts_directive
+		printed = nil
+		result  = nil
+		printed = capture_stdout { result = Code.interp "@out 'We have to go back!'" }
+		assert_equal 'We have to go back!', result
+		assert_equal "'We have to go back!'\n", printed # strings always display single-quoted
+	end
+
 	# `@puts` is a Context method now (backend/context.code) -- multiple args, parens optional, and
 	# it can be captured / aliased.
 	def test_puts_takes_multiple_args_and_returns_them

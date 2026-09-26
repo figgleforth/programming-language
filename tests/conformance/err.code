@@ -1,0 +1,7 @@
+@err 4             # err: 4
+@err "hi"          # err: 'hi'
+@err 1, 2          # err: 1
+                   # err: 2
+@err
+x := @err 5        # err: 5
+@out x + 1         # out: 6

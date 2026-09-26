@@ -50,6 +50,32 @@ class Declarator_Test < Base_Test
 		assert_empty decls['run'].expr_or_decl
 	end
 
+	def test_static_declaration_is_keyed_by_its_member_name
+		decls = Code.declare <<~CODE
+		    Counter {
+		    	Self.total := 0
+		    }
+		CODE
+		assert_equal %w(total), decls['Counter'].expr_or_decl.keys
+	end
+
+	def test_member_write_is_not_a_declaration
+		decls = Code.declare <<~CODE
+		    Counter {
+		    	n := 0
+		    	bump (; self.n = 2 )
+		    }
+		    thing.member = 3
+		CODE
+		assert_equal %w(Counter), decls.keys
+		assert_empty decls['Counter'].expr_or_decl['bump'].expr_or_decl
+	end
+
+	def test_destructuring_declares_each_identifier_target
+		decls = Code.declare "(a, b) := (1, 2)"
+		assert_equal %w(a b), decls.keys
+	end
+
 	def test_call_site_named_arguments_are_not_declarations
 		decls = Code.declare "sub(a := 1, b := 2)"
 		assert_empty decls
