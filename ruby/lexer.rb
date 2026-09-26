@@ -229,7 +229,7 @@ module Code
 					sign = eat if '+-'.include? curr
 					eat '0' and eat # b or B
 					literal = ::String.new
-					literal << eat while chars? && !whitespace?
+					literal << eat while chars? && alphanumeric?
 
 					invalid = literal.chars.find { |c| !'01'.include?(c) } # todo; Find all instead of just the first
 					raise "Invalid literal digit `#{invalid}` used." if invalid
@@ -243,7 +243,7 @@ module Code
 					sign = eat if '+-'.include? curr
 					eat '0' and eat # x or X
 					literal = ::String.new
-					literal << eat while chars? && !whitespace?
+					literal << eat while chars? && alphanumeric?
 
 					invalid = literal.chars.find { |c| !HEX_DIGITS.include?(c.downcase) } # todo; Find all instead of just the first
 					raise "Invalid hexadecimal digit `#{invalid}` used." if invalid

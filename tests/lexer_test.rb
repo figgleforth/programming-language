@@ -554,6 +554,21 @@ class Lexer_Test < Base_Test
 		assert_equal 1, out.count
 	end
 
+	def test_hexadecimal_and_binary_literals_stop_at_a_delimiter
+		out = Code.lex '(0xFF)'
+		assert_equal %i(delimiter hexadecimal delimiter), out.map(&:type)
+		assert_equal 'FF', out[1].value
+
+		out = Code.lex '[0xFF, 0b101]'
+		assert_equal %i(delimiter hexadecimal delimiter binary delimiter), out.map(&:type)
+		assert_equal %w(FF 101), [out[1].value, out[3].value]
+	end
+
+	def test_invalid_hexadecimal_and_binary_digits_still_raise
+		assert_raises(RuntimeError) { Code.lex '0xFG' }
+		assert_raises(RuntimeError) { Code.lex '0b102' }
+	end
+
 	def test_scientific_notation_literals
 		out = Code.lex '1e10'
 		assert_equal %i(scientific_notation), out.map(&:type)
