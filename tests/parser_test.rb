@@ -278,11 +278,9 @@ class Parser_Test < Base_Test
 		assert_equal '_two', out.last.value
 
 		out = Code.parse '4__5__2__2'
-		assert_equal 2, out.count
+		assert_equal 1, out.count
 		assert_kind_of Code::Number_Expr, out.first
-		assert_kind_of Code::Identifier_Expr, out.last
-		assert_equal 4, out.first.value
-		assert_equal '__5__2__2', out.last.value
+		assert_equal 4522, out.first.value
 
 		out = Code.parse 'a1234'
 		assert_equal 1, out.count

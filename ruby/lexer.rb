@@ -69,13 +69,13 @@ module Code
 
 		def binary_literal? char = curr
 			negative = (char == '-' && peek == '0') && peek(2)&.downcase == 'b' && numeric?(peek(3))
-			positive = char == '0'                  && peek&.downcase == 'b' && numeric?(peek(2))
+			positive = char == '0' && peek&.downcase == 'b' && numeric?(peek(2))
 			negative || positive
 		end
 
 		def hex_literal? char = curr
 			negative = (char == '-' && peek == '0') && peek(2)&.downcase == 'x' && (alphanumeric?(peek(3)) || numeric?(peek(3)))
-			positive = char == '0'                  && peek&.downcase == 'x' && (alphanumeric?(peek(2)) || numeric?(peek(2)))
+			positive = char == '0' && peek&.downcase == 'x' && (alphanumeric?(peek(2)) || numeric?(peek(2)))
 			negative || positive
 		end
 
@@ -165,6 +165,13 @@ module Code
 			@input[@index + offset_from_curr, length]
 		end
 
+		# Length of the `_` digit-separator run at curr, or 0 when no digit follows it -- a trailing `_` stays for the next token, so `1_decl` lexes as `1` then `_decl`.
+		def digit_separator_length &digit
+			length = 0
+			length += 1 while peek(length) == '_'
+			length > 0 && digit.call(peek(length)) ? length : 0
+		end
+
 		def eat expected = nil
 			if expected && expected != curr
 				raise Code::Lexed_Unexpected_Char.new(expected: expected, got: curr)
@@ -229,7 +236,10 @@ module Code
 					sign = eat if '+-'.include? curr
 					eat '0' and eat # b or B
 					literal = ::String.new
-					literal << eat while chars? && alphanumeric?
+					while chars? && alphanumeric?
+						literal << eat
+						digit_separator_length { |char| alphanumeric? char }.times { eat '_' }
+					end
 
 					invalid = literal.chars.find { |c| !'01'.include?(c) } # todo; Find all instead of just the first
 					raise "Invalid literal digit `#{invalid}` used." if invalid
@@ -243,7 +253,10 @@ module Code
 					sign = eat if '+-'.include? curr
 					eat '0' and eat # x or X
 					literal = ::String.new
-					literal << eat while chars? && alphanumeric?
+					while chars? && alphanumeric?
+						literal << eat
+						digit_separator_length { |char| alphanumeric? char }.times { eat '_' }
+					end
 
 					invalid = literal.chars.find { |c| !HEX_DIGITS.include?(c.downcase) } # todo; Find all instead of just the first
 					raise "Invalid hexadecimal digit `#{invalid}` used." if invalid
@@ -260,15 +273,12 @@ module Code
 		def lex_number
 			def eat_number
 				it    = ::String.new
-				valid = %w(. _) # An exception for _ is that it cannot be the last character because then you could miss underscored declarations like `1_decl`. This should be lexed as number 1, and identifier _decl.
 
 				# 7/7/25, I'm intentionally allowing multiple dots in a number for Array_Index_Expr
-				while chars? && (numeric? || valid.include?(curr))
-					break if valid.include?(curr) && !numeric?(peek)
-					break if it[-1] == '_' && !numeric?(curr)
-
+				while chars? && (numeric? || curr == '.')
+					break if curr == '.' && !numeric?(peek)
 					it << eat
-					eat '_' while curr == '_' && numeric?(peek)
+					digit_separator_length { |char| numeric? char }.times { eat '_' }
 				end
 				it.strip
 			end
@@ -280,7 +290,7 @@ module Code
 			end
 
 			if curr&.downcase == 'e' && !identifier?(peek) && !whitespace?(peek)
-				 # Here I can maybe reasonably assume it is scientific notation
+				# Here I can maybe reasonably assume it is scientific notation
 				eat # e or E
 				sign = eat if %w(+ -).include? curr
 

@@ -564,6 +564,20 @@ class Lexer_Test < Base_Test
 		assert_equal %w(FF 101), [out[1].value, out[3].value]
 	end
 
+	def test_underscores_between_digits_are_dropped
+		assert_equal [[:number, '200']], Code.lex('2______00').map { [it.type, it.value] }
+		assert_equal [[:number, '3.14']], Code.lex('3.1_4').map { [it.type, it.value] }
+		assert_equal [[:scientific_notation, '1e10']], Code.lex('1e1_0').map { [it.type, it.value] }
+		assert_equal [[:binary, '101']], Code.lex('0b1__0_1').map { [it.type, it.value] }
+		assert_equal [[:hexadecimal, 'FFFF']], Code.lex('0xFF_FF').map { [it.type, it.value] }
+	end
+
+	def test_an_underscore_after_the_last_digit_starts_the_next_token
+		assert_equal [[:number, '1'], [:identifier, '_decl']], Code.lex('1_decl').map { [it.type, it.value] }
+		assert_equal %w(( 1 _ )), Code.lex('(0b1_)').map(&:value)
+		assert_equal %w(F _ + 1), Code.lex('0xF_ + 1').map(&:value)
+	end
+
 	def test_invalid_hexadecimal_and_binary_digits_still_raise
 		assert_raises(RuntimeError) { Code.lex '0xFG' }
 		assert_raises(RuntimeError) { Code.lex '0b102' }
