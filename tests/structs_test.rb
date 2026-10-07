@@ -85,7 +85,7 @@ class Structs_Test < Base_Test
 	def test_bare_struct_assignable_and_storable
 		# A bare annotation alone on its own line (no `=` on the same expression) is undeclared, same as any other annotation (`x: Number` alone behaves identically) — combine the annotation and assignment into one expression, which is how self-declaring annotations actually work today.
 		out = Code.interp 'thing: <String, Number> = <String, Number>
-		thing.@types.count'
+		thing.@types.count()'
 		assert_equal 2, out
 	end
 

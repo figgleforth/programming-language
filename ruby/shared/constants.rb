@@ -18,6 +18,7 @@ module Code
 	BLOCK_COMMENT_DELIMITER           = '###'
 	FENCE_DELIMITER                   = '```'
 	PREFIX                            = %w(! - + ~ not return -- ++)
+	PREFIX_PRECEDENCES                = { '~' => 900 } # prefix `~` (bitwise NOT) binds like `!`; the shared `~` key in PRECEDENCES is left to infix type difference (`A ~ B`)
 	INFIX                             = %w( + - ^ * ** / % ~ == === =!= =>= =<= =/= ? . .? = := : ||= &&= **= <<= >>= += -= *= |= /= %= &= ^= =~ !~ && || & | << >>
  .. >.. ..< >..< != <= >= < > <=> < > and or )
 	POSTFIX                           = %w(++ --) # note: ; can never be a postfix, it's reserved
@@ -94,6 +95,11 @@ module Code
 		# Bitwise shifts
 		'<<' => 600, '>>' => 600,
 
+		# Bitwise AND, XOR, OR -- tighter than comparisons, so `a | b == 5` means `(a | b) == 5` (C binds them looser, a known trap)
+		'&' => 590,
+		'^' => 580,
+		'|' => 570,
+
 		# Relational
 		'<' => 550, '<=' => 550, '<=>' => 550, '>' => 550, '>=' => 550,
 
@@ -102,15 +108,6 @@ module Code
 
 		# Equality
 		'==' => 500, '!=' => 500, '===' => 500,
-
-		# Bitwise AND
-		'&' => 450,
-
-		# Bitwise XOR
-		'^' => 425,
-
-		# Bitwise OR
-		'|' => 410,
 
 		# Logical AND
 		'&&' => 300, 'and' => 300,

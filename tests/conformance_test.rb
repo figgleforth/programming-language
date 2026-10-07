@@ -10,6 +10,9 @@ require 'open3'
 #   @err 4         # err: 4               one expected stderr line
 #   x: String = 1  # error: Type_Mismatch the error that stops the program: a Code::Error class name, or else text its message contains
 class Conformance_Test < Base_Test
+	# Each test runs its file in its own `bin/program` process, which costs ~0.5s to boot, and shares no interpreter state, so they can run in parallel.
+	parallelize_me!
+
 	FILE_DIR = ::File.join __dir__, 'conformance'
 	FILEPATH = ::File.join FILE_DIR, '*.code'
 	PROGRAM  = ::File.expand_path '../bin/program', __dir__

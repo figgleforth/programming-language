@@ -1,3 +1,15 @@
++ Named struct args use `:=` while in function calls it uses `:`. 
++ I get `Invalid_Subscript_Receiver` when accidentally using `[]` on a function. This is easy to catch, and should display a more helpful message.
++ Dedupe buffer.code error messages, and make some Error structs instead of just strings.
++ Tag values in a named tag must count toward the variant's identity. Today a positional tag compares by value (`Int\<16, 8> === Int\<32, 4>` is false), but a named tag compares only by shape, so `Int\<bits := 16, fraction := 8> === Int\<bits := 32, fraction := 4>` is true, and `Int\<bits := 16, fraction := 8> === Int\<16, 8>` is false. This is too confusing, I need to take a loot at how I want ==/=== to behave with tagged Types/Structs. "Needed for sized- and fixed-point numbers (`Int\<bits := 16, fraction := 8>`" says Claude, I need to look into that.
++ Rule: `name: Type` in a tag is shape (only the type counts), `name := value` is value (the value counts, the same as a positional one), and member names never count. Touches `#declare_tagged_type_variant`, `#find_tagged_type_variant`, and the `===` struct check. ).
++ Design an in-language testing framework. It should have all the tools builtin: CLI, aggregating test functions and running them, measuring time, etc.
++ `layout: [ABC DEF]` parses as an Infix(operator :). I can use this to allow declaring inline enums, the way Jai does
++ Update `Settings | Editor | Color Scheme | Language Server` colors to match the ones at `Settings | Editor | Color Scheme | User-Defined File Types`
++ Making trailing commas create a tuple: `(1,)`
++ It's not clear how to override subscript [] and []= operators. I don't even remember without looking. I don't think it's even possible. 
++ I was toying with allowing `of` alongside `: ` as type annotations: `read ( index of Bit, bytes of Buffer -> Any; )`. I kind of like it, it feels really nice to type when I just wanna get ideas out of my head. `idea of Kind.Neat [= ...]` See sandbox/words_for_some_symbols.code, it looks nice
++ Allow Statements to be called upon next evaluation. "s := `call(with, args)`", `s.invoke_on_next_reference = true`, then the next time the Interpreter sees `s` as an expression, it invokes it once. Alternately you can call it yourself `s()` but it would be neat to sidestep parents sometimes 
 + Spend time thinking about Error messaging, specifically the names of the errors, the message they convey, and the snippet of code (if any) they should be showing.
 + Errors should be rewritten in .code for the runtime, Ruby just produces an instance of the runtime error.
 + Generics idea again. `Array\$My_Type { push($My_Type;...) pop(-> $My_Type;...) }`. If you declare this, then you dont have to implement individual variants like `Array\Expression` or `Array\Lexeme`. You simply: `lexemes: Array\Lexeme = []`, `lexemes := Array\Lexeme()`, interpreter will find the generic, then replace the $ cash-prefixed types with the variant you are using. `$My_Type` here should be a named type or named struct, anything else besides type/struct? idk.
@@ -92,6 +104,7 @@
 + Implement https://github.com/tsoding/subframes (https://x.com/FreyaHolmer/status/1718979996125925494)
 + Implement a Rope data structure, for fun.
 + Implement an AST walker that finds which functions are self-contained and which call out elsewhere.
++ Statics need their own table. Today `@static_declarations` is a `::Set` of names (`scopes.rb:20`), and the values live in `@declarations`, so `Self.length` and an instance `length` in one type body share one key, and the one declared last wins. Repro: `A { Self.f ( x; 'static' ) f (; 'instance' ) }` then `A.f(1)` raises `Arguments_Given_But_Not_Expected` (same at HEAD b2f3fb4). Fix: make it a Hash of name → value. To change: the writes (`interpreter.rb:514`, `:1823`), `Scope#has?` (`scopes.rb:78`), `helpers.rb:64`, composition (`interpreter.rb:3641-3705`, which must follow the `@declarations` rules: leftmost wins for `|`, own body wins), the tagged-reference dup (`interpreter.rb:2582`), and the `@.static_declarations` vital (`interpreter.rb:464`, reads the keys). Decide the lookup rules: `Type.x` checks statics first; can `instance.x`/`self.x` reach a static; does a bare `x` in a method check the instance first, then statics. Also find how a `Self.x` func gets skipped on each instance build, in case that check reads the Set.
 - Validate whether the precedence is even used when declaring an operator. Yes, it is.
 - `backend/interpreter/interpreter.rb`: array `<<` is special-cased in the interpreter instead of being a real operator declaration on `Array`; revisit once operator declarations exist.
 - Add Type set comparison operators

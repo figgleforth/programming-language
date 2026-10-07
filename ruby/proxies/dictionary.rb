@@ -28,10 +28,17 @@ module Code
 
 		# A key argument reaching any of these five can be a raw Ruby String/Symbol (a literal interpreted directly, e.g. by #interp_infix_assignment's own subscript handling) or a real Code::String instance (an ordinary call argument, e.g. a variable holding one) -- Code::String has no #to_sym of its own, so unwrap it to its real Ruby value first either way.
 		def normalize_dict_key key
-			(key.is_a?(Code::String) ? key.value : key).to_sym
+			case key
+			when Code::String
+				key.value.to_sym
+			when ::String
+				key.to_sym
+			else
+				key
+			end
 		end
 
-		# note; To prevent Scope#[] or Scope#get from missing out on the actual location of the hash. Standard members still call through to [] and get. I'm manually calling these proxy methods in some places. @copypaste from array.rb
+		# note; To prevent Scope#[] or Scope#get from missing out on the actual location of the hash. Standard members still call through to [] and get. I'm manually calling these proxy methods in some places. @pasted from array.rb
 		def proxy_get key
 			hash[normalize_dict_key(key)]
 		end

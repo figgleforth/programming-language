@@ -1,6 +1,19 @@
 Tuple {
 	values,
 
+	Self.from_array ( array: Array -> Tuple;
+		t := Tuple()
+		t.values = array.values # just swap the backing array
+		t
+	)
+
+	product (-> Number;
+		# todo; Values may not be a number
+		values.accumulate(1, (total, value;
+			total * value
+		))
+	)
+
 	to_s (;
 		pieces := values.map((it; if it === String
 			it.?to_string() or "`it`"

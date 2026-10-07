@@ -1490,7 +1490,7 @@ module Code
 			if prefix
 				expr = Code::Prefix_Expr.new.tap do |it|
 					it.operator   = expr
-					it.expression = parse_expression precedence_for(it.operator.value)
+					it.expression = parse_expression(PREFIX_PRECEDENCES[it.operator.value] || precedence_for(it.operator.value))
 					# `it.expression` can be nil -- a bare `return`/`not` with nothing following.
 					set_expr_location it, it.operator, it.expression || it.operator
 				end
@@ -1541,7 +1541,7 @@ module Code
 						expr.right    = expr.right.left if expr.right.is_a? Code::Nil_Init_Expr
 
 						if expr.left.is(Code::Identifier_Expr) && expr.operator.value == '.' && expr.right.is(Code::Number_Expr) && expr.right.type == :float
-							# @copypaste from above #parse_expression when :number.
+							# @pasted from above #parse_expression when :number.
 							number                  = Code::Array_Index_Expr.new expr.right.lexeme
 							number.indices_in_order = expr.right.value.to_s.split '.'
 							number.indices_in_order = number.indices_in_order.map &:to_i
@@ -1597,7 +1597,7 @@ module Code
 			if curr? 'for'
 				return expr if precedence_for(curr_lexeme.value) <= precedence
 
-				# @paste from original For_Loop_Expr initialization, with modifications
+				# @pasted from original For_Loop_Expr initialization, with modifications
 				it        = Code::For_Loop_Expr.new
 				it.lexeme = eat 'for'
 				it.body   = [expr]

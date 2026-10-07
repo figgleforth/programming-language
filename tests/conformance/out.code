@@ -1,5 +1,5 @@
 @out 4             # out: 4
-@out "hi"          # out: 'hi'
+@pout "hi"         # out: 'hi'
 @out 1, 2          # out: 1
                    # out: 2
 @out

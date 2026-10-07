@@ -32,7 +32,9 @@ module Code
 
 			'to_s' => { fn: :intrinsic },
 			'puts' => { fn: :intrinsic },
+			'pputs' => { fn: :intrinsic },
 			'out' => { fn: :intrinsic },
+			'pout' => { fn: :intrinsic },
 			'err' => { fn: :intrinsic },
 			'sleep' => { fn: :intrinsic },
 			'assert' => { fn: :intrinsic },
@@ -42,6 +44,7 @@ module Code
 			'connect' => { fn: :intrinsic },
 			'start_server' => { fn: :intrinsic },
 			'stop_server' => { fn: :intrinsic },
+			'todo' => { fn: :intrinsic },
 
 			'load' => { fn: :stack },
 			'declare' => { fn: :stack },

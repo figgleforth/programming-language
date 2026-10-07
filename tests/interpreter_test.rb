@@ -537,6 +537,25 @@ class Interpreter_Test < Base_Test
 		assert_equal true, out
 	end
 
+	# Only a String key becomes a Symbol. An Integer key used to crash with a raw NoMethodError (Integer has no #to_sym).
+	def test_dictionary_integer_keys_stay_integers
+		out = Code.interp "d := {}
+		d[5] = 'a'
+		d[-5] = 'b'
+		d[0] = 'c'
+		d.delete(0)
+		(d[5], d[-5], d[0], d.has_key?(-5), d.fetch(7, 'none'), d.count())"
+		assert_equal ['a', 'b', nil, true, 'none', 2], out.values
+	end
+
+	def test_dictionary_integer_key_from_a_computed_value
+		out = Code.interp "d := {}
+		key := 3 * 108 + 7
+		d[key] = 'x'
+		d[331]"
+		assert_equal 'x', out
+	end
+
 	# `:=` declares an identifier -- a subscript target isn't one, so `d[key] := value` isn't meaningful the way `d[key] = value` is (and used to silently declare a bogus identifier instead of writing to the dictionary).
 	def test_dictionary_subscript_assignment_via_declare_operator_raises
 		assert_raises Code::Cannot_Declare_Subscript_Target do
@@ -2507,6 +2526,29 @@ class Interpreter_Test < Base_Test
 		assert_equal [3, 2, 1], out.values
 	end
 
+	# The step's own value is never used, so prefix and postfix count the same.
+	def test_traditional_for_loop_supports_a_prefix_increment
+		out = Code.interp <<~CODE
+			result := []
+			for i := 0, i < 10, ++i
+				result << i
+			end
+			result
+		CODE
+		assert_equal [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], out.values
+	end
+
+	def test_traditional_for_loop_supports_a_prefix_decrement
+		out = Code.interp <<~CODE
+			result := []
+			for i := 3, i > 0, --i
+				result << i
+			end
+			result
+		CODE
+		assert_equal [3, 2, 1], out.values
+	end
+
 	def test_traditional_for_loop_supports_a_step_modifier_other_than_one
 		out = Code.interp <<~CODE
 			result := []
@@ -3238,21 +3280,21 @@ class Interpreter_Test < Base_Test
 		$stdout = out
 	end
 
-	def test_puts_directive
+	def test_pputs_directive
 		printed = nil
 		result  = nil
-		printed = capture_stdout { result = Code.interp "@puts 'Walt!'" }
+		printed = capture_stdout { result = Code.interp "@pputs 'Walt!'" }
 		assert_equal 'Walt!', result
-		assert_equal "'Walt!'\n", printed # strings always display single-quoted
+		assert_equal "'Walt!'\n", printed # the pretty version shows a string single-quoted
 	end
 
-	def test_out_directive
-		# @paste from #test_puts_directive
+	def test_pout_directive
+		# @pasted from #test_pputs_directive
 		printed = nil
 		result  = nil
-		printed = capture_stdout { result = Code.interp "@out 'We have to go back!'" }
+		printed = capture_stdout { result = Code.interp "@pout 'We have to go back!'" }
 		assert_equal 'We have to go back!', result
-		assert_equal "'We have to go back!'\n", printed # strings always display single-quoted
+		assert_equal "'We have to go back!'\n", printed # the pretty version shows a string single-quoted
 	end
 
 	# `@puts` is a Context method now (backend/context.code) -- multiple args, parens optional, and
@@ -3276,7 +3318,7 @@ class Interpreter_Test < Base_Test
 			CODE
 			assert_equal 'HEY', out
 		end
-		assert_equal "'HEY'\n", printed
+		assert_equal "HEY\n", printed
 	end
 
 	def test_puts_is_a_passthrough_inline
@@ -3325,7 +3367,7 @@ class Interpreter_Test < Base_Test
 			    p('deep')
 			CODE
 		end
-		assert_equal "'deep'\n", out
+		assert_equal "deep\n", out
 	end
 
 	# A vital is computed against whatever scope the `@` is reached from -- two instances give two ids.
@@ -4088,6 +4130,31 @@ class Interpreter_Test < Base_Test
 			(result, x)
 		CODE
 		assert_equal [4, 4], out.values
+	end
+
+	# Unlike C, & ^ | bind tighter than comparisons, so `a | b == 5` means `(a | b) == 5` (C's order is a known trap).
+	def test_bitwise_operators_bind_tighter_than_comparisons
+		assert_equal true, Code.interp('0b0001 | 0b0101 == 5')
+		assert_equal true, Code.interp('0b0110 & 0b0011 == 2')
+		assert_equal true, Code.interp('0b0110 ^ 0b0011 == 5')
+		assert_equal true, Code.interp('10 & 7 < 3')
+		assert_equal false, Code.interp('0b0001 | 0b0101 != 5')
+	end
+
+	def test_bitwise_operators_keep_their_own_order
+		assert_equal 0b1010, Code.interp('0b0110 & 0b0011 | 0b1000')  # & before |
+		assert_equal 0b0100, Code.interp('0b0100 | 0b0001 ^ 0b0101')  # ^ before |
+		assert_equal 0b0100, Code.interp('0b1111 & 1 << 2')           # << before &
+		assert_equal 4,      Code.interp('1 << 1 + 1')                # + before <<
+	end
+
+	# Prefix ~ binds like !, so `~a & b` is `(~a) & b`, not `~(a & b)`.
+	def test_prefix_tilde_binds_tighter_than_bitwise_operators
+		assert_equal 250,  Code.interp('~0b0101 & 0xFF')
+		assert_equal -6,   Code.interp('~(0b0101 & 0xFF)')
+		assert_equal true, Code.interp('~0b0101 & 0xFF == 250')
+		assert_equal 164,  Code.interp('0b10100110 & ~(1 << 1)')
+		assert_equal 16,   Code.interp('(13 + 3) & ~3')
 	end
 
 	def test_pipeing_with_operator_overloads
@@ -5560,7 +5627,7 @@ class Interpreter_Test < Base_Test
 				end
 			CODE
 		end
-		assert_equal "'first'\n", printed
+		assert_equal "first\n", printed
 	end
 
 	def test_when_falls_through_to_the_if_bodys_own_value_when_nothing_matches
@@ -5602,7 +5669,7 @@ class Interpreter_Test < Base_Test
 		end
 
 		assert_equal 'number-case', result
-		assert_equal "'if-ran'\n", printed
+		assert_equal "if-ran\n", printed
 	end
 
 	def test_when_dispatches_against_a_falsy_condition_too
@@ -5631,7 +5698,7 @@ class Interpreter_Test < Base_Test
 				end
 			CODE
 		end
-		assert_equal "'when-ran'\n", printed
+		assert_equal "when-ran\n", printed
 	end
 
 	def test_when_a_match_on_the_falsy_path_skips_else
@@ -5878,7 +5945,7 @@ class Interpreter_Test < Base_Test
 			'deep-outer-when-match',
 			'deep-inner-if-body',
 			'deep-inner-when-match',
-		].map { |line| "'#{line}'\n" }.join
+		].map { |line| "#{line}\n" }.join
 
 		# outer-if-body and outer-when-never must NOT appear: the outer condition is falsy, so its
 		# own if-body never runs, and :never doesn't match false.
@@ -5925,7 +5992,7 @@ class Interpreter_Test < Base_Test
 			CODE
 		end
 		expected = ["iter", "number-case", "iter", "string-case", "iter", "number-case"]
-			.map { |line| "'#{line}'\n" }.join
+			.map { |line| "#{line}\n" }.join
 		assert_equal expected, printed
 	end
 
@@ -5940,7 +6007,7 @@ class Interpreter_Test < Base_Test
 				end
 			CODE
 		end
-		assert_equal "'first'\n", printed
+		assert_equal "first\n", printed
 	end
 
 	def test_own_body_value_wins_when_nothing_matches_in_a_collection_for_loop
@@ -6046,7 +6113,7 @@ class Interpreter_Test < Base_Test
 				end
 			CODE
 		end
-		expected = ["iter", "iter", "matched-one", "iter"].map { |line| "'#{line}'\n" }.join
+		expected = ["iter", "iter", "matched-one", "iter"].map { |line| "#{line}\n" }.join
 		assert_equal expected, printed
 	end
 
@@ -6148,7 +6215,7 @@ class Interpreter_Test < Base_Test
 			CODE
 		end
 		expected = ["iter", "number-case", "iter", "string-case", "iter", "number-case"]
-			.map { |line| "'#{line}'\n" }.join
+			.map { |line| "#{line}\n" }.join
 		assert_equal expected, printed
 	end
 

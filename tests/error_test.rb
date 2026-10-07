@@ -238,4 +238,47 @@ class Error_Test < Base_Test
 			Code.interp 'x := 5, y := undefined_var'
 		end
 	end
+
+	# An error raised in a call inside a loop body used to be replaced by `Expected condition to be truthy`: the call's frames were still on the stack, so the loop's own pop found the wrong scope. See Interpreter#pop_scope_to.
+	def assert_error_inside_loop_survives source
+		interpreter = Code::Interpreter.new
+		error       = assert_raises Code::Undeclared_Identifier do
+			interpreter.run "boom (; nope )\n#{source}"
+		end
+		assert_includes error.message.gsub(/\e\[[\d;]*m/, ''), 'nope has not been declared'
+		assert_equal [interpreter.global], interpreter.stack, 'the loop should cut the stack back to Global, call frames included'
+	end
+
+	def test_an_error_inside_a_for_loop_keeps_its_own_class
+		assert_error_inside_loop_survives "for [1, 2]\n\tboom()\nend"
+	end
+
+	def test_an_error_inside_a_strided_for_loop_keeps_its_own_class
+		assert_error_inside_loop_survives "for [1, 2, 3, 4] by 2\n\tboom()\nend"
+	end
+
+	def test_an_error_inside_a_c_style_for_loop_keeps_its_own_class
+		assert_error_inside_loop_survives "for i := 0, i < 2, i += 1\n\tboom()\nend"
+	end
+
+	def test_an_error_inside_a_custom_iterable_for_loop_keeps_its_own_class
+		assert_error_inside_loop_survives <<~CODE
+			Twos {
+				next (index: Int -> Any;
+					if index >= 2
+						Stop_Iterating()
+					else
+						index
+					end
+				)
+			}
+			for Twos()
+				boom()
+			end
+		CODE
+	end
+
+	def test_an_error_inside_a_when_case_keeps_its_own_class
+		assert_error_inside_loop_survives "if 1\nwhen 1\n\tboom()\nend"
+	end
 end

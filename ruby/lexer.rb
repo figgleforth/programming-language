@@ -187,7 +187,7 @@ module Code
 		end
 
 		# Length of the `_` digit-separator run at curr, or 0 when no digit follows it -- a trailing `_` stays for the next token, so `1_decl` lexes as `1` then `_decl`.
-		def digit_separator_length &digit
+		def digit_separator_length & digit
 			length = 0
 			length += 1 while peek(length) == '_'
 			length > 0 && digit.call(peek(length)) ? length : 0
@@ -293,7 +293,7 @@ module Code
 
 		def lex_number
 			def eat_number
-				it    = ::String.new
+				it = ::String.new
 
 				# 7/7/25, I'm intentionally allowing multiple dots in a number for Array_Index_Expr
 				while chars? && (numeric? || curr == '.')

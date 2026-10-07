@@ -5,6 +5,10 @@ Array {
 	Self.of ( value_to_fill: Any, size: Int -> Array; @ruby )
 	Self.new ( size: Int, value_to_fill: Any -> Array; @ruby )
 
+	max (; @ruby )
+	min (; @ruby )
+	product ( other: Array := nil; @ruby ) # no argument: multiplies every value. An array: the cartesian product
+
 	# add to back/end
 	push ( item; @ruby )
 	append := push
@@ -36,6 +40,7 @@ Array {
 	# get one random item
 	random (; @ruby )
 	length (; @ruby )
+	count := length
 	first ( count := 1; @ruby )
 	last ( count := 1; @ruby )
 	slice ( from, to; @ruby )

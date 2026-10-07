@@ -1,10 +1,7 @@
-require 'sequel'
-
 module Code
 	class Database < Instance
 		extend Ruby_Proxies
 		include Declaration_Accessors
-		include Sequel::Inflections
 		# adapter: String
 		# connection: Sequel::Sqlite::Database
 		# url: String
@@ -15,7 +12,9 @@ module Code
 
 		def table_name_for struct
 			Code.assert struct.name, "table_name_for expects a named struct, got an anonymous one"
-			pluralize(underscore(struct.name)).to_sym
+			require 'sequel' # loaded on first use, since it costs ~50 ms at startup
+			inflector = Object.new.extend Sequel::Inflections
+			inflector.send(:pluralize, inflector.send(:underscore, struct.name)).to_sym # private in Sequel
 		end
 
 		def proxy_find_or_create_table struct

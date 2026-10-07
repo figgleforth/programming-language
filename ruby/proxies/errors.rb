@@ -208,6 +208,13 @@ module Code
 		end
 	end
 
+	class Non_Error < Error
+		# Something like @todo
+	end
+
+	class Todo_Triggered < Non_Error
+	end
+
 	class Invalid_Http_Directive_Handler < Error
 	end
 
@@ -310,7 +317,7 @@ module Code
 
 		def initialize expr, method_name
 			super expr
-			@expression = expr
+			@expression        = expr
 			@proxy_method_name = method_name
 		end
 

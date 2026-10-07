@@ -1,0 +1,4 @@
+b := Buffer.from_string("hello")
+@out b # out: Buffer(5 bytes)
+@out b.bytes() # out: [104, 101, 108, 108, 111]
+@out b.get_string() # out: hello

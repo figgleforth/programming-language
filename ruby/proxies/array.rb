@@ -16,7 +16,6 @@ module Code
 		proxy :shift
 		proxy :unshift, as: :prepend # lang/array.code's `unshift(;)` was renamed to `prepend(;)` (unshift is now just an alias, see #Interpreter#interp_directive's `@ruby` lookup, which resolves by the func's own declared name -- "prepend" -- not whatever alias it was called through)
 		proxy :length
-		proxy :length, as: :count
 		proxy :join
 		proxy :empty?
 		proxy :index
@@ -24,6 +23,8 @@ module Code
 		proxy :delete_if
 		proxy :delete_at
 		proxy :delete
+		proxy :max
+		proxy :min
 
 		def proxy_Self *args
 			# `Array(1, 2, 3)` -> those elements; `Array([1, 2, 3])` / `Array(other)` -> a lone
@@ -63,6 +64,13 @@ module Code
 
 		def proxy_set index, value
 			values[index] = value
+		end
+
+		# With no argument, multiplies every value. With an array, gives the cartesian product, the same as Ruby's own Array#product.
+		def proxy_product other = nil
+			return values.reduce 1, :* unless other
+
+			values.product other.values
 		end
 
 		def proxy_random

@@ -1,4 +1,3 @@
-require 'webrick'
 require 'cgi'
 require 'json'
 require 'securerandom' # #initialize mints @live_reload_token with this
@@ -281,6 +280,16 @@ module Code
 				stack.last
 			else
 				stack.pop
+			end
+		end
+
+		# Pop `scope`, for an `ensure`. An error raised in a call inside the body leaves that call's frames on the stack, so while an error is on its way out, cut back to `scope` by identity instead of asserting it is on top.
+		def pop_scope_to scope
+			if $!
+				index = stack.rindex { it.equal? scope }
+				stack.slice!(index..) if index # parens, or Ruby reads `if index` as the endless range's end
+			else
+				Code.assert pop_scope.equal?(scope)
 			end
 		end
 
@@ -730,6 +739,7 @@ module Code
 		end
 
 		def start_server server
+			require 'webrick' # loaded on first use, since it costs ~30 ms at startup
 			ready = Queue.new
 
 			webrick = WEBrick::HTTPServer.new Port:          server.port,
@@ -1897,7 +1907,8 @@ module Code
 			nil
 		end
 
-		def stringify_for_display value, show_quotes: false, pretty_print: false
+		# `method_name` picks the function to call (`@pputs`/`@pout` pass `to_string`); a value without it falls back to `to_s`.
+		def stringify_for_display value, show_quotes: false, pretty_print: false, method_name: nil
 			value = maybe_instance value
 
 			# render the whole struct, not the terse `@<name>` an explicit `@.to_s()` gives -- and covers
@@ -1909,14 +1920,14 @@ module Code
 			# A bare Type's `to_s` (copied from its own body) assumes real instance context and crashes if called directly on the Type itself, so only attempt it on a genuine Instance.
 			return value unless value.is_a? Code::Instance
 
-			method_name       = show_quotes && value.is_a?(Code::String) ? 'to_string' : 'to_s'
-			to_s_ident        = Code::Identifier_Expr.new
-			to_s_ident.lexeme = Code::Lexeme.new(:identifier, method_name)
-			func              = begin
+			method_name ||= show_quotes && value.is_a?(Code::String) ? 'to_string' : 'to_s'
+			func        = [method_name, 'to_s'].uniq.lazy.filter_map do |name|
+				to_s_ident        = Code::Identifier_Expr.new
+				to_s_ident.lexeme = Code::Lexeme.new(:identifier, name)
 				interp_member_access value, to_s_ident
 			rescue Code::Undeclared_Identifier
 				nil
-			end
+			end.first
 			return value unless func.is_a? Code::Func
 
 			call           = Code::Call_Expr.new
@@ -3864,14 +3875,14 @@ module Code
 							iteration += 1
 							interpret expr.step
 						ensure
-							Code.assert pop_scope == iteration_scope
+							pop_scope_to iteration_scope
 						end
 					end
 
 					last_expr
 				end
 			ensure
-				Code.assert pop_scope == for_scope
+				pop_scope_to for_scope
 			end
 
 			last_expr
@@ -3967,7 +3978,7 @@ module Code
 						end
 					end
 				ensure
-					Code.assert pop_scope == scope
+					pop_scope_to scope
 				end
 				body_result
 			end
@@ -4039,7 +4050,7 @@ module Code
 								end
 							end
 						ensure
-							Code.assert pop_scope == scope
+							pop_scope_to scope
 						end
 
 						iteration += 1
@@ -4203,7 +4214,7 @@ module Code
 						case_matched = true
 					end
 				ensure
-					Code.assert pop_scope == when_scope
+					pop_scope_to when_scope
 				end
 
 				case_matched
@@ -4241,11 +4252,19 @@ module Code
 				else
 					raise stringify_for_display(value, show_quotes: false)
 				end
+			when 'todo'
+				# @pasted
+				message = args.map do |v|
+					str = stringify_for_display(v, method_name: 'to_s')
+					"[TODO] #{str}"
+				end.join("\n")
+
+				raise Code::Todo_Triggered.new(message)
 			when 'puts', 'out'
-				args.each { |v| puts stringify_for_display(v, show_quotes: true) } # todo: settable output stream
+				args.each { |v| puts stringify_for_display(v, method_name: 'to_s') } # todo: settable output stream
 				args.length == 1 ? args.first : (args.empty? ? nil : wrap_prog_array(args)) # passthrough
-			when 'pputs' # pretty puts
-				args.each { |v| puts stringify_for_display(v, show_quotes: true) } # todo: settable output stream
+			when 'pputs', 'pout' # pretty puts
+				args.each { |v| puts stringify_for_display(v, pretty_print: true, method_name: 'to_string') } # todo: settable output stream
 				args.length == 1 ? args.first : (args.empty? ? nil : wrap_prog_array(args)) # passthrough
 			when 'sleep'
 				args.first ? sleep(args.first) : nil

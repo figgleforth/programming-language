@@ -28,7 +28,9 @@ Context <
 	#- Functions (each is a bodiless callable stand-in on the shared Context)
 	to_s: (-> String;)                  # "@<name>" display
 	puts: (Args -> Args;)               # prints each arg to stdout; passthrough (1 -> arg, 0 -> nil, N -> array)
+	pputs: (Args -> Args;)              # prints each arg to stdout, pretty; passthrough (1 -> arg, 0 -> nil, N -> array)
 	out: (Args -> Args;)                # prints each arg to stdout; passthrough (1 -> arg, 0 -> nil, N -> array)
+	pout: (Args -> Args;)               # prints each arg to stdout, pretty; passthrough (1 -> arg, 0 -> nil, N -> array)
 	err: (Args -> Args;)                # prints each arg to stderr; passthrough (1 -> arg, 0 -> nil, N -> array)
 	sleep: (Number;)                    # blocks for `seconds`
 	assert: (Any, String;)              # raises Assert_Triggered unless the condition is truthy
@@ -38,6 +40,7 @@ Context <
 	connect: (Database -> Database;)    # opens + caches a DB connection, returns the Database
 	start_server: (Server -> Server;)   # boots the Server (background thread), returns it
 	stop_server: (Server -> Server;)    # stops the Server, returns it
+	todo: (Args;)                       # raises Todo_Triggered, one "[TODO] ..." line per arg
 
 	#- Functions that act on the calling scope / the interpreter's scope stack -- run in the caller's frame
 	load: (String;)                     # loads a .code file into the current scope
