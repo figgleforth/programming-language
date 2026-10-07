@@ -1,0 +1,4 @@
+# A byte offset outside the buffer raises. A Buffer(2) has bytes 0 and 1.
+b := Buffer(2)
+@out b.get(:u8, 1)   # out: 0
+@out b.get(:u8, 2)   # error: Out_Of_Bounds: reading a 1-byte :u8 at offset 2 goes past the end: the buffer has 2 bytes (offsets 0 to 1)

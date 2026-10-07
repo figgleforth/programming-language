@@ -95,6 +95,23 @@ module Code
 			char&.match? SYMBOLIC_REGEX
 		end
 
+		# def numeric_type_name?
+		# 	# MIN_BITS = { i: 1, u: 1, f: 4, d: 5 }
+		# 	pattern = /\A(I|Int|Integer|U|Unt|Unteger|UInt|UInteger|F|Flo|Float|D|Dec|Decimal)(\d+)\z/
+		# 	return unless remainder.match? pattern # return true or false here
+		#
+		# 	match  = remainder.match pattern
+		# 	prefix = match[0]
+		# 	width  = match[2].to_i
+		# 	kind   = case prefix.downcase.to_sym
+		# 	when :i, :int, :integer then :i
+		# 	when :u, :unt, :uint, :uinteger, :unteger then :u
+		# 	when :f, :flo, :float then :f
+		# 	when :d, :dec, :decimal then :d
+		# 	end
+		#
+		# end
+
 		def route_pattern?
 			return false unless identifier?
 
@@ -145,6 +162,10 @@ module Code
 
 		def curr
 			@input[@index]
+		end
+
+		def remainder
+			@input[@index..]
 		end
 
 		def reduce_delimiters

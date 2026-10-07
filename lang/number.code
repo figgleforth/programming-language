@@ -5,7 +5,6 @@ Number {
 		self.value = value
 	)
 
-
 	# note; Comparison and arithmetic both run straight on `value`, the wrapped Ruby Numeric, so mixed
 	# Integer/Float/Decimal operands behave the way Ruby's own numeric tower does. Integer division
 	# stays lossy (`7 / 2` is `3`) -- that's Ruby's `Integer#/`. Kept here as the canonical `@operator`
@@ -71,3 +70,10 @@ Int := Integer
 Flo := Float
 Dec := Decimal
 Num := Number
+
+### Types that'll exist once Memory is implemented ###
+
+# Int1 — Int64      Integer
+# Unt1 — Unt64      Unteger or UInteger
+# Flo4 — Flo64      Float
+# Dec

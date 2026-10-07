@@ -37,6 +37,9 @@ module Code
 
 		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_handlers, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :live_reload, :live_reload_token
 
+		# One file mid-load. `declarations` is filled in when the file pauses at its own @load, and `cycle_files` lists the paused files this one closed a load cycle back into -- see #resolve_forward_declaration.
+		Loading_File = ::Struct.new :filepath, :scope, :declarations, :cycle_files
+
 		def initialize
 			@dom_input_elements            = {} # {element_hash: Code::Instance} for inputs/textareas
 			@dom_onclick_function_handlers = {} # {handler_hash: Code::Func}
@@ -47,6 +50,7 @@ module Code
 			@input                 = [] # [Code::Expression]
 			@stack                 = [] # [Code::Scope]
 			@servers               = [] # [Code::Server]
+			@loading_files         = [] # [Loading_File] files mid-load, outermost first -- see #load_file_into_scope
 
 			# Live reload (browser auto-refresh on save). Only Hot_Reloader turns @live_reload on, so a
 			# plain `prog interpf` / production server never streams events or injects the client script.
@@ -59,7 +63,7 @@ module Code
 			@lexer               = Lexer.new
 			@parser              = Parser.new
 			@declarations        = {} # {::String => Code::Declaration}, see Declarator
-			@forced_declarations = ::Set.new # identity-tracked Code::Expression, see #resolve_forward_declaration
+			@forced_declarations = ::Set.new # [expr.object_id, scope.object_id] pairs, see #resolve_forward_declaration
 
 			Interpreter.current = self
 		end
@@ -112,7 +116,8 @@ module Code
 
 			input.each.inject(nil) do |result, expr|
 				# already ran ahead of turn via #resolve_forward_declaration -- don't run it twice. Keeping the running `result` (not a bare `next`, which resets it to nil) matters when the skipped statement is the *last* one -- the program's own reported result would otherwise silently become nil instead of the true last value.
-				if @forced_declarations.include? expr
+				# Keyed by scope too: parsed files are cached, so the same expression object runs again when a file loads into another scope (`strings := @load 'lang/string'`).
+				if @forced_declarations.include? [expr.object_id, (@loading_files.last&.scope || global).object_id]
 					result
 				else
 					interpret expr
@@ -148,18 +153,25 @@ module Code
 		end
 
 		# @param [::String] name
-		# @return [::Boolean] whether a declaration was found and forced
+		# @return [Code::Scope | nil] the scope the declaration was forced into, or nil when none was found
 		def resolve_forward_declaration name
-			decl = @declarations[name]
-			return false unless decl&.expr
-			return false unless hoistable_declaration_expr?(decl.expr) || bare_load_call_expr?(decl.expr)
-			return false if @forced_declarations.include? decl.expr
+			# This file's own declarations first, then those of each paused file this one closed a load cycle back into, so a forward reference across a cycle works the same as one inside a single file. Each declaration runs in the scope its own file is loading into (Global for the main program), not always Global.
+			candidates = [[@declarations, @loading_files.last&.scope || global], *@loading_files.last&.cycle_files&.reverse&.map { [it.declarations, it.scope] }]
+			candidates.each do |declarations, scope|
+				decl = declarations&.[] name
+				next unless decl&.expr
+				next unless hoistable_declaration_expr?(decl.expr) || bare_load_call_expr?(decl.expr)
+				forced = [decl.expr.object_id, scope.object_id]
+				next if @forced_declarations.include? forced
 
-			@forced_declarations << decl.expr
-			push_then_pop global do
-				interpret decl.expr
+				@forced_declarations << forced
+				push_then_pop scope do
+					interpret decl.expr
+				end
+				# A loaded file's names are rebound to this file's own @load line (see Declarator#declarations_for_load). In a cycle that @load returns early and declares nothing, so keep looking.
+				return scope if scope.has? name
 			end
-			true
+			nil
 		end
 
 		def loop_servers
@@ -199,11 +211,29 @@ module Code
 		def load_file_into_scope filepath, into_scope
 			filepath.insert(-1, '.code') unless filepath.end_with? '.code' # note; I feel like this isn't the smartestest way to achieve this.
 
-			cwd_relative  = ::File.expand_path filepath
-			resolved_path = ::File.exist?(cwd_relative) ? cwd_relative : ::File.join(ROOT_PATH, filepath)
+			cwd_relative                               = ::File.expand_path filepath
+			resolved_path                              = ::File.exist?(cwd_relative) ? cwd_relative : ::File.join(ROOT_PATH, filepath)
 
 			# This filepath may have been loaded in the given scope already. We don't want to double load it -- return the same result it produced the first time instead of re-running it (or, without this, silently returning nil).
-			return into_scope.loaded_filepaths[resolved_path] if into_scope.loaded_filepaths.key? resolved_path
+			# The file is marked loaded before it runs, so a load cycle back into the same scope also ends here. The paused file's declarations stay reachable to this one through #resolve_forward_declaration.
+			if into_scope.loaded_filepaths.key? resolved_path
+				# Every file from the paused one down to this one is part of the cycle (errors -> string -> buffer -> errors), so all of their declarations become reachable.
+				if (index = @loading_files.index { it.filepath == resolved_path })
+					@loading_files.last.cycle_files.concat @loading_files[index...-1]
+				end
+				return into_scope.loaded_filepaths[resolved_path]
+			end
+
+			# A cycle through a fresh scope (`lib := @load 'file'`) skips the check above and would never end, so it raises.
+			if (index = @loading_files.index { it.filepath == resolved_path })
+				chain = [*@loading_files.drop(index).map(&:filepath), resolved_path]
+				raise Code::Load_Cycle, "load cycle: #{chain.map { ::File.basename it, '.code' }.join ' → '}"
+			end
+
+			@loading_files.last.declarations           = @declarations if @loading_files.any? # the file running this @load pauses here
+			into_scope.loaded_filepaths[resolved_path] = nil # the real result replaces this once the file finishes
+			@loading_files << Loading_File.new(resolved_path, into_scope, nil, [])
+			marked = true
 
 			cached_expressions   = self.class.cached_expressions_by_filepath[resolved_path]
 			already_type_checked = self.class.type_checked_filepaths[resolved_path]
@@ -233,6 +263,12 @@ module Code
 			Code.assert pop_scope.equal? into_scope
 
 			result
+		ensure
+			# Only the call that marked this file unmarks it -- an early return or a Load_Cycle above must not.
+			if marked
+				@loading_files.pop
+				into_scope.loaded_filepaths.delete resolved_path if $! # a failed load is not loaded, so a later @load can try again
+			end
 		end
 
 		def push_scope scope
@@ -1324,14 +1360,22 @@ module Code
 					raise_missing_scope_operator_target! expr, expr.scope_operator.value
 				elsif expr.type || expr.tag
 					self_declare_annotated_identifier expr
-				elsif stack.any? { |s| s.equal? global } && resolve_forward_declaration(expr.value) && global.has?(expr.value)
+				elsif stack.any? { |s| s.equal? global } && (forced_into = resolve_forward_declaration(expr.value)) && forced_into.has?(expr.value)
 					# not reached yet in file order, but declared somewhere later on -- forced early. Context check (not #include?, which is `==` and can hit a Code type's own overload -- e.g. Code::Array#== assumes its operand also has .values). Global being absent from the stack means we're deliberately excluding it (a plain `x.y` dot access, #interp_dot_scope's exclude_global_scope: true) -- a member missing on x should stay missing, not quietly resolve to an unrelated global
-					global[expr.value]
+					forced_into[expr.value]
 				elsif (variants = tagged_variants_for(expr.value)).length == 1
 					# A tagged declaration (`Task\Schema {}`) never binds its bare name like a plain `Type {}` does -- unambiguous with one variant, so allow it (mirrors Bare Named Structs). 2+ variants stay unreachable except via `Name\Tag`.
 					variants.first
 				else
-					raise Code::Undeclared_Identifier.new(expr)
+					# Only a declaration can run early. A plain value (`x := compute()`) in a file that is still loading is not there yet, so say which file and why.
+					still_loading = nil
+					# Skip a name that a file only has through its own @load line (see Declarator#declarations_for_load), to name the file that really declares it.
+					if (index = @loading_files.index { (decl = it.declarations&.[] expr.value) && !bare_load_call_expr?(decl.expr) })
+						names = @loading_files.drop(index).map { ::File.basename it.filepath }
+						names << names.first if @loading_files.last.cycle_files.include? @loading_files[index] # this file closed a cycle through it
+						still_loading = [names.first, names]
+					end
+					raise Code::Undeclared_Identifier.new(expr, still_loading:)
 				end
 			end
 
@@ -4184,8 +4228,19 @@ module Code
 				output.values.each { warn _1 }
 				args.first # note; First because `@err thing, "message"` means you can omit the message or not, it doesn't matter to the passthough-mechanic of @err, it's going to just poop out the first thing it was given, while print errors for all aruments
 			when 'panic', 'raise' # note; The names of these are placeholders
-				# Raise real runtime errors. Allow's snapshot test to support multiple errors in a test case rather than failing on the first.
-				raise stringify_for_display(interpret(args.first), show_quotes: false)
+				# Like Ruby: `@raise "boom"` is a RuntimeError, and `@raise Overflow("boom")` raises the value itself, with its type name in the message. `args` already holds values, so nothing is interpreted again.
+				value = args.first
+				case value
+				when Code::Struct, Code::Instance
+					name    = value.name.is_a?(Code::Lexeme) ? value.name.value : value.name
+					message = value['message'] if value.has? 'message'
+					message = stringify_for_display(message, show_quotes: false) unless message.nil? # a bare `@raise Overflow` has a nil message
+					raise Code::Raised.new(value, [name, message].compact.join(': '))
+				when Code::Type
+					raise Code::Raised.new(value, value.name)
+				else
+					raise stringify_for_display(value, show_quotes: false)
+				end
 			when 'puts', 'out'
 				args.each { |v| puts stringify_for_display(v, show_quotes: true) } # todo: settable output stream
 				args.length == 1 ? args.first : (args.empty? ? nil : wrap_prog_array(args)) # passthrough
@@ -4253,6 +4308,9 @@ module Code
 			end
 
 			result = target.send proxy_method, *func_scope.arguments
+
+			# A raw Ruby Array would compare with Ruby's own Array#== on the left of `==`, which is never equal to a language Array, so `buf.bytes() == [0, 0]` was always false.
+			result = wrap_prog_array result if result.is_a? ::Array
 
 			# A Ruby-built instance (`Code::String.new` in a proxy) seeds `@types` from `self.class.name` -- re-wire its type identity so `===`/return-type checks pass.
 			adopt_type result, result.class.name.split('::').last if result.is_a?(Code::Instance) && result.enclosing_scope.nil?

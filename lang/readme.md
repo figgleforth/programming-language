@@ -4,7 +4,7 @@ This folder holds the standard library. Each file is a `.code` file. Each file a
 
 ### Two kinds of file
 
-Most files load on their own. The interpreter loads `global.code` at start-up, and `global.code` loads the rest of these files for you. You do not need an `@load` line for `String`, `Array`, `Number`, `Range`, `Set`, `Dictionary`, `Struct`, `Enum`, `Tuple`, `Bool`, `Context`, `File`, `Directory`, `Date`, `Time`, or `Date_Time`. Each one is ready to use.
+Most files load on their own. The interpreter loads `global.code` at start-up, and `global.code` loads the rest of these files for you. You do not need an `@load` line for `String`, `Array`, `Number`, `Range`, `Set`, `Buffer`, `Dictionary`, `Struct`, `Enum`, `Tuple`, `Bool`, `Context`, `File`, `Directory`, `Date`, `Time`, or `Date_Time`. Each one is ready to use.
 
 A few files do not load on their own. You must add an `@load` line for these yourself, when you need them:
 

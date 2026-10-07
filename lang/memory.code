@@ -1,0 +1,315 @@
+###
+A good order
+
+1. Bits and bytes, read and write, with tests.
+2. Boundary, then Overflow: small and fast wins.
+3. Layout: row-major and column-major, then Morton, then Hilbert.
+4. Packing, then Sizing, then Encoding.
+5. Storage: PAGED, then HASHED, then TREE.
+6. Concurrency, maybe.
+###
+
+@load 'lang/math' # for Vec2
+
+# Memory is an n-dimensional view into the Buffer that stores the actual bytes.
+# Reading or writing one cell runs a pipeline, one step per enum:
+#   coord -> Boundary -> coord -> Layout -> index -> Storage -> slot -> Packing/Encoding -> bits
+# Only the baseline option of each step works now. Every other option raises "not supported".
+Memory {
+	buffer: Buffer      # of bits
+	type: Symbol        # like :u8 or :f32
+	alignment: Int      # Address must % alignment == 0
+
+	strides: Tuple
+	dimensions: Tuple
+
+	starts_at: Int              # index of the start of this buffer
+	ends_at: Int                # index of the end   of this buffer
+	next_free_byte: Int = 0     # the next free byte for alloc -- kept apart from starts_at, which says where this view starts
+
+	# An enum member is a Symbol for now, so `storage: Storage = ...` fails its type contract. Enums are not finalized yet.
+	storage     := Storage.DENSE           # Storage: which cells get a slot
+	layout      := Layout.ROW_MAJOR        # Layout: the order of the slots
+	packing     := Packing.BYTE_ALIGNED    # Packing: how many bits one value uses
+	encoding    := Encoding.RAW            # Encoding: raw values or compressed values
+	boundary    := Boundary.FAIL           # Boundary: what a coord outside the dimensions does
+	overflow    := Overflow.WRAP           # Overflow: what a value outside the type's range does
+	sizing      := Sizing.FIXED            # Sizing: how the buffer grows
+	concurrency := Concurrency.UNSAFE      # Concurrency: for multi-threaded access
+
+	# Memory(:u8, (8,)) is 1d, Memory(:f32, (8, 8)) is 2d, and so on. With no dimensions it is 8 x 8 x 1.
+	Self ( type: Symbol := :u8, dimensions: Tuple | Integer := (8, 8, 1), offset: Int := 0;
+		if dimensions === Integer
+			# `(5,)` is just 5, so 1d dimensions arrive as an Integer.
+			dimensions = Tuple.from_array([dimensions])
+		end
+
+		# Pre-calculate stride based on dimensions
+		strides_arr    := []
+		current_stride := 1
+		for dimensions
+			unless it === Integer and it > 0
+				@raise "Memory dimension `at` must be a positive Integer, got `it`"
+			end
+			strides_arr.push(current_stride)
+			current_stride *= it
+		end
+		self.strides = Tuple.from_array(strides_arr)
+
+		self.type       = type
+		self.dimensions = dimensions
+		self.buffer     = Buffer(dimensions.product() * Buffer.size_of(type))
+		self.starts_at  = offset
+		self.ends_at    = offset + buffer.length() - 1
+	)
+
+	# Read the cell at `coord` (a Tuple, or an Integer for 1d).
+	get ( coord, type := self.type;
+		slot := to_index(check_boundary(check_axes(coord)))
+		buffer.get(type, slot * Buffer.size_of(type)) # @pasted
+	)
+
+	# Write `value` into the cell at `coord`. Returns the Memory, so calls chain.
+	set ( coord, value, type := self.type;
+		slot := to_index(check_boundary(check_axes(coord)))
+		buffer.set(type, slot * Buffer.size_of(type), value) # @pasted
+		self
+	)
+
+	# Runs before the pipeline: a coord must have one number per dimension.
+	check_axes ( coord: Tuple | Integer -> Tuple;
+		# `(5,)` is just 5, so a 1d coord arrives as an Integer.
+		if coord === Integer
+			coord = Tuple.from_array([coord])
+		end
+		if coord.values.length() != dimensions.values.length()
+			@raise "Memory has `dimensions.values.length()` dimensions, but the coord `coord` has `coord.values.length()`"
+		end
+		coord
+	)
+
+	# Boundary step: coord -> coord.
+	check_boundary ( coord: Tuple -> Tuple;
+		unless boundary == Boundary.FAIL
+			@raise "Boundary `boundary` is not supported yet"
+		end
+		for dimensions
+			# Check each axis on its own -- on a 4 x 2 grid, (5, 0) would otherwise silently read (1, 1).
+			unless coord[at] >= 0 and coord[at] < it
+				@raise "Memory coord `coord` is out of bounds: axis `at` is `coord[at]`, but must be 0 to `it - 1`"
+			end
+		end
+		coord
+	)
+
+	# Layout step: coord -> index.
+	to_index ( coord: Tuple -> Integer;
+		unless layout == Layout.ROW_MAJOR
+			@raise "Layout `layout` is not supported yet"
+		end
+
+		index := 0
+		for coord
+			index += it * self.strides[at]
+		end
+		index
+	)
+
+	# Layout step, backward: index -> coord. Used to walk every cell in order.
+	to_coord ( index: Integer -> Tuple;
+		unless layout == Layout.ROW_MAJOR
+			@raise "Layout `layout` is not supported yet"
+		end
+		cells := dimensions.product()
+		unless index >= 0 and index < cells
+			@raise "Memory index `index` is out of bounds: must be 0 to `cells - 1`"
+		end
+		coord := []
+		for dimensions
+			coord.push(index % it)
+			index = index / it
+		end
+		Tuple.from_array(coord)
+	)
+
+	# Reserve `size` bytes that start on a multiple of `align`. Returns the byte where they start.
+	alloc ( size, align := 8;
+		start := Buffer.align_up(next_free_byte, align)
+		if start + size > buffer.length()
+			@raise "Space is full: asked for `size` bytes at byte `start`, only `buffer.length()` bytes total"
+		end
+		next_free_byte = start + size
+		start
+	)
+
+	# Reserve room for `count` values of `type`, aligned to the type's own size.
+	alloc_of ( type, count := 1;
+		size := Buffer.size_of(type)
+		alloc(size * count, size)
+	)
+
+	# Free everything at once. The bytes are not cleared -- the next alloc just reuses them.
+	reset (; next_free_byte = 0 )
+	used (; next_free_byte )
+	remaining (; buffer.length() - next_free_byte )
+}
+
+# These enums represent ideas that I learned from Gemini and Claude, that belong in the world of Memory. I'm trying to design my own way of working with memory, that's intuitive to me, with little restrictions. I don'tknow what most of these are, I vaguely understand one or two though haha.
+# The first option in each enum is the baseline -- the simplest one, and what the code does now.
+
+# Where does a cell go?
+
+Storage [
+	DENSE               # Every cell gets a slot in one buffer, even the cells you never write.
+	PAGED               # The grid is cut into pages, and a page gets memory only the first time you write into it.
+	HASHED              # Only the cells you write are kept, in a dictionary keyed by coord.
+	TREE                # Only the cells you write are kept, in small tiles hung off a tree (like OpenVDB).
+]
+
+Layout [
+	ROW_MAJOR           # x changes fastest, so the cells of one row, (0,0) (1,0) (2,0), sit next to each other. to_index does this now.
+	COLUMN_MAJOR        # y changes fastest, so the cells of one column, (0,0) (0,1) (0,2), sit next to each other.
+	TILED               # The grid is cut into small squares, and each square's cells sit together.
+	MORTON              # Cells follow a Z-shaped path, so cells near each other in the grid are usually near each other in memory.
+	HILBERT             # Like MORTON, but the path never jumps, so neighbors stay closer; it costs more math per lookup.
+]
+
+# How is one value stored?
+
+Packing [
+	BYTE_ALIGNED        # Each value starts on a new byte, so a 1-bit bool still uses 8 bits.
+	BIT_PACKED          # Values sit right next to each other, bit by bit, so eight 1-bit bools fit in 1 byte.
+]
+
+Encoding [
+	RAW                 # Each cell stores its own value.
+	PALETTE             # Unique values go in a small table, and each cell stores only its index in that table.
+	RUN_LENGTH          # A run of the same value is stored once, with a count, so "AAAAB" becomes 4A 1B.
+	MICROSCALE          # A block of values (usually 32) shares one exponent, so each value stores only a few bits of its own.
+]
+
+# What happens at an edge?
+
+Boundary [
+	FAIL                # A coord outside the grid raises an error.
+	CLAMP               # A coord outside the grid is moved to the nearest edge, so -3 becomes 0.
+	WRAP                # A coord outside the grid comes back in on the other side, like Pac-Man.
+	MIRROR              # A coord outside the grid bounces back in, so one step past the end reads one step before it.
+	CONSTANT            # A coord outside the grid reads a fixed default value, like 0.
+]
+
+Overflow [
+	FAIL                # A value too big or too small for the type raises an error.
+	WRAP                # A value too big starts again from the smallest, so 256 in a :u8 becomes 0.
+	CLAMP               # A value too big becomes the largest the type can hold, so 300 in a :u8 becomes 255.
+]
+
+# How does it grow?
+
+Sizing [
+	FIXED               # The size never changes, so writing past the end fails.
+	DOUBLING            # When full, make a new buffer twice as big and copy everything over.
+	CHUNKED             # When full, add one more separate block and copy nothing.
+]
+
+# Who can touch it?
+
+Concurrency [
+	UNSAFE              # No protection, so use it from one thread only; it is the fastest.
+	ATOMIC              # Each single read or write finishes before another thread can see it, so no half-written values.
+	LOCKED_PER_TILE     # Each tile has its own lock, so two threads can work on different tiles at the same time.
+	COPY_ON_WRITE       # Readers share one copy, and a writer gets its own private copy the moment it writes.
+]
+
+# Not a Memory field -- an index you build over a Memory (or over objects) to answer "what is near here?" fast.
+
+Lookup [
+	ORTHANT_TREE        # Each box splits into 2^n equal children: a quadtree in 2D, an octree in 3D.
+	LOOSE_ORTHANT_TREE  # Like ORTHANT_TREE, but each box is a little bigger than its space, so moving objects change boxes less often.
+	KD_TREE             # Each step cuts the space in two along one axis, taking turns x, y, z.
+	BSP_TREE            # Like KD_TREE, but each cut can be at any angle.
+	BVH                 # Groups of objects are wrapped in boxes, and those boxes in bigger boxes, up to one box around everything.
+	R_TREE              # A BVH made for a database: each node holds many boxes, so the tree stays short.
+	RSTAR_TREE          # An R_TREE that works harder when it inserts, so its boxes overlap less and searches are faster.
+	SPATIAL_HASH        # Space is cut into equal cells, and each cell's objects go in a dictionary keyed by cell coord.
+	INTERVAL_TREE       # Stores ranges like 3..7, and finds every range that contains a given point.
+	SEGMENT_TREE        # Stores ranges like INTERVAL_TREE, but is built once up front and cannot change later.
+	RANGE_TREE          # Stores points, and finds every point inside a given box.
+]
+
+###
+# Things you should be able to do:
+# - reshape into a different dimension as long as the
+# - partition into other n-dimensional chunks of Memory. I'm imagining will_layout_subviews type of math.
+# - Maybe a space partitioning tree should be kept on each instance of Memory
+# - If your memory is 3d, it should be able to hold <=3d data.
+# - Partitions themselves should just be Memory as well, with a starts_at starts_at
+# See sandbox/memory-prototype/odd_bits.code for useful code with custom bit sizes
+###
+
+
+
+
+### Sized number families
+Give one a bit width with a tag: Int\8, Unt\16, Flo\32.
+Int and Unt also take a fraction width, for fixed point: Int\<bits := 16, fraction := 8>. The member names are free -- only the two numbers count.
+Int := Integer, Flo := Float, and Dec := Decimal are already declared in lang/number.code.
+###
+
+### Whole and fixed-point numbers ###
+
+# A whole number that cannot be negative, so Unt\8 holds 0 to 255 instead of -128 to 127.
+Unteger | Number {}
+Unt := Unteger
+
+# With a fraction width, Int and Unt become fixed point: the last bits sit after the point, so Int\<16, 8> steps in exact 1/256ths.
+# The memory holds a plain integer, and the value is that integer / 2^fraction, so 3.25 is stored as 832.
+
+### Numbers with a fraction ###
+
+# A float replacement that is most precise near 1 and less precise far from 1.
+Posit | Number {}
+Pos := Posit
+
+# Stores the logarithm of the number, so multiplying two of them is only an addition.
+Logarithmic | Number {}
+Log := Logarithmic
+
+### Numbers that mean an amount from 0 to 1 ###
+
+# An Unt read as 0 to 1, so 255 in a Unorm\8 means 1.0; most colors are stored this way.
+Unorm | Number {}
+# An Int read as -1 to 1, so 127 in a Snorm\8 means 1.0; used for directions.
+Snorm | Number {}
+
+# A stream of bits where the value is the share of 1s, so 0110 means 0.5; the width is the stream length.
+Stochastic | Number {}
+Sto := Stochastic
+
+### Numbers with special math ###
+
+# Adding is XOR and every result stays inside the width; used in crypto and in QR code error correction.
+Galois | Number {}
+Gal := Galois
+
+# Stores the remainders after division by a few small numbers, so each remainder can be added or multiplied on its own.
+Residue | Number {}
+Res := Residue
+
+### Base-3 numbers, stored in bits ###
+
+# A base-3 number with the digits 0, 1, 2.
+Utrit | Number {}
+# A base-3 number with the digits -1, 0, 1, so a negative number needs no sign.
+Itrit | Number {}
+
+### Groups of numbers. Tag them with the part type, not a width: Complex\Flo\32 ###
+
+# Two numbers, real and imaginary, used for 2D rotations and for waves.
+Complex {}
+
+# Four numbers that hold a 3D rotation with no gimbal lock.
+Quaternion {}
+
+# A value plus its derivative, so any math on it also gives you the slope.
+Dual {}

@@ -1,0 +1,23 @@
+Vector            <x: Number>
+Vector2 | Vector  <y: Number = 0>
+Vector3 | Vector2 <z: Number = 0>
+Vector4 | Vector3 <w: Number = 0>
+
+Vec2 := Vector2
+Vec3 := Vector3
+Vec4 := Vector4
+
+Matrix := Vector
+Point  := Vector
+
+
+Rectangle <
+	position: Vector
+	size: Vector
+>
+Rect := Rectangle
+
+lerp (a: Float, b: Float, t: Float -> Float;
+	@assert (0.0..1.0).include?(t), 'lerp(a: Float, b: Float, t: Float -> Float;) expects t to be in range 0.0..1.0 but it is `t`'
+	a * (1.0 - t) + b * t # "better for floating point precision than `a+(b-a)*t`" — https://www.redblobgames.com/grids/hexagons/implementation.html#line-drawing
+)

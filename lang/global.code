@@ -10,6 +10,7 @@
 @load 'lang/array'
 @load 'lang/range'
 @load 'lang/set'
+@load 'lang/buffer'
 @load 'lang/dictionary'
 @load 'lang/string'
 @load 'lang/symbol'
@@ -20,6 +21,7 @@
 @load 'lang/tuple'
 @load 'lang/bool'
 @load 'lang/context'
+@load 'lang/pointer'
 
 ### How to load programs.
 @load 'lang/some.code'  # the standard library itself lives in ./lang/

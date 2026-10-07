@@ -1,0 +1,4 @@
+# Bits past the end raise in bits, not bytes. A Buffer(2) has 16 bits, 0 to 15.
+b := Buffer(2)
+@out b.get_bits(8, 8)    # out: 0
+@out b.get_bits(10, 8)   # error: Out_Of_Bounds: reading bits 10 to 17 goes past the end: the buffer has 16 bits (bits 0 to 15)

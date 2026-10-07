@@ -1,11 +1,17 @@
+@load 'lang/buffer'
+
 String {
 	value,
 	length,     # Total number of characters
 	ord,        # Integer ordinal of the first character
 	quotation_style: Symbol
-
+	bytes: Array
 	Self ( value := '';
 		self.value = value
+	)
+
+	Self.from_buffer ( buffer: Buffer -> String;
+		@ruby
 	)
 
 	to_s (;
@@ -50,6 +56,9 @@ String {
 	to_i (; @ruby )
 	trim (; @ruby )
 	squeeze ( args... -> String; @ruby )
+
+	# add: setbyte getbyte
+	# add: get_bytes
 
 	lines (;
 		value.split('\n')

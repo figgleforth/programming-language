@@ -1,0 +1,56 @@
+Space {
+	starting_address := 0   # the first free byte -- everything before it is in use
+
+	# Round `n` up to the next multiple of `align` (a power of 2).
+	align_up ( n: Int, align: Int;
+		unless align > 0 and (align & (align - 1)) == 0
+			@raise "align must be a power of 2, got `align`"
+		end
+
+		(n + align - 1) & ~(align - 1)
+	)
+
+	# Reserve `size` bytes that start on a multiple of `align`. Returns their starting_address.
+	alloc ( size, align := 8;
+		start := align_up(starting_address, align)
+		if start + size > buffer.length()
+			@raise "Space is full: asked for `size` bytes at starting_address `start`, only `buffer.length()` bytes total"
+		end
+		self.starting_address = start + size
+		start
+	)
+
+	# Reserve room for `count` values of `type`, aligned to the type's own size.
+	alloc_of ( type, count := 1;
+		size := Buffer.size_of(type)
+		alloc(size * count, size)
+	)
+
+	# Free everything at once. The bytes are not cleared -- the next alloc just reuses them.
+	reset (;
+		self.starting_address = 0
+	)
+
+	used (; starting_address )
+	remaining (; buffer.length() - starting_address )
+}
+
+space := Space(32)
+
+flag  := space.alloc_of(:u8)        # 1 byte  at 0
+count := space.alloc_of(:u32)       # 4 bytes at 4  (1..3 are padding)
+xy    := space.alloc_of(:f32, 2)    # 8 bytes at 8
+big   := space.alloc_of(:u64)       # 8 bytes at 16
+
+space.buffer.set(:u8, flag, 1)
+space.buffer.set(:u32, count, 42)
+space.buffer.set(:f32, xy, 1.5)
+space.buffer.set(:f32, xy + 4, 2.5)
+
+@out [flag, count, xy, big]
+@out [space.used(), space.remaining()]
+@out [space.buffer.get(:u32, count), space.buffer.get(:f32, xy + 4)]
+
+space.reset()
+@out [space.used(), space.alloc(4)]
+@out space.alloc(100)

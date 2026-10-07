@@ -1,0 +1,2 @@
+# A negative byte offset raises.
+@out Buffer(2).get(:u8, -1)   # error: Out_Of_Bounds: reading at offset -1 is before the start: offsets start at 0

@@ -31,11 +31,22 @@ module Code
 	end
 
 	class Undeclared_Identifier < Error
+		# Set by Interpreter#interp_identifier when a file that is still loading declares the name: [declaring file, load chain from it to here], both as file names. Passed in, since the message is formatted in the constructor.
+		attr_reader :still_loading
+
+		def initialize expression = nil, highlighted_expression = nil, still_loading: nil
+			@still_loading = still_loading
+			super expression, highlighted_expression
+		end
+
 		# `expression` is whatever AST node was being resolved when lookup failed, usually an Code::Identifier_Expr (a plain identifier reference), but also an Code::Type_Expr when a bare type reference (`Abc()`) never got declared. Both expose `.value` via the shared Expression base (set from their own lexeme), so one implementation covers either raise site without caring which one it actually got.
 		def detail_message
 			name = expression.respond_to?(:value) ? expression.value : nil
 			return nil unless name
-			"#{Ascii.bold name} has not been declared"
+			return "#{Ascii.bold name} has not been declared" unless still_loading
+
+			file, chain = still_loading
+			"#{Ascii.bold name} has not been declared yet: #{file} declares it, but #{file} is still loading (#{chain.join ' → '})"
 		end
 	end
 
@@ -280,6 +291,20 @@ module Code
 	class Invalid_Scope_Function_Argument < Error
 	end
 
+	# `@raise Some_Error("message")` -- carries the raised value, like Ruby's `raise Some_Error, "message"`. A placeholder until errors are designed in the language itself.
+	class Raised < Error
+		attr_reader :value
+
+		def initialize value, message
+			@value = value
+			super message # a String, so Code::Error uses it as-is
+		end
+	end
+
+	# Raised by Interpreter#load_file_into_scope when a file loads itself again through a fresh scope (`lib := @load 'file'`), which would otherwise recurse forever.
+	class Load_Cycle < Error
+	end
+
 	class Missing_Ruby_Proxy_Declaration < Error
 		attr_accessor :proxy_method_name
 
@@ -333,6 +358,10 @@ module Code
 	# expression string (see Error#initialize's ::String special case) rather than needing an AST node,
 	# since this is raised from Ruby proxy code with no expression on hand.
 	class Table_Invalid_Filter_Column < Error
+	end
+
+	# Raised by Buffer#type_symbol (buffer.rb) for a type name IO::Buffer does not know, before Ruby's own bare "Invalid type name!" can. Message-only, like Table_Invalid_Filter_Column.
+	class Invalid_Buffer_Type < Error
 	end
 
 	class Type_Checking_Failed < Error
@@ -527,5 +556,8 @@ module Code
 		def detail_message
 			"Tried to extract #{Ascii.bold expected.to_s} value#{'s' unless expected == 1}, but the source only has #{Ascii.bold actual.to_s}"
 		end
+	end
+
+	class Null_Pointer_Dereference < Error
 	end
 end

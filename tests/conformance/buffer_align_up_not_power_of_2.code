@@ -1,0 +1,3 @@
+# Buffer.align_up only works with a power of 2, since it rounds with a bit mask.
+@out Buffer.align_up(5, 4)   # out: 8
+@out Buffer.align_up(5, 3)   # error: align must be a power of 2, got 3 (Integer)

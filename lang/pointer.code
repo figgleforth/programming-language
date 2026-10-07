@@ -1,0 +1,21 @@
+Pointer {
+	size: Int
+	null? : Bool
+	freed? : Bool
+	call_free (; @ruby )
+
+	resize ( new_size: Int -> Pointer; @ruby )
+	to_i (; @ruby )
+	to_s (; @ruby )
+	pointer (-> Pointer; @ruby )
+	reference (-> Pointer; @ruby )
+
+	Self (size: Int;
+		resize(size)
+	)
+
+	Self.read (address: Int, length: Int -> String; @ruby )
+	Self.write (address: Int, string: String -> String; @ruby )
+	Self.malloc ( size: Int; @ruby )
+	Self.to_pointer ( any -> Pointer; @ruby )
+}

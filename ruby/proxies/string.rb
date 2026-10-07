@@ -32,9 +32,20 @@ module Code
 		proxy :start_with?
 		proxy :end_with?
 		proxy :gsub
+		proxy :bytesize
+
+		def proxy_bytes
+			value.chars.map(&:ord)
+			#values.chars.map(&:ord)
+		end
 
 		def proxy_squeeze *args
 			Code::String.new value.squeeze(*args)
+		end
+
+		# @param buffer Code::Buffer
+		def proxy_from_buffer buffer
+			Code::String.new buffer.io_buffer.get_string.force_encoding('utf-8')
 		end
 
 		def proxy_to_md5_hash

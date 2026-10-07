@@ -9,6 +9,7 @@ gem 'sequel',  '~> 5.99'
 gem 'logger',  '~> 1.7'
 gem 'sqlite3', '~> 2.9.0'
 gem 'reline',  '~> 0.6.3'
+gem "fiddle", "~> 1.1"
 
 group :development do
 	gem 'minitest', '5.25.4'

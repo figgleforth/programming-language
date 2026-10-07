@@ -1,0 +1,86 @@
+# Buffer: typed values at a byte offset, and bit fields at a bit offset. bytes.code covers strings.
+
+b := Buffer(4)
+@out b.bytes()                  # out: [0, 0, 0, 0]
+
+# Lowercase is little-endian: the low byte comes first. 258 is 0x0102.
+b.set(:u16, 0, 258)
+@out b.bytes()                  # out: [2, 1, 0, 0]
+@out b.get(:u16, 0)             # out: 258
+
+# Uppercase is big-endian: the high byte comes first.
+b.set(:U16, 2, 258)
+@out b.bytes()                  # out: [2, 1, 1, 2]
+@out b.get(:U16, 2)             # out: 258
+@out b.get(:u16, 2)             # out: 513
+
+# 16909060 is 0x01020304.
+b.set(:u32, 0, 16909060)
+@out b.bytes()                  # out: [4, 3, 2, 1]
+@out b.get(:u32, 0)             # out: 16909060
+
+# A value too big for its type wraps: 300 - 256 = 44.
+b.set(:u8, 0, 300)
+@out b.get(:u8, 0)              # out: 44
+
+# The same byte, read unsigned and signed.
+b.set(:u8, 0, 255)
+@out b.get(:u8, 0)              # out: 255
+@out b.get(:s8, 0)              # out: -1
+
+b.set(:f32, 0, 1.5)
+@out b.get(:f32, 0)             # out: 1.5
+
+@out Buffer.size_of(:u8)        # out: 1
+@out Buffer.size_of(:u16)       # out: 2
+@out Buffer.size_of(:f32)       # out: 4
+@out Buffer.size_of(:u64)       # out: 8
+
+# Bit n is in byte n / 8, at position n % 8 (0 is the lowest bit).
+bits := Buffer(2)
+bits.set_bits(0, 1, 1)
+@out bits.bytes()               # out: [1, 0]
+bits.set_bits(7, 1, 1)
+@out bits.bytes()               # out: [129, 0]
+bits.set_bits(8, 1, 1)
+@out bits.bytes()               # out: [129, 1]
+
+# Across a byte edge: 11 is 0b1011, and its lowest bit goes to bit 6. Bits 6, 7 = 1, 1 and bits 8, 9 = 0, 1.
+bits.fill(0)
+bits.set_bits(6, 4, 11)
+@out bits.bytes()               # out: [192, 2]
+@out bits.get_bits(6, 4)        # out: 11
+@out bits.get_bits_signed(6, 4) # out: -5
+
+# Only the low `width` bits of the value are written: 13 is 0b1101, and its low 3 bits are 0b101.
+bits.fill(0)
+bits.set_bits(0, 3, 13)
+@out bits.bytes()               # out: [5, 0]
+@out bits.get_bits(0, 3)        # out: 5
+
+# Every bit outside the field stays the same.
+bits.fill(255)
+bits.set_bits(4, 4, 0)
+@out bits.bytes()               # out: [15, 255]
+
+# Signed: a clear top bit reads the same as unsigned, and a set top bit counts as negative.
+bits.fill(0)
+bits.set_bits(0, 4, 3)
+@out bits.get_bits_signed(0, 4) # out: 3
+bits.set_bits(0, 4, 8)
+@out bits.get_bits_signed(0, 4) # out: -8
+bits.set_bits(0, 1, 1)
+@out bits.get_bits_signed(0, 1) # out: -1
+
+# 16 bits from bit 0 read the same as :u16, since both are little-endian. 43794 is 0xab12.
+bits.set_bits(0, 16, 43794)
+@out bits.bytes()               # out: [18, 171]
+@out bits.get_bits(0, 16)       # out: 43794
+@out bits.get(:u16, 0)          # out: 43794
+
+# Round up to the next multiple of a power of 2.
+@out Buffer.align_up(0, 8)      # out: 0
+@out Buffer.align_up(1, 8)      # out: 8
+@out Buffer.align_up(8, 8)      # out: 8
+@out Buffer.align_up(9, 8)      # out: 16
+@out Buffer.align_up(5, 1)      # out: 5

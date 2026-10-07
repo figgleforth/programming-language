@@ -1,0 +1,479 @@
+# A fixed-size strip of raw bytes, backed by a Ruby IO::Buffer (ruby/proxies/buffer.rb). Read and write typed values at a byte offset. A value too big for its type wraps, like real memory (`:U8` 300 stores 44).
+#
+# Types: :u8 :s8 :u16 :U16 :s16 :S16 :u32 :U32 :s32 :S32 :u64 :U64 :s64 :S64 :f32 :F32 :f64 :F64
+# Lowercase is little-endian, uppercase is big-endian. One byte has no byte order, so :u8 and :U8 are the same (also :s8 and :S8).
+
+@load 'lang/errors'
+
+Out_Of_Bounds | Error <>
+
+Buffer {
+	Self ( size: Int := 0;
+		self.resize(size)
+	)
+
+	# returns size_of in bytes of :u8, etc. There's no documentation for these symbol types :u8, :u16, etc. Eventually you'll be able to write `Buffer.size_of(Int32)` or `Buffer.size_of(var)` or `Buffer.size_of(123)`
+	Self.size_of ( type: Symbol -> Int; @ruby )
+
+	Self.from_string (string: String -> Buffer; @ruby )
+
+	# Round `n` up to the next multiple of `align` (a power of 2).
+	Self.align_up ( n: Int, align: Int -> Int;
+		unless align > 0 and (align & (align - 1)) == 0
+			@raise "align must be a power of 2, got `align` (`align.@type`)"
+		end
+		(n + align - 1) & ~(align - 1)
+	)
+
+	length (-> Int; @ruby )
+
+	# keeps the old bytes, new bytes are 0
+	resize ( size: Int -> Buffer;
+		unless size === Integer and size >= 0
+			@raise "size must be an Integer, 0 or more, got `size` (`size.@type`)"
+		end
+
+		@ruby
+	)
+
+	# The end of an Out_Of_Bounds message, in bytes or bits. It reads length() each time, so it stays right after resize() and from_string().
+	_size_text ( in_bits := false;
+		if length() == 0
+			"the buffer is empty"
+		elif in_bits
+			"the buffer has `length() * 8` bits (bits 0 to `length() * 8 - 1`)"
+		else
+			"the buffer has `length()` bytes (offsets 0 to `length() - 1`)"
+		end
+	)
+
+	get ( type, offset: Int -> Number;
+		unless offset === Integer
+			@raise "offset must be an Integer, got `offset` (`offset.@type`)"
+		end
+
+		if offset < 0
+			@raise Out_Of_Bounds("reading at offset `offset` is before the start: offsets start at 0")
+		elif offset + Buffer.size_of(type) > length()
+			@raise Out_Of_Bounds("reading a `Buffer.size_of(type)`-byte :`type` at offset `offset` goes past the end: `_size_text()`")
+		end
+
+		@ruby
+	)
+	get_byte := get
+
+	set ( type, offset: Int, value: Number -> Buffer;
+		unless offset === Integer # @pasted
+			@raise "offset must be an Integer, got `offset` (`offset.@type`)"
+		end
+		unless value =>= Number
+			@raise "value must be a Number, got `value` (`value.@type`)"
+		end
+
+		if offset < 0
+			@raise Out_Of_Bounds("writing at offset `offset` is before the start: offsets start at 0")
+		elif offset + Buffer.size_of(type) > length()
+			@raise Out_Of_Bounds("writing a `Buffer.size_of(type)`-byte :`type` at offset `offset` goes past the end: `_size_text()`")
+		end
+
+		@ruby
+	)
+	set_byte := set
+
+	# sets every byte to `value`
+	fill ( value: Int := 0 -> Buffer; @ruby )
+
+	get_string (-> String; @ruby )
+	# Read `length` bytes from `start_index` as a String. A `length` of -1 reads to the end. The `length` param hides the length() method here, so this calls self.length().
+	get_string_slice ( start_index: Int, length: Int = -1 -> String;
+		unless start_index === Integer and length === Integer
+			@raise "start_index and length must be Integers, got `start_index` (`start_index.@type`) and `length` (`length.@type`)"
+		end
+
+		if start_index < 0
+			@raise Out_Of_Bounds("reading at offset `start_index` is before the start: offsets start at 0")
+		elif length < -1
+			@raise "length must be 0 or more, or -1 to read to the end, got `length` (`length.@type`)"
+		elif start_index > self.length()
+			@raise Out_Of_Bounds("reading at offset `start_index` goes past the end: `_size_text()`")
+		elif length != -1 and start_index + length > self.length()
+			@raise Out_Of_Bounds("reading `length` bytes at offset `start_index` goes past the end: `_size_text()`")
+		end
+
+		@ruby
+	)
+
+	# a fresh Array of every byte, 0 to 255
+	bytes (-> Array; @ruby )
+	hexdump (-> String; @ruby )
+
+	to_s (;
+		"Buffer(`length()` bytes)"
+	)
+
+	to_string (;
+		get_string()
+	)
+
+	# Read `width` bits that start at bit number `bit`, and return them as a number.
+	# Example: get_bits(6, 4) with byte 0 = 0b11000000 and byte 1 = 0b00000010 reads bits 6, 7, 8, 9 = 1, 1, 0, 1, which gives 0b1011 = 11.
+	get_bits ( bit, width -> Int;
+		unless bit === Integer and width === Integer
+			@raise "bit and width must be Integers, got bit `bit` (`bit.@type`) and width `width` (`width.@type`)"
+		end
+
+		if width < 1
+			@raise "width must be at least 1, got `width` (`width.@type`)"
+		elif bit < 0
+			@raise Out_Of_Bounds("reading at bit `bit` is before the start: bits start at 0")
+		elif bit + width > length() * 8
+			@raise Out_Of_Bounds("reading bits `bit` to `bit + width - 1` goes past the end: `_size_text(in_bits := true)`")
+		end
+
+		value := 0
+		for 0..<width
+			n := bit + it
+			one := (self.get(:u8, n >> 3) >> (n & 7)) & 1   # Read the byte that holds bit n, move bit n down to position 0, and keep only it.
+			value = value | (one << it)                      # Put that bit at position `it` of the result.
+		end
+		value
+	)
+
+	# Write the low `width` bits of `value`, starting at bit number `bit`. Every other bit stays the same.
+	# It reads and writes a whole byte for each bit. That is slow, but simple and correct.
+	set_bits ( bit, width, value;
+		unless bit === Integer and width === Integer # @pasted
+			@raise "bit and width must be Integers, got bit `bit` (`bit.@type`) and width `width` (`width.@type`)"
+		end
+		unless value === Integer
+			@raise "value must be an Integer, got `value` (`value.@type`)"
+		end
+
+		if width < 1
+			@raise "width must be at least 1, got `width` (`width.@type`)"
+		elif bit < 0
+			@raise Out_Of_Bounds("writing at bit `bit` is before the start: bits start at 0")
+		elif bit + width > length() * 8
+			@raise Out_Of_Bounds("writing bits `bit` to `bit + width - 1` goes past the end: `_size_text(in_bits := true)`")
+		end
+
+		for 0..<width
+			n    := bit + it
+			byte := self.get(:u8, n >> 3)   # The byte that holds bit n.
+			mask := 1 << (n & 7)            # Only bit n's position inside that byte is set.
+			if ((value >> it) & 1) == 1     # Is bit `it` of the new value set?
+				byte = byte | mask            # Yes: turn bit n on.
+			else
+				byte = byte & ~mask           # No: turn bit n off. ~mask is all ones except bit n, so the other bits stay.
+			end
+			self.set(:u8, n >> 3, byte)
+		end
+		self
+	)
+
+	# A signed value in `width` bits (two's complement): the top bit counts as negative 2^(width - 1), not positive.
+	# If the top bit is clear, ^ sign turns it on and - sign takes it off again, so the value does not change.
+	# If the top bit is set, ^ sign takes it off and - sign takes the same amount off again, so the top bit now counts as -sign.
+	# Example, width 4: raw 1011 = 11, sign = 1000 = 8, 11 ^ 8 = 3, 3 - 8 = -5. And raw 0011 = 3: 3 ^ 8 = 11, 11 - 8 = 3.
+	get_bits_signed ( bit, width;
+		sign := 1 << (width - 1)   # Only the top bit is set.
+		(get_bits(bit, width) ^ sign) - sign
+	)
+}
+
+
+
+### Claude's material for teaching me some things I've forgotten. Each one uses the ideas from the ones before it.
+
+1. How bits are numbered                 bit 0 is on the right of a byte, byte 0 is on the left of the buffer
+2. The shift tricks                      &, |, ^, ~, >>, << on one byte, written out column by column
+3. Building a bigger number from bytes   << and | across 2 bytes, and why "hi" can come out as "ih"
+4. Walkthrough: set_bits and get_bits    the shift tricks across a byte edge, step by step, then signed values
+5. How sized values sit in bytes         I1, I3, I12 ... packed into bytes, alignment, unused bits
+###
+
+
+### 1. HOW BITS ARE NUMBERED
+
+Why the numbers look reversed: we write a number with its biggest digit on the left. In 352, the 2 is the ones digit, and it sits on the right. Bits work the same way: bit 0 is worth 1 and sits on the right of its byte, and bit 7 is worth 128 and sits on the left.
+
+		worth:      128  64  32  16   8   4   2   1
+	bit number:       7   6   5   4   3   2   1   0
+		192 is:       1   1   0   0   0   0   0   0      128 + 64 = 192
+
+Bytes are a list, like an array, so byte 0 comes first, on the left. That gives two directions at once: bytes go left to right, and the bits inside each byte count right to left.
+
+		                byte 0                        byte 1
+		bit n:     7  6  5  4  3  2  1  0      15 14 13 12 11 10  9  8
+		          <-- bits count this way      <-- bits count this way
+		          bytes go this way -------------------------------->
+
+Another way to see the same bytes: write byte 1 on the LEFT of byte 0, the way you write one big number. Now the bit numbers run 15 down to 0 with no jump, and the buffer is just one 16-bit number. This is "little-endian": the low byte comes first in memory. It is also why get_bits(0, 16) and get(:u16, 0) give the same value.
+
+		                byte 1                        byte 0
+		bit n:    15 14 13 12 11 10  9  8       7  6  5  4  3  2  1  0
+
+The Odin port must number bits and bytes the same way, or the conformance tests will not match.
+###
+
+
+### 2. THE SHIFT TRICKS
+
+THE OPERATORS, ONE BIT AT A TIME
+
+	On a whole byte, each operator works on each column by itself, like adding with no carrying.
+
+		a   b      a & b    a | b    a ^ b
+		0   0        0        0        0
+		0   1        0        1        1
+		1   0        0        1        1
+		1   1        1        1        0
+
+		&  (AND)  1 only where BOTH are 1
+		|  (OR)   1 where EITHER is 1
+		^  (XOR)  1 where they are DIFFERENT
+		~  (NOT)  flips one row: every 0 becomes 1, every 1 becomes 0
+
+		>> k      every bit slides k places right; the k bits that pass the right edge fall off, and 0s come in on the left
+		<< k      every bit slides k places left; 0s come in on the right
+
+
+WHERE IS BIT n?  In byte n / 8, at position n % 8. Example, n = 10.
+
+	Both answers start from the SAME n. The second one does not use the result of the first.
+
+	Byte number:  n >> 3
+
+		  0 0 0 0 1 0 1 0        n = 10
+		>> 3
+		-----------------        the low 3 bits (0 1 0) fall off the right edge
+		  0 0 0 0 0 0 0 1        = 1, so byte 1
+
+	Position inside the byte:  n & 7, with the original n again
+
+		  0 0 0 0 1 0 1 0        n = 10
+		& 0 0 0 0 0 1 1 1        7
+		-----------------        a 1 only where BOTH rows have a 1
+		  0 0 0 0 0 0 1 0        = 2, so position 2
+
+	The two answers are just the two halves of n. >> 3 keeps the high bits, and & 7 keeps the low 3:
+
+		  0 0 0 0 1 | 0 1 0      n = 10
+		  byte 1    | position 2
+
+	Check: byte 1 holds bits 8 to 15, and 8 + 2 = 10.
+
+
+READ ONE BIT:  (x >> k) & 1  asks "is bit k of x set?" Example, x = 192, k = 6.
+
+	Step 1: slide bit k down to position 0.
+
+		  1 1 0 0 0 0 0 0        x = 192; bit 6 is the second from the left
+		>> 6
+		-----------------        the low 6 bits fall off the right edge
+		  0 0 0 0 0 0 1 1        bit 6 is now at position 0
+
+	Step 2: keep only position 0.
+
+		  0 0 0 0 0 0 1 1        the result of step 1
+		& 0 0 0 0 0 0 0 1        1
+		-----------------        a 1 only where BOTH rows have a 1
+		  0 0 0 0 0 0 0 1        = 1, so yes, bit 6 is set
+
+
+MAKE A MASK:  1 << k  is a byte with only bit k set. Example, k = 3.
+
+		  0 0 0 0 0 0 0 1        1
+		<< 3
+		-----------------        every bit slides 3 places left, and 0s come in on the right
+		  0 0 0 0 1 0 0 0        = 8, only bit 3 is set
+
+
+TURN ONE BIT ON:  byte | mask. Example, bit 3:
+
+		  1 0 1 0 0 0 0 0        byte
+		| 0 0 0 0 1 0 0 0        mask, from 1 << 3
+		-----------------        a 1 where EITHER row has a 1
+		  1 0 1 0 1 0 0 0        bit 3 is on, the others are the same
+
+
+TURN ONE BIT OFF:  byte & ~mask. Example, bit 3:
+
+	Step 1: flip the mask.
+
+		~ 0 0 0 0 1 0 0 0        mask, from 1 << 3
+		-----------------        every 0 becomes 1, every 1 becomes 0
+		  1 1 1 1 0 1 1 1        ~mask: 1 everywhere except bit 3
+
+	Step 2: AND the byte with it.
+
+		  1 0 1 0 1 0 0 0        byte
+		& 1 1 1 1 0 1 1 1        ~mask
+		-----------------        a 1 only where BOTH rows have a 1
+		  1 0 1 0 0 0 0 0        bit 3 is off, the others are the same
+###
+
+
+### 3. BUILDING A BIGGER NUMBER FROM BYTES
+
+"o".ord -> number 111
+"o".ord.to_s(2) -> prints 111 in base 2
+without its leading zero though:  -1101111
+Pad it with a zero to align it:   01101111
+
+since we have 2 bytes at once with :u16 we can now shift left 8 each bit.     01101111
+
+		<< 8     01101111
+		—————————————————
+		01101111 00000000
+
+then | ("or") with "o".ord again
+
+	    01101111 00000000
+	  | 00000000 01101111
+		—————————————————
+		01101111 01101111
+
+So now you have 2 bytes (16 bits) both of them representing 111, the "o" character, twice
+
+The trap: "oo" hides the byte order, because both bytes are the same. Try "hi" (h = 104, i = 105):
+
+		("h".ord << 8) | "i".ord
+
+		01101000 01101001        h is in the HIGH byte, i is in the LOW byte  (= 26729)
+
+Write it with :u16, which is little-endian, so the LOW byte goes first in memory:
+
+		b.set(:u16, 0, 26729)
+
+		byte 0      byte 1
+		01101001    01101000     = [105, 104]
+
+		b.get_string()  ->  "ih"     get_string reads byte 0 first, so the letters come out reversed
+
+Two ways to get "hi":
+
+		b.set(:U16, 0, 26729)                       :U16 is big-endian, so the HIGH byte goes first: [104, 105] -> "hi"
+		b.set(:u16, 0, ("i".ord << 8) | "h".ord)    put the first letter in the LOW byte instead: [104, 105] -> "hi"
+
+This is the "write byte 1 on the left" view from the comment above: the number you build has its high byte on the left, but memory stores the low byte first.
+###
+
+
+### 4. WALKTHROUGH: SET_BITS AND GET_BITS ACROSS A BYTE EDGE
+
+WALKTHROUGH:  set_bits(6, 4, 11) on Buffer(2), then get_bits(6, 4) to read it back
+
+11 is 1 0 1 1. set_bits takes its bits lowest first (it = 0, 1, 2, 3) and writes each one to buffer bit n = 6 + it:
+
+		                                                                              byte 0      byte 1
+		start                                                                         00000000    00000000
+		it 0:  (11 >> 0) & 1 = 1   n = 6, byte 0, position 6   mask 01000000    on:   01000000    00000000
+		it 1:  (11 >> 1) & 1 = 1   n = 7, byte 0, position 7   mask 10000000    on:   11000000    00000000
+		it 2:  (11 >> 2) & 1 = 0   n = 8, byte 1, position 0   mask 00000001    off:  11000000    00000000
+		it 3:  (11 >> 3) & 1 = 1   n = 9, byte 1, position 1   mask 00000010    on:   11000000    00000010
+		done                                                                          192         2
+
+get_bits(6, 4) visits the same bits and builds the value back up. Each bit goes to position `it` of the value, so the first bit read is the lowest:
+
+		                                               value
+		start                                          0 0 0 0
+		it 0:  bit 6 is 1  ->  value | (1 << 0)        0 0 0 1
+		it 1:  bit 7 is 1  ->  value | (1 << 1)        0 0 1 1
+		it 2:  bit 8 is 0  ->  nothing to add          0 0 1 1
+		it 3:  bit 9 is 1  ->  value | (1 << 3)        1 0 1 1      = 11, the value that went in
+
+
+SIGNED:  get_bits_signed(6, 4) reads the same 1 0 1 1, but the top bit is worth -8, not +8.
+
+		sign = 1 << 3                1 0 0 0     8
+		raw                          1 0 1 1     11
+		raw ^ sign                   0 0 1 1     3      ^ (XOR) flips the top bit off, which takes away 8
+		(raw ^ sign) - sign                      -5     and minus 8 takes it away a second time: 11 - 8 - 8
+		check: -8 + 0 + 2 + 1                    -5
+
+	When the top bit is 0, ^ turns it on (+8) and - takes it off (-8), so the value does not change.
+###
+
+
+### 5. HOW SIZED VALUES SIT IN BYTES
+
+There are two ways to store them. Memory picks one with its `packing` field.
+
+
+1. Packing.BYTE_ALIGNED: each value takes whole bytes
+
+Round the bit count up to 1, 2, 4, or 8 bytes. Those are the only sizes a CPU has instructions for, and the only sizes Buffer has types for. The bits a value does not need are unused (-), and the value sits in the low bits, on the right.
+
+		bits        bytes   Buffer type     one value, high bits on the left
+		I1          1       :u8             ---- ---0
+		I2          1       :u8             ---- --00
+		I3          1       :u8             ---- -000
+		I8          1       :u8             0000 0000
+		I12         2       :u16            ---- 0000 0000 0000
+		I16         2       :u16            0000 0000 0000 0000
+		I24         4       :u32            ---- ---- 0000 0000 0000 0000 0000 0000      not 3 bytes: there is no 3-byte type
+		I32         4       :u32            0000 0000 0000 0000 0000 0000 0000 0000
+		I33 to I64  8       :u64
+
+	So I1 to I8 take 1 byte, I9 to I16 take 2, I17 to I32 take 4, and I33 to I64 take 8.
+
+	Four I3 values, a b c d, take 4 bytes, and 20 of the 32 bits are unused:
+
+		byte 0      byte 1      byte 2      byte 3
+		---- -aaa   ---- -bbb   ---- -ccc   ---- -ddd
+
+	Easy and fast: each value is one get/set of a whole byte (or 2, 4, 8 bytes).
+
+
+2. Packing.BIT_PACKED: values sit back to back, with no unused bits
+
+	The same four I3 values take 12 bits, so 2 bytes. Value k starts at bit k * 3:
+
+		a: bits 0 to 2    b: bits 3 to 5    c: bits 6 to 8    d: bits 9 to 11
+
+		byte 0      byte 1
+		ccbb baaa   ---- dddc        c does not fit in byte 0, so its top bit goes to byte 1
+
+	Real example, a = 5, b = 3, c = 6, d = 1 (each as 3 bits: 101, 011, 110, 001):
+
+		buf.set_bits(0, 3, 5)
+		buf.set_bits(3, 3, 3)
+		buf.set_bits(6, 3, 6)
+		buf.set_bits(9, 3, 1)
+
+		byte 0      byte 1
+		10 011 101  0000 001 1
+		c  b   a         d   c
+		= 157       = 3              buf.bytes() is [157, 3]
+
+		c is 110: its low two bits (10) are bits 6 and 7 of byte 0, and its top bit (1) is bit 0 of byte 1.
+
+	Small, but slower: a value can cross a byte edge, so get_bits/set_bits work one bit at a time.
+
+
+ALIGNMENT IS A DIFFERENT IDEA
+
+Packing says how many bits one value takes. Alignment says where a value may START: only at a byte that is a multiple of N. Each Buffer type is usually aligned to its own size (1 for :u8, 4 for :u32), and alloc_of() does this already.
+
+		alloc_of(:u8), then alloc_of(:u32):
+
+		byte:   0     1     2     3     4     5     6     7
+		        u8    -     -     -     u32   u32   u32   u32
+
+		The u32 cannot start at byte 1, so bytes 1 to 3 are a gap and it starts at byte 4.
+
+	So unused bits can come from two places: inside a value (BYTE_ALIGNED padding) and between values (alignment gaps).
+
+
+UNUSED BITS ARE NOT CLEARED FOR YOU
+
+set_bits() changes only the bits you ask for. The other bits keep whatever was there before:
+
+		buf := Buffer(1)
+		buf.fill(255)                1111 1111
+		buf.set_bits(0, 3, 5)        1111 1101      only the low 3 bits changed: buf.bytes() is [253]
+		buf.get_bits(0, 3)           5              reading 3 bits ignores the rest, so the value is still right
+
+	bytes() and hexdump() show the old bits. Clear the byte first (fill(0), or set the whole byte) if you want clean padding.
+###

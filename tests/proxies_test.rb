@@ -87,7 +87,7 @@ class ProxiesTest < Base_Test
 		assert_equal [2, 4], Code.interp("[1, 2, 3, 4].filter(( x; x % 2 == 0 ))").values
 		assert_equal 10, Code.interp("[1, 2, 3, 4].accumulate(0, ( acc, x; acc + x ))")
 
-		assert_equal [1, 2, 3, 4, 5], Code.interp("[1, 2, 3].concat([4, 5])")
+		assert_equal [1, 2, 3, 4, 5], Code.interp("[1, 2, 3].concat([4, 5])").values
 		assert_equal [1, 2, 3, 4], Code.interp("[[1, 2], [3, 4]].flatten()").values
 		assert_equal [1, 2, 3], Code.interp("[3, 1, 2].sort()").values
 		assert_equal [1, 2, 3], Code.interp("[1, 2, 2, 3, 1].uniq()").values
