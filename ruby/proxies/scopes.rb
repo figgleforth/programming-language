@@ -111,7 +111,8 @@ module Code
 		end
 
 		def inspect
-			filtered = instance_variables.reject { |v| v == :@enclosing_scope }
+			# These link back to other scopes, so inspecting them would walk the whole scope graph and never finish.
+			filtered = instance_variables.reject { |v| %i(@enclosing_scope @lexical_stack @captured_stack).include? v }
 			vars     = filtered.map { |v| "#{v}=#{instance_variable_get(v)}" }
 			"#<#{self.class.name} #{vars.join(', ')}>"
 		end

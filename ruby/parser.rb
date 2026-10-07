@@ -480,6 +480,12 @@ module Code
 				reduce_newlines
 				break if curr? ']'
 
+				# A comment is never a member -- without this, #parse_identifier_expr reads its text as one.
+				if curr? :comment
+					eat
+					next
+				end
+
 				item = if curr? TYPE_IDENTIFIER, '['
 					parse_enum_expr
 				else

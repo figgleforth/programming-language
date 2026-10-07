@@ -175,6 +175,9 @@ module Code
 				nested        = expr.expressions ? declare_all(expr.expressions) : Hash.new
 				nested['tag'] = declare expr.tag if expr.tag
 				Declaration[expr.name, nested, expr]
+			when Enum_Expr
+				# hoistable (Interpreter::FORWARD_DECLARABLE_EXPRESSIONS), and the language server reads it too -- each member is a nil-init, `:=`, or nested Enum_Expr, all declared by the branches here
+				Declaration[expr.name.value, declare_all(expr.expressions), expr]
 			when Number_Expr, Symbol_Expr, String_Expr
 				# a bare literal statement (e.g. a func body's trailing return value) doesn't declare anything on its own -- see #resolve_value for how these register as the *value* on the right of a `:=`/`=`
 			when Prefix_Expr, Postfix_Expr

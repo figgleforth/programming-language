@@ -24,19 +24,23 @@ module Code
 			case expr
 			when Code::Type_Expr then :class
 			when Code::Struct_Expr then :struct
+			when Code::Enum_Expr then :enum
 			when Code::Operator_Expr, Code::Operator_Overload_Expr then :operator
 			when Code::Func_Expr, Code::Func_Signature_Expr then :function
 			end
 		end
 
-		SYMBOL_KIND     = { function: 12, class: 5, struct: 23, operator: 25, constant: 14, variable: 13 }.freeze
-		COMPLETION_KIND = { function: 3, class: 7, struct: 22, operator: 24, constant: 21, variable: 6, keyword: 14 }.freeze
+		SYMBOL_KIND     = { function: 12, class: 5, struct: 23, enum: 10, enum_member: 22, operator: 25, constant: 14, variable: 13 }.freeze
+		COMPLETION_KIND = { function: 3, class: 7, struct: 22, enum: 13, enum_member: 20, operator: 24, constant: 21, variable: 6, keyword: 14 }.freeze
 
 		KEYWORDS = Code::RESERVED.select { |word| word =~ /\A[a-zA-Z_]+\z/ }.freeze
 
 		# The legend sent in `initialize` -- each semantic token refers to these by index.
 		SEMANTIC_TOKEN_TYPES     = %w(comment string number keyword operator type function variable decorator).freeze
 		SEMANTIC_TOKEN_MODIFIERS = %w(readonly).freeze
+
+		# A sized numeric type name (`I32`, `Unt8`, `F64`, `D128`). The all-capital forms lex as constants, so this keeps them colored as types.
+		NUMERIC_WIDTH_TYPE = /\A(I|Int|Integer|U|Unt|Unteger|UInt|UInteger|F|Flo|Float|D|Dec|Decimal)(\d+)\z/
 
 		def initialize input: $stdin, output: $stdout
 			@input     = input
@@ -199,7 +203,7 @@ module Code
 
 		# ----- Finding a declaration -----
 
-		SCOPE_EXPRESSIONS = [Code::Func_Expr, Code::Type_Expr, Code::For_Loop_Expr].freeze # Route_Expr < Func_Expr
+		SCOPE_EXPRESSIONS = [Code::Func_Expr, Code::Type_Expr, Code::Enum_Expr, Code::For_Loop_Expr].freeze # Route_Expr < Func_Expr
 
 		# The name under the cursor, resolved the way the language resolves it:
 		# - `x.name` looks only at members -- of the enclosing type for `self.`/`Self.`, of that type for
@@ -267,6 +271,7 @@ module Code
 			when Code::Route_Expr    then [scope.expression]
 			when Code::Func_Expr     then scope.expressions
 			when Code::Type_Expr     then scope.expressions
+			when Code::Enum_Expr     then scope.expressions
 			when Code::For_Loop_Expr then scope.body
 			end
 			Code::Declarator.new.declare_all [*body].compact
@@ -283,7 +288,7 @@ module Code
 			elsif receiver.type == :Identifier
 				find_declaration uri, receiver.value
 			end
-			return nil unless type && type[:expr].is_a?(Code::Type_Expr)
+			return nil unless type && (type[:expr].is_a?(Code::Type_Expr) || type[:expr].is_a?(Code::Enum_Expr))
 
 			member = declarations_in_body(type[:expr])[name]
 			member && { uri: type[:uri], expr: member.expr, source: type[:source] }
@@ -293,11 +298,14 @@ module Code
 		def members_named uri, name
 			found = []
 			each_reachable_file uri do |doc_uri, source|
-				declarations_for(doc_uri, source).each_value do |declaration|
-					next unless declaration.expr.is_a?(Code::Type_Expr) && declaration.expr_or_decl.is_a?(::Hash)
+				declarations = declarations_for(doc_uri, source).values
+				while (declaration = declarations.shift)
+					next unless (declaration.expr.is_a?(Code::Type_Expr) || declaration.expr.is_a?(Code::Enum_Expr)) && declaration.expr_or_decl.is_a?(::Hash)
 
 					member = declaration.expr_or_decl[name]
 					found << { uri: doc_uri, expr: member.expr, source: source } if member.is_a? Code::Declaration
+					# An enum nested in an enum (`Color.Sub.A`) is not top-level, so look inside it too. A Type's nested Funcs stay out -- their locals are not members.
+					declarations.concat declaration.expr_or_decl.values.grep(Code::Declaration).select { |d| d.expr.is_a? Code::Enum_Expr } if declaration.expr.is_a? Code::Enum_Expr
 				end
 			end
 			found.uniq { |f| [f[:uri], f[:expr].line_start, f[:expr].column_start] }
@@ -465,28 +473,124 @@ module Code
 			uri    = params.dig 'textDocument', 'uri'
 			source = @documents[uri]
 
-			symbols = Code.declare(source).map do |name, declaration|
-				kind = SYMBOL_KIND[DECLARATION_KIND[declaration.expr] || (Helpers.constant_identifier?(name) ? :constant : :variable)]
-				{ 'name' => name, 'kind' => kind, 'location' => location_for(uri, declaration.expr) }
+			# A nameless entry (`name` is required) can make the client reject the whole response.
+			symbols = Code.declare(source).filter_map do |name, declaration|
+				document_symbol name, declaration.expr if name
 			end
 
 			respond message['id'], symbols
 		end
 
+		# A hierarchical DocumentSymbol, not a flat SymbolInformation -- LSP4IJ builds the Structure tree, breadcrumbs, and sticky lines from `children`. `x := Thing {}` unwraps to the Type for its kind and children.
+		def document_symbol name, expr, in_enum: false
+			body  = expr.is_a?(Code::Infix_Expr) ? expr.right : expr
+			kind  = DECLARATION_KIND[body] || (in_enum ? :enum_member : Helpers.constant_identifier?(name) ? :constant : :variable)
+			range = range_for expr
+			# Only the name, on the header line -- a declaration starts with its own name. Clamped so it never leaves `range`, which LSP requires.
+			start         = range['start']
+			selection_end = { 'line' => start['line'], 'character' => start['character'] + name.length }
+			selection_end = range['end'] if range['end']['line'] == start['line'] && range['end']['character'] < selection_end['character']
+			{
+				'name'           => name,
+				'kind'           => SYMBOL_KIND[kind],
+				'range'          => range,
+				'selectionRange' => { 'start' => start, 'end' => selection_end },
+				'children'       => case body
+				when Code::Type_Expr, Code::Func_Expr then nested_symbols body.expressions
+				when Code::Enum_Expr then nested_symbols body.expressions, in_enum: true
+				else []
+				end,
+			}
+		end
+
+		# The Types, Enums, named Funcs, and `:=` declarations directly inside a Type, Func, or Enum body. `in_enum` makes each member an EnumMember, not a constant.
+		def nested_symbols expressions, in_enum: false
+			(expressions || []).filter_map do |expr|
+				case expr
+				when Code::Type_Expr then document_symbol expr.name, expr
+				when Code::Enum_Expr then document_symbol expr.name.value, expr
+				when Code::Func_Expr then document_symbol expr.name.value, expr if expr.name.respond_to? :value
+				when Code::Infix_Expr
+					next unless expr.left.is_a? Code::Identifier_Expr
+					# `x := 5`, or an annotated `x: Number = 5` -- a plain `x = 5` only reassigns. An enum member's own `= 5` declares it.
+					document_symbol expr.left.value, expr, in_enum: in_enum if expr.operator.value == ':=' || expr.left.type || in_enum
+				when Code::Identifier_Expr
+					document_symbol expr.value, expr, in_enum: in_enum if expr.type # `x: Number`, declared with no value
+				when Code::Nil_Init_Expr
+					document_symbol expr.left.value, expr, in_enum: in_enum if in_enum # a bare enum member, `RED`
+				end
+			end
+		end
+
 		# ----- textDocument/completion -----
 
+		# After `x.` it lists the members of x's type; otherwise every name visible from the cursor, plus keywords. The client filters by the typed prefix.
 		def handle_completion message
 			params = message['params']
 			uri    = params.dig 'textDocument', 'uri'
 			source = @documents[uri]
+			line, column = params.dig('position', 'line') + 1, params.dig('position', 'character')
 
-			declared = Code.declare(source).map do |name, declaration|
-				kind = COMPLETION_KIND[DECLARATION_KIND[declaration.expr] || (Helpers.constant_identifier?(name) ? :constant : :variable)]
+			# The line being typed almost never parses, so blank it out (keeping the line count) and complete against the rest of the file.
+			blanked = source.lines.each_with_index.map { |text, i| i == line - 1 ? "\n" : text }.join
+			patched = [source, blanked].find { |text| Code.declare(text) rescue false } || source
+			# Every lookup helper reads @documents, so they see the patched text only for this one request.
+			@documents[uri] = patched
+			forget_changed_files
+
+			lexemes = (Code.lex(source) rescue []).select { |lex| lex.line_start == line && lex.value != "\n" && lex.column_end <= column }
+			lexemes.pop if lexemes.last&.type.to_s.casecmp?('identifier') && lexemes.last.column_end == column # the partial word
+			dot    = lexemes.last&.type == :operator && lexemes.last.value == '.'
+			scopes = enclosing_scopes uri, patched, line, column + 1
+
+			entries = [] # [[name, expr]]
+			if dot
+				receiver = lexemes[-2]
+				type = if receiver && %w(self Self).include?(receiver.value)
+					scopes.find { |scope| scope.is_a? Code::Type_Expr }
+				elsif receiver&.type.to_s.casecmp?('identifier')
+					found = (find_in_scopes(uri, patched, scopes, receiver.value) || find_declaration(uri, receiver.value))&.dig(:expr)
+					# `d := Dog()` -- one step of inference, from the constructor call to its type.
+					if found.is_a?(Code::Infix_Expr) && found.right.is_a?(Code::Call_Expr) && found.right.receiver.is_a?(Code::Identifier_Expr)
+						found = find_declaration(uri, found.right.receiver.value)&.dig(:expr)
+					end
+					found
+				end
+
+				if type.is_a?(Code::Type_Expr) || type.is_a?(Code::Enum_Expr)
+					declarations_in_body(type).each { |name, declaration| entries << [name, declaration.expr] }
+				else
+					# The receiver's type is not known, so offer the members of every reachable type.
+					each_reachable_file uri do |doc_uri, text|
+						declarations_for(doc_uri, text).each_value do |declaration|
+							next unless (declaration.expr.is_a?(Code::Type_Expr) || declaration.expr.is_a?(Code::Enum_Expr)) && declaration.expr_or_decl.is_a?(::Hash)
+
+							declaration.expr_or_decl.each { |name, member| entries << [name, member.expr] if member.is_a? Code::Declaration }
+						end
+					end
+				end
+			else
+				scopes.each do |scope|
+					if scope.is_a?(Code::Func_Expr) && !scope.is_a?(Code::Route_Expr)
+						scope.parameters&.each { |param| entries << [param.name.value, param] if param.name }
+					end
+					declarations_in_body(scope).each { |name, declaration| entries << [name, declaration.expr] }
+				end
+				each_reachable_file uri do |doc_uri, text|
+					declarations_for(doc_uri, text).each { |name, declaration| entries << [name, declaration.expr] }
+				end
+				%w(it at).each { |name| entries << [name, nil] } if scopes.any? { |scope| scope.is_a? Code::For_Loop_Expr }
+			end
+
+			items = entries.uniq(&:first).map do |name, expr|
+				kind = COMPLETION_KIND[DECLARATION_KIND[expr] || (Helpers.constant_identifier?(name) ? :constant : :variable)]
 				{ 'label' => name, 'kind' => kind }
 			end
-			keywords = KEYWORDS.map { |word| { 'label' => word, 'kind' => COMPLETION_KIND[:keyword] } }
+			items += KEYWORDS.map { |word| { 'label' => word, 'kind' => COMPLETION_KIND[:keyword] } } unless dot
 
-			respond message['id'], declared + keywords
+			respond message['id'], items
+		ensure
+			@documents[uri] = source if uri
 		end
 
 		# ----- textDocument/semanticTokens/full -----
@@ -543,16 +647,13 @@ module Code
 
 		def semantic_token_type lex, nxt
 			case lex.type
-			when :comment                 then 'comment'
 			when :string, :html, :fence, :route then 'string'
 			when :number, :scientific_notation, :binary, :hexadecimal then 'number'
-			when :operator                then lex.value =~ /\A[a-z]+\z/ ? 'keyword' : 'operator'
-			when :IDENTIFIER              then ['variable', 'readonly']
-			when :Identifier              then lex.reserved ? 'keyword' : 'type'
+			# Comments, operators and reserved words (`:=`, `->`, `unless`, `self`, `Self`) send no token on purpose, so they keep the file type's own colors, the same as `end`, `it`, and brackets.
+			when :IDENTIFIER              then lex.value.match?(NUMERIC_WIDTH_TYPE) ? 'type' : ['variable', 'readonly']
+			when :Identifier              then 'type' unless lex.reserved
 			when :identifier
-				if lex.reserved then 'keyword'
-				elsif nxt&.type == :delimiter && nxt.value == '(' then 'function'
-				end
+				'function' if !lex.reserved && nxt&.type == :delimiter && nxt.value == '('
 			end
 		end
 

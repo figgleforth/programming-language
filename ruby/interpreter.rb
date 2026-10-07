@@ -121,7 +121,7 @@ module Code
 		end
 
 		# Only these expression kinds are eligible to be forward-referenced -- kept here rather than constants.rb since it references Expression subclasses (constants.rb loads before expressions.rb does)
-		FORWARD_DECLARABLE_EXPRESSIONS = [Func_Expr, Type_Expr, Route_Expr, Struct_Expr, Func_Signature_Expr, Operator_Expr, Operator_Overload_Expr].freeze
+		FORWARD_DECLARABLE_EXPRESSIONS = [Func_Expr, Type_Expr, Route_Expr, Struct_Expr, Enum_Expr, Func_Signature_Expr, Operator_Expr, Operator_Overload_Expr].freeze
 
 		def hoistable_declaration_expr? expr
 			return true if FORWARD_DECLARABLE_EXPRESSIONS.any? { |type| expr.is_a? type }
