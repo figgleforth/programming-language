@@ -1354,6 +1354,119 @@ class Interpreter_Test < Base_Test
 		assert_equal -2, out
 	end
 
+	# A closure runs on the scopes where it was written, not on the caller's. It used to see the Array's own `length` method first when `map` called it from inside a function.
+	def test_closure_passed_to_map_inside_a_function_sees_globals_not_array_members
+		out = Code.interp '
+		length ( x; x * 10 )
+		f (; [1, 2].map(it; length(it)) )
+		f()
+		'
+		assert_equal [10, 20], out.values
+	end
+
+	def test_nested_closures_inside_a_function_see_globals_not_array_members
+		out = Code.interp '
+		length ( x; x * 10 )
+		f (; [[1, 2], [3]].map(row; row.map(x; length(x))) )
+		f()
+		'
+		assert_equal [[10, 20], [30]], out.values.map(&:values)
+	end
+
+	def test_closure_in_a_for_loop_sees_it_and_the_functions_locals
+		out = Code.interp '
+		f (;
+			base := 100
+			out := []
+			for [1, 2]
+				out.push([10, 20].map(x; x + it + base))
+			end
+			out
+		)
+		f()
+		'
+		assert_equal [[111, 121], [112, 122]], out.values.map(&:values)
+	end
+
+	def test_closure_keeps_its_function_locals_after_the_function_returns
+		out = Code.interp '
+		make (;
+			count := 0
+			(; count += 1)
+		)
+		c := make()
+		c()
+		c()
+		c()
+		'
+		assert_equal 3, out
+	end
+
+	def test_function_cannot_read_its_callers_locals
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp '
+			g (; secret )
+			f (;
+				secret := 1
+				g()
+			)
+			f()
+			'
+		end
+	end
+
+	# A method runs on its Instance, its Type, and the scopes where the Type was declared (#lexical_chain), never on the caller's stack
+	def test_method_cannot_read_its_callers_locals
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp '
+			Box { peek (; secret ) }
+			f (;
+				secret := 1
+				Box().peek()
+			)
+			f()
+			'
+		end
+	end
+
+	def test_method_sees_self_its_sibling_methods_and_globals
+		out = Code.interp '
+		double ( x; x * 2 )
+		Box {
+			n := 3
+			twice (; double(n) )
+			both (; [self.n, twice()] )
+		}
+		Box().both()
+		'
+		assert_equal [3, 6], out.values
+	end
+
+	def test_method_of_a_type_declared_inside_a_function_sees_the_functions_locals
+		out = Code.interp '
+		f (;
+			base := 5
+			Box { get (; base ) }
+			Box().get()
+		)
+		f()
+		'
+		assert_equal 5, out
+	end
+
+	def test_closure_inside_a_method_sees_self_and_globals_not_array_members
+		out = Code.interp '
+		length ( x; x * 10 )
+		Box {
+			items := [1, 2]
+			k := 3
+			total (; items.map(x; length(x) + self.k) )
+		}
+		Box().total()
+		'
+		assert_equal [13, 23], out.values
+	end
+
 	def test_calling_functions
 		refute_raises RuntimeError do
 			out = Code.interp '
@@ -5011,6 +5124,80 @@ class Interpreter_Test < Base_Test
 		assert_equal 5, second # outer is memoized too -- same cached result, nothing re-ran
 		assert_equal 1, calls_memoized
 		assert_equal 2, calls_unmemoized
+	end
+
+	# A Statement runs on the stack it was built on (captured_stack), like a closure. use_caller_scope runs it on the stack of the code that calls it instead.
+	def test_use_caller_scope_statement_reads_the_calling_functions_locals
+		out = Code.interp <<~CODE
+		    s := `secret`
+		    s.use_caller_scope = true
+		    f (;
+		        secret := 1
+		        s()
+		    )
+		    f()
+		CODE
+		assert_equal 1, out
+	end
+
+	def test_captured_statement_reads_where_it_was_built_not_where_it_is_called
+		out = Code.interp <<~CODE
+		    make (;
+		        v := 5
+		        `v`
+		    )
+		    s := make()
+		    g (;
+		        v := 99
+		        s()
+		    )
+		    g()
+		CODE
+		assert_equal 5, out
+	end
+
+	def test_captured_statement_cannot_read_a_name_only_its_caller_has
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+			    s := `secret`
+			    f (;
+			        secret := 1
+			        s()
+			    )
+			    f()
+			CODE
+		end
+	end
+
+	def test_use_caller_scope_statement_sees_only_the_code_that_calls_it
+		# g calls s(), so s sees g's names, not those of f, which called g
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+			    s := `secret`
+			    s.use_caller_scope = true
+			    g ( st; st() )
+			    f (;
+			        secret := 1
+			        g(s)
+			    )
+			    f()
+			CODE
+		end
+	end
+
+	def test_captured_statement_built_in_a_loop_inside_a_function_sees_the_functions_locals
+		out = Code.interp <<~CODE
+		    f (;
+		        base := 100
+		        made := []
+		        for [1, 2]
+		            made.push(`base + it`)
+		        end
+		        made.map(st; st())
+		    )
+		    f()
+		CODE
+		assert_equal [101, 102], out.values
 	end
 
 	def test_self_resolves_to_nearest_instance

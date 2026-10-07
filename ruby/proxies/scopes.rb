@@ -176,6 +176,7 @@ module Code
 		# Set (to the member name) on a synthesized Context function -- Interpreter#interp_call routes
 		# it straight to the intrinsic instead of running a body. See #synthesized_context_func.
 		attr_accessor :context_function_name, :func_expr
+		attr_accessor :lexical_stack # see Interpreter#interp_func_body
 	end
 
 	class Route < Func

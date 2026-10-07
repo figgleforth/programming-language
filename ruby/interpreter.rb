@@ -3002,6 +3002,7 @@ module Code
 			func                 = Code::Func.new expr.lexeme
 			func.name            = expr.lexeme
 			func.enclosing_scope = stack.last
+			func.lexical_stack   = stack.map { it } # the scopes visible where the func is written, see #interp_func_body. Not .dup: a dup shares its buffer with @stack, and that buffer keeps already-popped scopes alive.
 			func.expressions     = expr.expressions
 			func.parameters      = expr.parameters
 			func.func_expr       = expr
@@ -3017,6 +3018,17 @@ module Code
 			end
 
 			func
+		end
+
+		# The scopes a method sees: its Instance (or Type), then outward through each enclosing_scope, with Global at the bottom. A method cannot use a saved lexical_stack, because it is rebound to each instance after it is created.
+		def lexical_chain scope
+			chain = []
+			while scope && chain.none? { |s| s.equal? scope }
+				chain.unshift scope
+				scope = scope.enclosing_scope
+			end
+			chain.unshift global unless chain.first.equal? global
+			chain
 		end
 
 		def interp_func_body func, expr, arg_values: nil
@@ -3094,14 +3106,22 @@ module Code
 			call_scope.arguments       = arg_values
 			call_scope.func_expr       = func
 
-			# Push type scope if calling an instance method (instance methods need access to type-level declarations)
-			# Also push the type's enclosing_scope so sibling types can be found
-			if func.enclosing_scope.is_a?(Code::Instance) && func.enclosing_scope.enclosing_scope
-				type = func.enclosing_scope.enclosing_scope
-				push_scope type.enclosing_scope if type.enclosing_scope # Push the Type's enclosing scope
-				push_scope type # Push the Type
+			# A function runs on the scopes where it was written (lexical scope), never on the caller's stack. A plain func or closure uses the stack saved when it was created, and a method uses its enclosing_scope chain.
+			method  = func.enclosing_scope.is_a?(Code::Type)
+			lexical = func.lexical_stack || method
+			if lexical
+				saved_stack = stack
+				self.stack  = method ? lexical_chain(func.enclosing_scope) : func.lexical_stack.dup
+			else
+				# Push type scope if calling an instance method (instance methods need access to type-level declarations)
+				# Also push the type's enclosing_scope so sibling types can be found
+				if func.enclosing_scope.is_a?(Code::Instance) && func.enclosing_scope.enclosing_scope
+					type = func.enclosing_scope.enclosing_scope
+					push_scope type.enclosing_scope if type.enclosing_scope # Push the Type's enclosing scope
+					push_scope type # Push the Type
+				end
+				push_scope func.enclosing_scope
 			end
-			push_scope func.enclosing_scope
 			push_scope call_scope
 
 			has_variadic = func.parameters.any?(&:variadic)
@@ -3184,12 +3204,17 @@ module Code
 			end
 
 			Code.assert pop_scope == call_scope
-			Code.assert pop_scope == func.enclosing_scope
+			if lexical
+				self.stack  = saved_stack
+				saved_stack = nil
+			else
+				Code.assert pop_scope == func.enclosing_scope
 
-			if func.enclosing_scope.is_a?(Code::Instance) && func.enclosing_scope.enclosing_scope
-				type = func.enclosing_scope.enclosing_scope
-				Code.assert pop_scope == type
-				pop_scope if type.enclosing_scope # Pop the Type's enclosing scope
+				if func.enclosing_scope.is_a?(Code::Instance) && func.enclosing_scope.enclosing_scope
+					type = func.enclosing_scope.enclosing_scope
+					Code.assert pop_scope == type
+					pop_scope if type.enclosing_scope # Pop the Type's enclosing scope
+				end
 			end
 
 			return_value = result.is_a?(Code::Return) ? result.value : result
@@ -3204,6 +3229,8 @@ module Code
 			end
 
 			return_value
+		ensure
+			self.stack = saved_stack if saved_stack
 		end
 
 		# Classifies a call argument's syntactic form:
@@ -3487,8 +3514,8 @@ module Code
 
 		def interp_statement expr
 			instance = Code::Statement.new expr.expression
-			# Capture the scope this literal was built in -- see Code::Statement's class comment.
-			instance.captured_scope = stack.last
+			# Capture the scopes this literal was built in -- see Code::Statement's class comment. Not .dup, for the same reason as Func#lexical_stack in #interp_func.
+			instance.captured_stack = stack.map { it }
 			link_instance_to_type instance, 'Statement'
 
 			# Unlike `Statement(...)` (which goes through #build_instance_of_type and runs the type's own body), a bare literal builds the Ruby object directly -- do that here too, or use_caller_scope/memoize/etc never get declared on the instance.
@@ -3505,13 +3532,17 @@ module Code
 		def invoke_statement statement
 			return statement['_memoized_value'] if statement['memoize'] && statement['_memoized']
 
-			result = if statement['use_caller_scope'] || statement.captured_scope.nil?
+			result = if statement['use_caller_scope'] || statement.captured_stack.nil?
 				interpret statement.expression
 			else
-				# Same trick as Func closures: push the captured scope back on top so lookup finds it before the caller's own frames. #push_then_pop returns #pop_scope's result, not the block's, so the value has to be captured from inside the block instead.
-				captured_result = nil
-				push_then_pop(statement.captured_scope) { captured_result = interpret(statement.expression) }
-				captured_result
+				# Like a closure (#interp_func_body): run on the stack this was built on, never the caller's, then put the caller's back
+				saved_stack = stack
+				begin
+					self.stack = statement.captured_stack.dup
+					interpret statement.expression
+				ensure
+					self.stack = saved_stack
+				end
 			end
 
 			if statement['memoize']
