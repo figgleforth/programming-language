@@ -211,6 +211,7 @@ module Code
 			return nil if expr.expressions.empty?
 
 			declared = annotation_type_names expr.type
+			return nil if declared == ['Nil'] # `-> Nil` discards the last expression at runtime, see #interp_func_body
 			inferred = infer_type expr.expressions.last
 			return nil if inferred.nil?
 			return nil if declared.any? { |name| types_compatible? name, inferred }

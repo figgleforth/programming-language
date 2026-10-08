@@ -37,6 +37,7 @@ Context <
 	refute: (Any, String;)              # raises Refute_Triggered if the condition is truthy
 	raise: (Any;)                       # raises the given message
 	panic: (Any;)                       # raises the given message
+	unreachable: (;)                    # raises that the code should be unreachable
 	connect: (Database -> Database;)    # opens + caches a DB connection, returns the Database
 	start_server: (Server -> Server;)   # boots the Server (background thread), returns it
 	stop_server: (Server -> Server;)    # stops the Server, returns it

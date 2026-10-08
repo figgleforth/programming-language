@@ -2140,7 +2140,8 @@ module Code
 				return operand.get operator
 			end
 
-			if operand.is_a?(Code::Scope) && operand.enclosing_scope.is_a?(Code::Type) && operand.enclosing_scope.has?(operator)
+			# Only an Instance gets its Type's overload. A tagged variant (`Array\X`) or a nested Type also has a Type as its enclosing_scope, but it is not a value of that Type.
+			if operand.is_a?(Code::Instance) && operand.enclosing_scope.is_a?(Code::Type) && operand.enclosing_scope.has?(operator)
 				return operand.enclosing_scope.get operator
 			end
 
@@ -2191,6 +2192,14 @@ module Code
 
 		# Interprets its own operands (the one infix handler that does) because `&&`/`||` must short-circuit. A scope-level @operator overload still wins first, called with the raw expressions so the operands evaluate once, eagerly, inside the call.
 		def interp_logical_infix expr
+			# `&` and `|` do not short-circuit, so they evaluate both operands first, and the left operand's own overload (Array's `&`/`|`) gets a chance, like any arithmetic operator.
+			if %w(& |).include? expr.operator.value
+				left, right = interpret(expr.left), interpret(expr.right)
+				overload    = find_operator_overload expr.operator.value, maybe_instance(left)
+				return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
+				return left.send expr.operator.value, right
+			end
+
 			overload = find_operator_overload expr.operator.value
 			return call_operator_overload(overload, expr, nil) if overload.is_a? Code::Func
 
@@ -2199,10 +2208,6 @@ module Code
 				interpret(expr.left) && interpret(expr.right)
 			when '||', 'or'
 				interpret(expr.left) || interpret(expr.right)
-			when '&'
-				interpret(expr.left) & interpret(expr.right)
-			when '|'
-				interpret(expr.left) | interpret(expr.right)
 			end
 		end
 
@@ -2213,7 +2218,9 @@ module Code
 			if overload.is_a? Code::Func
 				call_operator_overload overload, expr, [left, right]
 			else
-				maybe_instance(left).send expr.operator.value, maybe_instance(right)
+				result = maybe_instance(left).send expr.operator.value, maybe_instance(right)
+				# A Ruby-level operator (`Code::Array#+`) builds its result outside the interpreter, so it needs linking to its type like any `@ruby` return.
+				result.is_a?(Code::Array) ? adopt_type(result, 'Array') : result
 			end
 		end
 
@@ -4000,7 +4007,7 @@ module Code
 				end
 
 				chunks.map do |chunk|
-					Code::Array.new(chunk)
+					wrap_prog_array chunk
 				end.each_with_index
 
 			elsif values.respond_to? :each_with_index
@@ -4252,6 +4259,8 @@ module Code
 				else
 					raise stringify_for_display(value, show_quotes: false)
 				end
+			when 'unreachable'
+				raise Code::Raised.new(nil, "This code should be unreachable.")
 			when 'todo'
 				# @pasted
 				message = args.map do |v|

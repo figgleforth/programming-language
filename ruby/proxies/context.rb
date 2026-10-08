@@ -41,6 +41,7 @@ module Code
 			'refute' => { fn: :intrinsic },
 			'raise' => { fn: :intrinsic },
 			'panic' => { fn: :intrinsic },
+			'unreachable' => { fn: :intrinsic },
 			'connect' => { fn: :intrinsic },
 			'start_server' => { fn: :intrinsic },
 			'stop_server' => { fn: :intrinsic },

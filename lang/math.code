@@ -1,3 +1,5 @@
+EPSILON := 1e-6
+
 Vector            <x: Number>
 Vector2 | Vector  <y: Number = 0>
 Vector3 | Vector2 <z: Number = 0>
@@ -7,8 +9,8 @@ Vec2 := Vector2
 Vec3 := Vector3
 Vec4 := Vector4
 
-Matrix := Vector
-Point  := Vector
+Matrix := Vector4
+Point  := Vector2
 
 
 Rectangle <

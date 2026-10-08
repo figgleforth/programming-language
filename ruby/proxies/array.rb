@@ -25,6 +25,7 @@ module Code
 		proxy :delete
 		proxy :max
 		proxy :min
+		proxy :compact
 
 		def proxy_Self *args
 			# `Array(1, 2, 3)` -> those elements; `Array([1, 2, 3])` / `Array(other)` -> a lone
@@ -86,7 +87,9 @@ module Code
 		end
 
 		def proxy_flatten depth = -1
-			ruby_array = values.map { |v| v.is_a?(Code::Array) ? v.values : v }
+			# Unwrap every nested Code::Array, not only the top level, since Ruby's own flatten cannot look inside a Code::Array.
+			unwrap     = ->(items) { items.map { |v| v.is_a?(Code::Array) ? unwrap.(v.values) : v } }
+			ruby_array = unwrap.(values)
 			Code::Array.new ruby_array.flatten depth
 		end
 
@@ -127,6 +130,11 @@ module Code
 
 		def + other
 			Code::Array.new(values + other.values)
+		end
+
+		# `[1, 2] * 3` repeats the elements, and `[1, 2] * ', '` joins them like Ruby's. The right side arrives wrapped (Code::Integer, Code::String), see #interp_arithmetic_infix.
+		def * right
+			right.value.is_a?(::String) ? values.join(right.value) : Code::Array.new(values * right.value)
 		end
 
 		private

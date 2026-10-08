@@ -1229,4 +1229,86 @@ class Regression_Test < Base_Test
 		CODE
 		assert_equal 'right', out
 	end
+
+	# Regression: a tagged variant's enclosing_scope is its base Type, so `==` used to dispatch Array's element-by-element overload on the type itself, and `Array\D == Array\D` was false.
+	def test_tagged_type_equals_itself_regression
+		out = Code.interp <<~CODE
+		    D <>
+		    t := Array\\D
+		    t == t
+		CODE
+		assert out
+	end
+
+	def test_struct_with_a_tagged_type_member_is_found_by_include_regression
+		out = Code.interp <<~CODE
+		    D <>
+		    Event <deltas: Array\\D>
+		    e := Event(deltas := [])
+		    [e].include?(e)
+		CODE
+		assert out
+	end
+
+	# Regression: flatten used to unwrap only the top level of nested arrays.
+	def test_array_flatten_unwraps_every_level_regression
+		out = Code.interp '[[1, [2, [3]]]].flatten()'
+		assert_equal [1, 2, 3], out.values
+	end
+
+	# Regression: Array's `<<` used to return its right operand, so `c << 1 << 2` appended 2 to the 1, not to c.
+	def test_array_shovel_returns_the_array_so_it_chains_regression
+		out = Code.interp <<~CODE
+		    c := []
+		    c << 1 << 2
+		    c
+		CODE
+		assert_equal [1, 2], out.values
+	end
+
+	# Regression: a `for ... by` chunk was a bare Code::Array with no link to the Array type, so it had no Array methods (`to_s`, `get`, ...) and printed as a Ruby object.
+	def test_for_by_chunks_are_real_arrays_regression
+		out = Code.interp <<~CODE
+		    out := []
+		    for [10, 20, 30] by 2,1
+		    	out.push(it.to_s())
+		    end
+		    out
+		CODE
+		assert_equal ['[10, 20]', '[20, 30]', '[30]'], out.values
+	end
+
+	# Regression: `[2] + [1]` built a bare Code::Array with no link to the Array type, so it had no Array methods.
+	def test_array_plus_gives_a_real_array_regression
+		out = Code.interp <<~CODE
+		    x := [2] + [1]
+		    x.count()
+		CODE
+		assert_equal 2, out
+	end
+
+	# Regression: Array `-`, `*`, `&` and `|` crashed with a Ruby NoMethodError.
+	def test_array_minus_times_and_or_regression
+		assert_equal [1, 3], Code.interp('[2, 1, 2, 3] - [2]').values
+		assert_equal [2, 2, 2], Code.interp('([2] * 3)').values
+		assert_equal 3, Code.interp('([2] * 3).count()')
+		assert_equal '1, 2, 3', Code.interp("[1, 2, 3] * ', '")
+		assert_equal '', Code.interp("[] * ','")
+		assert_equal [2, 3], Code.interp('[1, 2, 2, 3] & [2, 3, 4]').values
+		assert_equal [1, 2, 3], Code.interp('[1, 2, 2] | [2, 3]').values
+	end
+
+	def test_array_minus_and_or_use_the_languages_own_equality
+		out = Code.interp <<~CODE
+		    H <x: Int>
+		    a := [H(1), H(2)]
+		    b := [H(2)]
+		    [(a - b).count(), (a & b).count(), (a | b).count()]
+		CODE
+		assert_equal [1, 1, 2], out.values
+	end
+
+	def test_bitwise_and_or_on_numbers_still_work_after_array_overloads
+		assert_equal [2, 7], Code.interp('[6 & 3, 6 | 1]').values
+	end
 end

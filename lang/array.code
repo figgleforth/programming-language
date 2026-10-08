@@ -55,6 +55,8 @@ Array {
 	index ( item; @ruby ) # index of the first matching element, or nil if not found
 	insert ( index, things; @ruby )
 
+	compact (-> Array; @ruby )
+
 	zip (other: Array; @ruby )
 
 	find ( func;
@@ -66,7 +68,6 @@ Array {
 		nil
 	)
 
-	# note; Implemented in Backend (not @ruby) so `==` goes through the interpreter -- a @ruby proxy would fall through to Ruby's native Array#include?, which uses Ruby's own == and never sees an Backend-level operator overload (e.g. a custom Instance's `@operator ==`)
 	include? ( item;
 		for values
 			if it == item
@@ -75,6 +76,12 @@ Array {
 		end
 		false
 	)
+	includes? := include?
+
+	exclude? ( item;
+		not include?(item)
+	)
+	excludes? := exclude?
 
 	any? ( func;
 		for values
@@ -102,10 +109,21 @@ Array {
 		result
 	)
 
-	filter ( func;
+	select ( func;
 		result := []
 		for values
 			if func(it)
+				result.push(it)
+			end
+		end
+		result
+	)
+	filter := select
+
+	reject ( func;
+		result := []
+		for values
+			if not func(it)
 				result.push(it)
 			end
 		end
@@ -139,7 +157,36 @@ Array {
 
 	@operator << @infix 600 ( left, right;
 		left.append(right)
-		right
+		left
+	)
+
+	@operator >> @infix 600 ( left, right;
+		left.delete(right)
+		left
+	)
+
+	# note; `-`, `&` and `|` are written here, not @ruby, so they compare elements with the language's own `==` (two equal structs match). Each returns a new Array, like Ruby's.
+	@operator - @infix 700 ( left, right;
+		left.reject(it; right.include?(it))
+	)
+
+	@operator & @infix 590 ( left, right;
+		result := []
+		for left.values
+			result.push(it) if right.include?(it) and result.exclude?(it)
+		end
+		result
+	)
+
+	@operator | @infix 570 ( left, right;
+		result := []
+		for left.values
+			result.push(it) if result.exclude?(it)
+		end
+		for right.values
+			result.push(it) if result.exclude?(it)
+		end
+		result
 	)
 
 	# note; Implemented in Backend, same reason as include? above the the Ruby-level Array#== (array.rb)compares elements with Ruby's own native == via the underlying Ruby array, and never sees an Backend-level `@operator ==` overload on a custom Instance (e.g. two structurally-equal Members compared unequal). Declaring this here takes precedence over that Ruby fallback(an operand's own declarations are always checked before it -- see #find_operator_overload).
