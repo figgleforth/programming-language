@@ -18,6 +18,12 @@ module Code
 			end
 		end
 
+		# A struct is built as 'Struct' and named later (`Hex <...>`), so its display name follows the new name, unless a tag already gave it a richer one (see Interpreter#declare_tag).
+		def name= value
+			@display_name = value if @display_name == 'Struct'
+			super
+		end
+
 		# `.member = v` writes go through here (via #declare / Interpreter#assign_dot_member). Keep the
 		# positional `@values` snapshot -- what `@.values`, `@.members`, `for`-iteration and `to_h` all
 		# read -- in step with `@declarations`, so a struct mutated after construction still reports its

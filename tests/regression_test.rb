@@ -1308,6 +1308,16 @@ class Regression_Test < Base_Test
 		assert_equal [1, 1, 2], out.values
 	end
 
+	# Regression: a struct-typed member printed its type as `Struct` instead of the struct's own name, because a named struct kept the display name it was built with.
+	def test_struct_typed_member_prints_the_struct_name_regression
+		out = Code.interp <<~CODE
+		    Hex <x: Int>
+		    Move <from: Hex>
+		    "`Move(from := Hex(1))`"
+		CODE
+		assert_equal '<from: Hex = <x: Integer = 1>>', out
+	end
+
 	def test_bitwise_and_or_on_numbers_still_work_after_array_overloads
 		assert_equal [2, 7], Code.interp('[6 & 3, 6 | 1]').values
 	end

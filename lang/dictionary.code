@@ -15,6 +15,28 @@ Dictionary {
 	clear (; @ruby )
 	fetch ( key, default; @ruby )
 
+	each ( func;
+		for hash
+			func(it.0, it.1)
+		end
+	)
+
+	select ( func;
+		keep := {}
+		for hash
+			keep[it.0] = it.1 if func(it.0, it.1)
+		end
+		keep
+	)
+
+	reject ( func;
+		keep := {}
+		for hash
+			keep[it.0] = it.1 if not func(it.0, it.1)
+		end
+		keep
+	)
+
 	to_s (;
 		ks     := keys()
 		vs     := values()
