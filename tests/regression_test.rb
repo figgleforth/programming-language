@@ -1318,6 +1318,20 @@ class Regression_Test < Base_Test
 		assert_equal '<from: Hex = <x: Integer = 1>>', out
 	end
 
+	# Regression: a comment whose text was `)` matched `curr? ')'` in the parser and closed the function body early. Code.interp removes comments before parsing, so this goes through Code.parse, the way the Declarator parses an `@load`ed file.
+	def test_comment_holding_a_delimiter_does_not_end_a_body_regression
+		refute_raises do
+			Code.parse <<~CODE
+			    f (;
+			    	x := 1
+			    # )
+			    # ;
+			    	x
+			    )
+			CODE
+		end
+	end
+
 	def test_bitwise_and_or_on_numbers_still_work_after_array_overloads
 		assert_equal [2, 7], Code.interp('[6 & 3, 6 | 1]').values
 	end

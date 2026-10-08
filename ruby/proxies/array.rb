@@ -13,6 +13,7 @@ module Code
 		proxy_delegate 'values'
 		proxy :push
 		proxy :pop
+		proxy :shuffle
 		proxy :shift
 		proxy :unshift, as: :prepend # lang/array.code's `unshift(;)` was renamed to `prepend(;)` (unshift is now just an alias, see #Interpreter#interp_directive's `@ruby` lookup, which resolves by the func's own declared name -- "prepend" -- not whatever alias it was called through)
 		proxy :length

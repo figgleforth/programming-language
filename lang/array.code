@@ -47,7 +47,7 @@ Array {
 	reverse (; @ruby )
 	join ( separator; @ruby )
 	concat ( other; @ruby )
-	flatten (; @ruby )
+	flatten (-> Array; @ruby )
 	sort (; @ruby )
 	uniq (-> Array; @ruby )
 	empty? (; @ruby )
@@ -55,6 +55,7 @@ Array {
 	index ( item; @ruby ) # index of the first matching element, or nil if not found
 	insert ( index, things; @ruby )
 
+	shuffle (-> Array; @ruby )
 	compact (-> Array; @ruby )
 
 	zip (other: Array; @ruby )

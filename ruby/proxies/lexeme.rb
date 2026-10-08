@@ -1,6 +1,6 @@
 module Code
 	class Lexeme
-		LITERAL_TYPES = %i[string symbol number fence html].freeze
+		LITERAL_TYPES = %i[string symbol number fence html comment].freeze
 
 		attr_accessor :type, :value, :reserved, :quotation_style, :line_start, :column_start, :line_end, :column_end, :source_file
 
