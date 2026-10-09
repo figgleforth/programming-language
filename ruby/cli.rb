@@ -69,8 +69,6 @@ module Code
 				puts INSTRUCTIONS
 			when 'repl'
 				Code::REPL.new.run
-			when 'lsp'
-				Code::Language_Server.new.run
 			when 'check'
 				Code.type_check_file @arg
 			when 'lex'
