@@ -26,6 +26,11 @@ module Code
 			@declarations['value'] = numeric
 		end
 
+		# Ruby's own Integer/Float/Rational `==` hands a right side it does not know back to `other == self`, so a raw number on the left reaches this too (`sum == Rational(1, 2)`). BigDecimal does not, so a raw Decimal on the left still compares by identity.
+		def == other
+			value == (other.is_a?(Code::Number) ? other.value : other)
+		end
+
 		def + other
 			value + other.value
 		end

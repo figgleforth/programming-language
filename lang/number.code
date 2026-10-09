@@ -12,6 +12,10 @@ Number {
 		left.value <=> right.value
 	)
 
+	@operator == @infix ( left: Number, right -> Bool;
+		left.value == right.?value
+	)
+
 	@operator < @infix ( left: Number, right: Number -> Bool;
 		(left <=> right) < 0
 	)

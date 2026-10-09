@@ -7,6 +7,7 @@
 @load 'lang/time'
 @load 'lang/date_time'
 @load 'lang/number'
+@load 'lang/rational'
 @load 'lang/array'
 @load 'lang/range'
 @load 'lang/set'

@@ -1505,7 +1505,8 @@ module Code
 					it          = Code::Infix_Expr.new
 					it.left     = expr
 					it.operator = eat
-					it.right    = parse_expression precedence_for it.operator.value
+					# Stop before a trailing `for`, so `n += 1 for 1..17` repeats the whole `n += 1`. Plain `=`/`:=` still take the loop as their value (`doubled := it * 2 for xs map`).
+					it.right    = parse_expression [precedence_for(it.operator.value), precedence_for('for')].max
 					it.right    = it.right.left if it.right.is_a? Code::Nil_Init_Expr
 
 					set_expr_location it, expr, it.right

@@ -373,12 +373,13 @@ module Code
 		def maybe_instance expr
 			# todo, when String and so on, because everything needs to be some type of scope to live inside the runtime. Every object in Code::Scope.declarations{} is either a primitive like String, Integer, Float, or they're an instanced version like Code::Number.
 			case expr
-			when ::Integer, ::Float, ::BigDecimal
-				# Code::Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1. The Ruby class of the already-evaluated value picks the matching Code numeric type (Ruby's own Integer/Float/Rational tower, minus Rational for now). `Integer`/`Float` are bare here (not `::`) on purpose -- they mean `Code::Integer`/`Code::Float`.
+			when ::Integer, ::Float, ::BigDecimal, ::Rational
+				# Code::Number_Expr is already handled in #interpret but this is short-circuiting that for cases like 1.something where we have to make sure the 1 is no longer a numeric literal, but instead a runtime object version of the number 1. The Ruby class of the already-evaluated value picks the matching Code numeric type (Ruby's own Integer/Float/Rational tower). `Integer`/`Float` are bare here (not `::`) on purpose -- they mean `Code::Integer`/`Code::Float`.
 				prog_class, type_name = case expr
 				when ::Integer then [Code::Integer, 'Integer']
 				when ::Float then [Code::Float, 'Float']
 				when ::BigDecimal then [Code::Decimal, 'Decimal']
+				when ::Rational then [Code::Rational, 'Rational']
 				end
 
 				finish_intrinsic_instance prog_class.new(expr), type_name
@@ -572,6 +573,7 @@ module Code
 			when Code::Integer then 'Integer'
 			when Code::Float then 'Float'
 			when Code::Decimal then 'Decimal'
+			when Code::Rational then 'Rational'
 			when Code::Number then 'Number'
 			when Code::String then 'String'
 			when Code::Array then 'Array'
@@ -584,6 +586,7 @@ module Code
 			when ::Integer then 'Integer'
 			when ::Float then 'Float'
 			when ::BigDecimal then 'Decimal'
+			when ::Rational then 'Rational'
 			when ::String then 'String'
 			when ::Array then 'Array'
 			when ::Hash then 'Dictionary'
@@ -594,7 +597,7 @@ module Code
 			end
 		end
 
-		NUMERIC_TYPE_NAMES = %w[Number Integer Float Decimal].freeze
+		NUMERIC_TYPE_NAMES = %w[Number Integer Float Decimal Rational].freeze
 
 		# The type name to *record* for an identifier on `:=` (and self-declaring `.member :=`). Numeric
 		# values collapse to the family name `Number` rather than the leaf (`Integer`/`Float`/...), so an
@@ -2810,6 +2813,7 @@ module Code
 			when ::Integer then ['Integer', 'Number']
 			when ::Float then ['Float', 'Number']
 			when ::BigDecimal then ['Decimal', 'Number']
+			when ::Rational then ['Rational', 'Number']
 			when ::String
 				['String']
 			when ::Symbol

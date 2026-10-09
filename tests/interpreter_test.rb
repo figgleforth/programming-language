@@ -5493,6 +5493,14 @@ class Interpreter_Test < Base_Test
 		assert_equal "1\n2\n3\n4\n5\n", printed
 	end
 
+	def test_end_of_line_for_loop_repeats_a_compound_assignment
+		# A compound operator stops before `for`, so the loop repeats the whole `n += 1`, not only its right side.
+		assert_equal 17, Code.interp("n := 0\nn += 1 for 1..17\nn")
+		assert_equal 10, Code.interp("n := 0\nn += it for 1..4\nn")
+		assert_equal 6,  Code.interp("n := 10\nn -= 2 for 1..2\nn")
+		assert_equal 7,  Code.interp("n := 1\nn += 2 * 3\nn")
+	end
+
 	def test_end_of_line_for_loop_with_map_verb_assigned_to_a_variable
 		# `for`'s precedence has to sit above `:=` (90), or `:=`'s own right-hand side parse
 		# stops at `it * 2` and hands `for [...] map` the whole assignment as its body instead

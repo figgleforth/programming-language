@@ -21,7 +21,7 @@ module Code
 			raise Type_Checking_Failed.new errors if errors.any?
 		end
 
-		NUMERIC_FAMILY = %w[Number Integer Float Decimal].freeze
+		NUMERIC_FAMILY = %w[Number Integer Float Decimal Rational].freeze
 
 		# Stdlib type aliases (`Int := Integer`, `Str := String`, ...) -- this checker has no scope to
 		# resolve them at runtime, so it normalizes the handful of concrete-type ones it reasons about.

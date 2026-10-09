@@ -383,6 +383,16 @@ class ProxiesTest < Base_Test
 		assert_equal 2, Code.interp("2.5.denominator()")
 	end
 
+	def test_constructed_numbers_compare_by_value
+		assert_equal true,  Code.interp("Decimal('1.5') == Decimal('1.5')")
+		assert_equal true,  Code.interp("Integer(4) == Integer(4)")
+		assert_equal false, Code.interp("Integer(4) == Integer(5)")
+		assert_equal true,  Code.interp("Integer(4) != Integer(5)")
+		assert_equal true,  Code.interp("4 == Integer(4)")       # a raw number on the left
+		assert_equal false, Code.interp("Integer(4) == nil")
+		assert_equal false, Code.interp("Integer(4) == '4'")
+	end
+
 	# `Int` / `Flo` / `Dec` are plain aliases in backend/number.code (`Int := Integer`, not
 	# `Int | Integer {}`), so each *is* its full type -- same type-set, not a narrower one.
 	def test_numeric_type_shorthands
