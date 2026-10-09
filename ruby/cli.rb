@@ -11,10 +11,9 @@ module Code
 			--- COMMANDS
 				run <file>                  Run file with hot-reload 
 				check <file>                Run basic type check on file
-
+	
 				repl                        [Very WIP] Enter repl mode
-				lsp                         Start the language server (talks JSON-RPC over stdin/stdout)
-
+	
 				interp <code>               Run code string without hot reload
 				interpf <file>              Run file once without hot reload
 
