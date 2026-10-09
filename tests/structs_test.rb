@@ -1772,4 +1772,83 @@ class Structs_Test < Base_Test
 		CODE
 		assert_equal true, out
 	end
+
+	def test_equal_structs_are_the_same_dictionary_key
+		out = Code.interp <<~CODE
+			Hex < x: Int, y: Int, z: Int >
+			d := {}
+			d[Hex(1, 0, 0)] = "a"
+			[d[Hex(1, 0, 0)], d.has_key?(Hex(1, 0, 0))]
+		CODE
+		assert_equal ["a", true], out.values
+	end
+
+	def test_setting_an_equal_struct_key_replaces_the_entry
+		out = Code.interp <<~CODE
+			Hex < x: Int, y: Int, z: Int >
+			d := {}
+			d[Hex(1, 0, 0)] = "a"
+			d[Hex(1, 0, 0)] = "b"
+			[d.count(), d[Hex(1, 0, 0)]]
+		CODE
+		assert_equal [1, "b"], out.values
+	end
+
+	def test_different_struct_keys_stay_apart
+		out = Code.interp <<~CODE
+			Hex < x: Int, y: Int, z: Int >
+			Vec < x: Int, y: Int, z: Int >
+			d := {}
+			d[Hex(1, 0, 0)] = "one"
+			d[Hex(2, 0, 0)] = "two"
+			d[Vec(1, 0, 0)] = "vec" # same members, different struct
+			[d.count(), d[Hex(1, 0, 0)], d[Hex(2, 0, 0)], d[Vec(1, 0, 0)]]
+		CODE
+		assert_equal [3, "one", "two", "vec"], out.values
+	end
+
+	def test_struct_key_built_from_variables_matches_a_literal_one
+		out = Code.interp <<~CODE
+			Hex < x: Int, y: Int, z: Int >
+			d := {}
+			x := 1
+			d[Hex(x, 0, 0)] = "a"
+			d[Hex(1, 0, 0)]
+		CODE
+		assert_equal "a", out
+	end
+
+	def test_nested_struct_keys_compare_by_value
+		out = Code.interp <<~CODE
+			Hex < x: Int, y: Int, z: Int >
+			Edge < from: Hex, to: Hex >
+			d := {}
+			d[Edge(Hex(0, 0, 0), Hex(1, 0, 0))] = "e"
+			d[Edge(Hex(0, 0, 0), Hex(1, 0, 0))]
+		CODE
+		assert_equal "e", out
+	end
+
+	def test_struct_with_a_string_member_as_a_key
+		out = Code.interp <<~CODE
+			Tag < label: String >
+			d := {}
+			d[Tag("red")] = 1
+			d[Tag("red")]
+		CODE
+		assert_equal 1, out
+	end
+
+	def test_changing_a_struct_after_it_is_a_key_loses_the_entry
+		# Same as any hash: a key must not change after it is stored.
+		out = Code.interp <<~CODE
+			Hex < x: Int, y: Int, z: Int >
+			d := {}
+			h := Hex(1, 0, 0)
+			d[h] = "a"
+			h.x = 2
+			d[Hex(1, 0, 0)]
+		CODE
+		assert_nil out
+	end
 end

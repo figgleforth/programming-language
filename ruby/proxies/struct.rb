@@ -40,6 +40,18 @@ module Code
 			result
 		end
 
+		def eql? other
+			other.is_a?(Code::Struct) && hash_identity.eql?(other.hash_identity)
+		end
+
+		def hash
+			hash_identity.hash
+		end
+
+		def hash_identity
+			[name, names, values.map { |value| value.is_a?(Code::Number) || value.is_a?(Code::String) ? value.value : value }]
+		end
+
 		# Strict equality for declaration-time collision checks (does a variant with this *exact*
 		# structure already exist under this base name, so a new `Type\Struct {}` should extend it
 		# rather than start a fresh variant?). Two declarations only ever describe the *same*
