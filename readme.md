@@ -1248,7 +1248,7 @@ db.find_table('users')          # -> a Table, or nil
 db.delete_table!(User)          # also takes a bare :users
 ```
 
-Column types: `Primary_Key`, `String`/`Text`, `Int`, `Number`, `Bool`, `Date`, `Time`, `Date_Time`. `Flo`/`Decimal`/`Blob` are mapped but not backed by a Code type yet.
+Column types: `Primary_Key`, `String`/`Text`, `Int`/`Integer`, `Number`, `Float`, `Decimal`, `Bool`, `Date`, `Time`, `Date_Time`, and an `Enum` (stored as text). A member of any other type (`Array`, `Dictionary`, `Set`, `Tuple`, `Range`, `Rational`, `Symbol`, `Buffer`, a nested struct) gets no column yet, and nothing reports it.
 
 ## Record ORM
 
@@ -1617,6 +1617,7 @@ nothing ( anything: Any -> Nil;
 6. `x.tag = new_tag` re-tags at runtime, only on a value whose type was declared with a tag, and only when `new_tag` composes at least everything the current tag does (`=>=`) — otherwise `Code::Tag_Signature_Violation`
 7. Bare `<...>` (no `\`) on an *undeclared* identifier builds a plain named struct instead of raising; a name already taken by a real Type still takes priority
 8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`), so two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring with a *different* shape raises `Code::Undeclared_Tagged_Type`
+9. A Type composed into a struct brings its methods with it, so the data and its logic can live apart: `User | User_Logic <name: String, age: Int>`, then `User('Ada', 36).greet()`. The methods go after the data members, so positional arguments fill the data members in order
 
 ```code
 String\<dict: Dictionary> {

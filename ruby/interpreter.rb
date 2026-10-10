@@ -3826,6 +3826,10 @@ module Code
 				end
 			end
 
+			# A method composed in from a Type (`User | User_Logic <name: String>`) is not a data slot, so it goes after the data members, and positional arguments fill the data members in order.
+			data_members, method_members = members.partition { |member| !member[3].is_a?(Code::Func) }
+			members                      = data_members + method_members
+
 			names, type_names, types, values = members.empty? ? [[], [], [], []] : members.transpose
 			struct                           = build_struct names, type_names, types, values
 

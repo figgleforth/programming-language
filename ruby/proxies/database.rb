@@ -50,7 +50,7 @@ module Code
 						primary_key column_name
 					when 'String', 'Text'
 						column column_name, ::String
-					when 'Int'
+					when 'Int', 'Integer' # `Int` is an alias, so a member written `Int` has a type named `Integer`
 						column column_name, ::Integer
 					when 'Number'
 						column column_name, ::Numeric

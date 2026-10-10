@@ -1,0 +1,15 @@
+User_Logic {
+	greet (; "Hi `name`, age `age`" )
+}
+
+# Members written inline: the composed method goes after the data members, so positional arguments fill the data
+User | User_Logic <name: String, age: Int>
+ada := User('Ada', 36)
+@out ada.greet()                  # out: Hi Ada, age 36
+@out ada.name                     # out: Ada
+@out User.@names                  # out: ['name', 'age', 'greet']
+
+# A separate data struct composed in works the same way
+User_Data <name: String, age: Int>
+Guest | User_Data | User_Logic <>
+@out Guest('Bob', 7).greet()      # out: Hi Bob, age 7

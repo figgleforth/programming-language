@@ -1,0 +1,10 @@
+@load 'lang/database'
+
+# `Int` and `Integer` members both get a real integer column
+Probe <id: Primary_Key, a: Int, b: Integer>
+db     := @connect Sqlite.memory()
+probes := db.find_or_create_table(Probe)
+probes.create(<a := 1, b := 2>)
+row := probes.find(1)
+@out row.a                        # out: 1
+@out row.b                        # out: 2
