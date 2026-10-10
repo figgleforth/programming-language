@@ -1104,7 +1104,8 @@ module Code
 
 				render_result = interp_func_body render, call_expr
 				html          = +'' # unfrozen -- append_dom_child_html mutates it in place
-				append_dom_child_html render_result, html, render_scope
+				raw_text      = Code::RAW_TEXT_HTML_TAGS.include? dom_instance.declarations['html_element']
+				append_dom_child_html render_result, html, render_scope, raw: raw_text
 				html
 			end
 
@@ -1135,12 +1136,13 @@ module Code
 		# one opaque `[<a>...</a>, <a>...</a>]`-style Array#to_s string instead of real nested HTML.
 		# `html` is mutated in place (`<<`), so callers pass an unfrozen accumulator and read it back
 		# after -- `+=` here would rebind this local and lose everything.
-		def append_dom_child_html value, html, render_scope
+		# A String child is HTML-escaped, so text can never become markup -- unless `raw` (the text of a `script`/`style`, see RAW_TEXT_HTML_TAGS).
+		def append_dom_child_html value, html, render_scope, raw: false
 			case value
 			when ::String
-				html << value
+				html << (raw ? value : CGI.escapeHTML(value))
 			when Code::Array
-				value.values.each { |child| append_dom_child_html child, html, render_scope }
+				value.values.each { |child| append_dom_child_html child, html, render_scope, raw: raw }
 			else
 				html << render_dom_to_html(value, render_scope: render_scope) if value.is_a?(Code::Instance) && value.types.include?('Dom')
 			end

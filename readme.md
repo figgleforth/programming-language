@@ -1279,6 +1279,7 @@ users.count()
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
 4. `.to_s()` renders an element and its children to string directly
+5. When a server renders a page, text children, attribute values, and `css_*` values are escaped, so text from a user can never become markup. The text inside `Script` and `Style` stays raw, because it is JavaScript or CSS
 
 ```code
 @load 'lang/html.code'
@@ -1339,6 +1340,7 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as an embedded `<style>` child wherever it's attached
 4. `Html_Render`/`Html_Format` are compact/pretty formatter instances; void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
 5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attributes) walk the same tree for their own purposes
+6. Text children and attribute values are escaped (`&`, `<`, `>`, `"`, `'`), so text from a user can never become markup -- `p('<b>')` renders `<p>&lt;b&gt;</p>`. The text inside `script` and `style` stays raw, because it is JavaScript or CSS
 
 ```code
 @load 'lang/html2.code'

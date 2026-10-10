@@ -63,7 +63,7 @@ module Code
 		def html_attrs_string
 			html_attrs.map do |attr, value|
 				bare = BOOLEAN_ATTRS.include?(attr) || true_value?(value)
-				bare ? attr : "#{attr}=\"#{value}\""
+				bare ? attr : "#{attr}=\"#{CGI.escapeHTML value.to_s}\""
 			end.join(' ')
 		end
 
@@ -86,7 +86,7 @@ module Code
 
 				unless css_attrs.empty?
 					html << " style=\""
-					html << css_attrs_string
+					html << CGI.escapeHTML(css_attrs_string)
 					html << "\""
 				end
 

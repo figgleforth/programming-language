@@ -290,4 +290,51 @@ class Dom_Test < Base_Test
 		refute_includes html, 'popover-target-action'
 		refute_includes html, 'popovertarget-action'
 	end
+
+	# --- renderer: escaping ---
+
+	def test_text_child_is_escaped
+		_, html = render <<~CODE
+		    @load 'lang/html'
+		    P(["<script>alert(1)</script> & Jerry's"])
+		CODE
+		assert_equal '<p>&lt;script&gt;alert(1)&lt;/script&gt; &amp; Jerry&#39;s</p>', html
+	end
+
+	def test_attribute_value_is_escaped
+		_, html = render <<~CODE
+		    @load 'lang/html'
+		    A('/a"><b>', 'x')
+		CODE
+		assert_equal '<a href="/a&quot;&gt;&lt;b&gt;">x</a>', html
+	end
+
+	def test_css_value_is_escaped
+		_, html = render <<~CODE
+		    @load 'lang/html'
+		    P(['x'], css_font_family := '"Cascadia Mono"')
+		CODE
+		assert_equal '<p style="font-family:&quot;Cascadia Mono&quot;">x</p>', html
+	end
+
+	def test_script_and_style_text_stays_raw
+		_, script = render <<~CODE
+		    @load 'lang/html'
+		    Script(["if (a < b && c > 'd') {}"])
+		CODE
+		_, style = render <<~CODE
+		    @load 'lang/html'
+		    Style([".a > .b { content: '&'; }"])
+		CODE
+		assert_equal "<script>if (a < b && c > 'd') {}</script>", script
+		assert_equal "<style>.a > .b { content: '&'; }</style>", style
+	end
+
+	def test_raw_text_stays_inside_its_own_script_element
+		_, html = render <<~CODE
+		    @load 'lang/html'
+		    Div([Script(["a < b"]), P(["a < b"])])
+		CODE
+		assert_equal '<div><script>a < b</script><p>a &lt; b</p></div>', html
+	end
 end

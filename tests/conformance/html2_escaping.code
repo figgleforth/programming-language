@@ -1,0 +1,23 @@
+@load 'lang/html2'
+
+# Text and attribute values are escaped, so input can never become markup
+@out Html_Render.render(p("<script>alert(1)</script>"))           # out: <p>&lt;script&gt;alert(1)&lt;/script&gt;</p>
+@out Html_Render.render(p("Tom & Jerry's"))                       # out: <p>Tom &amp; Jerry&#39;s</p>
+@out Html_Render.render(p("&lt;"))                                # out: <p>&amp;lt;</p>
+@out Html_Render.render(div("x", [Attribute("title", 'a"b<c>')])) # out: <div title="a&quot;b&lt;c&gt;">x</div>
+@out Html_Render.render(p(5))                                     # out: <p>5</p>
+@out Html_Format.render(p("a<b"))                                 # out: <p>a&lt;b</p>
+@out Html_Format.render(p(["a<b", "c>d"]))                        # out: <p>
+                                                                  # out: a&lt;b
+                                                                  # out: c&gt;d
+                                                                  # out: </p>
+
+# The text inside script and style is raw, so JavaScript and CSS keep working
+@out Html_Render.render(script("if (a < b && c > 'd') {}"))       # out: <script>if (a < b && c > 'd') {}</script>
+@out Html_Format.render(script("a < b"))                          # out: <script>a < b</script>
+@out Html_Format.render(script(["a < b", "c > d"]))               # out: <script>
+                                                                  # out: a < b
+                                                                  # out: c > d
+                                                                  # out: </script>
+@out Html_Render.render(style(".a > .b { color: red; }"))         # out: <style>.a > .b { color: red; }</style>
+@out Html_Render.render(div("x", [], Style_Rule([".a > .b"], [Property("content", "'&'")]))) # out: <div>x<style>.a > .b{content:'&';}</style></div>

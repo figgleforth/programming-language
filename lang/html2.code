@@ -41,16 +41,25 @@ Html_Formatter_Visitor {
 	# it just means these never emit an *empty* `</tag>` at all, in either mode.
 	VOID_TAGS := %string(area base br col command embed hr img input keygen link meta param source track wbr)
 
+	# The text inside these is JavaScript or CSS, not HTML, so it is never escaped.
+	RAW_TEXT_TAGS := %string(script style)
+
 	Self ( indent_size := DEFAULT_INDENT, minify := false;
 		self.indent_size = indent_size
 		self.minify = minify
 	)
 
-	render ( node, depth := 0;
+	render ( node, depth := 0, raw := false;
 		if node === Element
 			render_element(node, depth)
 		else
-			node.?to_s() or "`node`"
+			text := node.?to_s() or "`node`"
+			if raw
+				text
+			else
+				# Escape the text, so a text child can never become markup. `&` goes first, or it would escape the other entities a second time.
+				"`text`".gsub('&', '&amp;').gsub('<', '&lt;').gsub('>', '&gt;').gsub('"', '&quot;').gsub("'", '&#39;') # @pasted
+			end
 		end
 	)
 
@@ -64,6 +73,7 @@ Html_Formatter_Visitor {
 	render_element ( el, depth;
 		pad := indent_str(depth)
 		attrs := render_attributes(el)
+		raw_text := self.RAW_TEXT_TAGS.include?(el.tag)
 		# `css`, if attached, renders as one more child (an embedded <style> block) rather than
 		# folding into `attrs` -- a real Css tree (selectors, nesting, @scope, ...) has no equivalent
 		# as a flat attribute the way a simple property:value Dictionary would have.
@@ -82,7 +92,7 @@ Html_Formatter_Visitor {
 		if self.VOID_TAGS.include?(el.tag)
 			if self.minify "<`el.tag``attrs`>" else "`pad`<`el.tag``attrs`>" end
 		elif self.minify
-			inner := full_children.map(c; render(c)).join("")
+			inner := full_children.map(c; render(c, raw := raw_text)).join("")
 			"<`el.tag``attrs`>`inner`</`el.tag`>"
 		elif el.tag == "style" and full_children.length() == 1 and !(full_children.0 === Element)
 			# An embedded stylesheet -- block layout, its formatted CSS indented one level past the tag.
@@ -96,9 +106,9 @@ Html_Formatter_Visitor {
 		elif full_children.length() == 1 and !(full_children.0 === Element)
 			# A single bare-text child stays on one line ("<p>Hello</p>"), rather than always
 			# expanding to block style -- keeps the common "leaf text element" case readable.
-			"`pad`<`el.tag``attrs`>`render(full_children.0)`</`el.tag`>"
+			"`pad`<`el.tag``attrs`>`render(full_children.0, raw := raw_text)`</`el.tag`>"
 		else
-			inner := full_children.map(c; render(c, depth + 1)).join("\n")
+			inner := full_children.map(c; render(c, depth + 1, raw := raw_text)).join("\n")
 			"`pad`<`el.tag``attrs`>\n`inner`\n`pad`</`el.tag`>"
 		end
 	)
@@ -107,7 +117,9 @@ Html_Formatter_Visitor {
 		parts := []
 
 		for el.attributes
-			parts.push("`it.name`=\"`it.value`\"")
+			# Escape the value, so it can never close its quotes and add markup.
+			value := "`it.value`".gsub('&', '&amp;').gsub('<', '&lt;').gsub('>', '&gt;').gsub('"', '&quot;').gsub("'", '&#39;') # @pasted
+			parts.push("`it.name`=\"`value`\"")
 		end
 
 		if parts.length() == 0

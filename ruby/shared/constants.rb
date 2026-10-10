@@ -4,6 +4,7 @@ module Code
 	HTML_ATTRS                        = %w(id class href)
 	HTTP_VERBS                        = %w(get put patch post delete head options connect trace)
 	VOID_HTML_TAGS                    = %w(area base br col command embed hr img input keygen link meta param source track wbr)
+	RAW_TEXT_HTML_TAGS                = %w(script style) # their text is JavaScript or CSS, so it is never HTML-escaped
 	HTTP_VERB_SEPARATOR               = '://'
 	CONTEXT_OPERATOR                  = '@'
 	CONTEXT_ARG_TERMINATORS           = %W( \n \r \) \} \] \, \; )
