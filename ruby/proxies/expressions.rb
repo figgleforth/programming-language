@@ -250,6 +250,7 @@ module Code
 	class Conditional_Expr < Expression
 		attr_accessor :condition, :when_true, :when_false
 		attr_accessor :when_cases, :when_bodies
+		attr_accessor :else_when_cases, :else_fallback # the `when` cases written after `else`, and the second `else` that runs when none of them matched
 	end
 
 	class For_Loop_Expr < Expression

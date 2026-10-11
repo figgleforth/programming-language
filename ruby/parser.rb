@@ -406,9 +406,29 @@ module Code
 				it.when_false = parse_conditional_expr
 
 			elsif curr? %w(else) and eat
+				it.else_when_cases = []
+				it.else_fallback   = []
+
 				until curr? 'end'
-					expr = parse_expression
-					it.when_false << expr if expr
+					if curr? 'when'
+						it.else_when_cases << parse_when_expr
+					elsif curr? 'else'
+						# todo: errors.rb
+						raise "\n\nA second `else` needs `when` cases between it and the first `else`\n" if it.else_when_cases.empty?
+
+						eat 'else'
+						until curr? 'end'
+							# todo: errors.rb
+							raise "\n\nNothing after the last `else` can run, because it already catches every value\n" if curr? %w(else when)
+
+							expr = parse_expression
+							it.else_fallback << expr if expr
+							reduce_newlines
+						end
+					else
+						expr = parse_expression
+						it.when_false << expr if expr
+					end
 					reduce_newlines
 				end
 				eat 'end'
@@ -1248,8 +1268,8 @@ module Code
 			paren    = curr?('(') && lexeme_adjacent?(context_ident.lexeme, curr_lexeme)
 			bare_arg = lexemes? && !paren && !(curr?(:delimiter) && CONTEXT_ARG_TERMINATORS.include?(curr_lexeme.value))
 
-			# note; A stack function (`@push_scope`, `@load`, ...) is never a capturable reference.
-			bare_ref = !paren && !bare_arg && !Code::Context::STACK_FUNCTIONS.include?(context_ident.value)
+			# note; A stack function (`@push_scope`, `@load`, ...) or a raising one (`@panic`, `@unreachable`, ...) is never a capturable reference -- see Context::CALLED_WHEN_BARE.
+			bare_ref = !paren && !bare_arg && !Code::Context::CALLED_WHEN_BARE.include?(context_ident.value)
 			return complete_expression member, precedence if bare_ref
 
 			call           = Code::Call_Expr.new

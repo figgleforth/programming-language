@@ -1,0 +1,2 @@
+# Each argument after the first adds one line to the message
+@raise "boom", "more detail"   # error: more detail

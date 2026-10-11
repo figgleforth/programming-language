@@ -1,0 +1,6 @@
+# Never reached, so it never raises: a branch that does not run, and a function that is never called
+if false
+	@unreachable
+end
+never_called := (; @unreachable )
+@out 'still running'    # out: still running

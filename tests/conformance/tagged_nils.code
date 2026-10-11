@@ -1,0 +1,60 @@
+Never_Set | Nil\<reason: String> | Nil {}
+never  := Never_Set\<reason := 'no column named likes'>()
+tagged := nil\<reason := 'no column'>
+
+truthiness ( value;
+	if value
+		'truthy'
+	else
+		'falsy'
+	end
+)
+
+# Every nil counts as false, with or without a tag
+@out truthiness(nil)                  # out: falsy
+@out truthiness(never)                # out: falsy
+@out truthiness(tagged)               # out: falsy
+@out truthiness(nil\Error)            # out: falsy
+@out truthiness(Nil())                # out: falsy
+@out truthiness(false)                # out: falsy
+@out truthiness(0)                    # out: truthy
+@out !never                           # out: true
+@out (never or 'fallback')            # out: fallback
+@out (tagged and @unreachable) == nil # out: true
+
+# Every nil is == nil, whatever its tag, and a nil is never == anything else
+@out never == nil                     # out: true
+@out nil == tagged                    # out: true
+@out never == tagged                  # out: true
+@out never != nil                     # out: false
+@out nil == false                     # out: false
+@out never == 0                       # out: false
+
+# The tag is still there to read
+@out never.@tag.reason                # out: no column named likes
+
+# A tagged type with no `Self` takes call arguments into its tag
+oops := nil\Error('oh snap')
+@out oops.@tag.message                # out: oh snap
+@out oops.@tag.@name                  # out: Error
+@out oops == nil                      # out: true
+@out truthiness(oops)                 # out: falsy
+
+# A `when` after `else` tells the kinds of nil apart
+describe ( data;
+	if data
+		'a value'
+	else
+	when nil\<reason: String>
+		"a nil with a reason: `it.@tag.reason`"
+	when nil
+		'a plain nil'
+	else
+		'false'
+	end
+)
+@out describe(5)                      # out: a value
+@out describe(tagged)                 # out: a nil with a reason: no column
+@out describe(never)                  # out: a nil with a reason: no column named likes
+@out describe(nil)                    # out: a plain nil
+@out describe(false)                  # out: false

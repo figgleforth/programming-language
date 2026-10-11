@@ -1,0 +1,3 @@
+@out 1          # out: 1
+@unreachable    # error: This code should be unreachable.
+@out 2

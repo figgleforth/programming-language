@@ -39,13 +39,13 @@ module Code
 			'sleep' => { fn: :intrinsic },
 			'assert' => { fn: :intrinsic },
 			'refute' => { fn: :intrinsic },
-			'raise' => { fn: :intrinsic },
-			'panic' => { fn: :intrinsic },
-			'unreachable' => { fn: :intrinsic },
+			'raise' => { fn: :intrinsic, bare_call: true },
+			'panic' => { fn: :intrinsic, bare_call: true },
+			'unreachable' => { fn: :intrinsic, bare_call: true },
 			'connect' => { fn: :intrinsic },
 			'start_server' => { fn: :intrinsic },
 			'stop_server' => { fn: :intrinsic },
-			'todo' => { fn: :intrinsic },
+			'todo' => { fn: :intrinsic, bare_call: true },
 
 			'load' => { fn: :stack },
 			'declare' => { fn: :stack },
@@ -61,6 +61,8 @@ module Code
 
 		FUNCTIONS       = MEMBERS.select { |_, m| m[:fn] }.keys.freeze
 		STACK_FUNCTIONS = MEMBERS.select { |_, m| m[:fn] == :stack }.keys.freeze
+		# Called even with no arguments and no parens: a bare `@panic` raises, and is never a reference to the function.
+		CALLED_WHEN_BARE = MEMBERS.select { |_, m| m[:fn] == :stack || m[:bare_call] }.keys.freeze
 		VITALS          = MEMBERS.reject { |_, m| m[:fn] }.keys.freeze
 
 		def initialize subject = nil

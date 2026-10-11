@@ -5680,23 +5680,22 @@ class Interpreter_Test < Base_Test
 		assert_equal "if-ran\n", printed
 	end
 
-	def test_when_dispatches_against_a_falsy_condition_too
-		# `when` checks `condition`'s own value, not "did the if-branch run" -- a `when` can match
-		# even when the overall `if` took its falsy path.
+	def test_when_cases_after_the_if_body_do_not_see_a_falsy_condition
+		# The cases after the `if` body belong to the truthy branch, so a `when false` there can never match. A falsy condition goes to `else` instead.
 		out = Code.interp <<~CODE
 			result := if false
-				"body-value"
+				@unreachable
 			when true
-				"true-case"
+				@unreachable
 			when false
-				"false-case"
+				@unreachable
 			end
 			result
 		CODE
-		assert_equal 'false-case', out
+		assert_nil out
 	end
 
-	def test_when_if_body_does_not_run_when_condition_is_falsy
+	def test_when_neither_the_if_body_nor_its_cases_run_when_condition_is_falsy
 		printed = capture_stdout do
 			Code.interp <<~CODE
 				if false
@@ -5706,23 +5705,23 @@ class Interpreter_Test < Base_Test
 				end
 			CODE
 		end
-		assert_equal "when-ran\n", printed
+		assert_equal "", printed
 	end
 
-	def test_when_a_match_on_the_falsy_path_skips_else
+	def test_when_a_falsy_condition_skips_the_if_cases_and_runs_else
 		out = Code.interp <<~CODE
 			result := if false
-				"body-value"
+				@unreachable
 			when true
-				"true-case"
+				@unreachable
 			when false
-				"false-case"
+				@unreachable
 			else
 				"else-value"
 			end
 			result
 		CODE
-		assert_equal 'false-case', out
+		assert_equal 'else-value', out
 	end
 
 	def test_when_else_runs_as_a_fallback_when_no_when_case_matches_on_the_falsy_path

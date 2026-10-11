@@ -1,0 +1,9 @@
+# A second `else` only makes sense after the `when` cases of the first one
+if nil
+	1
+else
+	2
+else
+	3
+end
+# error: A second `else` needs `when` cases between it and the first `else`

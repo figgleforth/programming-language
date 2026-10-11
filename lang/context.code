@@ -35,13 +35,13 @@ Context <
 	sleep: (Number;)                    # blocks for `seconds`
 	assert: (Any, String;)              # raises Assert_Triggered unless the condition is truthy
 	refute: (Any, String;)              # raises Refute_Triggered if the condition is truthy
-	raise: (Any;)                       # raises the given message
-	panic: (Any;)                       # raises the given message
-	unreachable: (;)                    # raises that the code should be unreachable
+	raise: (Args;)                      # raises the first arg; each later arg adds a line; parens optional, even with no args
+	panic: (Args;)                      # raises the first arg; each later arg adds a line; parens optional, even with no args
+	unreachable: (Args;)                # raises that the code should be unreachable; each arg adds a line; parens optional
 	connect: (Database -> Database;)    # opens + caches a DB connection, returns the Database
 	start_server: (Server -> Server;)   # boots the Server (background thread), returns it
 	stop_server: (Server -> Server;)    # stops the Server, returns it
-	todo: (Args;)                       # raises Todo_Triggered, one "[TODO] ..." line per arg
+	todo: (Args;)                       # raises Todo_Triggered, one "[TODO] ..." line per arg; parens optional, even with no args
 
 	#- Functions that act on the calling scope / the interpreter's scope stack -- run in the caller's frame
 	load: (String;)                     # loads a .code file into the current scope

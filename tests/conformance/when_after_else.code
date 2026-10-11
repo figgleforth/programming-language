@@ -1,0 +1,56 @@
+# `when` cases after `else` belong to the else branch: its body runs first, a matching case replaces its value, and a second `else` runs when no case matched
+describe ( data;
+	if data
+		"value: `data`"
+	else
+	when nil\<reason: String>
+		"a nil with a reason: `it.@tag.reason`"
+	when nil
+		'a plain nil'
+	else
+		'false'
+	end
+)
+@out describe(5)                              # out: value: 5
+@out describe(nil\<reason := 'no column'>)    # out: a nil with a reason: no column
+@out describe(nil)                            # out: a plain nil
+@out describe(false)                          # out: false
+
+# With no matching case and no second `else`, the else body's own value stays
+keep ( data;
+	if data
+		'value'
+	else
+		'else body'
+	when 99
+		@unreachable
+	end
+)
+@out keep(nil)                                # out: else body
+
+# A matching case replaces the else body's value
+replace ( data;
+	if data
+		'value'
+	else
+		'else body'
+	when nil
+		'case'
+	end
+)
+@out replace(nil)                             # out: case
+
+# With `unless`, the else branch is the truthy path, so its cases see truthy values
+check ( data;
+	unless data
+		'falsy'
+	else
+	when 5
+		'five'
+	else
+		'another truthy value'
+	end
+)
+@out check(5)                                 # out: five
+@out check(6)                                 # out: another truthy value
+@out check(nil)                               # out: falsy

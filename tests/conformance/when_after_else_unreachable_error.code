@@ -1,0 +1,12 @@
+# The last `else` already catches every value, so nothing after it can run
+if nil
+	1
+else
+when nil
+	2
+else
+	3
+when false
+	4
+end
+# error: Nothing after the last `else` can run

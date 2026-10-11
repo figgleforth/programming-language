@@ -1,0 +1,3 @@
+@out 1          # out: 1
+@todo           # error: [TODO]
+@out 2

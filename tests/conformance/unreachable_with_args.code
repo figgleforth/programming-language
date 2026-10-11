@@ -1,0 +1,2 @@
+# Each argument adds one line after the fixed message
+@unreachable "the cache is empty", 42   # error: the cache is empty

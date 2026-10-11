@@ -555,7 +555,9 @@ module Code
 			candidates.max_by { |k| k.ancestors.size }
 		end
 
+		# Every nil counts as false, whatever its tag.
 		def truthy? value
+			return false if nil_value? value
 			!!value
 			# note; I originally thought a model mixing Ruby and systems languages would be neat but that's tabled for later when I port this to a systems language. I'm just gonna let Ruby dictate truthiness for now. My idea was to make 0 falsy but that means a function that returns an index 0, may be considered false as a conditional.
 			# case value
@@ -566,6 +568,11 @@ module Code
 			# else
 			# 	true
 			# end
+		end
+
+		# A nil with or without a tag: plain `nil`, a Nil instance (`Nil()`, or an instance of a type composed with Nil), or the Nil type itself (`nil\<reason: String>`, `nil\Error`). Every one is falsy and `== nil`.
+		def nil_value? value
+			value.nil? || value.is_a?(Code::Nil) || (value.is_a?(Code::Type) && value.name == 'Nil')
 		end
 
 		def type_name_to_string value
@@ -1495,7 +1502,7 @@ module Code
 			when '~'
 				~interpret(expr.expression)
 			when '!', 'not'
-				!interpret(expr.expression)
+				!truthy?(interpret(expr.expression))
 			when 'return'
 				returned = expr.expression ? interpret(expr.expression) : nil
 				Code::Return.new returned
@@ -2208,11 +2215,13 @@ module Code
 			overload = find_operator_overload expr.operator.value
 			return call_operator_overload(overload, expr, nil) if overload.is_a? Code::Func
 
+			# The value of the side that decided the result, as in Ruby, but with the language's own #truthy? (a tagged nil is falsy too).
+			left = interpret expr.left
 			case expr.operator.value
 			when '&&', 'and'
-				interpret(expr.left) && interpret(expr.right)
+				truthy?(left) ? interpret(expr.right) : left
 			when '||', 'or'
-				interpret(expr.left) || interpret(expr.right)
+				truthy?(left) ? left : interpret(expr.right)
 			end
 		end
 
@@ -2255,8 +2264,14 @@ module Code
 			# `Any` is a supertype of everything except nil, no composition needed. True for every "equal-ish" op, false for "different-ish" ones.
 			if ANY_WILDCARD_COMPARISON_OPERATORS.include?(expr.operator.value) && (any_type?(left) || any_type?(right))
 				other = any_type?(left) ? right : left
-				equal = !other.nil?
+				equal = !nil_value?(other)
 				return %w(== =>= =<=).include?(expr.operator.value) ? equal : !equal
+			end
+
+			# Every nil is `== nil`, whatever its tag (`nil\<reason: String>`, `Nil()`), and a nil is never `==` anything else. This comes before any `@operator ==` overload, so an overload never sees a nil operand.
+			if %w(== !=).include?(expr.operator.value) && (nil_value?(left) || nil_value?(right))
+				equal = nil_value?(left) && nil_value?(right)
+				return expr.operator.value == '==' ? equal : !equal
 			end
 
 			# `"Flying" == Flying` -- a String equals a bare Type (either operand order) when it spells
@@ -3016,6 +3031,10 @@ module Code
 
 			if func_new
 				interp_func_body func_new, call_expr
+			elsif call_expr.arguments.count > 0 && instance.tag_instance.is_a?(Code::Struct)
+				# No initializer, but a struct tag: the arguments fill the tag. `nil\Error('oh snap')` is a nil tagged with `Error('oh snap')`.
+				instance.tag_instance = interp_struct_call instance.tag_instance, call_expr
+				declare_tag instance
 			elsif call_expr.arguments.count > 0
 				# No initializer was declared so we have nowhere to pass the arguments
 				raise Code::Arguments_Given_But_Not_Expected.new(expr)
@@ -3862,7 +3881,7 @@ module Code
 
 				last_expr = catch :stop do
 					iteration = 0
-					while interpret expr.condition
+					while truthy? interpret(expr.condition)
 						begin
 							iteration_scope = Temporary.new("For Loop Scope Iteration #{iteration}")
 							push_scope iteration_scope
@@ -4165,23 +4184,30 @@ module Code
 			else
 				# Handle if/unless here.
 				#
-				# `unless` is just `if` with when_true/when_false swapped -- both branches used to be separately maintained copies of this same body-selection + running logic.
-				# `when_cases` dispatch regardless of whether `condition` is truthy or falsy. The `when` checks `condition`'s own value, not "did the if-branch run". `else` only runs as a fallback: on the falsy path, and only once no `when_case` has matched.
-				condition   = interpret expr.condition
-				truthy_body = expr.type.value == 'unless' ? expr.when_false : expr.when_true
-				falsy_body  = expr.type.value == 'unless' ? expr.when_true : expr.when_false
+				# Each group of `when` cases belongs to the branch it is written in, and runs only when that branch runs: on `if`, the cases after the body see only truthy values, and the cases after `else` see only falsy ones (the reverse on `unless`). In each branch the body runs first, and a matching case replaces its value.
+				condition  = interpret expr.condition
+				own_branch = (expr.type.value == 'unless') != truthy?(condition)
 
-				if truthy? condition
-					last_value = run_conditional_body truthy_body
+				if own_branch
+					last_value = run_conditional_body expr.when_true
 
 					matched, when_value = dispatch_when_cases expr, condition
 					matched ? when_value : last_value
 				else
-					matched, when_value = dispatch_when_cases expr, condition
-
-					matched ? when_value : run_conditional_body(falsy_body)
+					run_else_branch expr, condition
 				end
 			end
+		end
+
+		# The `else` branch of an if/unless (`expr.when_false`, or an elif chain). Its body runs first, then its own `when` cases (written after `else`), where a matching case replaces the value. A second `else` runs when no case matched.
+		def run_else_branch expr, condition
+			last_value = run_conditional_body expr.when_false
+			return last_value unless expr.else_when_cases&.any?
+
+			matched, when_value = dispatch_when_cases expr, condition, cases: expr.else_when_cases
+			return when_value if matched
+
+			expr.else_fallback.empty? ? last_value : run_conditional_body(expr.else_fallback)
 		end
 
 		def run_conditional_body body
@@ -4193,10 +4219,10 @@ module Code
 		end
 
 		# a matching when_case overrides the branch's own last_value; first match wins, no fallthrough
-		def dispatch_when_cases expr, it_value = nil
+		def dispatch_when_cases expr, it_value = nil, cases: expr.when_cases
 			last_value = nil
 
-			matched = expr.when_cases&.find do |when_case|
+			matched = cases&.find do |when_case|
 				# `=>=` is a type/structure check, not a value check.
 				# Two different Symbols (or Numbers, or Strings) are `=>=` to each other since they share a composed type. So using it for every when_case would fail in cases like :a =>= :b.
 				#
@@ -4256,27 +4282,33 @@ module Code
 				output.values.each { warn _1 }
 				args.first # note; First because `@err thing, "message"` means you can omit the message or not, it doesn't matter to the passthough-mechanic of @err, it's going to just poop out the first thing it was given, while print errors for all aruments
 			when 'panic', 'raise' # note; The names of these are placeholders
-				# Like Ruby: `@raise "boom"` is a RuntimeError, and `@raise Overflow("boom")` raises the value itself, with its type name in the message. `args` already holds values, so nothing is interpreted again.
+				# Like Ruby: `@raise "boom"` is a RuntimeError, and `@raise Overflow("boom")` raises the value itself, with its type name in the message. Each later argument adds one line to the message. `args` already holds values, so nothing is interpreted again.
+				raise Code::Raised.new(nil, "@#{name}") if args.empty? # a bare `@panic`
+
 				value = args.first
+				extra = args.drop(1).map { |v| stringify_for_display(v, show_quotes: false) }
 				case value
 				when Code::Struct, Code::Instance
 					name    = value.name.is_a?(Code::Lexeme) ? value.name.value : value.name
 					message = value['message'] if value.has? 'message'
 					message = stringify_for_display(message, show_quotes: false) unless message.nil? # a bare `@raise Overflow` has a nil message
-					raise Code::Raised.new(value, [name, message].compact.join(': '))
+					raise Code::Raised.new(value, [[name, message].compact.join(': '), *extra].join("\n"))
 				when Code::Type
-					raise Code::Raised.new(value, value.name)
+					raise Code::Raised.new(value, [value.name, *extra].join("\n"))
 				else
-					raise stringify_for_display(value, show_quotes: false)
+					raise [stringify_for_display(value, show_quotes: false), *extra].join("\n")
 				end
 			when 'unreachable'
-				raise Code::Raised.new(nil, "This code should be unreachable.")
+				# Each argument adds one line after the fixed message.
+				lines = args.map { |v| stringify_for_display(v, show_quotes: false) }
+				raise Code::Raised.new(nil, ["This code should be unreachable.", *lines].join("\n"))
 			when 'todo'
 				# @pasted
 				message = args.map do |v|
 					str = stringify_for_display(v, method_name: 'to_s')
 					"[TODO] #{str}"
 				end.join("\n")
+				message = '[TODO]' if args.empty? # a bare `@todo`
 
 				raise Code::Todo_Triggered.new(message)
 			when 'puts', 'out'

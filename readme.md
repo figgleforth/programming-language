@@ -418,6 +418,27 @@ Use `:=` for a plain synonym (`Int := Integer` in the standard library); use `| 
 2. `unless` is the negation of `if`
 3. Can be used as inline modifiers
 4. Any value works as a condition -- truthiness follows Ruby's own rules: only `nil`/`false` are falsy, everything else (`0`/`0.0` included) is truthy
+5. A nil with a tag is still a nil: `nil\<reason := 'no column'>`, `nil\Error('oh snap')`, and an instance of a type composed with `Nil` are all falsy and `== nil`. A nil is never `==` anything else, so `nil == false` stays `false`. Read the tag with `.@tag`, and use `when` cases after `else` to tell the kinds of nil apart (see `when` below):
+
+```code
+describe ( data;
+    if data
+        'a value'
+    else
+    when nil\<reason: String>
+        "a nil with a reason: `it.@tag.reason`"
+    when nil
+        'a plain nil'
+    else
+        'false'
+    end
+)
+
+describe(nil\<reason := 'no column'>)  # 'a nil with a reason: no column'
+describe(nil)                          # 'a plain nil'
+```
+
+6. A tagged type with no `Self` takes call arguments into its tag. `nil\Error('oh snap')` is a nil tagged with `Error('oh snap')`, so `return nil\Error('oh snap')` hands back a falsy value that still carries its message.
 
 ```code
 if x > 10
@@ -572,7 +593,7 @@ A trailing window shorter than `stride` is kept, not dropped. Use `.?N` (not `.N
 2. The block's own body runs first; a matching `when` then replaces its value. First match wins.
 3. Compares with `==` for a plain value, `=>=` (is-a) for a bare Type.
 4. A bare `when it` matches everything — a catch-all.
-5. `else` runs only when nothing matched. Each `elif` has its own `when` group.
+5. On `for`, `else` runs only when nothing matched. On `if`, each group of cases belongs to its branch: the cases after the body see only truthy values, and `else` takes every falsy value (see below). Each `elif` has its own `when` group.
 6. One `end` closes the whole block — a `when` clause has none of its own.
 7. Inside a matching `when`, `it` holds the matched value — but only `for`, `.each`, and a `when` clause declare `it`; a plain `if`/`unless` with no `when` does not.
 
@@ -584,7 +605,7 @@ when 100
 when Number
     'a number, but not perfect'
 else
-    'not a number'
+    'a falsy value'
 end  # 'perfect' -- the first match wins, even though `Number` would also match
 
 for [1, 'two', 3]
@@ -605,6 +626,21 @@ end
 ```
 
 `when` does not run inside `while`/`until` yet.
+
+`when` cases can also follow `else`. They belong to the else branch, so on an `if` they see every falsy value, and the cases after the `if` body never do. The else body runs first, a matching case replaces its value, and a second `else` runs when no case matched. That second `else` catches every value that is left, so nothing can follow it. On `unless`, the branches swap: the cases after the body see falsy values, and the cases after `else` see truthy ones.
+
+```code
+if data
+    "value: `data`"
+else
+when nil\Error
+    "error: `it.@tag.message`"
+when nil
+    'a plain nil'
+else
+    'false'      # nothing matched: here, only `false`
+end
+```
 
 ## Loop Control
 
@@ -1040,6 +1076,16 @@ r.@names       # ['name', 'types']
 kept := @puts('logged')   # prints 'logged', returns it unchanged (a passthrough)
 p := @puts
 p('again')                # 'again'
+```
+
+`@raise`, `@panic`, `@unreachable`, and `@todo` are different: they stop the program, so a bare one is always a call, never the function itself. Parens are optional, and each argument adds one line to the message:
+
+```code
+@unreachable                                # This code should be unreachable.
+@unreachable "the cache is empty", count    # the same line, then one line per argument
+@raise "boom", "while saving"               # boom, then while saving
+@raise Error("my message")                  # raises the value itself: Error: my message
+@todo                                       # [TODO]
 ```
 
 ### Your own `@` members on a Type

@@ -1,0 +1,37 @@
+# Truthy side: the `if` body runs, then the cases after it. The cases after `else` never see a truthy value.
+truthy_side ( data;
+	if data
+		'if body'
+	when 5
+		'if case'
+	else
+	when 6
+		@unreachable
+	else
+		@unreachable
+	end
+)
+@out truthy_side(5)                          # out: if case
+@out truthy_side(6)                          # out: if body
+
+# Falsy side: the cases after the `if` body never see a falsy value, so a `when false` there never matches.
+# Every falsy value goes to the else branch: its body, then its cases, then the second `else`.
+falsy_side ( data;
+	if data
+		'if body'
+	when false
+		@unreachable
+	else
+		@out 'else body ran'
+	when nil\<reason: String>
+		'else case'
+	else
+		'fallback'
+	end
+)
+@out falsy_side(nil\<reason := 'no column'>) # out: else body ran
+                                             # out: else case
+@out falsy_side(nil)                         # out: else body ran
+                                             # out: fallback
+@out falsy_side(false)                       # out: else body ran
+                                             # out: fallback
