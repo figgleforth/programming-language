@@ -1,0 +1,62 @@
+@load 'lang/database'
+
+Task <id: Primary_Key, text: String, done: Bool>
+Task_Logic {
+	done! (;
+		self.done = true
+	)
+}
+db          := @connect Sqlite.memory()
+tasks_table := db.find_or_create_table(Task)
+
+# A table instance composed in brings its methods, and they still run on that table
+Tasks | Task | Task_Logic | tasks_table <>
+Tasks.create(<text := 'Write tests', done := false>)
+@out Tasks.find(1).text               # out: Write tests
+@out Tasks.find(1).done               # out: false
+Tasks.update(1, <done := true>)
+@out Tasks.find(1).done               # out: true
+@out tasks_table.count()              # out: 1
+
+# The table is named after the schema struct, not the composed one
+@out Tasks.table_name                 # out: tasks
+
+# A record built from the struct gets the logic, and the table methods still reach the same table
+local := Tasks(nil, 'Only in memory', false)
+local.done!()
+@out local.done                       # out: true
+@out local.count()                    # out: 1
+
+# Any instance works the same way: its methods stay bound to it
+Counter {
+	n := 0
+	bump (;
+		self.n += 1
+	)
+}
+counter := Counter()
+Box <label: String>
+Boxes | Box | counter <>
+Boxes.bump()
+Boxes('a').bump()
+@out counter.n                        # out: 2
+
+# Two composed tables stay apart
+Note <id: Primary_Key, body: String>
+notes_table := db.find_or_create_table(Note)
+Notes | Note | notes_table <>
+Notes.create(<body := 'one'>)
+Notes.create(<body := 'two'>)
+@out Notes.count()                    # out: 2
+@out Tasks.count()                    # out: 1
+
+# On a name collision, the one written further left wins, on purpose.
+Counting {
+	count (;
+		'from Counting'
+	)
+}
+Logic_First | Task | Counting | tasks_table <>
+Table_First | Task | tasks_table | Counting <>
+@out Logic_First.count()              # out: from Counting
+@out Table_First.count()              # out: 1

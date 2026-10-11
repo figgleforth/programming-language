@@ -2986,6 +2986,10 @@ module Code
 			instance.declarations.each do |key, decl|
 				next unless decl.is_a? Code::Func
 
+				# A method composed in from another instance (`Tasks | Task | tasks_table <>`) stays bound to that instance. A struct still passes its methods on to the records built from it.
+				owner = decl.enclosing_scope
+				next if owner.is_a?(Code::Instance) && !owner.is_a?(Code::Struct) && !owner.equal?(instance)
+
 				cloned                     = decl.dup
 				cloned.enclosing_scope     = instance
 				instance.declarations[key] = cloned
@@ -3790,7 +3794,17 @@ module Code
 						[operand.names[i], operand.type_names[i], operand.type_objects[i], operand.values[i]]
 					end
 				elsif operand.is_a? Code::Type
-					operand.declarations.map do |name, value|
+					declarations = operand.declarations
+
+					# An instance's methods live on its type. They come in bound to the instance, so `Tasks | Task | tasks_table <>` gives a `Tasks.find` that still runs on `tasks_table`.
+					if operand.is_a?(Code::Instance) && operand.enclosing_scope.is_a?(Code::Type)
+						type_methods = operand.enclosing_scope.declarations.select do |name, value|
+							value.is_a?(Code::Func) && name != 'Self' && !declarations.key?(name)
+						end
+						declarations = declarations.merge(type_methods).to_h { |name, value| [name, rebind_func_to_scope(value, operand)] }
+					end
+
+					declarations.map do |name, value|
 						type_name = inferred_type_name value
 						[name, type_name, find_in_stack(type_name), value]
 					end

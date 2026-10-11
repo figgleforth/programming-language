@@ -1298,9 +1298,14 @@ Column types: `Primary_Key`, `String`/`Text`, `Int`/`Integer`, `Number`, `Float`
 
 ## Record ORM
 
-`db.find_or_create_table(schema)` returns a `Table`. CRUD lives on that object -- no model composition, no statics.
+`db.find_or_create_table(schema)` returns a `Table`. CRUD lives on that object. You can also compose the table into a struct (see the end of this section).
 
 ```code
+User <
+	id: Primary_Key
+	name: String
+>
+
 users := db.find_or_create_table(User)
 
 cooper := users.create(<name := 'Cooper'>)   # attrs are a `:=`-member Struct
@@ -1318,6 +1323,22 @@ users.count()
 - A record is a `Struct` named after the schema -- read members by name (`record.name`), or `record.to_h` for the whole row
 - `Bool` columns round-trip as real `true`/`false`; `Date`/`Time`/`Date_Time` columns round-trip as the matching wrapper (`record.joined_at.year`)
 - A filter naming a column the schema doesn't have raises `Code::Table_Invalid_Filter_Column`
+
+Compose the table into a struct to keep the data, its logic, and its table under one name. The table's methods stay bound to the table, so `User_Record.find` reads `users`:
+
+```code
+User_Logic {
+    greet (; "Hi `name`" )
+}
+User_Record | User | User_Logic | users <>
+
+User_Record.create(<name := 'Ada'>)
+User_Record.find(1).name            # 'Ada'
+User_Record(name := 'Bob').greet()  # 'Hi Bob' -- a record built in memory gets the logic
+```
+
+- A record that `find`, `where`, or `all` returns is still a plain `User` struct, with no logic
+- The table's own members (`columns`, `database`, `table_name`) also come in, after the schema's members
 
 ## HTML Elements
 
@@ -1664,6 +1685,7 @@ nothing ( anything: Any -> Nil;
 7. Bare `<...>` (no `\`) on an *undeclared* identifier builds a plain named struct instead of raising; a name already taken by a real Type still takes priority
 8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`), so two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring with a *different* shape raises `Code::Undeclared_Tagged_Type`
 9. A Type composed into a struct brings its methods with it, so the data and its logic can live apart: `User | User_Logic <name: String, age: Int>`, then `User('Ada', 36).greet()`. The methods go after the data members, so positional arguments fill the data members in order
+10. An instance composed into a struct brings its type's methods too, but they stay bound to that instance: `Tasks | Task | tasks_table <>` gives a `Tasks.find` that runs on `tasks_table`. See Record ORM
 
 ```code
 String\<dict: Dictionary> {

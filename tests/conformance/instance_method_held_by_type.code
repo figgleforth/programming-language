@@ -1,0 +1,16 @@
+Counter {
+	n := 0
+	bump (;
+		self.n += 1
+	)
+}
+counter := Counter()
+
+# A member that holds another instance's method stays bound to that instance, so `f()` bumps `counter`
+Holder {
+	f := counter.bump
+}
+holder := Holder()
+holder.f()
+holder.f()
+@out counter.n                        # out: 2

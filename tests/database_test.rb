@@ -667,4 +667,48 @@ class Database_Test < Base_Test
 		end
 		assert_match(/ghost_column/, error.message)
 	end
+
+	# The output of a program cannot show which object a method is bound to. These check the binding directly.
+	def test_composed_table_methods_are_copies_bound_to_the_table
+		out = Code.interp <<~CODE
+		    #{DATABASE}
+		    db := @connect Sqlite('#{@filepath}')
+			Task <id: Primary_Key, text: String>
+			tasks_table := db.find_or_create_table(Task)
+			Tasks | Task | tasks_table <>
+			(tasks_table, Tasks, Table)
+		CODE
+		table, tasks, table_type = out.values
+		original                 = table_type.declarations['find']
+		copied                   = tasks['find']
+
+		assert_instance_of Code::Table, table
+		assert_same table, copied.enclosing_scope
+		refute_same original, copied
+
+		# The shared Table type keeps its own unbound method, so every other table still gets its own `find`
+		assert_same table_type, original.enclosing_scope
+	end
+
+	def test_record_built_from_composed_struct_keeps_table_methods_bound_to_the_table
+		out = Code.interp <<~CODE
+		    #{DATABASE}
+		    db := @connect Sqlite('#{@filepath}')
+			Task <id: Primary_Key, text: String>
+			Task_Logic {
+				shout (; text.upcase() )
+			}
+			tasks_table := db.find_or_create_table(Task)
+			Tasks | Task | Task_Logic | tasks_table <>
+			record := Tasks(nil, 'hi')
+			(tasks_table, Tasks, record)
+		CODE
+		table, tasks, record = out.values
+
+		assert_same table, record['find'].enclosing_scope
+
+		# A method from a Type is bound to the struct, and rebinds to each record built from it
+		assert_same tasks, tasks['shout'].enclosing_scope
+		assert_same record, record['shout'].enclosing_scope
+	end
 end
