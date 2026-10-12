@@ -21,12 +21,12 @@ module Code
 			attr_accessor :currently_loading_filepaths
 		end
 
-		# Mirrors Interpreter#load_file_into_scope's own path resolution exactly -- kept here too since Declarator has to resolve a load target itself, ahead of the real interpreter ever reaching that @load.
-		def self.resolve_load_filepath filepath
-			filepath = filepath.dup
-			filepath << '.code' unless filepath.end_with? '.code'
-			cwd_relative = ::File.expand_path filepath
-			::File.exist?(cwd_relative) ? cwd_relative : ::File.join(Code::ROOT_PATH, filepath)
+		# The first path that exists wins: next to `from_file` (the file that holds the @load), then the working directory, then ROOT_PATH, so `lang/x` always reaches the standard library. Interpreter#load_file_into_scope resolves through this too. With none found, it returns the first candidate, so the error names the place most people expect.
+		def self.resolve_load_filepath filepath, from_file = nil
+			filepath   = filepath.end_with?('.code') ? filepath : "#{filepath}.code"
+			candidates = [::File.expand_path(filepath), ::File.join(Code::ROOT_PATH, filepath)]
+			candidates.unshift ::File.expand_path(filepath, ::File.dirname(from_file)) if from_file && ::File.file?(from_file)
+			candidates.find { ::File.exist? it } || candidates.first
 		end
 
 		attr_accessor :input
@@ -94,7 +94,7 @@ module Code
 			path_expr = expr.arguments&.first
 			return nil unless path_expr.is_a? String_Expr
 
-			loaded = cached_declarations_for_load path_expr.value
+			loaded = cached_declarations_for_load path_expr.value, path_expr.lexeme&.source_file
 
 			# Every name this @load brings in gets rebound to point at *this* @load directive
 			# itself, not the isolated node #cached_declarations_for_load found it on in the other
@@ -109,15 +109,19 @@ module Code
 
 		# @param [::String] filepath
 		# @return [Hash{::String => Code::Declaration}]
-		def cached_declarations_for_load filepath
-			filepath = self.class.resolve_load_filepath filepath
+		def cached_declarations_for_load filepath, from_file = nil
+			filepath = self.class.resolve_load_filepath filepath, from_file
 			return Hash.new if self.class.currently_loading_filepaths.include? filepath
 
 			cached = self.class.cached_declarations_by_filepath[filepath]
 			return cached if cached
 
-			expressions = Code::Interpreter.cached_expressions_by_filepath[filepath] ||
-			              Parser.new(Lexer.new(::File.read(filepath)).output).output
+			expressions = Code::Interpreter.cached_expressions_by_filepath[filepath]
+			unless expressions
+				lexer             = Lexer.new ::File.read(filepath)
+				lexer.source_file = filepath # so this file's own @loads resolve next to it
+				expressions       = Parser.new(lexer.output).output
+			end
 
 			self.class.currently_loading_filepaths << filepath
 			declared = Declarator.new(expressions).output

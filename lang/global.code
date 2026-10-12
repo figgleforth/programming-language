@@ -26,7 +26,14 @@
 
 ### How to load programs.
 @load 'lang/some.code'  # the standard library itself lives in ./lang/
-@load './this.code'      # relative to wherever you ran bin/program from (cwd)
-@load 'that.code'        # relative to wherever you ran bin/program from (cwd)
+@load './this.code'      # next to the file that has this line, then the folder you ran bin/program from
+@load 'that.code'        # the same as './that.code'
 @load 'and_this'         # no .code extension required
+
+# The quotes are optional when the path starts with ./, ../, or ~/
+@load ./this                  # the same as './this.code'
+@load ../shared/thing         # one folder up from the file that has this line
+@load ~/code/init             # from your home folder
+@load ./my\ folder/file       # a backslash before a space keeps the space in the path
+@load lang/some               # NOT a path: no ./, ../, or ~/, so this reads as division
 ###

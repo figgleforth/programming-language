@@ -3,6 +3,7 @@ require_relative '../ruby/main'
 require 'net/http'
 require 'uri'
 require 'timeout'
+require 'tmpdir'
 
 class E2E_Server_Test < Minitest::Test
 	def setup
@@ -127,6 +128,72 @@ class E2E_Server_Test < Minitest::Test
 		dynamic = Net::HTTP.get_response URI("http://localhost:#{@port}/42")
 		assert_equal '200', dynamic.code
 		assert_equal 'dynamic 42', dynamic.body
+	end
+
+	# dom.js began as a Ruby string and still names its cookie `#{BROWSER_VIEW_SIZE}`. Before the server filled that in, the browser set a cookie with that literal name, and no route ever saw the window size.
+	def test_window_size_cookie_reaches_a_route
+		code = <<~CODE
+		    Server {
+		    	port,
+		    	Self ( port := #{@port};
+		    		self.port = port
+		    	)
+		    }
+
+		    Web_App | Server {
+		    	get:// (; "<html><head></head><body>hi</body></html>" )
+		    	get://size (; "`browser_view_size.width`x`browser_view_size.height`" )
+		    }
+
+		    app := Web_App()
+		CODE
+
+		@interpreter    = Code::Interpreter.new
+		server_instance = @interpreter.run code
+
+		@server_runner        = server_instance
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
+		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
+		@interpreter.start_server @server_runner
+
+		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		assert_includes page.body, "'#{Code::BROWSER_VIEW_SIZE}=' + size"
+		refute_includes page.body, '#{BROWSER_VIEW_SIZE}'
+
+		size = Net::HTTP.new('localhost', @port).get '/size', 'Cookie' => "#{Code::BROWSER_VIEW_SIZE}=800x600"
+		assert_equal '800x600', size.body
+	end
+
+	# The server read dom.js and the other browser assets relative to the working directory, so every HTML page failed with a 500 when `bin/program` started outside `source/`.
+	def test_an_html_page_gets_its_scripts_from_any_working_directory
+		code = <<~CODE
+		    Server {
+		    	port,
+		    	Self ( port := #{@port};
+		    		self.port = port
+		    	)
+		    }
+
+		    Web_App | Server {
+		    	get:// (; "<html><head></head><body>hi</body></html>" )
+		    }
+
+		    app := Web_App()
+		CODE
+
+		@interpreter    = Code::Interpreter.new
+		server_instance = @interpreter.run code
+
+		@server_runner        = server_instance
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
+		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
+		@interpreter.start_server @server_runner
+
+		Code::Interpreter.cached_asset_source_by_path.clear # an earlier test may have read them from `source/` already
+		page = Dir.mktmpdir { |elsewhere| Dir.chdir(elsewhere) { Net::HTTP.get_response URI("http://localhost:#{@port}/") } }
+
+		assert_equal '200', page.code
+		assert_includes page.body, 'data-prog-onclick' # a line from dom.js
 	end
 
 	def test_query_parameters

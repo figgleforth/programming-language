@@ -90,6 +90,12 @@ module Code
 		end
 	end
 
+	class Invalid_For_Loop_Header < Error
+		def detail_message
+			"A `for` header has no place for this comma. A collection loop takes one collection, then an optional verb and `by stride,overlap`: `for items by 2,1`. A counting loop takes exactly three parts: `for i := 0, i < n, i += 1`."
+		end
+	end
+
 	class Cannot_Reassign_Constant < Error
 	end
 

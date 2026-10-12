@@ -207,11 +207,9 @@ module Code
 		# Preserves its @input, interprets given file, then restores its @input.
 		# @param [::String] filepath of the code to load
 		# @return The output of the interpreted file
-		def load_file_into_scope filepath, into_scope
-			filepath.insert(-1, '.code') unless filepath.end_with? '.code' # note; I feel like this isn't the smartestest way to achieve this.
-
-			cwd_relative                               = ::File.expand_path filepath
-			resolved_path                              = ::File.exist?(cwd_relative) ? cwd_relative : ::File.join(ROOT_PATH, filepath)
+		# @param from_file [::String, nil] the file that holds the @load. A relative path resolves next to it first.
+		def load_file_into_scope filepath, into_scope, from_file = nil
+			resolved_path = Declarator.resolve_load_filepath filepath, from_file
 
 			# This filepath may have been loaded in the given scope already. We don't want to double load it -- return the same result it produced the first time instead of re-running it (or, without this, silently returning nil).
 			# The file is marked loaded before it runs, so a load cycle back into the same scope also ends here. The paused file's declarations stay reachable to this one through #resolve_forward_declaration.
@@ -930,14 +928,15 @@ module Code
 					if response.body.to_s =~ /<html|<body|<head/i
 						response.body.prepend "<!DOCTYPE html>"
 
-						dom_js              = self.class.cached_asset_source_by_path['ruby/shared/dom.js'] ||= ::File.read('ruby/shared/dom.js')
+						# dom.js began as a Ruby string, so it still names its cookie `#{BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds.
+						dom_js              = self.class.cached_asset_source_by_path['ruby/shared/dom.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/dom.js')).gsub('#{BROWSER_VIEW_SIZE}', BROWSER_VIEW_SIZE)
 						script_tag          = "<script>#{dom_js}</script>"
-						view_transition_css = self.class.cached_asset_source_by_path['ruby/shared/view_transition.css'] ||= ::File.read('ruby/shared/view_transition.css')
+						view_transition_css = self.class.cached_asset_source_by_path['ruby/shared/view_transition.css'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/view_transition.css'))
 						view_transition_tag = "<style>#{view_transition_css}</style>"
 
 						# Only present under Hot_Reloader -- pairs with the /_lang/live-reload endpoint.
 						live_reload_tag = if live_reload
-							lr_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read('ruby/shared/live_reload.js')
+							lr_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/live_reload.js'))
 							"<script>#{lr_js}</script>"
 						else
 							''
@@ -1612,7 +1611,7 @@ module Code
 			if load_call_expr?(expr.right)
 				filepath  = interpret expr.right.arguments.first
 				new_scope = Code::Scope.new expr.left.value
-				load_file_into_scope filepath, new_scope
+				load_file_into_scope filepath, new_scope, expr.right.arguments.first.lexeme&.source_file
 				right_value = new_scope
 			else
 				right_value = interpret expr.right
@@ -1722,7 +1721,7 @@ module Code
 			right_value = if load_call_expr?(expr.right)
 				filepath  = interpret expr.right.arguments.first
 				new_scope = Code::Scope.new expr.left.value
-				load_file_into_scope filepath, new_scope
+				load_file_into_scope filepath, new_scope, expr.right.arguments.first.lexeme&.source_file
 				new_scope
 			else
 				interpret expr.right
@@ -4434,7 +4433,7 @@ module Code
 
 			when 'load'
 				filepath = interpret arg_exprs.first
-				load_file_into_scope filepath, stack.last
+				load_file_into_scope filepath, stack.last, arg_exprs.first.lexeme&.source_file
 
 			when 'push_scope'
 				# Must be a bare identifier naming something already bound -- a literal/constructor call builds a fresh object each time, so #pop_scope's identity assert could never match it later.

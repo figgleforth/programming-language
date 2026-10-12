@@ -1129,10 +1129,13 @@ my_mod.Some_Type()
                         # division (asdf / asdf . code) same as it always has
 ```
 
-This behaves like a shell's own `.`/`..`/`~` — `./x` and `../x` resolve against the current directory, `~/x` against your home directory, `../../x` climbs multiple levels, same as `cd ../..`. Two things to know:
+A relative path resolves the same way wherever you start `bin/program`. The first place where the file exists wins:
 
-- "Current directory" means wherever you *ran* `bin/prog` from, not the folder the `.code` file itself lives in — same as a shell's own relative arguments.
-- Only the current user's `~/` is supported — `~otheruser/path` isn't recognized as a bare path.
+1. The folder of the file that holds the `@load`. So `@load ./helper` in `app/main.code` finds `app/helper.code`.
+2. The folder you started `bin/program` from. Code with no file of its own (`bin/program interp "..."`) starts here.
+3. The language's own folder (`source/`). This is how `@load 'lang/html'` finds the standard library from anywhere.
+
+`../x` climbs one folder, `../../x` climbs two, and `~/x` starts at your home folder. Only your own `~/` works: `~otheruser/path` is not a bare path.
 
 ## @puts
 

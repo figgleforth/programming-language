@@ -297,9 +297,20 @@ module Code
 
 			lexemes = peek_until "\n"
 
-			exactly_two_commas      = lexemes.count { _1.is(',') } == 2
-			exactly_one_declaration = lexemes.count { _1.is(':=') } == 1
-			valid_traditional_loop  = exactly_two_commas && exactly_one_declaration
+			# Only a comma or `:=` outside brackets counts, so `for [<n := 1>, 2, 3]` stays a collection loop.
+			depth         = 0
+			outer_lexemes = lexemes.select do |lexeme|
+				depth += 1 if lexeme.is %w|( [ {|
+				depth -= 1 if lexeme.is %w|) ] }|
+				depth.zero?
+			end
+
+			outer_commas            = outer_lexemes.select { _1.is(',') }
+			exactly_one_declaration = outer_lexemes.count { _1.is(':=') } == 1
+			valid_traditional_loop  = outer_commas.count == 2 && exactly_one_declaration
+
+			# A counting loop with a fourth part: point at the comma that starts it, not at the first one.
+			raise Code::Invalid_For_Loop_Header.new(outer_commas[2]) if exactly_one_declaration && outer_commas.count > 2
 
 			if valid_traditional_loop
 				it.counter = parse_expression
@@ -325,6 +336,9 @@ module Code
 					end
 				end
 			end
+
+			# The only comma a collection loop takes is the one in `by stride,overlap`, and that one is eaten above.
+			raise Code::Invalid_For_Loop_Header.new(curr_lexeme) if curr? ','
 
 			reduce_newlines
 
@@ -1625,9 +1639,19 @@ module Code
 
 				lexemes = peek_until "\n"
 
-				exactly_two_commas      = lexemes.count { _1.is(',') } == 2
-				exactly_one_declaration = lexemes.count { _1.is(':=') } == 1
-				valid_traditional_loop  = exactly_two_commas && exactly_one_declaration
+				# @pasted from #parse_for_loop_expr: only a comma or `:=` outside brackets counts.
+				depth         = 0
+				outer_lexemes = lexemes.select do |lexeme|
+					depth += 1 if lexeme.is %w|( [ {|
+					depth -= 1 if lexeme.is %w|) ] }|
+					depth.zero?
+				end
+
+				outer_commas            = outer_lexemes.select { _1.is(',') }
+				exactly_one_declaration = outer_lexemes.count { _1.is(':=') } == 1
+				valid_traditional_loop  = outer_commas.count == 2 && exactly_one_declaration
+
+				raise Code::Invalid_For_Loop_Header.new(outer_commas[2]) if exactly_one_declaration && outer_commas.count > 2
 
 				if valid_traditional_loop
 					it.counter = parse_expression
@@ -1654,6 +1678,8 @@ module Code
 
 					end
 				end
+
+				raise Code::Invalid_For_Loop_Header.new(curr_lexeme) if curr? ',' # @pasted from #parse_for_loop_expr
 
 				set_expr_location it, it.lexeme, (it.step || it.overlap || it.stride || it.collection)
 				return complete_expression it, precedence

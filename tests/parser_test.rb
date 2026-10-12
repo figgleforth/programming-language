@@ -1148,6 +1148,54 @@ class Parser_Test < Base_Test
 		assert_equal '[]', out.first.collection.grouping
 	end
 
+	def test_for_loop_header_counts_only_commas_outside_brackets
+		# The array's two commas and the struct's `:=` used to read as a C-style `for i := 0, i < n, i += 1` header.
+		out = Code.parse 'for [<n := 1>, 2, 3]
+		end'
+		assert_instance_of Code::Circumfix_Expr, out.first.collection
+		assert_nil out.first.counter
+
+		out = Code.parse 'for i := 0, i < 3, i += 1
+		end'
+		assert_nil out.first.collection
+		refute_nil out.first.counter
+
+		# The postfix form has its own copy of the header check.
+		out = Code.parse 'it for [<n := 1>, 2, 3]'
+		assert_instance_of Code::Circumfix_Expr, out.first.collection
+		assert_nil out.first.counter
+
+		# A comma inside a call in the condition does not count either.
+		out = Code.parse 'for i := 0, i < [3, 5].max(), i += 1
+		end'
+		refute_nil out.first.counter
+	end
+
+	# A leftover comma used to be dropped with no error: `for [1, 2], 3` looped over `[1, 2]`, and a four-part counting loop ran zero times.
+	def test_for_loop_header_rejects_a_leftover_comma
+		assert_raises(Code::Invalid_For_Loop_Header) { Code.parse "for [1, 2], 3\nend" }
+		assert_raises(Code::Invalid_For_Loop_Header) { Code.parse "for [1, 2, 3, 4] by 2,1,5\nend" }
+		assert_raises(Code::Invalid_For_Loop_Header) { Code.parse 'it for [1, 2], 3' }
+
+		# A four-part counting loop points at the comma that starts the fourth part.
+		error = assert_raises(Code::Invalid_For_Loop_Header) { Code.parse "for i := 0, i < 2, i += 1, 99\nend" }
+		assert_equal 26, error.expression.column_start
+		error = assert_raises(Code::Invalid_For_Loop_Header) { Code.parse 'it for i := 0, i < 2, i += 1, 99' }
+		assert_equal 29, error.expression.column_start
+	end
+
+	def test_for_loop_header_keeps_the_stride_overlap_comma
+		[
+			"for [1, 2, 3, 4] by 2,1\nend",
+			"for [1, 2, 3, 4] map by 2,1\nend",
+			'it for [1, 2, 3, 4] by 2,1'
+		].each do |source|
+			loop_expr = Code.parse(source).first
+			refute_nil loop_expr.stride, source
+			refute_nil loop_expr.overlap, source
+		end
+	end
+
 	def test_directive_identifier
 		# `@word` with nothing after it is a bare Context read (routed by `.prefixed_with_at` at interpret
 		# time), not a generic operand-grabbing directive -- there's no reserved-word list anymore.

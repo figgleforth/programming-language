@@ -84,15 +84,18 @@ module Code
 	end
 
 	def self.parse_file filepath
-		Parser.new(Lexer.new(::File.read(filepath)).output).output
+		Parser.new(lex_file(filepath)).output
 	end
 
 	def self.lex source_code
 		Lexer.new(source_code).output
 	end
 
+	# Each lexeme knows its file, so a @load in it resolves next to it (`declaref`).
 	def self.lex_file filepath
-		Lexer.new(::File.read(filepath)).output
+		lexer             = Lexer.new ::File.read(filepath)
+		lexer.source_file = ::File.expand_path filepath
+		lexer.output
 	end
 
 	def self.declare source_code
