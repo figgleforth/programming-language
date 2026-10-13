@@ -1,0 +1,27 @@
+# The static checker knows that a composed type is-a each type it composes
+A {}
+B {}
+Combined | A | B {}
+Deeper | Combined {}
+
+c := Combined()
+d := Deeper()
+x: A = c
+y: A = d
+
+takes_a ( a: A;
+	'took it'
+)
+
+@out takes_a(c)                 # out: took it
+
+# An alias names the same type
+Int32 := Integer
+n: Int32 = 4
+@out n                          # out: 4
+
+# A type from a loaded file is not known here, so it is not checked statically
+@load 'lang/html.code'
+div := Div()
+dom: Dom = div
+@out 'ok'                       # out: ok

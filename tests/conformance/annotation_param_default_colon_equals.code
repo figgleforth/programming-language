@@ -1,0 +1,4 @@
+# A typed param default uses `=`, not `:=`
+double ( n: Int := 1;           # error: Cannot_Annotate_Inferred_Declaration
+	n * 2
+)

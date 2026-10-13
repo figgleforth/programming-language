@@ -1,0 +1,8 @@
+# `x: Int` declares nil, locked to Int
+x: Int
+@out x                          # out: nil
+x = 5
+@out x                          # out: 5
+x = nil
+@out x                          # out: nil
+x = 'five'                      # error: Type_Contract_Violation

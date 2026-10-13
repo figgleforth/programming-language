@@ -1576,7 +1576,7 @@ class Structs_Test < Base_Test
 	# not a type identity, it must never contribute to `@composed_types`.
 	def test_type_composes_with_an_anonymous_struct_literal
 		out = Code.interp <<~CODE
-		    Type | <x: Int := 5> {}
+		    Type | <x: Int = 5> {}
 		    t := Type()
 		    (t.x, t.@composed_types.include?('Struct'))
 		CODE
@@ -1589,7 +1589,7 @@ class Structs_Test < Base_Test
 	# composing with a real Type would.
 	def test_type_composes_with_a_named_struct_and_its_name_is_included_in_composed_types
 		out = Code.interp <<~CODE
-		    Named <x: Int := 5>
+		    Named <x: Int = 5>
 		    p := Named<x := 5>
 		    Type2 | p {}
 		    t := Type2()
@@ -1678,7 +1678,7 @@ class Structs_Test < Base_Test
 
 	def test_type_removal_with_a_named_struct_operand
 		out = Code.interp <<~CODE
-		    Named <y: Int := 6>
+		    Named <y: Int = 6>
 		    p := Named<y := 6>
 		    A { x := 1, y := 2 }
 		    Combined | A ~ p {}
@@ -1688,7 +1688,7 @@ class Structs_Test < Base_Test
 
 		assert_raises Code::Undeclared_Identifier do
 			Code.interp <<~CODE
-			    Named <y: Int := 6>
+			    Named <y: Int = 6>
 			    p := Named<y := 6>
 			    A { x := 1, y := 2 }
 			    Combined | A ~ p {}

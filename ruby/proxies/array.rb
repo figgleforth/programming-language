@@ -21,7 +21,6 @@ module Code
 		proxy :empty?
 		proxy :index
 		proxy :reduce
-		proxy :delete_if
 		proxy :delete_at
 		proxy :delete
 		proxy :max

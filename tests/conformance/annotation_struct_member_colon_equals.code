@@ -1,0 +1,2 @@
+# A typed struct member default uses `=`, not `:=`
+Point <x: Int := 0, y: Int = 0> # error: Cannot_Annotate_Inferred_Declaration

@@ -4,9 +4,9 @@ Table {
 	table_name: String
 
 	all     (; @ruby)
-	find    (pk: Primary_Key; @ruby)
-	delete  (pk: Primary_Key; @ruby)
-	update  (pk: Primary_Key, struct: Struct; @ruby)
+	find    (pk: Primary_Key | Int; @ruby)
+	delete  (pk: Primary_Key | Int; @ruby)
+	update  (pk: Primary_Key | Int, struct: Struct; @ruby)
 	find_by (struct: Struct; @ruby)
 	where   (struct: Struct; @ruby)
 	create  (struct: Struct; @ruby)

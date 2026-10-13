@@ -1,0 +1,15 @@
+# A typed slot must match exactly, also on a call
+apply ( fn: (Number -> Number;), n: Number;
+	fn(n)
+)
+
+add_one ( x: Number -> Number;
+	x + 1
+)
+
+shout ( x: String;
+	x.upcase()
+)
+
+@out apply(add_one, 1)          # out: 2
+apply(shout, 1)                 # error: Type_Contract_Violation

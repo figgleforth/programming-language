@@ -13,7 +13,16 @@ module Code
 		# Function must have, not a value in its own right that can stand in for one.
 		# @param other [Code::Func] a real function whose own signature must match this one
 		def matches? other
-			other.is_a?(Func) && other.func_signature.param_types == param_types && other.func_signature.return_type == return_type
+			return false unless other.is_a? Func
+			return true if param_types.empty? && return_type.nil? # `x: (;)` accepts any function, whatever its params and return type
+
+			theirs = other.func_signature
+			return false unless theirs.param_types.length == param_types.length
+
+			# An untyped or `Any` slot on either side matches any type. An untyped param shows as its own lowercase name (see Interpreter#describe_param_type), and an untyped return is nil.
+			untyped = ->(slot) { slot.nil? || slot == 'Any' || (slot.is_a?(::String) && Helpers.member_identifier?(slot)) }
+			params_match = param_types.zip(theirs.param_types).all? { |mine, their| untyped[mine] || untyped[their] || mine == their }
+			params_match && (untyped[return_type] || untyped[theirs.return_type] || theirs.return_type == return_type)
 		end
 
 		def to_s

@@ -2140,6 +2140,7 @@ module Code
 		def self_declare_annotated_identifier expr
 			scope = stack.last
 			scope.declare expr.value, nil
+			scope.type_by_identifier[expr.value] = annotation_type_name(expr.type) if expr.type && !expr.type.is_a?(Code::Struct_Expr) # `x: Int` locks x to Int, the same as `x: Int = nil`
 			track_static_declaration scope, expr
 			nil
 		end
@@ -2812,8 +2813,8 @@ module Code
 		end
 
 		# A `@splat`/`@splatr` param's nominal `: Type` annotation is load-bearing -- it names the
-		# members the body reaches unprefixed -- so enforce it (unlike a plain param annotation, which
-		# stays runtime-unchecked). Otherwise the wrong shape only surfaces as an `Undeclared_Identifier`
+		# members the body reaches unprefixed -- so enforce it (#interp_func_body skips its general param
+		# check for a splat param, and leaves it to this one). Otherwise the wrong shape only surfaces as an `Undeclared_Identifier`
 		# deep in the body, once an expected member turns up missing.
 		def check_splat_param_type_contract param, value, expr
 			return unless param.respond_to?(:add_to_readable) && (param.add_to_readable || param.add_to_writable)
@@ -3263,6 +3264,22 @@ module Code
 
 				check_struct_type_contract param, value, expr if param.type.is_a?(Code::Struct_Expr)
 				check_splat_param_type_contract param, value, expr
+
+				# A typed param (and so its default too) is checked on each call, with the same rules as an assignment. A signature (`cb: (;)`, `fn: Formatter`) is checked by its shape. A splat param has its own check above.
+				signature = nil
+				type      = nil
+				if param.type.is_a?(Code::Func_Expr) || param.type.is_a?(Code::Func_Signature_Expr)
+					signature = describe_param_type param
+				elsif (param.type.is_a?(Code::Identifier_Expr) || param.type.is_a?(Code::Type_Expr)) && !param.add_to_readable && !param.add_to_writable
+					type      = annotation_type_name param.type
+					signature = resolve_func_signature type if type.is_a? ::String
+				end
+
+				if signature
+					raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(value)) unless signature.matches? value
+				elsif type && !type_contract_satisfied?(value, type)
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(type), describe_value_shape(value))
+				end
 
 				stack.last.declare param.name.value, value
 

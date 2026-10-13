@@ -90,6 +90,12 @@ module Code
 		end
 	end
 
+	class Cannot_Annotate_Inferred_Declaration < Error
+		def detail_message
+			"`:=` takes its type from the value, so it cannot follow a `: Type`. Write `x: Int = 5` to declare with a type, or `x := 5` to take the type from the value."
+		end
+	end
+
 	class Invalid_For_Loop_Header < Error
 		def detail_message
 			"A `for` header has no place for this comma. A collection loop takes one collection, then an optional verb and `by stride,overlap`: `for items by 2,1`. A counting loop takes exactly three parts: `for i := 0, i < n, i += 1`."

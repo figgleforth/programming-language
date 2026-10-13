@@ -8,12 +8,12 @@
 Out_Of_Bounds | Error <>
 
 Buffer {
-	Self ( size: Int := 0;
+	Self ( size: Int = 0;
 		self.resize(size)
 	)
 
 	# returns size_of in bytes of :u8, etc. There's no documentation for these symbol types :u8, :u16, etc. Eventually you'll be able to write `Buffer.size_of(Int32)` or `Buffer.size_of(var)` or `Buffer.size_of(123)`
-	Self.size_of ( type: Symbol -> Int; @ruby )
+	Self.size_of ( type: Symbol | String -> Int; @ruby )
 
 	Self.from_string (string: String -> Buffer; @ruby )
 
@@ -81,7 +81,7 @@ Buffer {
 	set_byte := set
 
 	# sets every byte to `value`
-	fill ( value: Int := 0 -> Buffer; @ruby )
+	fill ( value: Int = 0 -> Buffer; @ruby )
 
 	get_string (-> String; @ruby )
 	# Read `length` bytes from `start_index` as a String. A `length` of -1 reads to the end. The `length` param hides the length() method here, so this calls self.length().

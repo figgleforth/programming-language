@@ -1,0 +1,16 @@
+# A typed param is checked on each call, the same way as an assignment
+double ( n: Int;
+	n * 2
+)
+
+maybe ( n: Int | Nil;
+	n
+)
+
+@out double(4)                  # out: 8
+@out maybe(nil)                 # out: nil
+@out maybe(3)                   # out: 3
+
+# A variable, not a literal, so the static checker does not catch it first
+word := 'four'
+double(word)                    # error: Type_Contract_Violation

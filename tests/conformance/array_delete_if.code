@@ -1,0 +1,15 @@
+# delete_if removes each value the function returns true for, in place, and returns the Array
+big? ( x;
+	x > 2
+)
+
+two? ( x: Int -> Bool;
+	x == 2
+)
+
+a := [1, 2, 3, 4, 3]
+b := a.delete_if(big?)
+@out a                          # out: [1, 2]
+@out b                          # out: [1, 2]
+@out a.delete_if(two?)          # out: [1]
+@out [].delete_if(big?)         # out: []

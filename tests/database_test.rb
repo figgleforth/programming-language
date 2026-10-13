@@ -468,15 +468,17 @@ class Database_Test < Base_Test
 
 	# --- Code.assert failure paths ---
 
+	# `create_table (struct: Struct ...)` checks its param on the call.
 	def test_create_table_raises_for_non_struct
-		error = assert_raises RuntimeError do
+		error = assert_raises Code::Type_Contract_Violation do
 			Code.interp <<~CODE
 			    #{DATABASE}
 			    db := @connect Sqlite('#{@filepath}')
 			    db.create_table('not a struct')
 			CODE
 		end
-		assert_match(/Expected condition to be truthy/, error.message)
+		assert_equal 'Struct', error.contract
+		assert_equal 'String', error.actual
 	end
 
 	def test_create_table_raises_for_unnamed_struct
@@ -598,7 +600,7 @@ class Database_Test < Base_Test
 	# --- create/update are Struct-only, not Dictionary ---
 
 	def test_create_raises_for_dictionary
-		assert_raises RuntimeError do
+		assert_raises Code::Type_Contract_Violation do
 			Code.interp <<~CODE
 			    #{DATABASE}, #{RECORD}
 			    db := @connect Sqlite('#{@filepath}')
@@ -614,7 +616,7 @@ class Database_Test < Base_Test
 	end
 
 	def test_update_raises_for_dictionary
-		assert_raises RuntimeError do
+		assert_raises Code::Type_Contract_Violation do
 			Code.interp <<~CODE
 			    #{DATABASE}, #{RECORD}
 			    db := @connect Sqlite('#{@filepath}')

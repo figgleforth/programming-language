@@ -7,7 +7,7 @@ Array {
 
 	max (; @ruby )
 	min (; @ruby )
-	product ( other: Array := nil; @ruby ) # no argument: multiplies every value. An array: the cartesian product
+	product ( other: Array = nil; @ruby ) # no argument: multiplies every value. An array: the cartesian product
 
 	# add to back/end
 	push ( item; @ruby )
@@ -33,7 +33,17 @@ Array {
 	remove_one_item_from_front := shift
 
 	# removal
-	delete_if ( fn: (Any -> Bool;); @ruby )
+	# Removes each value that `fn` returns true for, in place, and returns the Array. Written here, not @ruby, because Ruby's own delete_if takes a block, not a function.
+	delete_if ( fn: (Any -> Bool;);
+		i := length() - 1
+		while i >= 0
+			if fn(get(i))
+				delete_at(i)
+			end
+			i -= 1
+		end
+		self
+	)
 	delete_at ( index: Int; @ruby )
 	delete ( object_to_delete: Any; @ruby )
 

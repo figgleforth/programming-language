@@ -73,7 +73,7 @@ class Type_Checker_Test < Base_Test
 	end
 
 	def test_mismatch_in_func_param_default_is_caught
-		assert_type_error { Code.type_check "go ( x: Number := 'bad'; x )" }
+		assert_type_error { Code.type_check "go ( x: Number = 'bad'; x )" }
 	end
 
 	# --- Nested in type body ---
@@ -287,11 +287,11 @@ class Type_Checker_Test < Base_Test
 	end
 
 	def test_union_param_default_matching_either_alternative
-		refute_type_error { Code.type_check 'f ( a: Number | Symbol := 42; a )' }
-		refute_type_error { Code.type_check 'f ( a: Number | Symbol := :ok; a )' }
+		refute_type_error { Code.type_check 'f ( a: Number | Symbol = 42; a )' }
+		refute_type_error { Code.type_check 'f ( a: Number | Symbol = :ok; a )' }
 	end
 
 	def test_union_param_default_matching_neither_alternative
-		assert_type_error { Code.type_check "f ( a: Number | Symbol := 'oops'; a )" }
+		assert_type_error { Code.type_check "f ( a: Number | Symbol = 'oops'; a )" }
 	end
 end

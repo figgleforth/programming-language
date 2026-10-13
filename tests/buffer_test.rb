@@ -261,26 +261,31 @@ class Buffer_Test < Base_Test
 
 	# Wrong kinds of argument raise a message about the argument, not a raw Ruby error.
 	def test_a_size_must_be_an_integer_of_0_or_more
-		{ 'Buffer(-1)' => '-1 (Integer)', 'Buffer(1.5)' => '1.5 (Float)', 'Buffer(2).resize(-1)' => '-1 (Integer)' }.each do |code, got|
+		['Buffer(-1)', 'Buffer(2).resize(-1)'].each do |code|
 			error = assert_raises(RuntimeError, code) { Code.interp code }
-			assert_equal "size must be an Integer, 0 or more, got #{got}", error.message
+			assert_equal 'size must be an Integer, 0 or more, got -1 (Integer)', error.message
 		end
+		# `size: Int` checks the kind on the call, before the Ruby side sees it.
+		error = assert_raises(Code::Type_Contract_Violation) { Code.interp 'Buffer(1.5)' }
+		assert_equal ['Int', 'Float'], [error.contract, error.actual]
 	end
 
 	def test_an_offset_must_be_an_integer
+		# `offset: Int` checks the kind on the call.
 		['Buffer(2).get(:u8, 1.5)', 'Buffer(2).set(:u8, 1.5, 0)'].each do |code|
-			error = assert_raises(RuntimeError, code) { Code.interp code }
-			assert_equal 'offset must be an Integer, got 1.5 (Float)', error.message
+			error = assert_raises(Code::Type_Contract_Violation, code) { Code.interp code }
+			assert_equal ['Int', 'Float'], [error.contract, error.actual]
 		end
 		error = assert_raises(RuntimeError) { Code.interp 'Buffer(2).get_bits(1.5, 2)' }
 		assert_equal 'bit and width must be Integers, got bit 1.5 (Float) and width 2 (Integer)', error.message
 	end
 
 	def test_a_value_must_be_a_number
-		error = assert_raises(RuntimeError) { Code.interp 'Buffer(2).set(:u8, 0, "x")' }
-		assert_equal 'value must be a Number, got x (String)', error.message
-		error = assert_raises(RuntimeError) { Code.interp 'Buffer(2).set(:u8, 0, true)' }
-		assert_equal 'value must be a Number, got true (Bool)', error.message
+		# `value: Number` checks the kind on the call.
+		error = assert_raises(Code::Type_Contract_Violation) { Code.interp 'Buffer(2).set(:u8, 0, "x")' }
+		assert_equal ['Number', 'String'], [error.contract, error.actual]
+		error = assert_raises(Code::Type_Contract_Violation) { Code.interp 'Buffer(2).set(:u8, 0, true)' }
+		assert_equal ['Number', 'Bool'], [error.contract, error.actual]
 		error = assert_raises(RuntimeError) { Code.interp 'Buffer(2).set_bits(0, 2, 1.5)' }
 		assert_equal 'value must be an Integer, got 1.5 (Float)', error.message
 	end
@@ -381,8 +386,9 @@ class Buffer_Test < Base_Test
 	def test_get_string_slice_rejects_a_bad_length
 		error = assert_raises(RuntimeError) { Code.interp("#{HELLO}b.get_string_slice(0, -2)") }
 		assert_equal 'length must be 0 or more, or -1 to read to the end, got -2 (Integer)', error.message
-		error = assert_raises(RuntimeError) { Code.interp("#{HELLO}b.get_string_slice(0.5)") }
-		assert_equal 'start_index and length must be Integers, got 0.5 (Float) and -1 (Integer)', error.message
+		# `start_index: Int` checks the kind on the call.
+		error = assert_raises(Code::Type_Contract_Violation) { Code.interp("#{HELLO}b.get_string_slice(0.5)") }
+		assert_equal ['Int', 'Float'], [error.contract, error.actual]
 	end
 
 	# --- inspect ---

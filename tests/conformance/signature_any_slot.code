@@ -1,0 +1,24 @@
+# An `Any` slot matches any type, on either side
+Predicate := (Any -> Bool;)
+
+small? ( n: Int -> Bool;
+	n < 10
+)
+
+p: Predicate = small?
+@out p(3)                       # out: true
+
+# The other way around: an `Any` param fits a typed slot
+anything ( x: Any -> Bool;
+	true
+)
+
+q: (Int -> Bool;) = anything
+@out q(3)                       # out: true
+
+# A typed slot that is not `Any` still must match
+long? ( s: String -> Bool;
+	s.length() > 3
+)
+
+r: (Int -> Bool;) = long?       # error: Type_Contract_Violation

@@ -38,7 +38,7 @@ Memory {
 	concurrency := Concurrency.UNSAFE      # Concurrency: for multi-threaded access
 
 	# Memory(:u8, (8,)) is 1d, Memory(:f32, (8, 8)) is 2d, and so on. With no dimensions it is 8 x 8 x 1.
-	Self ( type: Symbol := :u8, dimensions: Tuple | Integer := (8, 8, 1), offset: Int := 0;
+	Self ( type: Symbol = :u8, dimensions: Tuple | Integer = (8, 8, 1), offset: Int = 0;
 		if dimensions === Integer
 			# `(5,)` is just 5, so 1d dimensions arrive as an Integer.
 			dimensions = Tuple.from_array([dimensions])

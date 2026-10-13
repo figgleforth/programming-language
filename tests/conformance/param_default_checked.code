@@ -1,0 +1,11 @@
+# A default is checked too, when the call uses it
+text (;
+	'not a number'
+)
+
+double ( n: Int = text();
+	n * 2
+)
+
+@out double(4)                  # out: 8
+double()                        # error: Type_Contract_Violation

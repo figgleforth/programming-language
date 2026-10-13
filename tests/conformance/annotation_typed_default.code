@@ -1,0 +1,10 @@
+# A typed param default and a typed struct member default use `=`
+double ( n: Int = 1;
+	n * 2
+)
+
+Point <x: Int = 3, y := 4>
+
+@out double()                   # out: 2
+@out Point().x                  # out: 3
+@out Point().y                  # out: 4

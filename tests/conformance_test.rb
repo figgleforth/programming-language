@@ -40,7 +40,8 @@ class Conformance_Test < Base_Test
 			end
 			stream = Streams[stdout, stderr, error]
 
-			stdout_str, stderr_str, status = Open3.capture3 PROGRAM, 'interpf', filepath # see: https://docs.ruby-lang.org/en/3.4/Open3.html
+			# NO_COLOR: an IDE can set FORCE_COLOR, and its escape codes would split the text that the checks below read.
+			stdout_str, stderr_str, status = Open3.capture3({ 'NO_COLOR' => '1' }, PROGRAM, 'interpf', filepath) # see: https://docs.ruby-lang.org/en/3.4/Open3.html
 
 			#######
 			# todo; better error messages
@@ -54,8 +55,8 @@ class Conformance_Test < Base_Test
 				assert_equal stream.err, printed, "#{name}: wrong stderr before the error"
 
 				if stream.error.match?(/\A[A-Z]\w*\z/) && Code.const_defined?(stream.error) && Code.const_get(stream.error) <= Code::Error
-					# The CLI prints a Code::Error's formatted message to stderr, and the error's class name is its last word (`└─  Type_Mismatch`).
-					assert_equal stream.error, error_str.strip.split(/\s+/).last, "#{name}: wrong error\n\n#{stderr_str}"
+					# The CLI prints a Code::Error's formatted message to stderr, and the error's class name follows the last `└─` (`└─  Type_Mismatch`). Source lines after the error line can follow it.
+					assert_equal stream.error, error_str.scan(/└─\s+(\w+)/).flatten.last, "#{name}: wrong error\n\n#{stderr_str}"
 				else
 					assert_includes error_str, stream.error, "#{name}: wrong error message"
 				end

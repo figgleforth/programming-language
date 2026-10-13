@@ -1,0 +1,3 @@
+# An alias resolves to its type, so a literal of another type is a mismatch
+Int32 := Integer
+n: Int32 = 'four'               # error: Type_Mismatch

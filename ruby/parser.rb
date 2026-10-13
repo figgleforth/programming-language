@@ -650,10 +650,12 @@ module Code
 						param.type     ||= copy_location Code::Identifier_Expr.new('Arguments'), dots
 					end
 
+					annotated = curr? ':'
 					if curr?(':', TYPE_IDENTIFIER)
 						eat ':'
 						param.type     = begin_expression
 						# ^ picks up a trailing `\<...>`/`\Name` itself (readable as param.type.tag), see #parse_identifier_expr
+						param.type     = param.type.left if param.type.is_a? Code::Nil_Init_Expr # `offset: Int, value` -- a type followed by a comma parses as a nil-init
 						param.variadic = true if %w(Arguments Args).include? param.type&.value
 					elsif curr?(':', '<')
 						eat ':'
@@ -667,10 +669,11 @@ module Code
 
 					# note; These are intentionally separate ifs
 					if curr? ':='
+						raise Code::Cannot_Annotate_Inferred_Declaration.new(curr_lexeme) if annotated # `n: Int := 0` -- a typed default uses `=`
 						eat ':='
 						param.default = parse_expression
 					elsif param.type && curr?('=')
-						# `:=` is only required when there's no `: Type` to declare it instead.
+						# `:=` is only for an untyped default. With a `: Type`, the default uses `=`.
 						eat '='
 						param.default = parse_expression
 					end
@@ -771,6 +774,7 @@ module Code
 
 					# A named member can carry a default, typed (`dict: Dictionary = {}`) or bare (`id := 4815`) -- both bind looser than `precedence_for('<')`, so #parse_expression left them for us here.
 					if curr? ':='
+						raise Code::Cannot_Annotate_Inferred_Declaration.new(curr_lexeme) if element.is_a?(Code::Identifier_Expr) && element.type # `<n: Int := 0>` -- a typed default uses `=`
 						eat ':='
 						element.member_default = parse_expression(precedence_for('<'))
 					elsif element.is_a?(Code::Identifier_Expr) && element.type && curr?('=')
@@ -1351,6 +1355,8 @@ module Code
 		def try_parse_struct
 			saved_i = @i
 			parse_struct
+		rescue Code::Cannot_Annotate_Inferred_Declaration
+			raise # a real mistake inside a real struct, not a sign that this `<` is a comparison
 		rescue StandardError
 			@i = saved_i
 			nil
@@ -1368,6 +1374,8 @@ module Code
 				closing = parse_struct_members it
 				set_expr_location it, start, closing
 			end
+		rescue Code::Cannot_Annotate_Inferred_Declaration
+			raise # @pasted from #try_parse_struct
 		rescue StandardError
 			@i = saved_i
 			nil
@@ -1567,6 +1575,7 @@ module Code
 						expr          = Code::Infix_Expr.new
 						expr.left     = left
 						expr.operator = eat(curr_lexeme.value)
+						raise Code::Cannot_Annotate_Inferred_Declaration.new(left) if expr.operator.value == ':=' && left.is_a?(Code::Identifier_Expr) && left.type
 						expr.right    = if expr.operator.value == ':=' && curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
 							# `x := |Compo` -- a composition chain used as a value, not #parse_expression's usual single bare Composition_Expr.
 							parse_bare_composition_chain

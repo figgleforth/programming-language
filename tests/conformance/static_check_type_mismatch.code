@@ -1,0 +1,6 @@
+# B does not compose A, so the static checker finds the mismatch before the program runs
+A {}
+B {}
+@out 'never runs'
+b := B()
+x: A = b                        # error: Type_Mismatch

@@ -1,0 +1,34 @@
+# `(;)` accepts any function, whatever its params and return type
+one_param ( a;
+	a
+)
+
+two_params ( b, c -> Int;
+	b + c
+)
+
+no_params (;
+	'none'
+)
+
+x: (;) = one_param
+@out x(5)                       # out: 5
+x = two_params
+@out x(1, 2)                    # out: 3
+
+# Declared first, assigned later
+y: (;)
+y = no_params
+@out y()                        # out: none
+
+# A `(;)` param is checked on each call
+call_it ( cb: (;);
+	cb(9)
+)
+
+add_one ( n;
+	n + 1
+)
+
+@out call_it(add_one)           # out: 10
+call_it(5)                      # error: Type_Contract_Violation

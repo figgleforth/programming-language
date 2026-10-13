@@ -1,0 +1,39 @@
+# An untyped param or return matches any type in that slot
+Formatter := (Number -> String;)
+
+untyped ( n;
+	'a'
+)
+
+typed_param ( n: Number;
+	'b'
+)
+
+typed_return ( n -> String;
+	'c'
+)
+
+f: Formatter = untyped
+@out f(1)                       # out: a
+f = typed_param
+@out f(1)                       # out: b
+f = typed_return
+@out f(1)                       # out: c
+
+# A signature param uses the same rule, on each call
+apply ( fn: (Number -> Number;), n: Number;
+	fn(n)
+)
+
+double ( x;
+	x * 2
+)
+
+@out apply(double, 4)           # out: 8
+
+# The param count must still match
+two_params ( a, b;
+	a
+)
+
+apply(two_params, 4)            # error: Type_Contract_Violation

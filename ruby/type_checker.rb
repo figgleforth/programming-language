@@ -14,6 +14,9 @@ module Code
 			# name to the real qualified type name it stands for, so `Ident()` resolves methods
 			# through the same @type_info entry the real type registered under. See #check_inferred_declaration.
 			@type_aliases = {}
+
+			# Each type declared in this file -> the type names it composes with `|`, or :unknown when it also uses `&`/`~`/`^` (or composes a value). See #types_compatible?.
+			@composed_types_by_name = {}
 		end
 
 		def output
@@ -29,12 +32,24 @@ module Code
 			'Int' => 'Integer', 'Flo' => 'Float', 'Dec' => 'Decimal', 'Num' => 'Number', 'Str' => 'String',
 		}.freeze
 
-		def types_compatible? declared, inferred
+		BUILTIN_TYPES = (NUMERIC_FAMILY + %w[String Symbol Bool Nil]).freeze
+
+		def types_compatible? declared, inferred, seen = []
+			declared = @type_aliases.fetch declared, declared
+			inferred = @type_aliases.fetch inferred, inferred
 			declared = TYPE_ALIASES.fetch declared, declared
 			inferred = TYPE_ALIASES.fetch inferred, inferred
 			return true if declared == 'Any' || declared == inferred
-			return false unless NUMERIC_FAMILY.include?(declared) && NUMERIC_FAMILY.include?(inferred)
-			declared == 'Number' || inferred == 'Number'
+			return declared == 'Number' || inferred == 'Number' if NUMERIC_FAMILY.include?(declared) && NUMERIC_FAMILY.include?(inferred)
+
+			# A user type can only be ruled out when this file declares it, composed with `|` alone. A type from a loaded file, or one that uses `&`/`~`/`^`, is unknown, so it passes (skip rather than guess).
+			known = ->(name) { BUILTIN_TYPES.include?(name) || @composed_types_by_name.key?(name) }
+			return true unless known[declared] && known[inferred]
+			return false if BUILTIN_TYPES.include? inferred
+
+			operands = @composed_types_by_name[inferred]
+			return true if operands == :unknown || seen.include?(inferred)
+			operands.any? { |operand| types_compatible? declared, operand, seen + [inferred] } # `Deeper | Combined {}` is-a whatever Combined is
 		end
 
 		# Maps an expression to its Code type name. Returns nil if unknown.
@@ -152,8 +167,13 @@ module Code
 		def check_inferred_declaration expr
 			return unless expr.left.is_a? Code::Identifier_Expr
 
-			if (aliased = qualified_type_name(expr.right))
+			if !(expr.right.is_a?(Code::Type_Expr) && expr.right.anonymous_composition) && (aliased = qualified_type_name(expr.right))
 				@type_aliases[expr.left.value] = aliased
+				return
+			end
+
+			if expr.right.is_a?(Code::Identifier_Expr) && Helpers.type_identifier?(expr.left.value) && Helpers.type_identifier?(expr.right.value)
+				@type_aliases[expr.left.value] = expr.right.value
 				return
 			end
 
@@ -246,6 +266,14 @@ module Code
 				body_errors
 			when Code::Type_Expr
 				if expr.expressions
+					if (name = qualified_type_name expr)
+						operands = expr.expressions.grep(Code::Composition_Expr).map do |composition|
+							operand = composition.identifier
+							next nil unless composition.operator&.value == '|'
+							operand.is_a?(Code::Type_Expr) ? operand.name : (operand.value if operand.is_a?(Code::Identifier_Expr))
+						end
+						@composed_types_by_name[name] = operands.include?(nil) ? :unknown : operands
+					end
 					@type_stack.push qualified_type_name(expr)
 					result = with_new_scope { check expr.expressions }
 					@type_stack.pop

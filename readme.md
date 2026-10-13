@@ -1593,18 +1593,32 @@ a ~> 1          # 42 — Wrapped's own ~> wins
 
 1. `:=` infers a type from its right-hand side and locks the identifier to it
 2. Subsequent `=` assignments are checked against that locked type; `:=` again re-infers and re-locks
-3. A mismatch raises `Code::Type_Contract_Violation`, not the static type checker's `Type_Mismatch`
+3. A mismatch raises `Code::Type_Contract_Violation` when it runs. The static type checker finds some mismatches first (for example, a literal after a `: Type`) and raises `Code::Type_Mismatch` before the program runs
+4. `x: Type` with no value declares `nil`, locked to that type
+5. `:=` cannot follow a `: Type`, because it takes its type from the value. A typed variable, param default, or struct member uses `=`: `x: Int = 4`, `f ( n: Int = 0; )`, `<n: Int = 0>`. `x: Int := 4` raises `Code::Cannot_Annotate_Inferred_Declaration` when the file is parsed
+6. A typed param is checked on every call, and so is its default when the call uses it
 
 ```code
 x := 4        # declares x, infers Number, locks x to that type
 x = 8         # ok — same type
-x = 'hello'   # raises Code::Type_Contract_Violation ("expected Number, got String")
+x = 'hello'   # raises Code::Type_Contract_Violation ("expected Number not String")
 
 x := 4
 x := 'hello'  # fine — re-declaring with := re-infers and re-locks the type
 x             # 'hello'
 
 y = 4         # raises Code::Cannot_Assign_Undeclared_Identifier — y was never declared
+
+z: Int        # declares z as nil, locked to Int
+z = 4         # ok
+z = 'hello'   # raises Code::Type_Contract_Violation
+z: Int := 4   # raises Code::Cannot_Annotate_Inferred_Declaration — write z: Int = 4
+
+double ( n: Int = 1;
+    n * 2
+)
+word := 'four'
+double(word)  # raises Code::Type_Contract_Violation — checked on the call
 ```
 
 A `: Type` annotation can list alternatives joined by `|`, `&`, `^`, or `~` — all four mean the same OR here (match at least one listed type), not their usual [composition](#type-composition) meaning. An annotation only lists names to check against; it never builds a new composed type.
@@ -1616,13 +1630,13 @@ x: Int ^ Nil = true  # raises Code::Type_Contract_Violation — matches neither 
 x: Int ~ Nil = true  # same violation — ~ means the same OR check too
 ```
 
-This holds everywhere a `: Type` annotation appears: a first assignment, a later reassignment, a function's own return type ([Function Signatures](#function-signatures)), and a destructuring target's own `: Type`.
+This holds everywhere a `: Type` annotation appears: a first assignment, a later reassignment, a bare `x: Type`, a param and its default, a function's own return type ([Function Signatures](#function-signatures)), and a destructuring target's own `: Type`.
 
 Declaring a combined type first does *not* give a reusable OR check — a single named type in annotation position checks real is-a membership, not "one of the types it composed":
 
 ```code
 Int_Or_Nil | Int | Nil {}
-x: Int_Or_Nil = 4     # raises Code::Type_Contract_Violation, even though 4 is an Int
+x: Int_Or_Nil = 4     # raises Code::Type_Mismatch, even though 4 is an Int (a literal, so the static checker finds it)
 ```
 
 Spell out `x: Int | Nil` at each spot you need it. Declaring a combined type first *is* the right move for the other direction — a value that must actually be, or extend, that whole combined type:
@@ -1639,6 +1653,9 @@ x: Combined = c    # ok — c really is a Combined
 2. A real function declares its return type with `-> Type` before `;`; a self-declaring signature uses the same shape under its name (`double: (Number -> Number;)`)
 3. Assigning a function to a signature-typed identifier checks its actual shape — mismatches raise `Code::Type_Contract_Violation`
 4. Any function with a declared return type is checked on every call, signature or not
+5. An untyped or `Any` param or return matches any type in that slot, on either side. The param count must still match, and any other typed slot must match exactly
+6. `(;)` matches any function, whatever its params and return type — write `x: (;)` for "any function"
+7. A signature-typed param, inline (`fn: (Number -> Number;)`) or named (`fmt: Currency_Formatter`), is checked with the same rules on every call
 
 ```code
 Currency_Formatter := (Number -> String;)    # takes a Number, returns a String
@@ -1652,18 +1669,34 @@ format_eur ( cents: Number -> String;
 )
 
 formatter: Currency_Formatter = format_usd
-formatter(1050)               # "$10.5"
+formatter(1050)                         # "$10.5"
 
-formatter = format_eur        # ok — same shape: (Number) -> String
-formatter(1050)               # "€10.5"
+formatter = format_eur                  # ok — same shape: (Number) -> String
+formatter(1050)                         # "€10.5"
 
-formatter = ( cents; cents )  # raises Code::Type_Contract_Violation — wrong shape
+formatter = ( cents; 'free' )           # ok — an untyped param or return matches any type
+formatter = ( a, b; a )                 # raises Code::Type_Contract_Violation — wrong param count
+formatter = ( cents: String; cents )    # raises Code::Type_Contract_Violation — String is not Number
+
+keep: (Any -> Bool;) = ( n: Int -> Bool; n > 2 )    # ok — Any matches Int
+```
+
+`(;)` takes any function, and a signature-typed param is checked when you call:
+
+```code
+any_function: (;) = format_usd
+any_function = ( a, b; a + b )          # ok — (;) matches any function
+any_function = 5                        # raises Code::Type_Contract_Violation — not a function
+
+apply ( fn: (Number -> Number;), n: Number; fn(n) )
+apply(( x; x * 2 ), 4)                  # 8
+apply(( x: String; x ), 4)              # raises Code::Type_Contract_Violation
 ```
 
 A declared return type is enforced on its own, with no signature involved:
 
 ```code
-lying ( a -> Number; 'not a number' )
+lying ( a -> Number; a.to_s() )
 lying(5)   # raises Code::Type_Contract_Violation — declared Number, actually returned String
 ```
 

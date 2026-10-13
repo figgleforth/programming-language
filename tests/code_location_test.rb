@@ -280,9 +280,9 @@ class Code_Location_Test < Base_Test
 	def test_param_expr
 		# Regression: a param's own span was never tracked at all -- now it runs through its
 		# default value (or type, or name), whichever was actually parsed last.
-		func = parse('f (a: Number := 5, b; a + b)')
-		assert_span '1:4..1:17', func.parameters[0]
-		assert_span '1:20..1:20', func.parameters[1]
+		func = parse('f (a: Number = 5, b; a + b)')
+		assert_span '1:4..1:16', func.parameters[0]
+		assert_span '1:19..1:19', func.parameters[1]
 	end
 
 	def test_func_signature_expr

@@ -1,0 +1,2 @@
+# `:=` takes its type from the value, so it cannot follow a `: Type`
+x: Int := 5                     # error: Cannot_Annotate_Inferred_Declaration

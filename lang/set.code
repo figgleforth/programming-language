@@ -1,13 +1,9 @@
-# Anything the Ruby backing's `to_ruby_set` accepts as a seed / operand -- a composed type that
-# carries the declarations of all three, so a value composing any of them satisfies `: Set_Like`.
-Set_Like := Set | Array | Range
-
 Set {
 	# An unordered collection of unique items, backed by a Ruby Set (src/external/ruby/set.rb).
 	# No literal syntax -- build one with `Set()` or `Set([1, 2, 3])` (an Array, another Set, or a
 	# Range all work as the seed).
 
-	Self ( items: Set_Like := [];
+	Self ( items: Set | Array | Range = [];
 		self.merge(items)
 	)
 
@@ -16,7 +12,7 @@ Set {
 	insert := add
 	delete ( item -> Set; @ruby )
 	remove := delete
-	merge ( other: Set_Like -> Set; @ruby )   # fold every item of an Array/Set/Range in
+	merge ( other: Set | Array | Range -> Set; @ruby )   # fold every item of an Array/Set/Range in
 	clear (-> Set; @ruby )
 
 	# --- queries ---
@@ -41,17 +37,17 @@ Set {
 	empty? (-> Bool; @ruby )
 	values (-> Array; @ruby )   # a fresh Array snapshot -- safe to mutate
 	to_a := values
-	subset? ( other: Set_Like -> Bool; @ruby )
-	superset? ( other: Set_Like -> Bool; @ruby )
-	disjoint? ( other: Set_Like -> Bool; @ruby )
-	intersect? ( other: Set_Like -> Bool; @ruby )
+	subset? ( other: Set | Array | Range -> Bool; @ruby )
+	superset? ( other: Set | Array | Range -> Bool; @ruby )
+	disjoint? ( other: Set | Array | Range -> Bool; @ruby )
+	intersect? ( other: Set | Array | Range -> Bool; @ruby )
 
 	# --- set algebra (return a new, independent Set) ---
-	union ( other: Set_Like -> Set;
+	union ( other: Set | Array | Range -> Set;
 		Set([values(), Set(other).values()].flatten())
 	)
 
-	intersection ( other: Set_Like -> Set;
+	intersection ( other: Set | Array | Range -> Set;
 		right  := Set(other)
 		result := Set()
 		for values()
@@ -62,7 +58,7 @@ Set {
 		result
 	)
 
-	difference ( other: Set_Like -> Set;
+	difference ( other: Set | Array | Range -> Set;
 		right  := Set(other)
 		result := Set()
 		for values()
@@ -73,7 +69,7 @@ Set {
 		result
 	)
 
-	symmetric_difference ( other: Set_Like -> Set;
+	symmetric_difference ( other: Set | Array | Range -> Set;
 		right := Set(other)
 		union(right).difference(intersection(right))
 	)

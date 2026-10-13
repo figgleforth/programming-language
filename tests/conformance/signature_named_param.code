@@ -1,0 +1,17 @@
+# A param typed with a named signature is checked on each call
+Formatter := (Number -> String;)
+
+show ( fmt: Formatter, n: Number;
+	fmt(n)
+)
+
+to_text ( n: Number -> String;
+	"n = `n`"
+)
+
+two_params ( a, b;
+	a
+)
+
+@out show(to_text, 4)           # out: n = 4
+show(two_params, 4)             # error: Type_Contract_Violation
