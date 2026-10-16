@@ -263,7 +263,7 @@ module Code
 					end
 
 					invalid = literal.chars.find { |c| !'01'.include?(c) } # todo; Find all instead of just the first
-					raise "Invalid literal digit `#{invalid}` used." if invalid
+					raise "Invalid literal digit `#{invalid}` used for binary literal." if invalid
 
 					lexeme.type  = :binary
 					lexeme.value = "#{sign}#{literal}"
@@ -280,7 +280,7 @@ module Code
 					end
 
 					invalid = literal.chars.find { |c| !HEX_DIGITS.include?(c.downcase) } # todo; Find all instead of just the first
-					raise "Invalid hexadecimal digit `#{invalid}` used." if invalid
+					raise "Invalid hexadecimal digit `#{invalid}` used for hex literal." if invalid
 
 					lexeme.type  = :hexadecimal
 					lexeme.value = "#{sign}#{literal}"
