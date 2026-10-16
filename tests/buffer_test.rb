@@ -179,19 +179,19 @@ class Buffer_Test < Base_Test
 	def test_a_read_past_the_end_raises
 		# Offset 1 is inside the buffer, but a 4-byte value there needs bytes 1 to 4.
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(4).get(:u32, 1)') }
-		assert_equal 'Out_Of_Bounds: reading a 4-byte :u32 at offset 1 goes past the end: the buffer has 4 bytes (offsets 0 to 3)', error.message
+		assert_equal 'Out_Of_Bounds: reading a 4-byte :u32 at byte offset 1 goes past the end: the buffer has 4 bytes (byte offsets 0 to 3)', error.message
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(4).get(:U8, 4)') }
-		assert_equal 'Out_Of_Bounds: reading a 1-byte :U8 at offset 4 goes past the end: the buffer has 4 bytes (offsets 0 to 3)', error.message
+		assert_equal 'Out_Of_Bounds: reading a 1-byte :U8 at byte offset 4 goes past the end: the buffer has 4 bytes (byte offsets 0 to 3)', error.message
 	end
 
 	def test_a_write_past_the_end_raises
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(4).set(:u32, 1, 0)') }
-		assert_equal 'Out_Of_Bounds: writing a 4-byte :u32 at offset 1 goes past the end: the buffer has 4 bytes (offsets 0 to 3)', error.message
+		assert_equal 'Out_Of_Bounds: writing a 4-byte :u32 at byte offset 1 goes past the end: the buffer has 4 bytes (byte offsets 0 to 3)', error.message
 	end
 
 	def test_a_negative_offset_raises
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(4).get(:U8, -1)') }
-		assert_equal 'Out_Of_Bounds: reading at offset -1 is before the start: offsets start at 0', error.message
+		assert_equal 'Out_Of_Bounds: reading at byte offset -1 is before the start: byte offsets start at 0', error.message
 	end
 
 	def test_bits_past_the_end_raise_in_bits
@@ -217,9 +217,9 @@ class Buffer_Test < Base_Test
 	# The start is checked first, so a range that is wrong at both ends reports the start, not a range that begins below 0.
 	def test_a_negative_offset_is_reported_before_a_wide_value_past_the_end
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(2).get(:u32, -1)') }
-		assert_equal 'Out_Of_Bounds: reading at offset -1 is before the start: offsets start at 0', error.message
+		assert_equal 'Out_Of_Bounds: reading at byte offset -1 is before the start: byte offsets start at 0', error.message
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(2).set(:u32, -1, 0)') }
-		assert_equal 'Out_Of_Bounds: writing at offset -1 is before the start: offsets start at 0', error.message
+		assert_equal 'Out_Of_Bounds: writing at byte offset -1 is before the start: byte offsets start at 0', error.message
 	end
 
 	def test_a_negative_bit_is_reported_before_bits_past_the_end
@@ -241,20 +241,20 @@ class Buffer_Test < Base_Test
 	def test_bounds_follow_a_buffer_made_from_a_string
 		assert_equal 105, Code.interp('Buffer.from_string("hi").get(:u8, 1)')
 		error = assert_raises(Code::Raised) { Code.interp('Buffer.from_string("hi").get(:u8, 2)') }
-		assert_equal 'Out_Of_Bounds: reading a 1-byte :u8 at offset 2 goes past the end: the buffer has 2 bytes (offsets 0 to 1)', error.message
+		assert_equal 'Out_Of_Bounds: reading a 1-byte :u8 at byte offset 2 goes past the end: the buffer has 2 bytes (byte offsets 0 to 1)', error.message
 	end
 
 	def test_bounds_follow_a_resize
 		assert_equal 0, Code.interp("b := Buffer(2)\nb.resize(4)\nb.get(:u8, 3)")
 		error = assert_raises(Code::Raised) { Code.interp("b := Buffer(4)\nb.resize(2)\nb.get(:u8, 2)") }
-		assert_equal 'Out_Of_Bounds: reading a 1-byte :u8 at offset 2 goes past the end: the buffer has 2 bytes (offsets 0 to 1)', error.message
+		assert_equal 'Out_Of_Bounds: reading a 1-byte :u8 at byte offset 2 goes past the end: the buffer has 2 bytes (byte offsets 0 to 1)', error.message
 	end
 
 	def test_an_empty_buffer_says_it_is_empty
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(0).get(:u8, 0)') }
-		assert_equal 'Out_Of_Bounds: reading a 1-byte :u8 at offset 0 goes past the end: the buffer is empty', error.message
+		assert_equal 'Out_Of_Bounds: reading a 1-byte :u8 at byte offset 0 goes past the end: the buffer is empty', error.message
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(0).set(:u8, 0, 1)') }
-		assert_equal 'Out_Of_Bounds: writing a 1-byte :u8 at offset 0 goes past the end: the buffer is empty', error.message
+		assert_equal 'Out_Of_Bounds: writing a 1-byte :u8 at byte offset 0 goes past the end: the buffer is empty', error.message
 		error = assert_raises(Code::Raised) { Code.interp('Buffer(0).get_bits(0, 1)') }
 		assert_equal 'Out_Of_Bounds: reading bits 0 to 0 goes past the end: the buffer is empty', error.message
 	end
@@ -271,7 +271,7 @@ class Buffer_Test < Base_Test
 	end
 
 	def test_an_offset_must_be_an_integer
-		# `offset: Int` checks the kind on the call.
+		# `byte_offset: Int` checks the kind on the call.
 		['Buffer(2).get(:u8, 1.5)', 'Buffer(2).set(:u8, 1.5, 0)'].each do |code|
 			error = assert_raises(Code::Type_Contract_Violation, code) { Code.interp code }
 			assert_equal ['Int', 'Float'], [error.contract, error.actual]
@@ -373,14 +373,14 @@ class Buffer_Test < Base_Test
 
 	def test_get_string_slice_past_the_end_raises
 		error = assert_raises(Code::Raised) { Code.interp("#{HELLO}b.get_string_slice(4, 5)") }
-		assert_equal 'Out_Of_Bounds: reading 5 bytes at offset 4 goes past the end: the buffer has 5 bytes (offsets 0 to 4)', error.message
+		assert_equal 'Out_Of_Bounds: reading 5 bytes at byte offset 4 goes past the end: the buffer has 5 bytes (byte offsets 0 to 4)', error.message
 		error = assert_raises(Code::Raised) { Code.interp("#{HELLO}b.get_string_slice(6)") }
-		assert_equal 'Out_Of_Bounds: reading at offset 6 goes past the end: the buffer has 5 bytes (offsets 0 to 4)', error.message
+		assert_equal 'Out_Of_Bounds: reading at byte offset 6 goes past the end: the buffer has 5 bytes (byte offsets 0 to 4)', error.message
 	end
 
 	def test_get_string_slice_before_the_start_raises
 		error = assert_raises(Code::Raised) { Code.interp("#{HELLO}b.get_string_slice(-1)") }
-		assert_equal 'Out_Of_Bounds: reading at offset -1 is before the start: offsets start at 0', error.message
+		assert_equal 'Out_Of_Bounds: reading at byte offset -1 is before the start: byte offsets start at 0', error.message
 	end
 
 	def test_get_string_slice_rejects_a_bad_length

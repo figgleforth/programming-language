@@ -1,12 +1,11 @@
 ###
 A good order
 
-1. Bits and bytes, read and write, with tests.
-2. Boundary, then Overflow: small and fast wins.
-3. Layout: row-major and column-major, then Morton, then Hilbert.
-4. Packing, then Sizing, then Encoding.
-5. Storage: PAGED, then HASHED, then TREE.
-6. Concurrency, maybe.
+1. Boundary, then Overflow: small and fast wins.
+2. Layout: row-major and column-major, then Morton, then Hilbert.
+3. Packing, then Sizing, then Encoding.
+4. Storage: PAGED, then HASHED, then TREE.
+5. Concurrency, maybe.
 ###
 
 @load 'lang/math' # for Vec2
