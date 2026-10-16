@@ -325,16 +325,17 @@ module Code
 	end
 
 	class Missing_Ruby_Proxy_Declaration < Error
-		attr_accessor :proxy_method_name
+		attr_accessor :target, :proxy_method_name
 
-		def initialize expr, method_name
-			super expr
-			@expression        = expr
+		# `expr` is the `@ruby` identifier, so the error points at that line. Set the ivars before super, because Code::Error formats its message in the constructor.
+		def initialize expr, target, method_name
+			@target            = target
 			@proxy_method_name = method_name
+			super expr
 		end
 
 		def detail_message
-			"#{expression.name} does not respond to `#{proxy_method_name.inspect}`"
+			"#{target.name} does not respond to `#{proxy_method_name}`"
 		end
 	end
 

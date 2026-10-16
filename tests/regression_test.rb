@@ -1335,4 +1335,41 @@ class Regression_Test < Base_Test
 	def test_bitwise_and_or_on_numbers_still_work_after_array_overloads
 		assert_equal [2, 7], Code.interp('[6 & 3, 6 | 1]').values
 	end
+
+	# The message said "does not respond to `nil`", because the ivar was set after Code::Error had already formatted it. It also had no location, because the error got the instance, not the `@ruby` line.
+	def test_missing_ruby_proxy_names_the_method_and_points_at_the_ruby_line
+		error = assert_raises Code::Missing_Ruby_Proxy_Declaration do
+			Code.interp <<~CODE
+			    Thing {
+			    	go (;
+			    		@ruby
+			    	)
+			    }
+			    Thing().go()
+			CODE
+		end
+		assert_equal 'proxy_go', error.proxy_method_name
+		assert_equal 'Thing does not respond to `proxy_go`', error.detail_message
+		assert_equal 'ruby', error.expression.value
+		assert_equal [3, 3], [error.expression.line_start, error.expression.column_start]
+
+		plain = error.message.gsub(/\e\[[\d;]*m/, '')
+		assert_includes plain, '@ruby'
+		refute_includes plain, 'unknown location'
+	end
+
+	def test_missing_static_ruby_proxy_names_the_type
+		error = assert_raises Code::Missing_Ruby_Proxy_Declaration do
+			Code.interp <<~CODE
+			    Thing {
+			    	Self.make (;
+			    		@ruby
+			    	)
+			    }
+			    Thing.make()
+			CODE
+		end
+		assert_equal 'Thing does not respond to `proxy_make`', error.detail_message
+		assert_equal 3, error.expression.line_start
+	end
 end

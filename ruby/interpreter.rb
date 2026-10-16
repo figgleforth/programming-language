@@ -4404,7 +4404,7 @@ module Code
 			end
 
 			if proxy_method && !target.respond_to?(proxy_method)
-				raise Code::Missing_Ruby_Proxy_Declaration.new target, expr
+				raise Code::Missing_Ruby_Proxy_Declaration.new expr, target, proxy_method
 			end
 
 			result = target.send proxy_method, *func_scope.arguments
