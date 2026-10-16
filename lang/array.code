@@ -59,6 +59,7 @@ Array {
 	concat ( other; @ruby )
 	flatten (-> Array; @ruby )
 	sort (; @ruby )
+	_sort_by_keys ( keys: Array -> Array; @ruby )
 	uniq (-> Array; @ruby )
 	empty? (; @ruby )
 	get ( index; @ruby )
@@ -118,6 +119,11 @@ Array {
 			result.push(func(it, at))
 		end
 		result
+	)
+
+	# Sorts by the key func gives for each item, lowest first. Items with equal keys keep their order. For highest first, negate a number key: `sort_by(it; -it.q)`.
+	sort_by ( func -> Array;
+		_sort_by_keys(map(func))
 	)
 
 	select ( func;

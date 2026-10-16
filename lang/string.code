@@ -38,6 +38,7 @@ String {
 	downcase (; @ruby )
 	empty? (; @ruby )
 	end_with? ( suffix; @ruby )
+	ends_with? ( suffix; end_with?(suffix))
 	gsub ( pattern, replacement; @ruby )
 	include? ( substr; @ruby )
 	replace ( new; @ruby )

@@ -18,6 +18,7 @@ class ProxiesTest < Base_Test
 
 		assert_equal ['he', '', 'o'], Code.interp("'hello'.split('l')").values
 		assert_equal "ORL", Code.interp("'WORLD'.slice(1, 3)")
+		assert_equal "WORLD", Code.interp("s := 'WORLD'\ns.slice(1, 3)\ns") # slice leaves the string as it was
 
 		assert_equal "Locke!", Code.interp("'   Locke!    '.trim()")
 		assert_equal "Locke!    ", Code.interp("'   Locke!    '.trim_left()")
@@ -106,6 +107,23 @@ class ProxiesTest < Base_Test
 
 		assert Code.interp("[1, 2, 3].all?(( x; x > 0 ))")
 		refute Code.interp("[1, 2, 3].all?(( x; x > 2 ))")
+	end
+
+	def test_array_sort_by
+		assert_equal [1, 2, 3], Code.interp("[3, 1, 2].sort_by(( x; x ))").values
+		assert_equal [3, 2, 1], Code.interp("[3, 1, 2].sort_by(( x; -x ))").values
+		assert_equal ['a', 'bb', 'ccc'], Code.interp("['bb', 'a', 'ccc'].sort_by(( s; s.length ))").values
+		assert_equal [], Code.interp("[].sort_by(( x; x ))").values
+		assert_equal [2, 1], Code.interp("xs := [2, 1]\nxs.sort_by(( x; x ))\nxs").values # leaves the array as it was
+	end
+
+	# Equal keys keep their order, so items with the same weight stay in the order the client sent them.
+	def test_array_sort_by_is_stable
+		out = Code.interp <<~CODE
+		    items := [<n := 'x', q := 0.8>, <n := 'y', q := 1.0>, <n := 'z', q := 0.8>, <n := 'w', q := 1.0>]
+		    items.sort_by(( item; -item.q )).map(( item; item.n ))
+		CODE
+		assert_equal ['y', 'w', 'x', 'z'], out.values
 	end
 
 	def test_hof_callbacks_keep_their_closure

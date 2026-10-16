@@ -119,6 +119,13 @@ module Code
 			Code::Array.new values.sort
 		end
 
+		# The index breaks a tie, because Ruby's own sort_by is not stable.
+		# @param keys Code::Array, one key per value, from `sort_by`'s map in lang/array.code
+		def proxy__sort_by_keys keys
+			key_values = keys.values.map { it.respond_to?(:value) ? it.value : it }
+			Code::Array.new values.each_with_index.sort_by { |_, i| [key_values[i], i] }.map(&:first)
+		end
+
 		def proxy_uniq
 			Code::Array.new values.uniq
 		end

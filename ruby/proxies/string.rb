@@ -18,7 +18,7 @@ module Code
 		proxy :ord
 		proxy :upcase
 		proxy :downcase
-		proxy :slice!, as: :slice
+		proxy :slice
 		proxy :strip, as: :trim
 		proxy :lstrip, as: :trim_left
 		proxy :rstrip, as: :trim_right
