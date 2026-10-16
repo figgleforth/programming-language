@@ -105,9 +105,10 @@ module Code
 			value.truncate
 		end
 
-		def proxy_rand max
-			max_val = max.respond_to?(:value) ? max.value : max.to_i
-			::Kernel.rand(max_val + 1)
+		# An Integer max gives an Integer from 0 to max, max included. A Float max gives a Float from 0.0 up to max, max not included.
+		def proxy_rand max = 1.0
+			max = max.value if max.respond_to? :value
+			max.is_a?(::Integer) ? ::Kernel.rand(max + 1) : ::Random.rand(max.to_f)
 		end
 	end
 

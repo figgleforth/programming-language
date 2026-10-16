@@ -3230,6 +3230,7 @@ module Code
 			end
 
 			consumed_variadic = false
+			last_given        = -1
 			func.parameters.each_with_index do |param, i|
 				name_key = param.name.value
 
@@ -3242,11 +3243,13 @@ module Code
 					end
 					stack.last.declare name_key, wrap_arguments_array(tail)
 					consumed_variadic = true
+					last_given        = i if tail.any?
 					next
 				end
 
 				has_positional = !consumed_variadic && i < arg_values.length
 				has_named      = named_args.key? name_key
+				last_given     = i if has_positional || has_named
 
 				if has_positional && has_named
 					raise Code::Argument_Given_By_Name_And_Position.new(expr, name_key)
@@ -3298,6 +3301,14 @@ module Code
 				declared = func.parameters.map { |p| p.name.value }
 				named_args.each { |k, v| stack.last.declare(k, v) unless declared.include?(k) }
 			end
+
+			# A @ruby proxy gets each param up to the last one the caller gave, so a named arg reaches it in its own position, and a skipped param before it gets its .code default. Extra positionals (`Array(1, 2, 3)`) still follow.
+			given                = func.parameters.first(last_given + 1).flat_map do |param|
+				value = stack.last[param.name.value]
+				param.variadic ? value.values : [value]
+			end
+			extra                = has_variadic ? [] : (arg_values[func.parameters.length..] || [])
+			call_scope.arguments = given + extra
 
 			body = call_scope.expressions
 			if call_scope.name == 'assert'

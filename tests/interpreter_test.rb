@@ -5444,6 +5444,31 @@ class Interpreter_Test < Base_Test
 		assert_equal 0, out
 	end
 
+	def test_number_rand_without_max_gives_a_float_below_one
+		100.times do
+			out = Code.interp 'Number.rand()'
+			assert_kind_of ::Float, out
+			assert_operator out, :<, 1.0
+		end
+	end
+
+	def test_number_rand_with_float_max_gives_a_float
+		out = Code.interp 'Number.rand(2.5)'
+		assert_kind_of ::Float, out
+		assert_operator out, :<, 2.5
+	end
+
+	def test_ruby_proxy_gets_named_arguments
+		assert_equal [4, 5], Code.interp('[4, 5, 6].first(count := 2)').values
+		assert_equal 3, Code.interp('5.clamp(max := 3, min := 1)')
+	end
+
+	def test_ruby_proxy_without_arguments_still_uses_ruby_defaults
+		assert_equal 4, Code.interp('[4, 5].first()')
+		assert_equal [1, 2, 3], Code.interp('Array(1, 2, 3)').values
+		assert_equal 'abb', Code.interp('"aaabb".squeeze("a")').value
+	end
+
 	def test_string_positional_dot_index
 		assert_equal 'a', Code.interp('"abc".0')
 		assert_equal 'c', Code.interp('"abc".2')
