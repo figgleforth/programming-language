@@ -3237,6 +3237,7 @@ module Code
 				if param.variadic
 					tail = arg_values[i..] || []
 					if named_args.key? name_key # `rest := <value>` at the call site
+						raise Code::Argument_Given_By_Name_And_Position.new(expr, name_key) if tail.any?
 						nv = named_args.delete name_key
 						raise Code::Type_Contract_Violation.new(expr, 'Arguments', inferred_type_name(nv)) unless nv.is_a? Code::Array
 						tail = nv.values # `rest := [99]` -> tail [99]  (`rest := 99` errored above)

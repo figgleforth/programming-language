@@ -1110,6 +1110,16 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
+	# Positionals in the tail plus `rest := [...]` used to drop the positionals with no error.
+	def test_naming_the_variadic_parameter_after_tail_positionals_raises
+		assert_raises Code::Argument_Given_By_Name_And_Position do
+			Code.interp <<~CODE
+			    f ( a, rest...; rest )
+			    f(1, 2, rest := [9])
+			CODE
+		end
+	end
+
 	def test_variadic_keeps_the_positional_before_named_ordering_rules
 		assert_raises Code::Positional_Argument_After_Named do
 			Code.interp <<~CODE
