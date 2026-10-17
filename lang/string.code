@@ -3,6 +3,7 @@
 String {
 	value,
 	length,     # Total number of characters
+	bytesize,   # Total number of bytes in UTF-8. Use this for Content-Length, not length: "héllo" has 5 characters and 6 bytes
 	ord,        # Integer ordinal of the first character
 	quotation_style: Symbol
 	bytes: Array
@@ -74,4 +75,4 @@ String {
 	)
 }
 
-Str := String
+Str :: String

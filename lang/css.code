@@ -14,8 +14,8 @@ Custom_Property_Rule <name: String, syntax: String, inherits: Bool = false, init
 Layer_Order <names: Array\String>
 Stylesheet <rules: Array\Css>
 
-# Composed Sum Type Union for All Rules
-Css | Style_Rule | At_Rule | Scope_Rule | Custom_Property_Rule | Layer_Order <>
+# Any one rule: an alias of a type expression, so a Style_Rule satisfies `css: Css`
+Css :: Style_Rule | At_Rule | Scope_Rule | Custom_Property_Rule | Layer_Order
 
 
 Css_Formatter_Visitor {

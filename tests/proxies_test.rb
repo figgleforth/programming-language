@@ -19,6 +19,9 @@ class ProxiesTest < Base_Test
 		assert_equal ['he', '', 'o'], Code.interp("'hello'.split('l')").values
 		assert_equal "ORL", Code.interp("'WORLD'.slice(1, 3)")
 		assert_equal "WORLD", Code.interp("s := 'WORLD'\ns.slice(1, 3)\ns") # slice leaves the string as it was
+		assert_equal 5, Code.interp("'héllo'.length")
+		assert_equal 6, Code.interp("'héllo'.bytesize") # é is 2 bytes in UTF-8
+		assert_equal [104, 195, 169, 108, 108, 111], Code.interp("'héllo'.bytes")
 
 		assert_equal "Locke!", Code.interp("'   Locke!    '.trim()")
 		assert_equal "Locke!    ", Code.interp("'   Locke!    '.trim_left()")

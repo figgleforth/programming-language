@@ -252,14 +252,14 @@ Lookup [
 ### Sized number families
 Give one a bit width with a tag: Int\8, Unt\16, Flo\32.
 Int and Unt also take a fraction width, for fixed point: Int\<bits := 16, fraction := 8>. The member names are free -- only the two numbers count.
-Int := Integer, Flo := Float, and Dec := Decimal are already declared in lang/number.code.
+Int :: Integer, Flo :: Float, and Dec :: Decimal are already declared in lang/number.code.
 ###
 
 ### Whole and fixed-point numbers ###
 
 # A whole number that cannot be negative, so Unt\8 holds 0 to 255 instead of -128 to 127.
 Unteger | Number {}
-Unt := Unteger
+Unt :: Unteger
 
 # With a fraction width, Int and Unt become fixed point: the last bits sit after the point, so Int\<16, 8> steps in exact 1/256ths.
 # The memory holds a plain integer, and the value is that integer / 2^fraction, so 3.25 is stored as 832.
@@ -268,11 +268,11 @@ Unt := Unteger
 
 # A float replacement that is most precise near 1 and less precise far from 1.
 Posit | Number {}
-Pos := Posit
+Pos :: Posit
 
 # Stores the logarithm of the number, so multiplying two of them is only an addition.
 Logarithmic | Number {}
-Log := Logarithmic
+Log :: Logarithmic
 
 ### Numbers that mean an amount from 0 to 1 ###
 
@@ -283,17 +283,17 @@ Snorm | Number {}
 
 # A stream of bits where the value is the share of 1s, so 0110 means 0.5; the width is the stream length.
 Stochastic | Number {}
-Sto := Stochastic
+Sto :: Stochastic
 
 ### Numbers with special math ###
 
 # Adding is XOR and every result stays inside the width; used in crypto and in QR code error correction.
 Galois | Number {}
-Gal := Galois
+Gal :: Galois
 
 # Stores the remainders after division by a few small numbers, so each remainder can be added or multiplied on its own.
 Residue | Number {}
-Res := Residue
+Res :: Residue
 
 ### Base-3 numbers, stored in bits ###
 

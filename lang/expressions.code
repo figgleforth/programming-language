@@ -189,7 +189,7 @@ Array\Expression {
 	shift (-> Expression; @ruby )
 }
 
-Expressions := Array\Expression
+Expressions :: Array\Expression
 
 # Enums
 Http_Method [GET PUT PATCH POST DELETE HEAD OPTIONS CONNECT TRACE]

@@ -958,6 +958,42 @@ module Code
 			set_expr_location it, start, it.expressions.last
 		end
 
+		# `Strumber :: String | Number`, `Int :: Integer`, `Expressions :: Array\Expression`, `Func :: (;)`
+		def parse_type_alias name_expr
+			it          = Code::Type_Alias_Expr.new
+			it.left     = name_expr
+			it.operator = eat '::'
+
+			it.right = if curr? '('
+				func = parse_func
+				raise Code::Invalid_Type_Alias.new(func) if func.is_a?(Code::Func_Expr) && func.expressions.any?
+
+				# A bare `(;)` is an empty function everywhere else, but after `::` it can only be a signature.
+				if func.is_a? Code::Func_Expr
+					signature        = Code::Func_Signature_Expr.new
+					signature.params = func.parameters
+					func             = copy_location signature, func
+				end
+				func
+			elsif curr? TYPE_IDENTIFIER
+				parse_type_position
+			else
+				raise Code::Invalid_Type_Alias.new(curr_lexeme)
+			end
+
+			set_expr_location it, name_expr, it.right
+		end
+
+		# One type in a type position (`Int`, `Array\Bool`), or a composition chain (`Int | Nil`, `Array\Bool | Number`). A tag on the first type hides the chain from a one-token look ahead, so this reads the first type, looks, and reads again as a chain when one follows.
+		def parse_type_position
+			saved_i = @i
+			single  = parse_identifier_expr
+			return single unless curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<')
+
+			@i = saved_i
+			parse_type_decl
+		end
+
 		def parse_statement_expr
 			start = curr_lexeme
 			Code::Statement_Expr.new.tap do |it|
@@ -1016,7 +1052,7 @@ module Code
 
 			if curr?(':', TYPE_IDENTIFIER)
 				eat ':'
-				expr.type = curr?(TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS) ? parse_type_decl : parse_identifier_expr
+				expr.type = parse_type_position
 				expr.tag  = expr.type.tag
 			elsif curr?(':', '<')
 				eat ':'
@@ -1528,6 +1564,11 @@ module Code
 			infix     = INFIX.include?(curr_lexeme.value) || @custom_infix.include?(curr_lexeme.value)
 			postfix   = POSTFIX.include?(curr_lexeme.value) || @custom_postfix.include?(curr_lexeme.value)
 			circumfix = CIRCUMFIX.include?(curr_lexeme.value)
+
+			# `::` is not in INFIX, because its right side is a type expression, not a value.
+			if curr?('::') && expr.is_a?(Code::Identifier_Expr) && TYPE_IDENTIFIER.include?(expr.lexeme&.type) && precedence_for('::') > precedence
+				return complete_expression parse_type_alias(expr), precedence
+			end
 
 			if prefix
 				expr = Code::Prefix_Expr.new.tap do |it|

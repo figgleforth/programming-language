@@ -188,6 +188,8 @@ module Code
 				# operator application on a value (`-x`, `!x`) -- never declares anything itself
 			when Nil_Init_Expr
 				Declaration[expr.left.value, expr.right, expr]
+			when Type_Alias_Expr
+				Declaration[expr.left.value, expr.right, expr]
 			when Infix_Expr
 				declare_assignment expr if %w(:= =).include? expr.operator.value
 			when Percent_Literal_Expr

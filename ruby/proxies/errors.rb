@@ -105,6 +105,19 @@ module Code
 	class Cannot_Reassign_Constant < Error
 	end
 
+	class Invalid_Type_Alias < Error
+		def detail_message
+			"`::` names a type expression, so its right side must be a type: `Int :: Integer`, `Strumber :: String | Number`, or a signature such as `Func :: (;)`. A function with a body is a value; give it a name with `:=`."
+		end
+	end
+
+	# `Strumber()` or `x =/= Strumber`, where `Strumber :: String | Number` -- an alias of a type expression is a contract, not a type, so it has no instance and no exact type set.
+	class Type_Alias_Is_Not_A_Type < Error
+		def detail_message
+			"An alias of a type expression only checks values. Use it as an annotation (`x: Strumber`) or with `=>=` (`5 =>= Strumber`). To construct, or to compare with `=/=`, use one of the types in it."
+		end
+	end
+
 	# `x.tag = new_tag` where new_tag doesn't keep x's declared tag signature -- a replacement must compose at least everything the current tag does, at every link of the chain (`=>=`).
 	class Tag_Signature_Violation < Error
 		attr_accessor :declared, :given

@@ -102,7 +102,7 @@ A | Dom {
 
 	render (; title )
 }
-Href := A
+Href :: A
 
 Strong | Dom {
 	html_element := 'strong'

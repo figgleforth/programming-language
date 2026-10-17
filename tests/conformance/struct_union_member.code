@@ -1,0 +1,18 @@
+# A struct member annotated with a union means either type, the same as a variable or param annotation
+Value <v: String | Number>
+
+@out Value('x')                  # out: <v: String | Number = 'x'>
+@out Value(5)                    # out: <v: String | Number = 5>
+@out Value.@type_names           # out: ['String | Number']
+
+value := Value('x')
+value.v = 5
+@out value.v                     # out: 5
+
+check ( r: <v: String | Number>;
+	r.v
+)
+@out check(<v := 'y'>)           # out: y
+@out check(<v := 7>)             # out: 7
+
+value.v = :neither               # error: Type_Contract_Violation

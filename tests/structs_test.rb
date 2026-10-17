@@ -1851,4 +1851,62 @@ class Structs_Test < Base_Test
 		CODE
 		assert_nil out
 	end
+
+	# --- Construction checks member types, with the same rule as a later `record.member = value` ---
+
+	def test_construction_checks_a_typed_member
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp "A <v: String>\nA(5)"
+		end
+		# Each type name separately: with color on (an IDE can set FORCE_COLOR), the message makes each one bold, so the whole phrase never appears as one piece.
+		assert_match 'String', err.message
+		assert_match 'Number', err.message
+
+		assert_equal 'x', Code.interp("A <v: String>\nA('x').v")
+	end
+
+	def test_construction_checks_a_named_argument
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp "A <v: String, n: Number>\nA(n := 1, v := 2)"
+		end
+		assert_equal [1, 'x'], Code.interp("A <v: String, n: Number>\na := A(n := 1, v := 'x')\n(a.n, a.v)").values
+	end
+
+	def test_construction_lets_a_missing_or_nil_member_pass
+		assert_nil Code.interp("A <v: String>\nA().v")
+		assert_nil Code.interp("A <v: String>\nA(nil).v")
+	end
+
+	def test_construction_checks_a_default_it_uses
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp "A <v: String = 5>\nA()"
+		end
+		assert_equal 'x', Code.interp("A <v: String = 5>\nA('x').v") # a given value replaces the default, so the default is not checked
+	end
+
+	def test_construction_checks_a_composed_struct_member
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp "P <x: Int>\nQ | P <y: String>\nQ(1, 2)"
+		end
+		assert_equal [1, 'b'], Code.interp("P <x: Int>\nQ | P <y: String>\nq := Q(1, 'b')\n(q.x, q.y)").values
+	end
+
+	def test_construction_checks_a_union_member
+		assert_equal 5, Code.interp("A <v: String | Number>\nA(5).v")
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp "A <v: String | Number>\nA(:five)"
+		end
+	end
+
+	def test_construction_lets_an_any_member_take_any_value
+		assert_equal :z, Code.interp("A <v: Any>\nA(:z).v")
+	end
+
+	# `v := 0` takes its type from the default, the same as a variable's `:=`, so it is checked too.
+	def test_construction_checks_a_member_typed_by_its_default
+		assert_equal 1.5, Code.interp("A <v := 0>\nA(1.5).v")
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp "A <v := 0>\nA(:z)"
+		end
+	end
 end

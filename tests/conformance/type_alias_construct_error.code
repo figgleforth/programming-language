@@ -1,0 +1,3 @@
+# An alias of a type expression checks values; it has no instance to build
+Strumber :: String | Number
+Strumber()                       # error: Type_Alias_Is_Not_A_Type

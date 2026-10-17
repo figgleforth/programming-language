@@ -70,10 +70,10 @@ Decimal | Number {}
 
 # Short aliases -- Ruby has no equivalent, but the temporal structs (lang/date.code etc) and DB
 # schema columns lean on the brevity. `Int` is-a `Integer` is-a `Number`.
-Int := Integer
-Flo := Float
-Dec := Decimal
-Num := Number
+Int :: Integer
+Flo :: Float
+Dec :: Decimal
+Num :: Number
 
 ### Types that'll exist once Memory is implemented ###
 

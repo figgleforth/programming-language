@@ -132,7 +132,7 @@ Html_Formatter_Visitor {
 	# Shares this visitor's own indent/minify settings so a css tree nested inside a pretty-printed
 	# page comes out pretty-printed too (and minified inside a minified one).
 	css_child ( rule;
-		Element("style", {}, nil, [Css_Formatter_Visitor(indent_size := self.indent_size, minify := self.minify).format(rule)])
+		Element("style", [], nil, [Css_Formatter_Visitor(indent_size := self.indent_size, minify := self.minify).format(rule)])
 	)
 
 	indent_str ( depth;
@@ -321,11 +321,11 @@ merge_attribute ( attributes, attr;
 )
 
 html ( children := [];
-	Element("html", {}, nil, as_children(children))
+	Element("html", [], nil, as_children(children))
 )
 
 head ( children := [];
-	Element("head", {}, nil, as_children(children))
+	Element("head", [], nil, as_children(children))
 )
 
 body ( children := [], attributes := [], css := nil;
@@ -333,7 +333,7 @@ body ( children := [], attributes := [], css := nil;
 )
 
 title ( text;
-	Element("title", {}, nil, [text])
+	Element("title", [], nil, [text])
 )
 
 h1 ( text, attributes := [], css := nil;

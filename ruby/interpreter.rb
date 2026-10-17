@@ -125,7 +125,7 @@ module Code
 		end
 
 		# Only these expression kinds are eligible to be forward-referenced -- kept here rather than constants.rb since it references Expression subclasses (constants.rb loads before expressions.rb does)
-		FORWARD_DECLARABLE_EXPRESSIONS = [Func_Expr, Type_Expr, Route_Expr, Struct_Expr, Enum_Expr, Func_Signature_Expr, Operator_Expr, Operator_Overload_Expr].freeze
+		FORWARD_DECLARABLE_EXPRESSIONS = [Func_Expr, Type_Expr, Route_Expr, Struct_Expr, Enum_Expr, Func_Signature_Expr, Operator_Expr, Operator_Overload_Expr, Type_Alias_Expr].freeze
 
 		def hoistable_declaration_expr? expr
 			return true if FORWARD_DECLARABLE_EXPRESSIONS.any? { |type| expr.is_a? type }
@@ -462,7 +462,7 @@ module Code
 			when 'root_path' then Code::ROOT_PATH
 			when 'static_declarations' then set_of.call(scope.respond_to?(:static_declarations) && scope.static_declarations ? scope.static_declarations.to_a : [])
 			when 'names' then (wrap_prog_array(scope.names) if scope.is_a?(Code::Struct))
-			when 'type_names' then (wrap_prog_array(scope.type_names) if scope.is_a?(Code::Struct))
+			when 'type_names' then (wrap_prog_array(scope.type_names.map { it.is_a?(Code::Type_Alias) ? it.display_name : it }) if scope.is_a?(Code::Struct))
 			when 'values' then context_values_for(scope)
 			when 'members' then (scope.members if scope.is_a?(Code::Struct))
 			when 'keys' then (wrap_prog_array(scope.enum_keys) if scope.is_a?(Code::Enum))
@@ -483,6 +483,7 @@ module Code
 		def context_types_for scope
 			return wrap_prog_array(scope.type_objects) if scope.is_a?(Code::Struct)
 			return wrap_prog_array(scope.enum_types) if scope.is_a?(Code::Enum)
+			return scope.expression_to_s if scope.is_a?(Code::Type_Alias) # the operators matter, so a list of names would lose them
 			wrap_prog_array(scope.respond_to?(:types) && scope.types ? scope.types.to_a : [])
 		end
 
@@ -616,58 +617,80 @@ module Code
 		# Does `value` satisfy a `: Type` contract named `expected`? Compositional (`=>=`-style): an
 		# `Integer` satisfies `: Number`, a `Fence` satisfies `: String`. `Any` matches anything, and
 		# `nil` -- the universal unset value every typed slot starts as -- satisfies any contract.
-		# `expected` may also be an ::Array of alternative names (`x: Int | Nil` -- see
-		# #annotation_type_names) -- satisfying any *one* of them is enough (OR, not composition's
-		# usual is-both merge: nothing is literally both an Int and a Nil at once).
+		# `expected` may also be a Code::Type_Alias (`x: Int | Nil`, see #annotation_type_name), or the name of one (`x: Strumber`). Each operator in it keeps its set meaning: `|` either, `&` both, `~` not, `^` exactly one.
 		def type_contract_satisfied? value, expected
 			return expected.any? { |name| type_contract_satisfied? value, name } if expected.is_a? ::Array
 			return true if expected.nil? || expected == 'Any'
 			return true if value.nil? || value.is_a?(Code::Nil)
+			return expected.satisfied? { type_contract_satisfied? value, it } if expected.is_a? Code::Type_Alias
 			return true if type_name_to_string(value) == expected
 
 			value_types = composed_types_for value
 			return true if value_types.include? expected
 
-			# `expected` may be an alias (`Int := Integer`, `Dec := Decimal`) -- its own name isn't in
+			named_alias = find_contract_type expected
+			return named_alias.satisfied? { type_contract_satisfied? value, it } if named_alias.is_a? Code::Type_Alias
+
+			# `expected` may be an alias of one type (`Int :: Integer`, `Dec :: Decimal`) -- its own name isn't in
 			# the real type's composed set, so resolve it and accept when the value composes everything
 			# that type does (same `=>=` check the `===` operators use).
 			expected_types = composed_types_by_name expected
 			expected_types.any? && expected_types.subset?(value_types)
 		end
 
-		# The alternative type name(s) named by an annotation node. A plain annotation (`x: Int`) is
-		# just `[expr.value]`; a composition chain in the annotation position (`x: Int | Nil`) parses to
-		# an anonymous_composition Type_Expr (see #parse_type_decl/#parse_func's own `-> Type` return-type
-		# parsing, which this mirrors) -- walk its own leading name plus each `|`/`&`/`~`/`^` operand's
-		# name. Union semantics only (OR) -- see #type_contract_satisfied?.
-		def annotation_type_names type_expr
-			return [] unless type_expr
-			return [type_expr.value] unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
+		# The value a type name in an annotation stands for. It forces a declaration that comes later in the file (`x: Later`, then `Later :: String | Number`), the same as #interp_identifier does.
+		def find_contract_type name
+			found = find_in_stack name
+			return found unless found.nil? && stack.any? { |s| s.equal? global }
 
-			names = [type_expr.name]
+			forced_into = resolve_forward_declaration name
+			forced_into[name] if forced_into&.has?(name)
+		end
+
+		# What an annotation node asks for: a type name (`x: Int` gives 'Int'), or a Code::Type_Alias when the annotation composes (`x: Int | Nil`).
+		def annotation_type_name type_expr
+			return nil unless type_expr
+
+			type_alias_for(type_expr) || type_expr.value
+		end
+
+		# A Code::Type_Alias for a composition chain in a type position (`String | Number`, from a `: Type` annotation or the right side of `::`), or nil for a single type.
+		def type_alias_for type_expr
+			return nil unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
+
+			operands  = [type_alias_operand(type_expr.name, type_expr.tag)]
+			operators = []
 			type_expr.expressions.each do |composition|
 				next unless composition.is_a? Code::Composition_Expr
 
 				operand = composition.identifier
-				names << (operand.is_a?(Code::Type_Expr) ? operand.name : operand.value)
+				operators << composition.operator.value
+				operands << type_alias_operand(operand.is_a?(Code::Type_Expr) ? operand.name : operand.value, operand.tag)
 			end
-			names.compact
+			Code::Type_Alias.new Code::Type_Alias.tree_from_chain(operands, operators)
 		end
 
-		# Same as #annotation_type_names, but collapses back down to a plain String (or nil) when
-		# there's no real union -- the overwhelmingly common case, and every existing single-type call
-		# site (return_type, type_by_identifier storage, ...) expects exactly that shape, not a
-		# one-element ::Array.
-		def annotation_type_name type_expr
-			names = annotation_type_names type_expr
-			names.length <= 1 ? names.first : names
+		# One operand of a Code::Type_Alias tree: the type name, or a Type_Alias::Tagged that keeps the tag for display (`Array\Bool`).
+		def type_alias_operand name, tag
+			return name unless tag
+
+			Code::Type_Alias::Tagged.new name, "#{name}\\#{tag_source_text tag}"
 		end
 
-		# Readable "Int | Nil" rendering of whatever #annotation_type_names / a stored type_by_identifier
-		# entry produced, for error messages (Type_Contract_Violation#contract just interpolates this
-		# directly, so an ::Array there would otherwise print as a raw Ruby inspect string).
+		# `Bool` for `\Bool`, `Bool\Int` for `\Bool\Int`, and `<...>` for an inline struct.
+		def tag_source_text tag
+			return '<...>' unless tag.is_a? Code::Identifier_Expr
+
+			tag.tag ? "#{tag.value}\\#{tag_source_text tag.tag}" : tag.value
+		end
+
+		# Readable "Int | Nil" rendering of an annotation's contract, for error messages.
 		def type_contract_display type
-			type.is_a?(::Array) ? type.join(' | ') : type
+			case type
+			when ::Array then type.join(' | ')
+			when Code::Type_Alias then type.display_name
+			else type
+			end
 		end
 
 		def composed_types_for value
@@ -683,7 +706,8 @@ module Code
 		def composed_types_by_name name
 			return ::Set.new unless name
 			global = stack.first
-			global.has?(name) ? global[name].types : ::Set[name]
+			found = global[name] if global.has?(name)
+			found.respond_to?(:types) ? found.types : ::Set[name] # a Code::Type_Alias has no types of its own
 		end
 
 		# Does `a` (composed types + struct members) carry at least everything `b` does? Shared by `=>=`/`=<=`/`===`/`=!=` -- see #interp_comparison_infix.
@@ -697,7 +721,7 @@ module Code
 		def resolve_func_signature name
 			return name if name.is_a? Code::Func_Signature
 			return nil unless name
-			value = find_in_stack name
+			value = find_contract_type name
 			value.is_a?(Code::Func_Signature) ? value : nil
 		end
 
@@ -1837,7 +1861,7 @@ module Code
 
 				expected = receiver.type_by_identifier[property]
 				if expected && !type_contract_satisfied?(value, expected)
-					raise Code::Type_Contract_Violation.new(expr, expected, inferred_type_name(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), inferred_type_name(value))
 				end
 
 				receiver[property] = value
@@ -1859,7 +1883,7 @@ module Code
 			else
 				expected = receiver.type_by_identifier[property]
 				if expected && !type_contract_satisfied?(value, expected)
-					raise Code::Type_Contract_Violation.new(expr, expected, inferred_type_name(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), inferred_type_name(value))
 				end
 			end
 
@@ -2268,6 +2292,16 @@ module Code
 				return %w(== =>= =<=).include?(expr.operator.value) ? equal : !equal
 			end
 
+			# A Code::Type_Alias is a contract: `5 =>= Strumber` asks whether 5 satisfies it, and `Strumber =<= 5` asks the same. It has no exact type set, so `===` is true only for the same alias, which keeps a type dispatch like `it === String` working on a list that holds one. `=/=` cannot answer.
+			operator = expr.operator.value
+			if %w(=== =!= =>= =<= =/=).include?(operator) && (left.is_a?(Code::Type_Alias) || right.is_a?(Code::Type_Alias))
+				return operator == '===' ? left.equal?(right) : !left.equal?(right) if %w(=== =!=).include? operator
+
+				value, contract = operator == '=<=' ? [right, left] : [left, right]
+				raise Code::Type_Alias_Is_Not_A_Type.new(expr) unless operator != '=/=' && contract.is_a?(Code::Type_Alias) && !value.is_a?(Code::Type_Alias)
+				return !nil_value?(value) && type_contract_satisfied?(value, contract) # `nil =>= String` is false, so `nil =>= Strumber` is too
+			end
+
 			# Every nil is `== nil`, whatever its tag (`nil\<reason: String>`, `Nil()`), and a nil is never `==` anything else. This comes before any `@operator ==` overload, so an overload never sees a nil operand.
 			if %w(== !=).include?(expr.operator.value) && (nil_value?(left) || nil_value?(right))
 				equal = nil_value?(left) && nil_value?(right)
@@ -2551,6 +2585,9 @@ module Code
 			when Code::Func_Signature
 				raise Code::Cannot_Call_Func_Signature.new expr
 
+			when Code::Type_Alias
+				raise Code::Type_Alias_Is_Not_A_Type.new expr
+
 			else
 				raise Code::Receiver_Is_Not_Callable.new expr.receiver
 			end
@@ -2733,6 +2770,11 @@ module Code
 					wrapped                     = build_struct [nil], [type_name_to_string(value)], [value], [nil]
 					wrapped.bare_reference_name = tag_node.value
 					wrapped
+				when Code::Type_Alias
+					# `Array\Css` with `Css :: Style_Rule | At_Rule` -- the alias is the member's contract, the same as for a `css: Css` member.
+					wrapped                     = build_struct [nil], [value], [value], [nil]
+					wrapped.bare_reference_name = tag_node.value
+					wrapped
 				else
 					raise Code::Tag_Reference_Must_Be_Type_Or_Struct.new(tag_node)
 				end
@@ -2806,8 +2848,9 @@ module Code
 
 				member_value = value.get name
 				candidates   = member_value.nil? ? [] : member_candidate_type_names(member_value)
-				unless candidates.include? declared_type
-					raise Code::Type_Contract_Violation.new(expr, declared_type, inferred_type_name(member_value))
+				satisfied    = declared_type.is_a?(Code::Type_Alias) ? declared_type.satisfied? { candidates.include? it } : candidates.include?(declared_type)
+				unless satisfied
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(declared_type), inferred_type_name(member_value))
 				end
 			end
 		end
@@ -3070,6 +3113,19 @@ module Code
 				next unless kind == :named && dom_constructor_prop_name?(name) && !declared.include?(name)
 				props[name] = arg
 			end
+		end
+
+		# `Strumber :: String | Number` binds a Code::Type_Alias. `Int :: Integer` binds the Integer type itself, so `Int === Integer`. `Func :: (;)` binds a signature. A second `::` with the same name replaces the first, the same as `:=`.
+		def interp_type_alias expr
+			name  = expr.left.value
+			value = if expr.right.is_a? Code::Func_Signature_Expr
+				build_func_signature expr.right
+			elsif (type_alias = type_alias_for expr.right)
+				type_alias.tap { it.name = name }
+			else
+				interp_type_annotation expr.right
+			end
+			stack.last.declare name, value
 		end
 
 		def interp_func_signature expr
@@ -3471,6 +3527,15 @@ module Code
 					# Neither supplied -- fall back to the schema's own declared default.
 					struct.values[i]
 				end
+			end
+
+			# A typed member checks its value here with the same rule a later `record.member = value` uses, so `A <v: String>` cannot be built with `A(5)`.
+			values.each_with_index do |value, i|
+				expected = struct.type_names[i]
+				next unless struct.names[i] && expected
+				next if type_contract_satisfied? value, expected
+
+				raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), inferred_type_name(value))
 			end
 
 			instance = build_struct struct.names, struct.type_names, struct.type_objects, values
@@ -4616,6 +4681,7 @@ module Code
 			types         = [] # per-member type object (or the raw value itself for unnamed members)
 			values        = [] # per-member real value, nil when a named member has none
 			names         = []
+			contracts     = {} # types index => Code::Type_Alias, for a member annotated with one
 			single_member = allow_spread && expr.types.length == 1 # only a lone unnamed member spreads -- see below
 
 			expr.types.each_with_index do |member, i|
@@ -4627,7 +4693,10 @@ module Code
 						values << nil
 					elsif member.type
 						# `member.type` is already a full Identifier_Expr (#parse_identifier_expr's `: Type` recurses) or a bare Struct_Expr (`id: <a: Number>`), not a bare Lexeme -- directly interpretable, no rewrapping needed. A trailing `\<...>`/`\Name` on that annotation (`id: Array\String`) only ever populates `.tag` there (see #parse_identifier_expr), not a real `Type_Expr` -- a plain #interpret would silently resolve the untagged base type, so route through #interp_type_annotation instead.
-						types << interp_type_annotation(member.type)
+						# A composed annotation (`v: String | Number`) or a named alias (`css: Css`) is a Code::Type_Alias, a contract that checks each value, the same as for a variable or param.
+						type_object = type_alias_for(member.type) || interp_type_annotation(member.type)
+						contracts[types.length] = type_object if type_object.is_a? Code::Type_Alias
+						types << type_object
 						if member.member_default
 							default_value = interpret(member.member_default)
 							values << wrap_string_literal_value(member.member_default, default_value)
@@ -4658,7 +4727,7 @@ module Code
 			end
 
 			# Each member's "type" here is just its value's own inferred type name (numerics stay `Number`)
-			type_names = types.map { |value| inferred_type_name value }
+			type_names = types.each_with_index.map { |value, i| contracts[i] || inferred_type_name(value) }
 			struct     = build_struct names, type_names, types, values
 
 			# A leading TYPE_IDENTIFIER before `<...>` (`Task <id: Number, done: Bool>`) makes `expr.name` a raw Lexeme -- a Bare Named Struct (see CLAUDE.md), registered globally here. `\<...>`'s inline-literal form sets `.tag.name` to a plain String instead, so it never re-triggers this.
@@ -4816,6 +4885,9 @@ module Code
 			when Code::Nil_Init_Expr
 				# This is a special infix expression `<ident>,` that desugars to `ident = ident or nil`. left is assigned nil if it doesn't exist, or is returned if it does
 				interp_nil_init expr
+
+			when Code::Type_Alias_Expr
+				interp_type_alias expr
 
 			when Code::Infix_Expr
 				interp_infix expr

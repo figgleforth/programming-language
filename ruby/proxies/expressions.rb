@@ -175,6 +175,10 @@ module Code
 		attr_accessor :operator, :left, :right
 	end
 
+	# `Strumber :: String | Number` -- `left` is the alias name (an Identifier_Expr), `right` the type expression: an Identifier_Expr, or a Type_Expr with anonymous_composition.
+	class Type_Alias_Expr < Infix_Expr
+	end
+
 	class Circumfix_Expr < Expression
 		attr_accessor :grouping, :expressions
 	end

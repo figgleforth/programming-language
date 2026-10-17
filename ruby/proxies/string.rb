@@ -34,9 +34,9 @@ module Code
 		proxy :gsub
 		proxy :bytesize
 
+		# The UTF-8 bytes, not the character codes: "é" gives [195, 169], not [233].
 		def proxy_bytes
-			value.chars.map(&:ord)
-			#values.chars.map(&:ord)
+			value.bytes
 		end
 
 		def proxy_squeeze *args

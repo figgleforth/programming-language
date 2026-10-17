@@ -304,7 +304,7 @@ Counter.count  # 2
 3. `~` removal: remove members of right type from left
 4. `^` symmetric difference: keep non-shared members
 
-These four meanings apply only to `Type | Other { }` composition — a `: Type` annotation (`x: Int | Nil`) reuses the same symbols to mean plain OR instead. See [Runtime Type Contracts](#runtime-type-contracts).
+These four meanings apply to `Type | Other { }` composition, and to `x := A | B`, which gives a new composed type. In a type position — a `: Type` annotation or the right side of `::` — the same symbols compare the values that each type allows: `|` either, `&` both, `~` the left but not the right, `^` exactly one. See [Runtime Type Contracts](#runtime-type-contracts) and [Type Aliases](#type-aliases).
 
 ```code
 Movable {
@@ -400,7 +400,7 @@ Two ways to give a type a second name, behaving differently under the [type comp
 
 ```code
 Whole | Integer {}    # subtype — Whole is a NEW type that composes Integer
-Int32 := Integer      # alias   — Int32 IS Integer, the same type object
+Int32 :: Integer      # alias   — Int32 IS Integer, the same type object
 
 4 === Integer          # true
 4 === Int32            # true   (alias — identical composed-type set)
@@ -410,7 +410,38 @@ Whole  =>= Integer     # true   (a Whole is-a Integer)
 Integer =>= Whole      # false  (not every Integer is a Whole)
 ```
 
-Use `:=` for a plain synonym (`Int := Integer` in the standard library); use `| {}` for a distinct, narrower type that `=>=` its parent without being `===` to it.
+Use `::` for a plain synonym (`Int :: Integer` in the standard library); use `| {}` for a distinct, narrower type that `=>=` its parent without being `===` to it.
+
+### Type Aliases
+
+`::` gives a name to a type expression. `:=` stays for values.
+
+1. One type: the alias is that type itself, so `Int === Integer`
+2. A composition: the alias is a contract. In it, `|` means either, `&` both, `~` the left but not the right, and `^` exactly one. `&` binds tighter than `|`, and `~` looser
+3. A signature: `Func :: (;)` names a function shape. After `::`, a bare `(;)` is a signature, not an empty function
+4. An alias of a composition checks values only. It works in an annotation, in a tag (`Array\Shape`), and with `=>=`. `Shape()` raises `Code::Type_Alias_Is_Not_A_Type`, and so does `=/=`. `===` is true only for the same alias
+5. An alias hoists, so it works before its own line in the file
+6. A second `::` with the same name replaces the first, the same as `:=`. An annotation that names the alias reads it when the check runs, so it follows the replacement
+
+```code
+Strumber :: String | Number
+x: Strumber = 5
+x = 'five'           # ok — a String
+x = :five            # raises Code::Type_Contract_Violation
+
+Strumber             # Strumber :: String | Number
+Strumber.@name       # 'Strumber'
+Strumber.@types      # 'String | Number'
+5 =>= Strumber       # true
+
+Shape :: Circle | Square
+Drawing <shapes: Array\Shape>
+
+Callback :: (;)
+run ( callback: Callback; callback() )
+
+x := String | Number # a value: one new Type that composes both, the same as `Both | String | Number {}`, then `x := Both`
+```
 
 ## Conditionals
 
@@ -1621,13 +1652,13 @@ word := 'four'
 double(word)  # raises Code::Type_Contract_Violation — checked on the call
 ```
 
-A `: Type` annotation can list alternatives joined by `|`, `&`, `^`, or `~` — all four mean the same OR here (match at least one listed type), not their usual [composition](#type-composition) meaning. An annotation only lists names to check against; it never builds a new composed type.
+A `: Type` annotation can join types with `|`, `&`, `^`, or `~`. Each one compares the values that the types allow: `|` either, `&` both, `~` the left but not the right, `^` exactly one. An annotation never builds a new composed type. `nil` passes every annotation. Give an annotation a name with [`::`](#type-aliases).
 
 ```code
-x: Int | Nil = 1     # ok — matches Int
-x: Int & Nil = nil   # ok — matches Nil (& means the same OR check as | here)
-x: Int ^ Nil = true  # raises Code::Type_Contract_Violation — matches neither Int nor Nil
-x: Int ~ Nil = true  # same violation — ~ means the same OR check too
+x: Int | Nil = 1           # ok — an Int
+x: Number & Integer = 4    # ok — both
+x: Number ~ Float = 1.5    # raises Code::Type_Contract_Violation — a Float
+x: Integer ^ Number = 4    # raises Code::Type_Contract_Violation — both, not exactly one
 ```
 
 This holds everywhere a `: Type` annotation appears: a first assignment, a later reassignment, a bare `x: Type`, a param and its default, a function's own return type ([Function Signatures](#function-signatures)), and a destructuring target's own `: Type`.

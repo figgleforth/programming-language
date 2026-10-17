@@ -81,7 +81,11 @@ module Code
 		def satisfied_by_candidates? candidate_type_lists
 			return false unless candidate_type_lists.length == type_names.length
 
-			type_names.each_with_index.all? { |declared_type, i| candidate_type_lists[i].include? declared_type }
+			# A member typed with a contract (`v: String | Number`) holds a Code::Type_Alias, which decides from the candidate names.
+			type_names.each_with_index.all? do |declared_type, i|
+				candidates = candidate_type_lists[i]
+				declared_type.is_a?(Type_Alias) ? declared_type.satisfied? { candidates.include? it } : candidates.include?(declared_type)
+			end
 		end
 
 		# Named members only, keyed by Symbol -- an unnamed member has no key to hash under, same

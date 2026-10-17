@@ -124,7 +124,7 @@ module Code
 			case expr.operator&.value
 			when '='
 				check_typed_assignment expr
-			when ':='
+			when ':=', '::' # `Int32 :: Integer` is an alias. `Int32 := Integer` binds the same type, so it is one too.
 				check_inferred_declaration expr
 				nil
 			end
@@ -142,13 +142,13 @@ module Code
 			return nil if inferred.nil?
 			return nil if declared.any? { |name| types_compatible? name, inferred }
 
-			Type_Mismatch.new expr, declared.join(' | '), inferred
+			Type_Mismatch.new expr, annotation_display(expr.left.type), inferred
 		end
 
 		# The alternative type name(s) an annotation names -- a plain `x: Int` is just `[expr.value]`; a
 		# composition chain in the annotation position (`x: Int | Nil`) parses to an anonymous_composition
 		# Type_Expr (same as a func's own `-> Type` return-type annotation) -- walk its leading name plus
-		# each `|`/`&`/`~`/`^` operand's name. Mirrors Interpreter#annotation_type_names (runtime side).
+		# each `|`/`&`/`~`/`^` operand's name. A value that satisfies the annotation at run time satisfies at least one of these names, whatever the operators are, so a literal that matches none of them is always a mismatch. The operators themselves are checked only at run time (Code::Type_Alias).
 		def annotation_type_names type_expr
 			return [] unless type_expr
 			return [type_expr.value] unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
@@ -161,6 +161,17 @@ module Code
 				names << (operand.is_a?(Code::Type_Expr) ? operand.name : operand.value)
 			end
 			names.compact
+		end
+
+		# The annotation as written, with its own operators (`Int & String`), for an error message.
+		def annotation_display type_expr
+			return type_expr.value unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
+
+			operands = type_expr.expressions.grep(Code::Composition_Expr).map do |composition|
+				operand = composition.identifier
+				"#{composition.operator.value} #{operand.is_a?(Code::Type_Expr) ? operand.name : operand.value}"
+			end
+			[type_expr.name, *operands].compact.join ' '
 		end
 
 		# `x := Type(...)` / `x := Type<Struct>(...)` / `Ident := SomeType`
@@ -222,7 +233,7 @@ module Code
 			return nil if inferred.nil?
 			return nil if declared.any? { |name| types_compatible? name, inferred }
 
-			Type_Mismatch.new expr, declared.join(' | '), inferred
+			Type_Mismatch.new expr, annotation_display(expr.type), inferred
 		end
 
 		def check_return_type expr
@@ -236,7 +247,7 @@ module Code
 			return nil if inferred.nil?
 			return nil if declared.any? { |name| types_compatible? name, inferred }
 
-			raise Code::Type_Contract_Violation.new(expr.expressions.last, declared.join(' | '), inferred)
+			raise Code::Type_Contract_Violation.new(expr.expressions.last, annotation_display(expr.type), inferred)
 		end
 
 		# `nil` means there is no error with the expression. The pattern for most of the cases is just: recurse into child expressions and collect errors.

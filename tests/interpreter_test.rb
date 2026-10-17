@@ -3706,63 +3706,59 @@ class Interpreter_Test < Base_Test
 		assert_equal 42, Code.interp('x: Int | Nil = 42, x')
 	end
 
-	# The four tests above only ever spell the annotation with `|`. In annotation position, though,
-	# `#annotation_type_names` walks a composition chain's operand names regardless of which operator
-	# joins them -- `&`/`^`/`~` are accepted by the parser here too, and every one of them means the
-	# exact same OR-alternative check `|` does (see the comment on #annotation_type_names/
-	# #type_contract_satisfied? in interpreter.rb). An annotation only ever *lists* alternative type
-	# names; it never actually composes two types together the way `#interp_composition` does for a
-	# real `Type | Other {}` declaration, so the operator's usual meaning (union/intersection/
-	# difference/symmetric-difference of *declarations*) simply doesn't apply here.
-	def test_non_union_composition_operators_in_annotation_position_mean_the_same_or_check
-		%w(& ^ ~).each do |op|
-			assert_equal 1, Code.interp("x: Int #{op} Nil = 1, x")
-			assert_nil Code.interp("x: Int #{op} Nil = nil, x")
+	# In a type position, each composition operator keeps its set meaning: `|` either, `&` both, `~` the left but not the right, `^` exactly one (see Code::Type_Alias). `nil` still passes every annotation.
+	def test_composition_operators_in_annotation_position_keep_their_set_meaning
+		assert_equal 1, Code.interp('x: Number & Integer = 1, x')
+		assert_equal 1, Code.interp('x: Int ~ Nil = 1, x')
+		assert_equal 1, Code.interp('x: Int ^ String = 1, x')
+		assert_nil Code.interp('x: Int & String = nil, x')
 
+		{ 'Int & String' => '1', 'Number ~ Float' => '1.5', 'Integer ^ Number' => '1' }.each do |annotation, value|
 			err = assert_raises Code::Type_Contract_Violation do
-				Code.interp "x: Int #{op} String = true"
+				Code.interp "x: #{annotation} = #{value}"
 			end
-			# The error message always renders with ` | ` too, whatever operator was actually written.
-			assert_match 'Int | String', err.message
-			assert_match 'Bool', err.message
+			assert_match annotation, err.message # the error shows the operator that was written
 		end
 	end
 
-	def test_non_union_composition_operators_in_annotation_reassignment
-		%w(& ^ ~).each do |op|
-			assert_raises Code::Type_Contract_Violation do
-				Code.interp "x: Int #{op} String = 1, x = true"
-			end
-			assert_equal 'hi', Code.interp("x: Int #{op} String = 1, x = \"hi\", x")
+	def test_composition_operators_in_annotation_reassignment
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp 'x: Number & Integer = 1, x = 1.5'
+		end
+		assert_equal 2, Code.interp('x: Number & Integer = 1, x = 2, x')
+		assert_equal 'hi', Code.interp('x: Int ^ String = 1, x = "hi", x')
+	end
+
+	def test_composition_operators_in_return_type_annotation
+		out = Code.interp <<~CODE
+		    f ( n := nil -> Int ~ String;
+		    	return n
+		    )
+		    (f(4), f())
+		CODE
+		assert_equal [4, nil], out.values
+
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp "f (-> Int ~ String; 'oops' ), f()"
+		end
+		assert_match 'Int ~ String', err.message
+		assert_match 'String', err.message
+	end
+
+	# `&` binds tighter than `|`, and `~` looser, the same as in a value expression.
+	def test_composition_operators_in_annotation_position_use_precedence
+		assert_equal 'a', Code.interp('x: String | Number & Symbol = "a", x')
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp 'x: String | Number ~ String = "a"'
 		end
 	end
 
-	def test_non_union_composition_operators_in_return_type_annotation
-		%w(& ^ ~).each do |op|
-			out = Code.interp <<~CODE
-			    f ( n := nil -> Int #{op} Nil;
-			    	return n
-			    )
-			    (f(4), f())
-			CODE
-			assert_equal [4, nil], out.values
+	def test_composition_operators_in_destructuring_target
+		out = Code.interp "(x: Int ~ Nil, y) := (1, 2), (x, y)"
+		assert_equal [1, 2], out.values
 
-			err = assert_raises Code::Type_Contract_Violation do
-				Code.interp "f (-> Int #{op} Nil; 'oops' ), f()"
-			end
-			assert_match 'Int | Nil', err.message
-			assert_match 'String', err.message
-		end
-	end
-
-	def test_non_union_composition_operators_in_destructuring_target
-		%w(& ^ ~).each do |op|
-			out = Code.interp "(x: Int #{op} Nil, y) := (1, 2), (x, y)"
-			assert_equal [1, 2], out.values
-
-			out = Code.interp "(a: Int #{op} Nil, b) := (nil, 5), (a, b)"
-			assert_equal [nil, 5], out.values
-		end
+		out = Code.interp "(a: Int & Nil, b) := (nil, 5), (a, b)"
+		assert_equal [nil, 5], out.values
 	end
 
 	# Pre-declaring the union as a real type and annotating with its name does NOT reproduce the OR

@@ -30,4 +30,4 @@ Directory {
 	to_s (-> String; @ruby )
 }
 
-Dir := Directory
+Dir :: Directory

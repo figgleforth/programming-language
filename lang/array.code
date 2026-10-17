@@ -224,4 +224,4 @@ Array {
 
 # What a variadic param binds (`rest...` / `rest: Arguments`)
 Arguments | Array {}
-Args := Arguments
+Args :: Arguments

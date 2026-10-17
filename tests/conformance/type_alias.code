@@ -1,0 +1,49 @@
+# `::` names a type expression. In a type position, `|` means either type, the same as in an annotation.
+Strumber :: String | Number
+
+@out Strumber                    # out: Strumber :: String | Number
+@out Strumber.@name              # out: Strumber
+@out Strumber.@types             # out: String | Number
+
+x: Strumber = 5
+x = 'five'
+@out x                           # out: five
+
+@out 5 =>= Strumber              # out: true
+@out :five =>= Strumber          # out: false
+@out nil =>= Strumber            # out: false
+
+# An alias of one type is that type itself
+Whole :: Integer
+@out Whole === Integer           # out: true
+
+# Each operator keeps its set meaning
+Exact :: Number ~ Float
+whole: Exact = 4
+@out whole                       # out: 4
+@out 1.5 =>= Exact               # out: false
+
+# A signature
+Callback :: (;)
+run ( callback: Callback;
+	callback()
+)
+@out run((; 'ran'))              # out: ran
+
+# A struct member, and a tag
+Circle <radius: Number>
+Square <side: Number>
+Shape :: Circle | Square
+Drawing <shapes: Array\Shape, focus: Shape = nil>
+@out Drawing([Circle(1), Square(2)], Square(2)).focus.side # out: 2
+
+# Used before its declaration: an alias is hoisted, like a type
+later: Declared_Later = 'early'
+@out later                       # out: early
+Declared_Later :: String | Symbol
+
+# A second `::` replaces the first, the same as `:=`
+Strumber :: String
+@out Strumber === String         # out: true
+
+x = 6                            # error: Type_Contract_Violation

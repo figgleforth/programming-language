@@ -53,6 +53,6 @@ Dictionary {
 	)
 }
 
-Hash := Dictionary
-Dict := Dictionary
-Map  := Dictionary
+Hash :: Dictionary
+Dict :: Dictionary
+Map  :: Dictionary
