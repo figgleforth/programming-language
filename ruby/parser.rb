@@ -1657,8 +1657,9 @@ module Code
 
 		# todo: Factor out the various branches of code in here?
 		def complete_expression expr, precedence = STARTING_PRECEDENCE, member_rhs: false
-			return expr unless expr && lexemes?
+			return expr unless expr
 
+			# Before the end-of-input check, so a bare `@todo` as the very last token is still a call.
 			if !member_rhs && expr.is_a?(Code::Identifier_Expr) && expr.prefixed_with_at
 				# `@name: T` / `@name := v` / `@name = v`
 				context_member_decl = !%w(operator ruby).include?(expr.value) &&
@@ -1669,6 +1670,8 @@ module Code
 					return parse_context_call(expr, precedence) if Code::Context::FUNCTIONS.include?(expr.value)
 				end
 			end
+
+			return expr unless lexemes?
 
 			# note; `PREFIX.include?(expr.value)` matches by VALUE, not by lexeme type -- deliberate, since
 			# keyword-like prefixes (`return`, `not`) are lexed as plain identifiers, not a dedicated

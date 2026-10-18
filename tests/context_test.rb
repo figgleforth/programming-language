@@ -70,6 +70,12 @@ class Context_Test < Base_Test
 		refute_same i.send(:shared_context)['to_s'], func, 'the shared stand-in stays subject-free -- bind returns a dup'
 	end
 
+	def test_a_bare_called_at_word_is_a_call_even_as_the_last_token
+		assert_raises(Code::Todo_Triggered) { Code.interp '@todo' }
+		assert_raises(Code::Todo_Triggered) { Code.interp "x := 1\n@todo" }
+		assert_instance_of Code::Func, Code.interp('@puts'), 'a word that is not called when bare stays a reference'
+	end
+
 	def test_a_vital_the_method_frame_lacks_comes_from_the_instance
 		out = Code.interp <<~'CODE'
 			String\<num: Number> {
