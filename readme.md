@@ -702,7 +702,24 @@ A trailing window shorter than `stride` is kept, not dropped. Use `.?N` (not `.N
 
 1. Attaches to `if`/`elif`/`unless`, to each branch of a `while`/`until` chain, and to `for`, comparing against a subject: the condition's value for `if`/`elif`/`unless` and for a `while`/`until` branch, the current element for `for` (the counter, for C-style `for`).
 2. The block's own body runs first; a matching `when` then replaces its value. First match wins.
-3. Compares with `==` for a plain value, `=>=` (is-a) for a bare Type.
+3. Compares with `=>=` (is-a) for a type, bare or tagged (`Number`, `Array\String`, `nil\Error`), or a struct. Every other value compares with `==`, an instance included. So one `when nil\Client_Error` catches every error kind that composes `Client_Error`. Put the most specific case first:
+
+```code
+handle ( line;
+	if line
+		parse(line)
+	else
+	when nil\Connection_Closed
+		stop
+	when nil\Client_Error
+		socket.write(CODE_400)   # every kind that composes Client_Error
+	when nil\Error
+		@panic "unexpected: `it`"
+	when nil
+		stop                     # a plain nil
+	end
+)
+```
 4. A bare `when it` matches everything — a catch-all.
 5. A case that uses `it` in an expression is a condition of its own: `when it > 3`, `when it =>= Number`, `when it.@tag.reason == 'closed'`. It matches when the expression is truthy, and nothing is compared.
 6. On `for`, `else` runs only when nothing matched. On `if`, each group of cases belongs to its branch: the cases after the body see only truthy values, and `else` takes every falsy value (see below). Each `elif` has its own `when` group.
@@ -1612,6 +1629,19 @@ All five also take [Structs](#structs) into account. An untagged type counts as 
 Abc\<Number> {}
 Abc\<Number> === Abc\<String>   # false — same composed type, different tag
 Abc === Abc                     # true  — neither side tagged
+```
+
+A tag is-a its parent tag, on any tagged type. A tag that composes another type satisfies a tag of that type with `=>=`, but a parent never satisfies a child, and `===` stays exact:
+
+```code
+Client_Error | Error {}
+Bad_Header   | Client_Error {}
+
+nil\Bad_Header =>= nil\Client_Error       # true
+nil\Bad_Header =>= nil\Error              # true  — Error is a struct; its name counts too
+nil\Client_Error =>= nil\Bad_Header       # false — a parent is not a child
+nil\Bad_Header === nil\Client_Error       # false
+Array\Bad_Header =>= Array\Client_Error   # true
 ```
 
 `Any` is a universal wildcard for `==`/`!=`/`=>=`/`=<=`/`=/=`: anything that isn't `nil` counts as equal to it, no composition needed. `===`/`=!=` are the exception — exact type-set equality, so a bare `Any` only matches `Any` itself there.

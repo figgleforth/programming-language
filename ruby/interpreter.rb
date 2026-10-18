@@ -746,10 +746,27 @@ module Code
 		end
 
 		# Does `a` (composed types + struct members) carry at least everything `b` does? Shared by `=>=`/`=<=`/`===`/`=!=` -- see #interp_comparison_infix.
+		# `a_tag`/`b_tag` are the tag structs. A named struct tag (`nil\Error`) also counts as the type of that name, so a tag that composes it is-a it: `nil\Bad_Header =>= nil\Error` when `Bad_Header | Error {}`.
 		def superset_of_types_and_tag? a_types, a_tag, b_types, b_tag
-			types_superset   = b_types.all? { |type| a_types.include? type }
-			members_superset = (b_tag || []).all? { |member| (a_tag || []).include? member }
+			types_superset = b_types.all? { |type| a_types.include? type }
+			a_members      = a_tag&.type_objects || []
+			b_members      = b_tag&.type_objects || []
+
+			members_superset = b_members.all? do |member|
+				a_members.any? { |own| own == member || bare_type_is_a?(own, member) }
+			end
+			members_superset ||= !b_tag&.name.nil? && a_members.any? { |own| bare_type_is_a? own, b_tag.name }
+
 			types_superset && members_superset
+		end
+
+		# A bare Type is-a another Type, or a type name, when it composes it.
+		def bare_type_is_a? own, other
+			bare = ->(t) { t.is_a?(Code::Type) && !t.is_a?(Code::Instance) }
+			return false unless bare.(own)
+			return composed_types_for(own).include? other if other.is_a? ::String
+			return false unless bare.(other)
+			composed_types_for(other).all? { |type| composed_types_for(own).include? type }
 		end
 
 		# If `name` is already an Code::Func_Signature, return it as-is (an inline signature has no name to look up). Otherwise, if it's bound to one anywhere on the stack, return that. Otherwise nil — meaning `name` is an ordinary nominal type name (e.g. 'Number').
@@ -2381,8 +2398,8 @@ module Code
 				# `.types` (the composed-type-name Set, e.g. `Set['Struct']` for every struct alike),
 				# which shadows/collides with what's actually wanted here: the struct's own per-member
 				# type objects (`.type_objects`, a plain `Struct#@type_objects` ivar).
-				left_tag  = left.is_a?(Code::Type) ? left.tag_instance&.type_objects : nil
-				right_tag = right.is_a?(Code::Type) ? right.tag_instance&.type_objects : nil
+				left_tag  = left.is_a?(Code::Type) ? left.tag_instance : nil
+				right_tag = right.is_a?(Code::Type) ? right.tag_instance : nil
 
 				# note; `left`/`right` are whatever #interpret returned (a raw Ruby Integer/String/etc for literals, not necessarily an Code::Type/Instance), so `.types` can't be called on them directly. Using #composed_types_for here which resolves the correct composed-type set.
 				left_types  = composed_types_for left
@@ -2404,8 +2421,8 @@ module Code
 					shared_types   = left_types.any? do |type|
 						right_types.include? type
 					end
-					shared_members = (left_tag || []).any? do |member|
-						(right_tag || []).include? member
+					shared_members = (left_tag&.type_objects || []).any? do |member|
+						(right_tag&.type_objects || []).include? member
 					end
 
 					!shared_types && !shared_members

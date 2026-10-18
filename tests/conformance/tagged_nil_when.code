@@ -1,0 +1,79 @@
+@load 'lang/errors.code'
+Closed   | Error {}
+Unending | Error {}
+Closed_Alias :: Error
+Other_Alias  :: Error
+
+# A `when` tells two named tags apart when each one is its own type
+reason ( value;
+	if value
+		'a value'
+	else
+	when nil\Closed
+		'closed'
+	when nil\Unending
+		'unending'
+	when nil
+		'a plain nil'
+	end
+)
+@out reason(nil\Closed)               # out: closed
+@out reason(nil\Unending)             # out: unending
+@out reason(nil)                      # out: a plain nil
+@out reason(4)                        # out: a value
+
+# `==` ignores the tag, and `=>=` reads it
+@out nil\Closed == nil\Unending       # out: true
+@out nil\Closed =>= nil\Unending      # out: false
+@out nil\Closed =>= nil\Closed        # out: true
+
+# Two `::` aliases of one type are the same type, so the first `when` takes both
+alias_reason ( value;
+	if value
+		'a value'
+	else
+	when nil\Closed_Alias
+		'first'
+	when nil\Other_Alias
+		'second'
+	end
+)
+@out alias_reason(nil\Closed_Alias)   # out: first
+@out alias_reason(nil\Other_Alias)    # out: first
+
+# A tag is-a its parent tag, so one `when` catches every kind below it
+Http_Error        | Error {}
+Client_Error      | Http_Error {}
+Bad_Header        | Client_Error {}
+Line_Too_Long     | Client_Error {}
+Connection_Closed | Http_Error {}
+Unknown_Thing     | Error {}
+
+handle ( value;
+	if value
+		'a value'
+	else
+	when nil\Connection_Closed
+		'stop'
+	when nil\Client_Error
+		'400'
+	when nil\Error
+		'panic'
+	when nil
+		'plain nil'
+	end
+)
+@out handle(nil\Connection_Closed)    # out: stop
+@out handle(nil\Bad_Header)           # out: 400
+@out handle(nil\Line_Too_Long)        # out: 400
+@out handle(nil\Unknown_Thing)        # out: panic
+@out handle(nil)                      # out: plain nil
+
+# A parent is not a child
+@out nil\Bad_Header =>= nil\Client_Error   # out: true
+@out nil\Client_Error =>= nil\Bad_Header   # out: false
+@out nil\Bad_Header === nil\Client_Error   # out: false
+
+# The same rule holds for every tagged type
+@out Array\Bad_Header =>= Array\Client_Error   # out: true
+@out Array\Client_Error =>= Array\Bad_Header   # out: false
