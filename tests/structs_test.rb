@@ -2068,4 +2068,17 @@ class Structs_Test < Base_Test
 		assert_equal 'b', Code.interp("<a := 1, 'b'>[1]")
 		assert_raises(Code::Invalid_Array_Index) { Code.interp "<10, 20>['a']" }
 	end
+
+	def test_two_struct_values_compose_by_member_name
+		setup = "a := <x := 1, y := 2>\nb := <y := 9, z := 3>\n"
+		assert_equal %w(x y z), Code.interp("#{setup}a | b").names
+		assert_equal [1, 2, 3], Code.interp("#{setup}a | b").values, "the left side wins a shared name"
+		assert_equal %w(y), Code.interp("#{setup}a & b").names
+		assert_equal %w(x z), Code.interp("#{setup}a ^ b").names
+		assert_equal %w(x), Code.interp("#{setup}a ~ b").names
+	end
+
+	def test_a_struct_value_composed_with_a_non_scope_raises
+		assert_raises(Code::Invalid_Composition_With_A_Non_Struct_type) { Code.interp "<x := 1> | 5" }
+	end
 end

@@ -2307,6 +2307,7 @@ module Code
 				overload    = find_operator_overload expr.operator.value, maybe_instance(left)
 				return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
 				return compose_type_values(left, expr.operator.value, right) if left.instance_of?(Code::Type) && right.is_a?(Code::Scope)
+				return compose_struct_values(expr, left, right) if left.is_a? Code::Struct
 				return left.send expr.operator.value, right
 			end
 
@@ -2329,6 +2330,8 @@ module Code
 
 			if overload.is_a? Code::Func
 				call_operator_overload overload, expr, [left, right]
+			elsif expr.operator.value == '^' && left.is_a?(Code::Struct)
+				compose_struct_values expr, left, right
 			else
 				result = maybe_instance(left).send expr.operator.value, maybe_instance(right)
 				# A Ruby-level operator (`Code::Array#+`) builds its result outside the interpreter, so it needs linking to its type like any `@ruby` return.
@@ -2510,6 +2513,7 @@ module Code
 		def interp_custom_infix expr, left, right
 			overload = find_operator_overload expr.operator.value, maybe_instance(left)
 			unless overload.is_a? Code::Func
+				return compose_struct_values(expr, left, right) if expr.operator.value == '~' && left.is_a?(Code::Struct)
 				raise Code::Undeclared_Infix_Operator.new(expr)
 			end
 
@@ -2802,6 +2806,26 @@ module Code
 			chain.expressions           = [composition]
 			result = nil
 			push_then_pop(operands) { result = interp_anonymous_composition chain }
+			result
+		end
+
+		# `<x := 1> | <y := 2>`: two struct values compose by member name, with the rules of a declared `A | B <…>` (#interp_struct_composition).
+		def compose_struct_values expr, left, right
+			raise Code::Invalid_Composition_With_A_Non_Struct_type.new(expr) unless right.is_a? Code::Scope
+
+			operands = Temporary.new 'Composition Operands'
+			operands.declare 'Composed_Left', left
+			operands.declare 'Composed_Right', right
+
+			chain             = Code::Type_Expr.new
+			chain.expressions = [['|', 'Composed_Left'], [expr.operator.value, 'Composed_Right']].map do |op, name|
+				composition            = Code::Composition_Expr.new
+				composition.operator   = Code::Lexeme.new :operator, op
+				composition.identifier = Code::Identifier_Expr.new.tap { |ident| ident.lexeme = Code::Lexeme.new :Identifier, name }
+				composition
+			end
+			result = nil
+			push_then_pop(operands) { result = interp_struct_composition chain }
 			result
 		end
 
@@ -4113,6 +4137,8 @@ module Code
 			end
 
 			struct.composed_types = composed_type_names
+			return struct unless expr.name # two composed struct values (#compose_struct_values) have no name to register
+
 			register_bare_named_struct expr.name, struct, expr
 		end
 
