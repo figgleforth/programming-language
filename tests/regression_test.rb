@@ -728,7 +728,15 @@ class Regression_Test < Base_Test
 		    d := {:x = 1, :y = 2}
 		    d.keys().to_s()
 		CODE
-		assert_equal '[x, y]', out
+		assert_equal '[:x, :y]', out
+	end
+
+	def test_a_symbol_prints_with_its_colon_but_interpolates_bare
+		assert_equal '[:a, :b]', Code.interp('%sym(a b).to_s()')
+		assert_equal 'Set{:a}', Code.interp('Set([:a]).to_s()')
+		assert_equal '<k: Symbol = :v, :w>', Code.interp('<k := :v, :w>.to_s()')
+		assert_equal 'a', Code.interp('"`:a`"')
+		assert_output(":a\n") { Code.interp '@puts :a' }
 	end
 
 	def test_dictionary_and_struct_literals_find_declared_to_s_regression

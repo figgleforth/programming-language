@@ -165,6 +165,8 @@ Array {
 		pieces := values.map((it;
 			if it === String
 				it.?to_string() or "`it`"
+			elif it === Symbol
+				":`it`"
 			else
 				"`it`"
 			end

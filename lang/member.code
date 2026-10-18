@@ -24,6 +24,8 @@ Member {
 		is_string := type.?@name == 'String' or (type and type.?@name == nil and value =>= String)
 		displayed_value := if has_value and is_string
 			value.?to_string() or value
+		elif value === Symbol
+			":`value`"
 		else
 			value
 		end

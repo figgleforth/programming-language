@@ -3795,6 +3795,7 @@ class Interpreter_Test < Base_Test
 			Code.interp "x: Int = 4\nx = 4.5"
 		end
 		assert_equal ['Int', 'Float'], [err.contract, err.actual]
+		assert_equal 'expected Int, got Float', err.detail_message.gsub(/\e\[[\d;]*m/, '') # the same wording as Type_Mismatch
 	end
 
 	def test_a_typed_param_stays_locked_inside_the_body
@@ -6147,7 +6148,7 @@ class Interpreter_Test < Base_Test
 				end
 			CODE
 		end
-		assert_equal "outer\nmiddle\ninner\nmiddle\nouter\n", printed
+		assert_equal ":outer\n:middle\n:inner\n:middle\n:outer\n", printed
 	end
 
 	def test_when_nested_three_levels_deep_propagates_the_innermost_matched_value

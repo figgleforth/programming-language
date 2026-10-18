@@ -1769,7 +1769,7 @@ a ~> 1          # 42 — Wrapped's own ~> wins
 ```code
 x := 4        # declares x, infers Number, locks x to that type
 x = 8         # ok — same type
-x = 'hello'   # raises Code::Type_Contract_Violation ("expected Number not String")
+x = 'hello'   # raises Code::Type_Contract_Violation ("expected Number, got String")
 
 x := 4
 x := 'hello'  # fine — re-declaring with := re-infers and re-locks the type

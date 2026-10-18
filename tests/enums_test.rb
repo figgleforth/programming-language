@@ -172,6 +172,6 @@ class Enums_Test < Base_Test
 		    s := <kind: Task_Type = Task_Type.TODO>
 		    s.to_s()
 		CODE
-		assert_equal '<kind: Task_Type = TODO>', out
+		assert_equal '<kind: Task_Type = :TODO>', out
 	end
 end

@@ -457,7 +457,7 @@ module Code
 		end
 
 		def detail_message
-			"Expected #{declared}, got #{inferred}"
+			"expected #{declared}, got #{inferred}"
 		end
 	end
 
@@ -479,7 +479,7 @@ module Code
 		# A `detail_message` (not a `message` override) so the shared formatter still prefixes the
 		# `at <file>:<line>:<col>` location -- points at the offending call/assignment.
 		def detail_message
-			"expected #{Ascii.bold @contract} not #{Ascii.bold(@actual || 'unknown')}"
+			"expected #{Ascii.bold @contract}, got #{Ascii.bold(@actual || 'unknown')}"
 		end
 	end
 

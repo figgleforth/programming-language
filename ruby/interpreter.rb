@@ -1521,7 +1521,8 @@ module Code
 					# Reuses the interpreter's own @parser (not a fresh Code.parse) so it still knows about @operator declarations registered elsewhere in the program -- #input= resets the cursor but not @custom_infix/etc.
 					parser.input = Lexer.new(sub).output
 					value        = interpret parser.output.first
-					result       = result.gsub "`#{sub}`", "#{stringify_for_display(value)}"
+					shown        = value.is_a?(::Symbol) ? value.to_s : stringify_for_display(value) # a Symbol interpolates as its bare name
+					result       = result.gsub "`#{sub}`", shown.to_s
 				end
 				# Only the `\`` sequences still left over from escaping a backtick (deliberately never matched/substituted above) get un-escaped here -- a blanket `result.gsub('\\', '')` used to also strip any literal backslash that arrived as part of a substituted value's own content (e.g. `Array\<String>`), which was never the intent.
 				result.gsub('\\`', '`')
@@ -2008,6 +2009,8 @@ module Code
 
 		# `method_name` picks the function to call (`@pputs`/`@pout` pass `to_string`); a value without it falls back to `to_s`.
 		def stringify_for_display value, show_quotes: false, pretty_print: false, method_name: nil
+			return ":#{value}" if value.is_a? ::Symbol # shown as written; interpolation still gives the bare name
+
 			value = maybe_instance value
 
 			# render the whole struct, not the terse `@<name>` an explicit `@.to_s()` gives -- and covers
