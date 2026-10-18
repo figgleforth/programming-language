@@ -1358,15 +1358,19 @@ module Code
 				# it against the current scope's Context, then any Type up the stack, then Global's.
 				candidates = [stack.last, *stack.select { |s| s.is_a?(Code::Type) }.reverse, global]
 				seen       = []
+				vital      = Code::Context::VITALS.include? expr.value
 				candidates.each do |scope|
 					next if seen.any? { |s| s.equal?(scope) }
 					seen << scope
 					begin
-						return interp_at_word_on(scope, expr)
+						value = interp_at_word_on(scope, expr)
 					rescue Code::Undeclared_Identifier
 						next
 					end
+					# A vital the function's own frame does not have (`@tag` in a method) comes from the instance or type around it.
+					return value unless value.nil? && vital
 				end
+				return nil if vital
 				raise Code::Undeclared_Identifier.new(expr)
 			end
 
@@ -1742,7 +1746,7 @@ module Code
 						end
 					else
 						if type && !type_contract_satisfied?(right_value, type)
-							raise Code::Type_Contract_Violation.new(expr, type_contract_display(type), inferred_type_name(right_value))
+							raise Code::Type_Contract_Violation.new(expr, type_contract_display(type), type_name_to_string(right_value))
 						end
 					end
 				end
@@ -1868,7 +1872,7 @@ module Code
 			if target.type && !target.type.is_a?(Code::Struct_Expr)
 				expected = annotation_type_name target.type
 				unless type_contract_satisfied? value, expected
-					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), inferred_type_name(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value))
 				end
 			end
 
@@ -1924,7 +1928,7 @@ module Code
 
 				expected = receiver.type_by_identifier[property]
 				if expected && !type_contract_satisfied?(value, expected)
-					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), inferred_type_name(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value))
 				end
 
 				receiver[property] = value
@@ -1946,7 +1950,7 @@ module Code
 			else
 				expected = receiver.type_by_identifier[property]
 				if expected && !type_contract_satisfied?(value, expected)
-					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), inferred_type_name(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value))
 				end
 			end
 
@@ -2949,7 +2953,7 @@ module Code
 			when :missing
 				raise Code::Type_Contract_Violation.new(expr, "<#{struct.names.compact.join(', ')}>", describe_value_shape(value))
 			when :mismatch
-				raise Code::Type_Contract_Violation.new(expr, type_contract_display(declared_type), inferred_type_name(member_value))
+				raise Code::Type_Contract_Violation.new(expr, type_contract_display(declared_type), type_name_to_string(member_value))
 			end
 		end
 
@@ -3431,7 +3435,7 @@ module Code
 					if named_args.key? name_key # `rest := <value>` at the call site
 						raise Code::Argument_Given_By_Name_And_Position.new(expr, name_key) if tail.any?
 						nv = named_args.delete name_key
-						raise Code::Type_Contract_Violation.new(expr, 'Arguments', inferred_type_name(nv)) unless nv.is_a? Code::Array
+						raise Code::Type_Contract_Violation.new(expr, 'Arguments', type_name_to_string(nv)) unless nv.is_a? Code::Array
 						tail = nv.values # `rest := [99]` -> tail [99]  (`rest := 99` errored above)
 					end
 					stack.last.declare name_key, wrap_arguments_array(tail)
@@ -3478,6 +3482,10 @@ module Code
 				end
 
 				stack.last.declare param.name.value, value
+
+				# Inside the body, a param is locked like a `:=` local: to its type, else to the type of the value a `:=` default gave it. A param with neither stays open.
+				lock = signature || type || (inferred_type_name value if param.default)
+				stack.last.type_by_identifier[param.name.value] = lock if lock && !param.add_to_readable && !param.add_to_writable
 
 				if value.is_a? Code::Type
 					if param.respond_to?(:add_to_readable) && param.add_to_readable
@@ -3670,7 +3678,7 @@ module Code
 				next unless struct.names[i] && expected
 				next if type_contract_satisfied? value, expected
 
-				raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), inferred_type_name(value))
+				raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value))
 			end
 
 			instance = build_struct struct.names, struct.type_names, struct.type_objects, values

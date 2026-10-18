@@ -69,4 +69,16 @@ class Context_Test < Base_Test
 		assert_same i.global, func.enclosing_scope
 		refute_same i.send(:shared_context)['to_s'], func, 'the shared stand-in stays subject-free -- bind returns a dup'
 	end
+
+	def test_a_vital_the_method_frame_lacks_comes_from_the_instance
+		out = Code.interp <<~'CODE'
+			String\<num: Number> {
+				to_s (; "number: `@tag.num`" )
+			}
+			String\<5>().to_s()
+		CODE
+		assert_equal 'number: 5', out
+		assert_equal 'show', Code.interp("T {\n\tshow (; @name )\n}\nT().show()"), 'a vital the frame has still comes from the frame'
+		assert_nil Code.interp("T {\n\tshow (; @tag )\n}\nT().show()")
+	end
 end

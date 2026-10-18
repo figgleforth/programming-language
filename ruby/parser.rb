@@ -693,6 +693,7 @@ module Code
 						eat '='
 						param.default = parse_expression
 					end
+					param.default = param.default.left if param.default.is_a? Code::Nil_Init_Expr # `n := 0, m` -- a default followed by a comma parses as a nil-init
 				end
 
 				# The branches above only recognise real param-list tokens (names, `: Type`, defaults, `->`). A stray token they all skipped (a number, a string, an operator) -- raise before touching `param`'s location, since nothing was actually parsed for it (`param.lexeme`/`.type`/`.default` all still nil) -- or the `until` loop spins forever.

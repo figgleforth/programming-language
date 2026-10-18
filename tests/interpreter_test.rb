@@ -3786,8 +3786,42 @@ class Interpreter_Test < Base_Test
 		err = assert_raises Code::Type_Contract_Violation do
 			Code.interp 'x: Number = 4, x := "hey", x = 8'
 		end
-		assert_match 'Number', err.message # the actual value 8 -- reported as the family name
+		assert_match 'Integer', err.message # the actual value 8 -- reported by its own type
 		assert_match 'String', err.message
+	end
+
+	def test_contract_violation_names_the_values_own_numeric_type
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp "x: Int = 4\nx = 4.5"
+		end
+		assert_equal ['Int', 'Float'], [err.contract, err.actual]
+	end
+
+	def test_a_typed_param_stays_locked_inside_the_body
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp "f ( a: Number;\n\ta = 'x'\n)\nf(1)"
+		end
+		assert_equal ['Number', 'String'], [err.contract, err.actual]
+	end
+
+	def test_a_param_with_a_default_locks_to_the_type_of_the_value_it_gets
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp "f ( n := 0;\n\tn = 'x'\n)\nf()"
+		end
+		assert_equal ['Number', 'String'], [err.contract, err.actual]
+
+		# The argument's type, not the default's, is the lock.
+		assert_equal 'yz', Code.interp("f ( n := 0;\n\tn = n + 'z'\n)\nf('y')")
+	end
+
+	def test_a_param_without_a_type_or_a_default_stays_open
+		assert_equal 'x', Code.interp("f ( a;\n\ta = 'x'\n)\nf(1)")
+		assert_equal 5, Code.interp("f ( a := nil;\n\ta = 'x'\n\ta = 5\n)\nf()")
+	end
+
+	def test_a_default_followed_by_a_comma_is_the_default_itself
+		param = Code.parse('f ( a := true, b := 2; a )').first.parameters.first
+		assert_instance_of Code::Identifier_Expr, param.default
 	end
 
 	# `x: A | B` union annotations -- a composition chain in the annotation position (`Int | Nil`)
@@ -3920,7 +3954,7 @@ class Interpreter_Test < Base_Test
 			CODE
 		end
 		assert_match 'Int_Or_Nil', err.message
-		assert_match 'Number', err.message
+		assert_match 'Integer', err.message
 
 		out = Code.interp <<~CODE
 		    Int_Or_Nil | Int | Nil {}
@@ -3953,7 +3987,7 @@ class Interpreter_Test < Base_Test
 			CODE
 		end
 		assert_match 'Int_Or_Nil', err.message
-		assert_match 'Number', err.message
+		assert_match 'Integer', err.message
 
 		out = Code.interp <<~CODE
 		    Int_Or_Nil := Int | Nil
@@ -4935,7 +4969,7 @@ class Interpreter_Test < Base_Test
 			Code.interp '(x: String, y) := <1, 2>'
 		end
 		assert_equal 'String', error.contract
-		assert_equal 'Number', error.actual
+		assert_equal 'Integer', error.actual
 
 		# Asking for more values than the source has raises, rather than padding with nil.
 		error = assert_raises Code::Destructuring_Arity_Mismatch do

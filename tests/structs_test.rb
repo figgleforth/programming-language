@@ -852,7 +852,7 @@ class Structs_Test < Base_Test
 				f(Thing())'
 		end
 		assert_equal 'String', error.contract
-		assert_equal 'Number', error.actual
+		assert_equal 'Integer', error.actual
 	end
 
 	def test_struct_typed_param_any_matches_anything
@@ -1871,7 +1871,7 @@ class Structs_Test < Base_Test
 		end
 		# Each type name separately: with color on (an IDE can set FORCE_COLOR), the message makes each one bold, so the whole phrase never appears as one piece.
 		assert_match 'String', err.message
-		assert_match 'Number', err.message
+		assert_match 'Integer', err.message
 
 		assert_equal 'x', Code.interp("A <v: String>\nA('x').v")
 	end
