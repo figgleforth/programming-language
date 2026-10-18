@@ -119,7 +119,7 @@ class Regression_Test < Base_Test
 		s1 := b1.to_s()
 		b2 := Box("Small")
 		s2 := b2.to_s()
-		(b1, s1, b2, s2)
+		<b1, s1, b2, s2>
 		'
 		assert_instance_of Code::Instance, out.values[0]
 		assert_equal "Big-box", out.values[1]
@@ -140,7 +140,7 @@ class Regression_Test < Base_Test
 		)
 		(a := add(4))
 
-		(a, add(a * 2))"
+		<a, add(a * 2)>"
 		assert_equal [4, 8], out.values
 
 		out = Code.interp "y := 0
@@ -149,7 +149,7 @@ class Regression_Test < Base_Test
 		)
 		a := add(4)
 
-		(y, a)"
+		<y, a>"
 		assert_equal [4, 4], out.values
 
 		refute_raises Code::Undeclared_Identifier do
@@ -167,7 +167,7 @@ class Regression_Test < Base_Test
 			t1 := Thing()
 			t2 := Thing('Thingus', 456)
 
-			(t1.id, t1.name, t2.id, t2.name)"
+			<t1.id, t1.name, t2.id, t2.name>"
 			assert_equal [123, "", 456, "Thingus"], out.values
 		end
 
@@ -184,7 +184,7 @@ class Regression_Test < Base_Test
 			}
 
 			t := Thing() # This will raise
-			(t.id, t.name)"
+			<t.id, t.name>"
 			assert_equal [456, "Thingus"], out.values
 		end
 
@@ -254,8 +254,8 @@ class Regression_Test < Base_Test
 
 	def test_lexer_operator_quote_regression
 		# #eat_operator was consuming quotes as symbols, creating invalid operators like ="
-		# This caused { b="two" } to fail lexing when = was immediately followed by "
-		out = Code.interp '{ a:1, b:"two", c: :three }.values()'
+		# This caused { :b="two" } to fail lexing when = was immediately followed by "
+		out = Code.interp '{ :a=1, :b="two", :c = :three }.values()'
 		assert_equal [1, "two", :three], out.values
 	end
 
@@ -288,7 +288,7 @@ class Regression_Test < Base_Test
 
 		    outer := Outer("outer_value")
 		    inner := outer.make_inner()
-		    (outer.name, inner.get_name())
+		    <outer.name, inner.get_name()>
 		CODE
 		assert_equal "outer_value", out.values[0]
 		assert_equal "inner_value", out.values[1]
@@ -371,26 +371,26 @@ class Regression_Test < Base_Test
 	def test_accessing_dictionary_keys_with_dot
 		out = Code.interp <<~CODE
 		    x := 123
-		    {x y:456 z:789}.z
+		    {:x = x, :y = 456, :z = 789}.z # `.z` reads the Symbol key :z
 		CODE
 		assert_equal 789, out
 	end
 
-	def test_dictionary_keys_pick_up_existing_values
+	def test_dictionary_values_pick_up_existing_variables
 		out = Code.interp <<~CODE
 		    x := 4815
-		    {x, y: 23, z: 42}
+		    {:x = x, :y = 23, :z = 42}
 		CODE
 		assert_equal [4815, 23, 42], out.hash.values
 	end
 
-	def test_curly_braces_with_known_identifier_becomes_dictionary
+	# Only `=` entries make a Dictionary, so `{x}` is a block that reads x.
+	def test_curly_braces_with_a_bare_identifier_is_a_block
 		out = Code.interp <<~CODE
 		    x := 4
 		    {x}
 		CODE
-		assert_kind_of Code::Dictionary, out
-		assert_equal 4, out.proxy_get('x')
+		assert_equal 4, out
 	end
 
 	def test_curly_braces_with_inline_declaration_becomes_inline_scope
@@ -486,7 +486,7 @@ class Regression_Test < Base_Test
 		# Interpreter test: chained dot + subscript assignment
 		out = Code.interp <<~CODE
 		    Box {
-		        data := {x: 1, y: 2}
+		        data := {:x = 1, :y = 2}
 		    }
 		    b := Box()
 		    b.data[:z] = 3
@@ -655,7 +655,7 @@ class Regression_Test < Base_Test
 		    a := Point(1, 2)
 		    b := Point(1, 2)
 		    c := Point(9, 9)
-		    (a != b, a != c)
+		    <(a != b), (a != c)>
 		CODE
 		out = Code.interp src
 		assert_equal false, out.values[0]
@@ -725,23 +725,15 @@ class Regression_Test < Base_Test
 
 	def test_array_of_symbols_to_s_regression
 		out = Code.interp <<~CODE
-		    d := {x: 1, y: 2}
+		    d := {:x = 1, :y = 2}
 		    d.keys().to_s()
 		CODE
 		assert_equal '[x, y]', out
 	end
 
-	def test_dictionary_and_tuple_literals_find_declared_to_s_regression
-		assert_equal '{x: 1, y: 2}', Code.interp('{x: 1, y: 2}.to_s()')
-		assert_equal '(1, 2, 3)', Code.interp('(1, 2, 3).to_s()')
-	end
-
-	def test_tuple_values_are_not_the_stale_type_name_regression
-		out = Code.interp <<~CODE
-		    t := (1, 2, 3)
-		    t.values
-		CODE
-		assert_equal [1, 2, 3], out
+	def test_dictionary_and_struct_literals_find_declared_to_s_regression
+		assert_equal "{:x = 1, y = 'two', 'two words' = 2, 3 = :three}", Code.interp("{:x = 1, y = 'two', 'two words' = 2, 3 = :three}.to_s()")
+		assert_equal '<1, 2, 3>', Code.interp('<1, 2, 3>.to_s()')
 	end
 
 	def test_nil_and_bool_find_declared_to_s_and_truthiness_regression
@@ -765,7 +757,7 @@ class Regression_Test < Base_Test
 		    difference   := (A ~ B)()
 		    symmetric    := (A ^ B)()
 
-		    (union.x, union.y, union.shared(), intersection.shared(), difference.x, symmetric.x, symmetric.y)
+		    <union.x, union.y, union.shared(), intersection.shared(), difference.x, symmetric.x, symmetric.y>
 		CODE
 		out = Code.interp src
 		assert_equal [1, 2, 'from A', 'from A', 1, 1, 2], out.values
@@ -780,7 +772,7 @@ class Regression_Test < Base_Test
 		    Swimming { can_swim := true }
 		    Duck | Flying | Swimming { name := 'duck' }
 
-		    (Duck =>= (Flying | Swimming), (Flying | Swimming) =>= Duck)
+		    <(Duck =>= (Flying | Swimming)), ((Flying | Swimming) =>= Duck)>
 		CODE
 		assert_equal [true, false], out.values
 	end
@@ -796,49 +788,13 @@ class Regression_Test < Base_Test
 		assert_equal 7, Code.interp("Global.total := 7\ntotal")
 	end
 
-	def test_colon_named_call_arguments_regression
-		src = <<~CODE
-		    send_greeting ( person; person )
-		CODE
-
-		# `name: value` binds by the param's declared name, same as `name := value`.
-		assert_equal 42, Code.interp("#{src}\nsend_greeting(person: 42)")
-
-		# A bare positional call still works.
-		assert_equal 42, Code.interp("#{src}\nsend_greeting(42)")
-
-		# A name that matches no declared param raises.
-		assert_raises(Code::Unknown_Named_Argument) do
-			Code.interp("#{src}\nsend_greeting(wrong: 42)")
-		end
-
-		# Once an argument is named, every argument after it must be named too.
-		assert_raises(Code::Positional_Argument_After_Named) do
-			Code.interp('add ( a, b; a + b )
-				add(a: 1, 2)')
-		end
-
-		# `:` works through constructors too (`Self(;)` params).
-		out = Code.interp <<~CODE
-		    Point {
-		    	x,
-		    	y,
-		    	Self ( x, y;
-		    		self.x = x
-		    		self.y = y
-		    	)
-		    }
-		    p := Point(x: 3, y: 4)
-		    (p.x, p.y)
-		CODE
-		assert_equal [3, 4], out.values
-
-		# `:` composes with defaults normally -- omitting a named, defaulted arg still falls back.
-		out = Code.interp <<~CODE
-		    greet ( name := "World"; "Hello, `name`" )
-		    (greet(), greet(name: "Backend"))
-		CODE
-		assert_equal ['Hello, World', 'Hello, Backend'], out.values
+	# `name: value` was once a second spelling of `name := value` in a call. Now `:` after a name starts a type annotation, so a call with it raises, for a function and for a constructor.
+	def test_colon_named_call_arguments_raise
+		assert_raises(Code::Colon_Named_Argument) { Code.parse "send_greeting(person: 42)" }
+		assert_raises(Code::Colon_Named_Argument) { Code.parse "Point(x: 3, y: 4)" }
+		assert_raises(Code::Colon_Named_Argument) { Code.parse "send_greeting(person: Int)" }
+		assert_raises(Code::Colon_Named_Argument) { Code.parse "@out person: 'x'" }
+		refute_raises { Code.parse "send_greeting(person := 42)" }
 	end
 
 	def test_circumfix_elements_do_not_swallow_nil_init_regression
@@ -853,11 +809,11 @@ class Regression_Test < Base_Test
 		end
 		assert_raises(Code::Undeclared_Identifier) do
 			Code.interp 'x := 1
-				(undeclared_var, x)'
+				<undeclared_var, x>'
 		end
 
 		# Already-declared identifiers still pass through as plain references, not fresh
-		# shadow-declarations, for calls, arrays, and tuples alike.
+		# shadow-declarations, for calls, arrays, and structs alike.
 		out = Code.interp 'foo ( a, b; a + b )
 			x := 5
 			y := 8
@@ -871,7 +827,7 @@ class Regression_Test < Base_Test
 
 		out = Code.interp 'x := 1
 			y := 2
-			(x, y)'
+			<x, y>'
 		assert_equal [1, 2], out.values
 	end
 
@@ -910,7 +866,7 @@ class Regression_Test < Base_Test
 		    sa := <name: String, age: Number>('Alice', 30)
 		    sb := <name: String, age: Number>('Alice', 30)
 		    sc := <name: String, age: Number>('Alice', 99)
-		    (sa == sb, sa == sc)
+		    <(sa == sb), (sa == sc)>
 		CODE
 		assert_equal [true, false], out.values
 	end
@@ -930,23 +886,23 @@ class Regression_Test < Base_Test
 		    v.y += 1
 		    v.y += 1
 		    v.x -= 1
-		    (v.x, v.y)
+		    <v.x, v.y>
 		CODE
 		assert_equal [-1, 2], out.values
 	end
 
-	def test_tuple_dot_index_out_of_bounds_regression
-		# `.N`/`.N.M...` dot-index access silently returned nil past the collection's length, and silently truncated a non-integer index -- e.g. `.0.1` lexes as the single float 0.1, which Ruby's own Array#[] truncates to index 0, so `((), true).0.1`/`.0.2`/`.0.3`... all silently returned the same first element (a Tuple) instead of erroring past the actual length.
+	def test_dot_index_out_of_bounds_regression
+		# `.N`/`.N.M...` dot-index access silently returned nil past the collection's length, and silently truncated a non-integer index -- e.g. `.0.1` lexes as the single float 0.1, which Ruby's own Array#[] truncates to index 0, so `<[], true>.0.1`/`.0.2`/`.0.3`... all silently returned the same first element instead of erroring past the actual length.
 		assert_raises Code::Invalid_Array_Index do
-			Code.interp '((), true).0.1'
+			Code.interp '<[], true>.0.1'
 		end
 
 		assert_raises Code::Invalid_Array_Index do
-			Code.interp '(1, 2, 3).5'
+			Code.interp '<1, 2, 3>.5'
 		end
 
-		assert_equal 2, Code.interp('(1, 2, 3).1')
-		assert_equal 3, Code.interp('(1, 2, 3).-1')
+		assert_equal 2, Code.interp('<1, 2, 3>.1')
+		assert_equal 3, Code.interp('<1, 2, 3>.-1')
 	end
 
 	def test_spaceship_on_custom_instance_with_no_overload_raises_regression
@@ -1006,8 +962,8 @@ class Regression_Test < Base_Test
 		assert_equal [1, 2], Code.interp("[1, 2, 3, 4].first(2)").values
 		assert_equal [3, 2, 1], Code.interp("[1, 2, 3].reverse()").values
 		assert_equal ['he', '', 'o'], Code.interp("'hello'.split('l')").values
-		assert_equal [:x, :y], Code.interp("{x: 1, y: 2}.keys()").values
-		assert_equal({ x: 1, y: 2 }, Code.interp("{x: 1}.merge({y: 2})").hash)
+		assert_equal [:x, :y], Code.interp("{:x = 1, :y = 2}.keys()").values
+		assert_equal({ x: 1, y: 2 }, Code.interp("{:x = 1}.merge({:y = 2})").hash)
 	end
 
 	def test_member_to_s_on_unnamed_type_only_member_does_not_crash_regression
@@ -1041,8 +997,8 @@ class Regression_Test < Base_Test
 		# A struct member's own default value can legitimately contain delimiters (`(`/`)`, `[`/`]`, nested `{`/`}`) before the real closing `>` -- must not be mistaken for the statement's own boundary.
 		assert_equal true, Code.interp(<<~CODE)
 		    mk (; 5 )
-		    Abc\\<id := mk(), items := [1,2], dict := {x: 1}> {}
-		    z := Abc\\<mk(), [1,2], {x:1}>()
+		    Abc\\<id := mk(), items := [1,2], dict := {:x = 1}> {}
+		    z := Abc\\<mk(), [1,2], {:x = 1}>()
 		    z =/= nil
 		CODE
 	end
@@ -1144,7 +1100,7 @@ class Regression_Test < Base_Test
 		assert_raises(Code::Type_Contract_Violation) { Code.interp("x: String = 'hi'\nx = 123") }
 	end
 
-	# Array/Dictionary/Tuple/Set's own `to_s` each check `it === String` to decide whether to call
+	# Array/Dictionary/Set's own `to_s` each check `it === String` to decide whether to call
 	# `it.to_string()` for quote-preserving display -- but `===` is deliberately true for the literal
 	# `Any` type (the universal wildcard, in either operand position) and for a bare, uninstantiated
 	# `String` Type reference (`String === String`), neither of which has a callable `to_string()`
@@ -1155,7 +1111,7 @@ class Regression_Test < Base_Test
 	def test_collection_to_s_does_not_crash_on_a_bare_type_element_regression
 		refute_raises(Code::Undeclared_Identifier) { Code.interp('[Any].to_s()') }
 		refute_raises(Code::Cannot_Call_Instance_Member_On_Type) { Code.interp('[String].to_s()') }
-		refute_raises(Code::Undeclared_Identifier) { Code.interp('(Any, 1).to_s()') }
+		refute_raises(Code::Undeclared_Identifier) { Code.interp('<Any, 1>.to_s()') }
 		refute_raises(Code::Undeclared_Identifier) { Code.interp('Set([Any]).to_s()') }
 
 		# An actual String element still displays quoted, unaffected.

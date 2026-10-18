@@ -46,7 +46,7 @@ Member {
 			elif has_value and not type
 				"`name` := `displayed_value`"
 			else
-				"`name`: Any"
+				"`name` := nil" # no type and no value: the value is nil (`<a := nil>`)
 			end
 		else
 			if has_value
@@ -54,7 +54,7 @@ Member {
 			elif type
 				"`type_label`"
 			else
-				"Any"
+				"nil" # no type and no value: the value is nil (`<6, nil>`)
 			end
 		end
 	)

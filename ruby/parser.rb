@@ -14,6 +14,7 @@ module Code
 			@input                = input
 			@i                    = 0 # index of current lexeme
 			@struct_nesting_depth = 0 # how many `<...>` structs #parse_struct is currently inside of -- see #split_glued_close_angles!
+			@type_position_depth  = 0 # above 0 while a type position is parsed (`: Type`, `-> Type`, `::`), where a literal can be an operand -- see #parse_type_position
 		end
 
 		def input= value
@@ -482,6 +483,7 @@ module Code
 				else
 					parse_expression
 				end
+				check_dictionary_entry it.expressions.last if opening == '{'
 				break if curr? closing
 
 				eat if curr? ','
@@ -491,6 +493,14 @@ module Code
 			it.expressions = it.expressions.compact
 			closing        = eat closing
 			set_expr_location it, start, closing
+		end
+
+		# A Dictionary entry is `key = value`. The old `{name: 'Jack'}` now reads `name: 'Jack'` as a type annotation, so catch it here: an item with a `:` (`{5: 'x'}`), or an annotated name that is not alone on its line (`{name: 'Jack', id: 4}`). An annotated name on its own line (`{ x: Int` then a new line) is a declaration in a block.
+		def check_dictionary_entry item
+			colon_entry   = item.is_a?(Code::Infix_Expr) && item.operator&.value == ':'
+			annotated     = item.is_a?(Code::Identifier_Expr) && item.type
+			line_continues = !(curr?(:delimiter) && %W(\n \r).include?(curr_lexeme.value))
+			raise Code::Colon_Dictionary_Entry.new(item) if colon_entry || (annotated && line_continues)
 		end
 
 		# TYPE_IDENT [ ... ]  /  TYPE_IDENT: Enum[\Backing] [ ... ]  /  TYPE_IDENT: Backing [ ... ]
@@ -584,11 +594,6 @@ module Code
 				# bbb: String = ''
 				# ccc := 4
 				expr.operator.value == '=' || expr.operator.value == ':='
-			elsif expr.is_a? Circumfix_Expr
-				# (Nil_Init, Identifier, Infix, Circumfix, ...)
-				tuple        = expr.grouping == '()'
-				valid_values = expr.expressions.all? { |it| is_valid_return_expr?(it) }
-				tuple && valid_values
 			elsif expr.is_a? Type_Expr
 				# Any | Nil | Etc
 				true
@@ -661,10 +666,13 @@ module Code
 					annotated = curr? ':'
 					if curr?(':', TYPE_IDENTIFIER)
 						eat ':'
-						param.type     = begin_expression
+						param.type     = in_type_position { begin_expression }
 						# ^ picks up a trailing `\<...>`/`\Name` itself (readable as param.type.tag), see #parse_identifier_expr
 						param.type     = param.type.left if param.type.is_a? Code::Nil_Init_Expr # `offset: Int, value` -- a type followed by a comma parses as a nil-init
 						param.variadic = true if %w(Arguments Args).include? param.type&.value
+					elsif curr?(':') && literal_type_next?(1)
+						eat ':'
+						param.type = parse_type_position # `mode: "fill" | "line"`
 					elsif curr?(':', '<')
 						eat ':'
 						param.type = parse_struct
@@ -700,15 +708,15 @@ module Code
 			if curr? FUNCTION_RETURN_DELIMITER
 				eat FUNCTION_RETURN_DELIMITER
 
-				return_expr = parse_expression
-				if return_expr.is_a? Circumfix_Expr
-					# todo; Aggregate all the invalid types, but for now just the first to raise
-					return_expr.expressions.each do |it|
-						raise Invalid_Return_Type_In_Function.new(it, it) unless is_valid_return_expr? it
-					end
-				else
-					raise Invalid_Return_Type_In_Function.new(return_expr, return_expr) unless is_valid_return_expr? return_expr
+				return_expr = in_type_position { literal_type_next? ? parse_type_position : parse_expression }
+				raise Invalid_Return_Type_In_Function.new(return_expr, return_expr) if return_expr.is_a?(Type_Expr) && return_expr.leading_literal && !curr?(FUNCTION_BODY_DELIMITER) # `-> 1+2`: a literal type, then a value operator
+				if return_expr.is_a?(Circumfix_Expr) && return_expr.grouping == '()'
+					# `-> (A | B)` groups one type. A list (`-> (Any, Int)`) is not a type, a struct is: `-> <Any, Int>`.
+					raise Code::Values_In_Parentheses.new(return_expr) unless return_expr.expressions.one?
+
+					return_expr = return_expr.expressions.first
 				end
+				raise Invalid_Return_Type_In_Function.new(return_expr, return_expr) unless is_valid_return_expr? return_expr
 
 				func.type = return_expr
 			end
@@ -784,10 +792,10 @@ module Code
 					if curr? ':='
 						raise Code::Cannot_Annotate_Inferred_Declaration.new(curr_lexeme) if element.is_a?(Code::Identifier_Expr) && element.type # `<n: Int := 0>` -- a typed default uses `=`
 						eat ':='
-						element.member_default = parse_expression(precedence_for('<'))
+						element.member_default = in_value_position { parse_expression(precedence_for('<')) }
 					elsif element.is_a?(Code::Identifier_Expr) && element.type && curr?('=')
 						eat '='
-						element.member_default = parse_expression(precedence_for('<'))
+						element.member_default = in_value_position { parse_expression(precedence_for('<')) }
 					end
 
 					# A `:` still here means `element`'s own `: Type` lookahead saw one but declined it (not a valid type) -- almost always a Dictionary-style `key: value` typo, invalid in a struct member list.
@@ -849,7 +857,7 @@ module Code
 			#
 			# Then this is a reference to an existing type (optionally tagged), not a declaration. `it.expressions` stays nil here so callers (like #interp_type) can tell this apart from a real, even if empty, `{}` body. Whatever follows (like a trailing `(...)` call) is picked up in #complete_expression, same as any other primary expression.
 			# A composed operand can be a struct literal too (`Type | <x: Int> {}`), not just a type name.
-			unless curr?('{') || curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<')
+			unless curr?('{') || curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<') || literal_type_operand_next?
 				closing = if it.tag
 					it.tag
 				else
@@ -861,7 +869,7 @@ module Code
 			it.expressions = []
 
 			until curr? '{'
-				break unless curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<')
+				break unless curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<') || literal_type_operand_next?
 				it.expressions << parse_composition_expr
 			end
 
@@ -928,7 +936,13 @@ module Code
 			start         = curr_lexeme
 			expr          = Code::Composition_Expr.new
 			expr.operator = eat(:operator)
-			ident         = curr?('<') ? parse_struct : parse_identifier_expr
+			ident         = if @type_position_depth > 0 && literal_type_next?
+				parse_literal_type
+			elsif curr? '<'
+				parse_struct
+			else
+				parse_identifier_expr
+			end
 
 			while curr?('.') && peek.is(:Identifier)
 				dot_op         = eat('.')
@@ -983,7 +997,7 @@ module Code
 					func             = copy_location signature, func
 				end
 				func
-			elsif curr? TYPE_IDENTIFIER
+			elsif curr?(TYPE_IDENTIFIER) || literal_type_next?
 				parse_type_position
 			else
 				raise Code::Invalid_Type_Alias.new(curr_lexeme)
@@ -992,14 +1006,103 @@ module Code
 			set_expr_location it, name_expr, it.right
 		end
 
-		# One type in a type position (`Int`, `Array\Bool`), or a composition chain (`Int | Nil`, `Array\Bool | Number`). A tag on the first type hides the chain from a one-token look ahead, so this reads the first type, looks, and reads again as a chain when one follows.
+		# A type position: one type (`Int`, `Array\Bool`), a literal (`"fill"`, `5`, `:fill`, `true`, `nil`), or a composition chain of them (`Int | Nil`, `Array\Bool | Number`, `"fill" | "line"`). A tag on the first type hides the chain from a one-token look ahead, so this reads the first type, looks, and reads again as a chain when one follows.
 		def parse_type_position
-			saved_i = @i
-			single  = parse_identifier_expr
-			return single unless curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<')
+			in_type_position do
+				next parse_literal_type_chain if literal_type_next?
 
-			@i = saved_i
-			parse_type_decl
+				saved_i = @i
+				single  = parse_identifier_expr
+				next single unless curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<') || literal_type_operand_next?
+
+				@i = saved_i
+				parse_type_decl
+			end
+		end
+
+		def in_type_position
+			@type_position_depth += 1
+			yield
+		ensure
+			@type_position_depth -= 1
+		end
+
+		# A default value inside a type position (`Array\<x := MASK | 4>`) is a value again, so `|` there is not a type operator.
+		def in_value_position
+			saved_depth          = @type_position_depth
+			@type_position_depth = 0
+			yield
+		ensure
+			@type_position_depth = saved_depth
+		end
+
+		LITERAL_TYPE_STARTS = [:string, :number, :binary, :hexadecimal, :scientific_notation, 'true', 'false', 'nil'].freeze
+
+		def literal_type_next? ahead = 0
+			lexeme = input[@i + ahead]
+			return false unless lexeme
+
+			LITERAL_TYPE_STARTS.any? { lexeme.is it } || (lexeme.is(':') && ANY_IDENTIFIER.any? { input[@i + ahead + 1]&.is it })
+		end
+
+		def literal_type_operand_next?
+			@type_position_depth > 0 && curr?(TYPE_COMPOSITION_OPERATORS) && literal_type_next?(1)
+		end
+
+		# A named argument is `name := value`. After a name, `:` starts a type annotation, so `f(mode: "fill")` is a mistake, not a named argument.
+		def check_named_arguments args
+			args.each do |arg|
+				colon_form = arg.is_a?(Code::Infix_Expr) && arg.operator&.value == ':' && arg.left.is_a?(Code::Identifier_Expr)
+				annotated  = arg.is_a?(Code::Identifier_Expr) && arg.type
+				raise Code::Colon_Named_Argument.new(arg) if colon_form || annotated
+			end
+		end
+
+		# `A | B`, `A | <x: Int>`, or `Int | "auto"` in a type position. With a value after the operator (`MASK | 4`), it is a value expression: a bitwise or, not a composition.
+		def type_composition_follows?
+			return false unless curr? TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS
+
+			operand_follows = curr?(TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS, '<') || (@type_position_depth > 0 && literal_type_next?(2))
+			return false unless operand_follows
+
+			# An UPPERCASE name can be a type (`H1`, `A`) or a constant that holds a value (`MASK`), so its chain stays a composition only when no value operator follows it: `MASK | OTHER & 6` and `MASK | OTHER + 1` are value expressions, with the usual precedence. A chain of names alone (`MASK | OTHER`) is a composition here, and Interpreter#interp_anonymous_composition runs it as values when its names hold values.
+			@type_position_depth > 0 || curr?(:Identifier) || uppercase_chain_is_a_type?
+		end
+
+		def uppercase_chain_is_a_type?
+			i = @i + 1
+			while TYPE_COMPOSITION_OPERATORS.any? { input[i]&.is it } && (ANY_IDENTIFIER.any? { input[i + 1]&.is it } || input[i + 1]&.is('<'))
+				return true if input[i + 1].is '<' # a struct operand: `B | A ~ <z: Int> {}`
+				i += 2
+			end
+
+			after = input[i]
+			return true if after.nil? || after.is('{') || after.is('<') || after.is(TAG_OPERATOR)
+			!after.is(:operator)
+		end
+
+		def parse_literal_type
+			if curr? ':'
+				parse_symbol_expr
+			elsif curr? %w(true false nil)
+				parse_identifier_expr
+			elsif curr? :string
+				start = curr_lexeme # @pasted from #begin_expression
+				copy_location Code::String_Expr.new(eat(:string)), start
+			else
+				parse_number_expr
+			end
+		end
+
+		# A type position that starts with a literal (`"fill" | "line"`, `5`): the Type_Expr shape #parse_type_decl builds for a chain, with the literal on `leading_literal` and `name` left nil.
+		def parse_literal_type_chain
+			start                    = curr_lexeme
+			it                       = Code::Type_Expr.new
+			it.anonymous_composition = true
+			it.leading_literal       = parse_literal_type
+			it.expressions           = []
+			it.expressions << parse_composition_expr while curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || literal_type_operand_next?
+			set_expr_location it, start, it.expressions.last || it.leading_literal
 		end
 
 		def parse_statement_expr
@@ -1065,6 +1168,9 @@ module Code
 			elsif curr?(':', '<')
 				eat ':'
 				expr.type = parse_struct # bare struct annotation, e.g. `thing: <String, Number>` -- sugar for `thing: Struct<String, Number>`
+			elsif curr?(':') && literal_type_next?(1)
+				eat ':'
+				expr.type = parse_type_position # `mode: "fill" | "line"`
 			end
 
 			expr.kind = Code.type_of_identifier expr.value
@@ -1346,10 +1452,12 @@ module Code
 					reduce_newlines
 				end
 				closing = eat ')'
+				check_named_arguments args
 				args
 			elsif bare_arg
 				args = [parse_expression(precedence_for('for'))] # note; Precedence "for" allows for-loop as a postfix expression
 				args << parse_expression(precedence_for('for')) while curr? ',' and eat ','
+				check_named_arguments args
 				closing = args.last
 				args
 			else
@@ -1462,7 +1570,7 @@ module Code
 			elsif curr?('<') && curr_lexeme.type == :operator && !@custom_prefix.include?('<')
 				parse_struct
 
-			elsif curr?(TYPE_IDENTIFIER, '{') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, '<') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, TYPE_IDENTIFIER) || type_then_integer_tag_next? || curr?(TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS)
+			elsif curr?(TYPE_IDENTIFIER, '{') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, '<') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, TYPE_IDENTIFIER) || type_then_integer_tag_next? || type_composition_follows?
 				# No trailing `{` guard needed for the named-reference form -- unlike `/`, `\` never collides with anything else in Code, so it's unambiguous with or without a body.
 				parse_type_decl
 
@@ -1509,7 +1617,7 @@ module Code
 				copy_location expr, start
 
 			elsif curr? ','
-				# todo: Don't just discard the comma, make tuples implied when commas are found in #complete_expression
+				# The comma that the nil-init idiom (`ident,`) leaves behind, see ruby/bugs.md.
 				eat and nil
 
 			elsif curr? FUNCTION_BODY_DELIMITER
@@ -1574,7 +1682,8 @@ module Code
 			circumfix = CIRCUMFIX.include?(curr_lexeme.value)
 
 			# `::` is not in INFIX, because its right side is a type expression, not a value.
-			if curr?('::') && expr.is_a?(Code::Identifier_Expr) && TYPE_IDENTIFIER.include?(expr.lexeme&.type) && precedence_for('::') > precedence
+			if curr?('::') && expr.is_a?(Code::Identifier_Expr) && precedence_for('::') > precedence
+				raise Code::Invalid_Type_Alias_Name.new(expr) unless TYPE_IDENTIFIER.include? expr.lexeme&.type
 				return complete_expression parse_type_alias(expr), precedence
 			end
 
@@ -1673,6 +1782,7 @@ module Code
 				else
 					circumfix      = parse_circumfix_expr(opening: curr_lexeme.value)
 					expr.arguments = circumfix.expressions
+					check_named_arguments expr.arguments
 					circumfix
 				end
 

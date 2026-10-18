@@ -116,7 +116,7 @@ class Structs_Test < Base_Test
 		    	)
 		    }
 		    p := Point(3, 4)
-		    (p.x, p.y)
+		    <p.x, p.y>
 		CODE
 		assert_equal [3, 4], out.values
 	end
@@ -139,7 +139,7 @@ class Structs_Test < Base_Test
 		    Abc\\<String> {}
 		    x := Abc\\<Number>
 		    y := Abc\\<String>
-		    (x.@tag.@types.first(), y.@tag.@types.first())
+		    <x_type := x.@tag.@types.first(), y_type := y.@tag.@types.first()>
 		CODE
 		assert_equal 'Number', out.values[0].name
 		assert_equal 'String', out.values[1].name
@@ -205,7 +205,7 @@ class Structs_Test < Base_Test
 		    p := <a: Number, b: String>
 		    coords := [5, 'hi']
 		    x := p(...coords)
-		    (x.a, x.b)
+		    <x.a, x.b>
 		CODE
 		assert_equal [5, 'hi'], out.values
 	end
@@ -215,7 +215,7 @@ class Structs_Test < Base_Test
 		    Point <x: Number, y: Number>
 		    coords := [3, 4]
 		    pt := Point(...coords)
-		    (pt.x, pt.y)
+		    <pt.x, pt.y>
 		CODE
 		assert_equal [3, 4], out.values
 	end
@@ -225,7 +225,7 @@ class Structs_Test < Base_Test
 		    Rgb <r: Number, g: Number, b: Number>
 		    tail := [128, 64]
 		    c := Rgb(255, ...tail)
-		    (c.r, c.g, c.b)
+		    <c.r, c.g, c.b>
 		CODE
 		assert_equal [255, 128, 64], out.values
 	end
@@ -245,8 +245,8 @@ class Structs_Test < Base_Test
 	def test_callsite_splat_of_a_dictionary_binds_by_name_in_a_struct_call
 		out = Code.interp <<~CODE
 		    Point <x: Number, y: Number>
-		    pt := Point(...{y: 4, x: 3})
-		    (pt.x, pt.y)
+		    pt := Point(...{:y = 4, :x = 3})
+		    <pt.x, pt.y>
 		CODE
 		assert_equal [3, 4], out.values
 	end
@@ -255,7 +255,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Point <x: Number, y: Number>
 		    pt := Point(...<x := 3, y := 4>)
-		    (pt.x, pt.y)
+		    <pt.x, pt.y>
 		CODE
 		assert_equal [3, 4], out.values
 	end
@@ -265,7 +265,7 @@ class Structs_Test < Base_Test
 		    Coords { x, y, Self ( x, y; self.x = x, self.y = y ) }
 		    Point <x: Number, y: Number>
 		    pt := Point(...Coords(3, 4))
-		    (pt.x, pt.y)
+		    <pt.x, pt.y>
 		CODE
 		assert_equal [3, 4], out.values
 	end
@@ -274,7 +274,7 @@ class Structs_Test < Base_Test
 		error = assert_raises Code::Unknown_Named_Argument do
 			Code.interp <<~CODE
 			    Point <x: Number, y: Number>
-			    Point(...{x: 3, z: 9})
+			    Point(...{:x = 3, :z = 9})
 			CODE
 		end
 		assert_match 'z', error.message
@@ -294,7 +294,7 @@ class Structs_Test < Base_Test
 		# breaking every `if thing.flag` check. It must read as nil, same as `x: Number` everywhere else.
 		out = Code.interp <<~CODE
 		    thing := <flag: Bool, count: Number>
-		    (thing.flag, thing.count)
+		    <thing.flag, thing.count>
 		CODE
 		assert_nil out.values[0]
 		assert_nil out.values[1]
@@ -315,7 +315,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    dict_variant := String\\<dict: Dictionary> {}
 		    num_variant := String\\<num: Number> {}
-		    (dict_variant, num_variant)
+		    <dict := dict_variant, num := num_variant>
 		CODE
 		dict_variant, num_variant = out.values
 
@@ -351,7 +351,7 @@ class Structs_Test < Base_Test
 		    String\\<dict: Dictionary> { to_s (; "dict-named" ) }
 		    String\\<other: Dictionary> { to_s (; "other-named" ) }
 
-		    a := String\\<{x:1}>()
+		    a := String\\<{:x = 1}>()
 		    a.to_s()
 		CODE
 		assert_equal 'dict-named', out
@@ -360,7 +360,7 @@ class Structs_Test < Base_Test
 		    String\\<dict: Dictionary> { to_s (; "dict-named" ) }
 		    String\\<other: Dictionary> { to_s (; "other-named" ) }
 
-		    a := String\\<other := {x:1}>()
+		    a := String\\<other := {:x = 1}>()
 		    a.to_s()
 		CODE
 		assert_equal 'other-named', out
@@ -369,7 +369,7 @@ class Structs_Test < Base_Test
 		    String\\<dict: Dictionary> { to_s (; "dict-named" ) }
 		    String\\<other: Dictionary> { to_s (; "other-named" ) }
 
-		    a := String\\<dict := {x:1}>()
+		    a := String\\<dict := {:x = 1}>()
 		    a.to_s()
 		CODE
 		assert_equal 'dict-named', out
@@ -401,7 +401,7 @@ class Structs_Test < Base_Test
 		    	parent: Node
 		    >
 		    n := Node
-		    (n.@type_names, n.@types.get(1) == Node)
+		    <n.@type_names, (n.@types.get(1) == Node)>
 		CODE
 		assert_equal %w(String Node), out.values[0].values
 		assert_equal true, out.values[1] # the `parent` slot points at the finished Node, not the stand-in
@@ -413,7 +413,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    A <partner: B>
 		    B <partner: A>
-		    (A.@type_names, B.@type_names)
+		    <A.@type_names, B.@type_names>
 		CODE
 		assert_equal %w(B), out.values[0].values
 		assert_equal %w(A), out.values[1].values
@@ -431,7 +431,7 @@ class Structs_Test < Base_Test
 		    	parent: Scope
 		    >
 		    s := Scope
-		    (s.@type_names, s.@types.get(1) == Scope)
+		    <s.@type_names, (s.@types.get(1) == Scope)>
 		CODE
 		assert_equal %w(String Scope), out.values[0].values
 		assert_equal true, out.values[1]
@@ -441,7 +441,7 @@ class Structs_Test < Base_Test
 	def test_empty_bare_named_struct_on_its_own
 		out = Code.interp <<~CODE
 		    Empty <>
-		    (Empty.@name, Empty.@names)
+		    <Empty.@name, Empty.@names>
 		CODE
 		assert_equal 'Empty', out.values[0]
 		assert_equal [], out.values[1].values
@@ -502,7 +502,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    before := Task <id: Number, done: Bool>
 		    after := Task <done: Bool, id: Number>
-		    (before.@names, before.@type_names, after.@names, after.@type_names)
+		    <before.@names, before.@type_names, after.@names, after.@type_names>
 		CODE
 		before_members = out.values[0].values.zip(out.values[1].values).sort
 		after_members  = out.values[2].values.zip(out.values[3].values).sort
@@ -606,7 +606,7 @@ class Structs_Test < Base_Test
 		    Thing\\<DEFAULT_COLUMNS> {}
 
 		    t := Thing\\<5, 1234>()
-		    (t.@tag.id, t.@tag.created_at)
+		    <t.@tag.id, t.@tag.created_at>
 		CODE
 		assert_equal [5, 1234], out.values
 	end
@@ -621,7 +621,7 @@ class Structs_Test < Base_Test
 
 		    a := Thing\\<opts: Options>()
 		    b := Thing\\<Options>()
-		    (a.@tag.opts, b.@tag.opts)
+		    <a.@tag.opts, b.@tag.opts>
 		CODE
 		refute_nil out.values[0]
 		refute_nil out.values[1]
@@ -641,7 +641,7 @@ class Structs_Test < Base_Test
 		    db := Data_Conn('primary')
 
 		    t := Table\\<columns := cols, database := db>
-		    (t.@tag.columns.@names, t.@tag.database.name)
+		    <t.@tag.columns.@names, t.@tag.database.name>
 		CODE
 		assert_equal %w(name age), out.values[0].values
 		assert_equal 'primary', out.values[1]
@@ -657,7 +657,7 @@ class Structs_Test < Base_Test
 		    }
 
 		    a := Abc\\<Number>()
-		    (a.first(), a.second())
+		    <a.first(), a.second()>
 		CODE
 		assert_equal %w(first second), out.values
 	end
@@ -700,9 +700,9 @@ class Structs_Test < Base_Test
 		    		final += "}"
 		    	)
 		    }
-		    a := String\\<{x:0, y:1, z:2}>()
-		    b := String\\<{x:0, y:1, z:2}>("My dict: ")
-		    (a.to_s(), b.to_s())
+		    a := String\\<{:x = 0, :y = 1, :z = 2}>()
+		    b := String\\<{:x = 0, :y = 1, :z = 2}>("My dict: ")
+		    <a.to_s(), b.to_s()>
 		CODE
 		out = Code.interp src
 		assert_equal '{x::0, y::1, z::2, }', out.values[0]
@@ -728,7 +728,7 @@ class Structs_Test < Base_Test
 		    Abc\\<dict: Dictionary> {
 		    	Self (;)
 		    }
-		    z := Abc\\<{x:1}>
+		    z := Abc\\<{:x = 1}>
 		    zz := z()
 		    zz.@tag.@members
 		CODE
@@ -813,7 +813,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Api <name: String, run: (Number -> Number;)>
 		    api := Api
-		    (api.@names.values, api.run)
+		    <api.@names.values, api.run>
 		CODE
 		assert_equal %w(name run), out.values[0]
 		assert_nil out.values[1]
@@ -884,13 +884,13 @@ class Structs_Test < Base_Test
 		end
 	end
 
-	# A struct annotation with only unnamed members (`<String, Number>`, no names to check anything by) enforces nothing at all on a param -- there's no name on the argument to look up. Documenting the current, if surprising, behavior rather than letting it go unnoticed.
-	def test_struct_typed_param_with_only_unnamed_members_enforces_nothing
-		refute_raises do
-			out = Code.interp 'f ( x: <String, Number>; x )
-				f(nil)'
-			assert_nil out
-		end
+	# A struct annotation with unnamed members (`<String, Number>`) checks the argument's members by position.
+	def test_struct_typed_param_with_unnamed_members_checks_by_position
+		code = "f ( x: <String, Number>;\n\tx\n)\n"
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + 'f(nil)' }
+		assert_equal ['a', 1], Code.interp(code + "f(<'a', 1>)").values
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + "f(<1, 'a'>)" }
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + "f(<'a'>)" }
 	end
 
 	# `x: Abc\<Number>` (a named type plus a tag) parses the same way it already does for plain identifiers/variables -- reachable as param.type.tag, same as any other type annotation (no separate Param_Expr#tag; that duplicated what param.type.tag already gives you).
@@ -998,7 +998,7 @@ class Structs_Test < Base_Test
 
 		    Combo | This | That | There\\Info | Here\\<> {}
 		    x := Combo()
-		    (x.a, x.b, Combo.@tag.@names)
+		    <x.a, x.b, Combo.@tag.@names>
 		CODE
 		a, b, tag_names = out.values
 		assert_equal 1, a
@@ -1040,7 +1040,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Abc\\<Number> {}
 		    Abc\\<String> {}
-		    (Abc\\<Number> === Abc\\<String>, Abc\\<Number> === Abc\\<Number>)
+		    <(Abc\\<Number> === Abc\\<String>), (Abc\\<Number> === Abc\\<Number>)>
 		CODE
 		assert_equal [false, true], out.values
 	end
@@ -1051,7 +1051,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Abc\\<Number> {}
 		    Abc\\<String> {}
-		    (Abc\\<Number> =!= Abc\\<String>, Abc\\<Number> =>= Abc\\<String>, Abc\\<Number> =<= Abc\\<String>, Abc\\<Number> =/= Abc\\<String>)
+		    <(Abc\\<Number> =!= Abc\\<String>), (Abc\\<Number> =>= Abc\\<String>), (Abc\\<Number> =<= Abc\\<String>), (Abc\\<Number> =/= Abc\\<String>)>
 		CODE
 		# =/= is disjointness of *composed types*, not tag -- both still compose "Abc", so they're not disjoint despite differing tags.
 		assert_equal [true, false, false, false], out.values
@@ -1068,7 +1068,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    s := <id: Array\\String>
 		    m := s.@members.first()
-		    (m.type.@display_name, m.type.@tag.@type_names.first())
+		    <m.type.@display_name, m.type.@tag.@type_names.first()>
 		CODE
 		assert_equal %w(Array\\String String), out.values
 	end
@@ -1079,7 +1079,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    s := <id: Array\\<String>>
 		    m := s.@members.first()
-		    (m.type.@display_name, m.type.@tag.@type_names.first())
+		    <m.type.@display_name, m.type.@tag.@type_names.first()>
 		CODE
 		assert_equal ['Array\\<String>', 'String'], out.values
 	end
@@ -1128,7 +1128,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    a := Array\\String
 		    b := Array\\<String>
-		    (a.@display_name, b.@display_name)
+		    <a.@display_name, b.@display_name>
 		CODE
 		assert_equal ['Array\\String', 'Array\\<String>'], out.values
 	end
@@ -1169,7 +1169,7 @@ class Structs_Test < Base_Test
 		    A {} B {} C {}
 		    Thing\\A\\B { which (; 'B' ) }
 		    Thing\\A\\C { which (; 'C' ) }
-		    (Thing\\A\\B().which(), Thing\\A\\C().which())
+		    <Thing\\A\\B().which(), Thing\\A\\C().which()>
 		CODE
 		assert_equal %w(B C), out.values
 	end
@@ -1250,7 +1250,7 @@ class Structs_Test < Base_Test
 		    @assert @.tag.@types.first() == 4815, 'bare @.tag should reach the pushed scope\\'s own tag'
 		    @pop_scope x
 
-		    (dot_at, dot_at_dot)
+		    <dot_at, dot_at_dot>
 		CODE
 		assert_equal [4815, 4815], out.values
 	end
@@ -1312,7 +1312,7 @@ class Structs_Test < Base_Test
 		    Def <def: String>
 		    Both | Abc | Def <>
 		    b := Both(1, 'hi')
-		    (b.abc, b.def)
+		    <b.abc, b.def>
 		CODE
 		assert_equal [1, 'hi'], out.values
 	end
@@ -1322,7 +1322,7 @@ class Structs_Test < Base_Test
 		    Abc <abc: Int>
 		    Both2 | Abc <my_own: String>
 		    b := Both2(1, 'yo')
-		    (b.abc, b.my_own)
+		    <b.abc, b.my_own>
 		CODE
 		assert_equal [1, 'yo'], out.values
 	end
@@ -1355,7 +1355,7 @@ class Structs_Test < Base_Test
 		    Def <def: String, shared: String>
 		    U | Abc | Def <>
 		    u := U(1, 'left-shared', 'right-only')
-		    (u.abc, u.shared, u.def)
+		    <u.abc, u.shared, u.def>
 		CODE
 		assert_equal [1, 'left-shared', 'right-only'], out.values
 	end
@@ -1399,7 +1399,7 @@ class Structs_Test < Base_Test
 		    Def <def: String, shared: String>
 		    S | Abc ^ Def <>
 		    s := S(1, 'unique-def')
-		    (s.abc, s.def)
+		    <s.abc, s.def>
 		CODE
 		assert_equal [1, 'unique-def'], out.values
 	end
@@ -1410,7 +1410,7 @@ class Structs_Test < Base_Test
 		    Def <def: String>
 		    Both | Abc | Def <>
 		    b := Both(1, 'hi')
-		    (b === Both, Both.@name)
+		    <(b === Both), Both.@name>
 		CODE
 		assert_equal [true, 'Both'], out.values
 	end
@@ -1428,7 +1428,7 @@ class Structs_Test < Base_Test
 		    }
 		    Both | Abc | Real_Type <>
 		    b := Both(1)
-		    (b.abc, b.x, b.greet())
+		    <b.abc, b.x, b.greet()>
 		CODE
 		assert_equal [1, 1, 'hi'], out.values
 	end
@@ -1458,7 +1458,7 @@ class Structs_Test < Base_Test
 		end
 	end
 
-	# Positional `.N` dot-index -- same mechanism Array/Tuple already use (#array_index_value only ever needs `.values`, which every Code::Struct already has), so it works unchanged for a struct too.
+	# Positional `.N` dot-index -- same mechanism Array already uses (#array_index_value only ever needs `.values`, which every Code::Struct already has), so it works unchanged for a struct too.
 
 	def test_struct_positional_index_on_an_instance
 		out = Code.interp "s := <'a', 'b'>
@@ -1491,7 +1491,7 @@ class Structs_Test < Base_Test
 	# Named/reflective access must still fall through to ordinary member lookup, unaffected by the new numeric-index dispatch.
 	def test_struct_named_member_access_still_works_alongside_positional_index
 		out = Code.interp "s := <a := 456>
-		(s.0, s.a)"
+		<s.0, s.a>"
 		assert_equal [456, 456], out.values
 	end
 
@@ -1509,7 +1509,7 @@ class Structs_Test < Base_Test
 		    Error <message: String>
 		    e1 := nil\\Error()
 		    e2 := Nil\\Error()
-		    (e1.@composed_types == e2.@composed_types, e1.@tag =>= Error, e2.@tag =>= Error)
+		    <(e1.@composed_types == e2.@composed_types), (e1.@tag =>= Error), (e2.@tag =>= Error)>
 		CODE
 		out = Code.interp src
 		assert_equal true, out.values[0]
@@ -1550,7 +1550,7 @@ class Structs_Test < Base_Test
 		    p := nil\\Panic()
 		    p.@tag.message = 'unrecoverable'
 
-		    (classify(e), classify(p), classify(1))
+		    <classify(e), classify(p), classify(1)>
 		CODE
 		out = Code.interp src
 		assert_equal ['error', 'panic', 'ok'], out.values
@@ -1578,7 +1578,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Type | <x: Int = 5> {}
 		    t := Type()
-		    (t.x, t.@composed_types.include?('Struct'))
+		    <t.x, t.@composed_types.include?('Struct')>
 		CODE
 		assert_equal [5, false], out.values
 	end
@@ -1593,7 +1593,7 @@ class Structs_Test < Base_Test
 		    p := Named<x := 5>
 		    Type2 | p {}
 		    t := Type2()
-		    (t.x, t.@composed_types.include?('Struct'), t.@composed_types.include?('Named'))
+		    <t.x, t.@composed_types.include?('Struct'), t.@composed_types.include?('Named')>
 		CODE
 		assert_equal [5, true, true], out.values
 	end
@@ -1606,7 +1606,7 @@ class Structs_Test < Base_Test
 		    A { z := 3, w := 4 }
 		    B | A ~ <z: Int> {}
 		    b := B()
-		    (b.w, b.@composed_types.include?('Struct'))
+		    <b.w, b.@composed_types.include?('Struct')>
 		CODE
 		assert_equal [4, false], out.values
 
@@ -1629,7 +1629,7 @@ class Structs_Test < Base_Test
 		    Def <def: String>
 		    Both | Abc | Def <>
 		    b := Both(1, 'hi')
-		    (b.abc, b.def)
+		    <b.abc, b.def>
 		CODE
 		assert_equal [1, 'hi'], out.values
 	end
@@ -1642,7 +1642,7 @@ class Structs_Test < Base_Test
 		    p := <x := 99, z := 3>
 		    Combined | A & p {}
 		    c := Combined()
-		    (c.x, c.@composed_types.include?('Struct'))
+		    <c.x, c.@composed_types.include?('Struct')>
 		CODE
 		assert_equal [1, false], out.values # shared name's *value* comes from the left/curr_scope side, not the struct's
 
@@ -1662,7 +1662,7 @@ class Structs_Test < Base_Test
 		    p := <x := 99, z := 3>
 		    Combined | A ^ p {}
 		    c := Combined()
-		    (c.y, c.z, c.@composed_types.include?('Struct'))
+		    <c.y, c.z, c.@composed_types.include?('Struct')>
 		CODE
 		assert_equal [2, 3, false], out.values # y (unique to A) and z (unique to p) survive; shared x is dropped from both
 
@@ -1703,7 +1703,7 @@ class Structs_Test < Base_Test
 		    T { b := 99, c := 3 }
 		    R | Abc ~ T <>
 		    r := R(1)
-		    (R.@names, r.a)
+		    <R.@names, r.a>
 		CODE
 		assert_equal ['a'], out.values.first.values
 		assert_equal 1, out.values.last
@@ -1715,7 +1715,7 @@ class Structs_Test < Base_Test
 		    T { b := 99, c := 3 }
 		    R | Abc & T <>
 		    r := R(7)
-		    (R.@names, r.b)
+		    <R.@names, r.b>
 		CODE
 		# `&` only filters accumulated members by shared *name* -- the surviving value still comes from
 		# the left/accumulated side (Abc's own `b`), never overwritten by T's.
@@ -1839,17 +1839,28 @@ class Structs_Test < Base_Test
 		assert_equal 1, out
 	end
 
-	def test_changing_a_struct_after_it_is_a_key_loses_the_entry
-		# Same as any hash: a key must not change after it is stored.
+	# A struct key compares by its current values: after it changes, its entry is found by the new value, not the old one.
+	def test_changing_a_struct_key_moves_its_entry
 		out = Code.interp <<~CODE
 			Hex < x: Int, y: Int, z: Int >
 			d := {}
 			h := Hex(1, 0, 0)
 			d[h] = "a"
 			h.x = 2
-			d[Hex(1, 0, 0)]
+			<d[Hex(1, 0, 0)], d[Hex(2, 0, 0)], d[h], d.has_key?(Hex(2, 0, 0))>
 		CODE
-		assert_nil out
+		assert_equal [nil, 'a', 'a', true], out.values
+
+		# Writing by the new value changes that one entry, it does not add a second one
+		out = Code.interp <<~CODE
+			Hex < x: Int, y: Int, z: Int >
+			h := Hex(1, 0, 0)
+			d := {(h) = "a"}
+			h.x = 2
+			d[Hex(2, 0, 0)] = "b"
+			<d.count(), d[h]>
+		CODE
+		assert_equal [1, 'b'], out.values
 	end
 
 	# --- Construction checks member types, with the same rule as a later `record.member = value` ---
@@ -1869,7 +1880,7 @@ class Structs_Test < Base_Test
 		assert_raises Code::Type_Contract_Violation do
 			Code.interp "A <v: String, n: Number>\nA(n := 1, v := 2)"
 		end
-		assert_equal [1, 'x'], Code.interp("A <v: String, n: Number>\na := A(n := 1, v := 'x')\n(a.n, a.v)").values
+		assert_equal [1, 'x'], Code.interp("A <v: String, n: Number>\na := A(n := 1, v := 'x')\n<a.n, a.v>").values
 	end
 
 	def test_construction_lets_a_missing_or_nil_member_pass
@@ -1888,7 +1899,7 @@ class Structs_Test < Base_Test
 		assert_raises Code::Type_Contract_Violation do
 			Code.interp "P <x: Int>\nQ | P <y: String>\nQ(1, 2)"
 		end
-		assert_equal [1, 'b'], Code.interp("P <x: Int>\nQ | P <y: String>\nq := Q(1, 'b')\n(q.x, q.y)").values
+		assert_equal [1, 'b'], Code.interp("P <x: Int>\nQ | P <y: String>\nq := Q(1, 'b')\n<q.x, q.y>").values
 	end
 
 	def test_construction_checks_a_union_member
@@ -1908,5 +1919,153 @@ class Structs_Test < Base_Test
 		assert_raises Code::Type_Contract_Violation do
 			Code.interp "A <v := 0>\nA(:z)"
 		end
+	end
+	# --- A literal-typed member tells structs apart ---
+
+	# `status: 404` allows only 404, so that is the member's value until a call gives one.
+	def test_a_member_typed_with_one_literal_starts_with_that_value
+		out = Code.interp <<~CODE
+		    Ok <status: 200, body: String>
+		    Missing <status: 404>
+		    <Missing().status, Ok(body := 'hi').status, Ok(body := 'hi').body>
+		CODE
+		assert_equal [404, 200, 'hi'], out.values
+
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp "Ok <status: 200, body: String>\nOk(404, 'x')"
+		end
+	end
+
+	def test_a_union_of_structs_with_literal_members
+		out = Code.interp <<~CODE
+		    Ok <status: 200, body: String>
+		    Missing <status: 404>
+		    Reply :: Ok | Missing
+
+		    describe ( reply: Reply;
+		    	if reply
+		    	when Ok
+		    		"ok: `reply.body`"
+		    	when Missing
+		    		'missing'
+		    	end
+		    )
+		    <describe(Ok(body := 'hi')), describe(Missing())>
+		CODE
+		assert_equal ['ok: hi', 'missing'], out.values
+
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+			    Ok <status: 200, body: String>
+			    Missing <status: 404>
+			    Reply :: Ok | Missing
+			    reply: Reply = <status := 404>
+			CODE
+		end
+	end
+
+	# An anonymous struct shape matches by its members, with a literal type by value. A named struct still matches by name.
+	def test_a_value_matches_an_anonymous_struct_shape_by_its_members
+		out = Code.interp <<~CODE
+		    Missing <status: 404>
+		    v := <status := 404>
+		    <(v =>= <status: 404>), (v =>= <status: 200>), (v =>= <status: Int>), (v =>= <code: Int>), (<status: 404> =<= v), (v =>= Missing), (Missing() =>= <status: 404>)>
+		CODE
+		assert_equal [true, false, true, false, true, false, true], out.values
+
+		out = Code.interp <<~CODE
+		    log := []
+		    for [<status := 200, body := 'a'>, <status := 404>, <status := 500>]
+		    when <status: 200>
+		    	log.push("ok `it.body`")
+		    when <status: 404>
+		    	log.push('missing')
+		    when it
+		    	log.push('other')
+		    end
+		    log
+		CODE
+		assert_equal ['ok a', 'missing', 'other'], out.values
+	end
+	# `A =>= B` reads "A has everything B has". A struct value on the right counts its `name := value` members as literals, so its values must match too.
+	def test_a_named_struct_against_a_struct_value
+		out = Code.interp <<~CODE
+		    Missing <status: 404>
+		    <(Missing =>= <status := 404>), (Missing =>= <status := 200>), (<status := 404> =>= Missing)>
+		CODE
+		assert_equal [true, false, false], out.values
+
+		out = Code.interp <<~CODE
+		    <(<status := 404> =>= <status := 404>), (<status := 404> =>= <status := 200>), (<status := 404, body := 'x'> =>= <status := 404>)>
+		CODE
+		assert_equal [true, false, true], out.values
+	end
+
+	# A struct-typed param still reads `name := value` as a default, not as a literal.
+	def test_a_struct_typed_param_default_is_not_a_literal
+		out = Code.interp <<~CODE
+		    f ( r: <verbose := false>;
+		    	r.verbose
+		    )
+		    f(<verbose := true>)
+		CODE
+		assert_equal true, out
+	end
+	# 10. A member with a literal type checks a later assignment too, not only construction.
+	def test_assigning_a_literal_typed_member
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+			    Missing <status: 404>
+			    r := Missing()
+			    r.status = 200
+			CODE
+		end
+
+		assert_equal 404, Code.interp("Missing <status: 404>\nr := Missing()\nr.status = 404\nr.status")
+	end
+	# --- A struct as a return type checks the returned value's members ---
+
+	def test_a_named_struct_return_type
+		code = "f (-> <ok: Bool, data: Any>;\n\tVALUE\n)\nf()"
+		out  = Code.interp code.sub('VALUE', '<ok := true, data := [1]>')
+		assert_equal [true, [1]], [out.values[0], out.values[1].values]
+
+		err = assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', '<ok := 5, data := [1]>') }
+		assert_match '<ok: Bool, data: Any>', err.message
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', '<data := 1>') }
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', 'nil') } # a nil has no members, the same as for a struct-typed param
+	end
+
+	def test_a_positional_struct_return_type
+		code = "f (-> <Bool, Any>;\n\tVALUE\n)\nf()"
+		assert_equal [true, 'x'], Code.interp(code.sub('VALUE', "<true, 'x'>")).values
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', "<5, 'x'>") }
+		assert_raises(Code::Type_Contract_Violation) { Code.interp "f (-> <Bool, String>;\n\t<true>\n)\nf()" } # a missing member
+	end
+
+	# A positional shape also works with `=>=`, and a value in it counts as a literal.
+	def test_a_positional_struct_shape_with_greater_or_equal
+		out = Code.interp "<(<1, 2> =>= <Number, Number>), (<'a', 2> =>= <Number, Number>), (<404, []> =>= <404, Array>), (<200, []> =>= <404, Array>)>"
+		assert_equal [true, false, true, false], out.values
+	end
+
+	# A list of values in `( )` was a Tuple. A struct holds a list of values now, and `( )` only groups one value or lists destructuring targets.
+	def test_a_list_of_values_in_parentheses_raises
+		['(1, 2)', '()', 'x := (1, 2)', "f (;\n\t(1, 2)\n)\nf()"].each do |code|
+			error = assert_raises(Code::Values_In_Parentheses, code) { Code.interp code }
+			assert_includes error.message, '<404, []>', code
+		end
+
+		assert_equal 9, Code.interp('(1 + 2) * 3')
+		assert_equal 7, Code.interp('(7,)')
+		status, body = Code.interp("(status, body) := <404, []>\n<status, body>").values
+		assert_equal 404, status
+		assert_empty body.values
+	end
+
+	def test_a_subscript_reads_a_member_by_position
+		assert_equal [10, 20, nil], Code.interp("s := <10, 20>\n<s[0], s[-1], s[5]>").values
+		assert_equal 'b', Code.interp("<a := 1, 'b'>[1]")
+		assert_raises(Code::Invalid_Array_Index) { Code.interp "<10, 20>['a']" }
 	end
 end

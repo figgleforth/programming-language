@@ -1,0 +1,5 @@
+# A named argument is `name := value`. After a name, `:` starts a type annotation, so this fails when the file is parsed.
+sub ( a, b;
+	a - b
+)
+sub(a: 1, b: 2) # error: Colon_Named_Argument

@@ -1,0 +1,7 @@
+# A member with no type shows its value, so a nil value prints as nil
+@out <6, nil>                           # out: <6, nil>
+@out <a := nil, b := 2>                 # out: <a := nil, b: Number = 2>
+@out [<1, 2>, <2, nil>]                 # out: [<1, 2>, <2, nil>]
+
+# A shape still shows each member's type
+@out <Number, x: String>                # out: <Number, x: String>

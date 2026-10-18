@@ -36,7 +36,7 @@ class Iterable_Test < Base_Test
 		    }
 		    pairs := []
 		    for Countdown(['a', 'b', 'c'])
-		        pairs << (at, it)
+		        pairs << <at, it>
 		    end
 		    pairs
 		CODE

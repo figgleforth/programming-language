@@ -1,0 +1,4 @@
+# A dot only reads a Dictionary key, so a write cannot be mistaken for a struct or an instance member
+d := {name = 'Jack'}
+@out d.name                             # out: Jack
+d.name = 'Kate'                         # error: Dictionary_Dot_Write

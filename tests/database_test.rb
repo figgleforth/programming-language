@@ -24,7 +24,7 @@ class Database_Test < Base_Test
 		    #{DATABASE}
 			db := Database()
 		    sq := Sqlite('#{@filepath}')
-			(db, sq)
+			<db, sq>
 		CODE
 		assert_instance_of Code::Database, out.values.first
 		assert_instance_of Code::Database, out.values.last
@@ -56,7 +56,7 @@ class Database_Test < Base_Test
 		    db := Sqlite('#{@filepath}')
 		    c1 := @connect db
 		    c2 := @connect db
-		    (c1, c2)
+		    <c1, c2>
 		CODE
 		assert_equal out.values[0].object_id, out.values[1].object_id
 	end
@@ -90,7 +90,7 @@ class Database_Test < Base_Test
 			db.create_table(User)
 			post_tables := db.tables()
 
-			(pre_tables, post_tables)
+			<pre_tables, post_tables>
 		CODE
 		assert_equal [[], [:users]], out.values.map { |prog_array| prog_array.get('values') }
 	end
@@ -112,7 +112,7 @@ class Database_Test < Base_Test
 			luna := user.create(<name := 'Luna'>)
 
 			users := user.all()
-			(none, users, cooper, luna, db.table_exists?(User))
+			<none, users, cooper, luna, db.table_exists?(User)>
 		CODE
 		assert_equal 0, out.values[0].values.count
 		assert_equal 2, out.values[1].values.count
@@ -257,7 +257,7 @@ class Database_Test < Base_Test
 
 			pre   := db.table_exists?(Widget)
 			table := db.find_or_create_table(Widget)
-			(pre, db.table_exists?(Widget), table.table_name, table.columns)
+			<pre, db.table_exists?(Widget), table.table_name, table.columns>
 		CODE
 		assert_equal false, out.values[0]
 		assert_equal true, out.values[1]
@@ -279,7 +279,7 @@ class Database_Test < Base_Test
 			first.create(<name := 'A'>)
 
 			second := db.find_or_create_table(Widget)
-			(second.table_name, second.all().length())
+			<second.table_name, second.all().length()>
 		CODE
 		assert_equal 'widgets', out.values[0]
 		assert_equal 1, out.values[1]
@@ -297,7 +297,7 @@ class Database_Test < Base_Test
 			db.create_table(Widget)
 
 			table := db.find_table(Widget)
-			(table.table_name, table.columns)
+			<table.table_name, table.columns>
 		CODE
 		assert_equal 'widgets', out.values[0]
 		refute_nil out.values[1]
@@ -335,7 +335,7 @@ class Database_Test < Base_Test
 
 			pre := db.table_exists?(Widget)
 			db.delete_table!(Widget)
-			(pre, db.table_exists?(Widget))
+			<pre, db.table_exists?(Widget)>
 		CODE
 		assert_equal true, out.values[0]
 		assert_equal false, out.values[1]
@@ -353,7 +353,7 @@ class Database_Test < Base_Test
 			# derived independently, so a caller never has to keep the original schema around just to drop it.
 			pre := db.table_exists?(:widgets)
 			db.delete_table!(:widgets)
-			(pre, db.table_exists?(:widgets))
+			<pre, db.table_exists?(:widgets)>
 		CODE
 		assert_equal true, out.values[0]
 		assert_equal false, out.values[1]
@@ -460,7 +460,7 @@ class Database_Test < Base_Test
 			table.create(<name := 'B'>)
 
 			table.delete(a.id)
-			(table.all().length(), table.find(a.id))
+			<table.all().length(), table.find(a.id)>
 		CODE
 		assert_equal 1, out.values[0]
 		assert_nil out.values[1]
@@ -591,7 +591,7 @@ class Database_Test < Base_Test
 			table.columns    = Widget
 
 			created := table.create(<name := 'Manual'>)
-			(created.name, table.all().length())
+			<created.name, table.all().length()>
 		CODE
 		assert_equal 'Manual', out.values[0]
 		assert_equal 1, out.values[1]
@@ -610,7 +610,7 @@ class Database_Test < Base_Test
 					name: String
 				>
 				table := db.find_or_create_table(Widget)
-				table.create({name: 'oops'})
+				table.create({:name = 'oops'})
 			CODE
 		end
 	end
@@ -627,7 +627,7 @@ class Database_Test < Base_Test
 				>
 				table := db.find_or_create_table(Widget)
 				created := table.create(<name := 'A'>)
-				table.update(created.id, {name: 'oops'})
+				table.update(created.id, {:name = 'oops'})
 			CODE
 		end
 	end
@@ -678,7 +678,7 @@ class Database_Test < Base_Test
 			Task <id: Primary_Key, text: String>
 			tasks_table := db.find_or_create_table(Task)
 			Tasks | Task | tasks_table <>
-			(tasks_table, Tasks, Table)
+			<table := tasks_table, tasks := Tasks, table_type := Table>
 		CODE
 		table, tasks, table_type = out.values
 		original                 = table_type.declarations['find']
@@ -703,7 +703,7 @@ class Database_Test < Base_Test
 			tasks_table := db.find_or_create_table(Task)
 			Tasks | Task | Task_Logic | tasks_table <>
 			record := Tasks(nil, 'hi')
-			(tasks_table, Tasks, record)
+			<tasks_table, Tasks, record>
 		CODE
 		table, tasks, record = out.values
 

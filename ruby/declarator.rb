@@ -191,18 +191,19 @@ module Code
 			when Type_Alias_Expr
 				Declaration[expr.left.value, expr.right, expr]
 			when Infix_Expr
-				declare_assignment expr if %w(:= =).include? expr.operator.value
+				# `:=` declares. `=` assigns, so it declares only with a `: Type` on its name (`x: Int = 5`): a plain `x = 1`, or a Dictionary entry (`{ :name = 1 }`), declares nothing.
+				declare_assignment expr if expr.operator.value == ':=' || (expr.operator.value == '=' && expr.left.is_a?(Identifier_Expr) && expr.left.type)
 			when Percent_Literal_Expr
 				# %string(...)/%symbol(...) is a flat list of literal items, never declarations
 			when Circumfix_Expr
-				# a grouping ((...), [...], {...}) doesn't push its own scope -- a `:=`/`=` among its items lands in the enclosing scope, same reasoning as Conditional_Expr below
-				declare_all expr.expressions
+				# a grouping ((...), [...]) doesn't push its own scope -- a `:=` among its items lands in the enclosing scope, same reasoning as Conditional_Expr below. A `{}` block pushes its own (Interpreter#interp_inline_scope), so what it declares stays inside it, and a Dictionary declares nothing.
+				declare_all expr.expressions unless expr.grouping == '{}'
 			when Operator_Expr
 				to_decl expr
 			when Operator_Overload_Expr
 				to_decl expr
 			when Identifier_Expr
-				# a bare identifier reference (e.g. a func body's trailing return value) reads a value, it doesn't declare one -- #declare_all's `if decl` already tolerates nil fine, no self-referential Declaration needed here. Registering one was actively wrong: a bare reference appearing *after* the real declaration of the same name (e.g. `x := 1` followed later by a bare `x` in a tuple/return value) would silently clobber it in #declare_all's Hash, since both share the same key.
+				# a bare identifier reference (e.g. a func body's trailing return value) reads a value, it doesn't declare one -- #declare_all's `if decl` already tolerates nil fine, no self-referential Declaration needed here. Registering one was actively wrong: a bare reference appearing *after* the real declaration of the same name (e.g. `x := 1` followed later by a bare `x` in a struct/return value) would silently clobber it in #declare_all's Hash, since both share the same key.
 			when Composition_Expr
 				# references an already-declared type via composition (`| Other`) -- doesn't declare one
 			when Conditional_Expr

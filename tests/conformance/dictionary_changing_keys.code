@@ -1,0 +1,14 @@
+# A struct or Array key compares by its current values, so after it changes, the new value finds its entry
+Hex <x: Int, y: Int, z: Int>
+h := Hex(1, 0, 0)
+d := {(h) = 'a'}
+h.x = 2
+@out d[Hex(1, 0, 0)]                    # out: nil
+@out d[Hex(2, 0, 0)]                    # out: a
+
+k := [1, 2]
+lists := {(k) = 'list'}
+@out lists[[1, 2]]                      # out: list
+k.push(3)
+@out lists[[1, 2]]                      # out: nil
+@out lists[[1, 2, 3]]                   # out: list

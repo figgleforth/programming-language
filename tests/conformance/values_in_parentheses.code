@@ -1,0 +1,7 @@
+# `( )` groups one value. A list of values in `( )` is not a value: a struct holds one.
+(status, body) := <404, []>
+@out status                             # out: 404
+@out body                               # out: []
+@out (1 + 2) * 3                        # out: 9
+@out (7,)                               # out: 7
+pair := (404, [])                       # error: Values_In_Parentheses

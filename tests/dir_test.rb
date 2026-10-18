@@ -44,7 +44,7 @@ class Dir_Test < Base_Test
 	end
 
 	def test_path_predicates
-		out = interp("d := Dir('#{TREE}')\n(d.is_dir?('#{TREE}/sub'), d.is_file?('#{TREE}/a.txt'), d.is_dir?('#{TREE}/a.txt'))")
+		out = interp("d := Dir('#{TREE}')\n<d.is_dir?('#{TREE}/sub'), d.is_file?('#{TREE}/a.txt'), d.is_dir?('#{TREE}/a.txt')>")
 		assert_equal [true, true, false], out.values
 	end
 

@@ -117,16 +117,35 @@ module Code
 		end
 	end
 
-	class Invalid_Type_Alias < Error
+	# `(1, 2)` as a value. A struct holds a list of values: `<1, 2>`.
+	class Values_In_Parentheses < Error
 		def detail_message
-			"`::` names a type expression, so its right side must be a type: `Int :: Integer`, `Strumber :: String | Number`, or a signature such as `Func :: (;)`. A function with a body is a value; give it a name with `:=`."
+			"A list of values in `( )` is not a value. Use a struct: `<404, []>`, or `<ok: Bool, data: Any>` for a return type. `( )` around one value groups it, and `(a, b) := ...` destructures."
 		end
 	end
 
-	# `Strumber()` or `x =/= Strumber`, where `Strumber :: String | Number` -- an alias of a type expression is a contract, not a type, so it has no instance and no exact type set.
+	class Invalid_Type_Alias < Error
+		def detail_message
+			"`::` names a type expression, so its right side must be a type: `Int :: Integer`, `Strumber :: String | Number`, a literal such as `Mode :: \"fill\" | \"line\"`, or a signature such as `Func :: (;)`. A function with a body is a value; give it a name with `:=`."
+		end
+	end
+
+	class Colon_Named_Argument < Error
+		def detail_message
+			"A named argument uses `:=`: `f(mode := \"fill\")`. After a name, `:` starts a type annotation."
+		end
+	end
+
+	class Invalid_Type_Alias_Name < Error
+		def detail_message
+			"`::` names a type, so the name must be capitalized: `Mode :: \"fill\" | \"line\"`. A lowercase name is a value or a function; give it one with `:=`."
+		end
+	end
+
+	# `Strumber()`, `x =/= Strumber`, or `Five + 1`, where `Strumber :: String | Number` and `Five :: 5` -- an alias of a type expression is a contract, not a type or a value, so it has no instance, no exact type set, and no value to compute with.
 	class Type_Alias_Is_Not_A_Type < Error
 		def detail_message
-			"An alias of a type expression only checks values. Use it as an annotation (`x: Strumber`) or with `=>=` (`5 =>= Strumber`). To construct, or to compare with `=/=`, use one of the types in it."
+			"An alias of a type expression only checks values. Use it as an annotation (`x: Strumber`) or with `=>=` (`5 =>= Strumber`). To construct, or to compare with `=/=`, use one of the types in it. `Five :: 5` is a type too, not a value: for a named value, use a constant, `FIVE := 5`."
 		end
 	end
 
@@ -154,10 +173,16 @@ module Code
 	class Receiver_Is_Not_Callable < Error
 	end
 
-	class Invalid_Dictionary_Key < Error
+	class Dictionary_Dot_Write < Error
+		def detail_message
+			"A dot only reads a Dictionary key. To write one, use a subscript: `d[:name] = value` or `d['name'] = value`."
+		end
 	end
 
-	class Invalid_Dictionary_Infix_Operator < Error
+	class Colon_Dictionary_Entry < Error
+		def detail_message
+			"A Dictionary entry uses `=`: `{name = 'Jack'}` (the String key \"name\"), `{:name = 'Jack'}` (a Symbol key), or `{123 = x}` (any value). After a name, `:` starts a type annotation."
+		end
 	end
 
 	class Invalid_Dot_Infix_Left_Operand < Error
@@ -549,7 +574,7 @@ module Code
 	end
 
 	# `...expr` at a call site needs something with elements or named declarations to spread --
-	# an Array (`Arguments`/`Tuple` included, since both subclass it), a Dictionary, a Struct, or a
+	# an Array (`Arguments` included, since it subclasses it), a Dictionary, a Struct, or a
 	# plain Type/Instance (see `#plain_type_or_instance?`, interpreter.rb).
 	class Invalid_Callsite_Splat_Argument < Error
 		attr_accessor :value
@@ -566,7 +591,7 @@ module Code
 
 	class Invalid_Destructuring_Source < Error
 		def detail_message
-			'Only a Tuple or Struct can be destructured with `(...) := ...`'
+			'Only a Struct can be destructured with `(...) := ...`: `(a, b) := <404, []>`'
 		end
 	end
 

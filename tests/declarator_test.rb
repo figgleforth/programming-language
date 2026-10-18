@@ -72,7 +72,7 @@ class Declarator_Test < Base_Test
 	end
 
 	def test_destructuring_declares_each_identifier_target
-		decls = Code.declare "(a, b) := (1, 2)"
+		decls = Code.declare "(a, b) := <1, 2>"
 		assert_equal %w(a b), decls.keys
 	end
 
@@ -285,7 +285,7 @@ class Declarator_Test < Base_Test
 		    	build_thing()
 		    )
 
-		    (result, calls)
+		    <result, calls>
 		CODE
 
 		assert_equal 1, out.values[0]
@@ -306,5 +306,18 @@ class Declarator_Test < Base_Test
 			    Vec2.NOW_OUTSIDE
 			CODE
 		end
+	end
+	# `:=` declares, and `=` assigns, so `=` declares only with a `: Type` on its name. A Dictionary entry declares nothing.
+	def test_only_colon_equals_or_a_typed_equals_declares
+		assert_empty Code.declare('x = 1').keys
+		assert_empty Code.declare('{ x = 1 }').keys
+		assert_empty Code.declare("{ :name = 'Jack' }").keys
+		assert_equal ['x'], Code.declare('x: Int = 5').keys
+		assert_equal ['x'], Code.declare('x := 5').keys
+	end
+
+	# A `{}` block has its own scope, so what it declares is not a top-level name.
+	def test_a_block_declares_nothing_outside_it
+		assert_empty Code.declare("{ y := 5\ny }").keys
 	end
 end

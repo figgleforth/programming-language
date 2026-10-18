@@ -1,0 +1,2 @@
+# A literal value is checked against a literal type before the program runs
+mode: "fill" | "line" = "fil" # error: Type_Mismatch

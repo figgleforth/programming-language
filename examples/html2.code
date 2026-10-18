@@ -49,7 +49,7 @@ A separate visitor walks the same kind of tree counting things instead of render
 stats := Html_Stats_Visitor().analyze(page)
 @assert stats.node_count == 3, 'node_count should count every Element in the tree, including the root'
 @assert stats.max_depth == 1, 'max_depth should be how many levels deep the tree goes'
-@assert stats.unique_tags() == [:div, :h1, :p], 'unique_tags should list every distinct tag used'
+@assert stats.unique_tags() == ['div', 'h1', 'p'], 'unique_tags should list every distinct tag used'
 
 
 ### Html_Sanitizer_Visitor

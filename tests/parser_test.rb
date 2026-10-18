@@ -907,7 +907,7 @@ class Parser_Test < Base_Test
 	# any literal (string/symbol/number/fence) whose own content coincidentally equalled a delimiter
 	# confused whichever loop was scanning for that delimiter, not just the spread-lambda/func-decl
 	# lookaheads. #parse_circumfix_expr (parses every `(...)`/`[...]`/`{...}`/`|...|` grouping -- calls,
-	# tuples, arrays, dicts, struct literals) is the highest-traffic example: `until curr? closing`
+	# groupings, arrays, dicts, struct literals) is the highest-traffic example: `until curr? closing`
 	# mistook a literal argument equal to the closing character for the real delimiter, ending the
 	# group early and leaving the true closer to crash the parser as an "unhandled lexeme".
 	def test_call_argument_matching_the_closing_paren_does_not_end_the_call_early
@@ -921,14 +921,14 @@ class Parser_Test < Base_Test
 	end
 
 	def test_dictionary_value_matching_the_closing_brace_parses_correctly
-		out = Code.interp "d := {a: 1, b: '}'}
+		out = Code.interp "d := {:a = 1, :b = '}'}
 		d.b"
 		assert_equal '}', out
 	end
 
-	def test_tuple_element_matching_the_closing_paren_parses_correctly
-		out = Code.interp "t := ('x', ')')
-		t.1"
+	def test_grouped_value_matching_the_closing_paren_parses_correctly
+		out = Code.interp "t := (')')
+		t"
 		assert_equal ')', out
 	end
 
@@ -1053,40 +1053,26 @@ class Parser_Test < Base_Test
 		assert_equal 'String', out.first.type.types.first.type.value
 	end
 
-	def test_return_type_named_tuple_shape
-		out = Code.parse "f (-> (Any, aaa: Any, bbb: Int = 15, ccc := '16'); (1,2,3,4))"
+	def test_return_type_struct_shape
+		out = Code.parse "f (-> <Any, aaa: Any, bbb: Int = 15, ccc := '16'>; <1, 2, 3, 4>)"
 		func_type = out.first.type
-		assert_kind_of Code::Circumfix_Expr, func_type
-		assert_equal '()', func_type.grouping
-		assert_equal 4, func_type.expressions.length
+		assert_kind_of Code::Struct_Expr, func_type
+		assert_equal [nil, 'aaa', 'bbb', 'ccc'], func_type.names
 
-		bare, aaa, bbb, ccc = func_type.expressions
-
-		assert_kind_of Code::Identifier_Expr, bare
+		bare, aaa, bbb, ccc = func_type.types
 		assert_equal 'Any', bare.value
-
-		assert_kind_of Code::Identifier_Expr, aaa
-		assert_equal 'aaa', aaa.value
 		assert_equal 'Any', aaa.type.value
-
-		assert_kind_of Code::Infix_Expr, bbb
-		assert_equal '=', bbb.operator.value
-		assert_equal 'bbb', bbb.left.value
-		assert_equal 'Int', bbb.left.type.value
-		assert_equal 15, bbb.right.value
-
-		assert_kind_of Code::Infix_Expr, ccc
-		assert_equal ':=', ccc.operator.value
-		assert_equal 'ccc', ccc.left.value
-		assert_equal '16', ccc.right.value
+		assert_equal 'Int', bbb.type.value
+		assert_equal 15, bbb.member_default.value
+		assert_equal '16', ccc.member_default.value
 	end
 
-	def test_return_type_single_element_tuple
-		out = Code.parse "f (-> (Any,); 1)"
-		func_type = out.first.type
-		assert_kind_of Code::Circumfix_Expr, func_type
-		assert_equal 1, func_type.expressions.length
-		assert_equal 'Any', func_type.expressions.first.value
+	def test_return_type_in_parentheses_groups_one_type
+		["f (-> (Any); 1)", "f (-> (Any,); 1)"].each do |code|
+			func_type = Code.parse(code).first.type
+			assert_kind_of Code::Identifier_Expr, func_type, code
+			assert_equal 'Any', func_type.value, code
+		end
 	end
 
 	def test_return_type_with_no_arrow_leaves_type_nil
@@ -1096,26 +1082,25 @@ class Parser_Test < Base_Test
 
 	def test_invalid_bare_return_type_raises
 		assert_raises Code::Invalid_Return_Type_In_Function do
-			Code.parse "f (-> 4; 1)"
-		end
-
-		assert_raises Code::Invalid_Return_Type_In_Function do
-			Code.parse "f (-> 'oops'; 1)"
-		end
-
-		assert_raises Code::Invalid_Return_Type_In_Function do
 			Code.parse "f (-> 1+2; 1)"
 		end
 	end
 
-	# Matches the original bug report: an otherwise-valid named tuple return type with one bad slot
-	# (a plain arithmetic expression) should point at that slot specifically, not the whole tuple.
-	def test_invalid_slot_inside_otherwise_valid_tuple_return_type_raises
-		error = assert_raises Code::Invalid_Return_Type_In_Function do
-			Code.parse "f (-> (Any, 1+2); 1)"
+	# A literal is a type that allows only that one value, so it is a valid return type.
+	def test_a_literal_return_type_parses
+		["f (-> 4; 4)", "f (-> 'ok'; 'ok')", "f (-> 'a' | 'b'; 'a')", "f (-> Int | 'auto'; 4)"].each do |code|
+			out = Code.parse(code).first
+			assert_kind_of Code::Type_Expr, out.type, code
+			assert out.type.anonymous_composition, code
 		end
-		assert_kind_of Code::Infix_Expr, error.expression
-		assert_equal '+', error.expression.operator.value
+	end
+
+	# A list in parentheses was a Tuple. A struct replaces it: `-> <Any, Int>`.
+	def test_a_list_in_parentheses_as_a_return_type_raises
+		error = assert_raises Code::Values_In_Parentheses do
+			Code.parse "f (-> (Any, Int); 1)"
+		end
+		assert_includes error.message, '<ok: Bool, data: Any>'
 	end
 
 	def test_double_less_than_is_operator
@@ -1439,5 +1424,14 @@ class Parser_Test < Base_Test
 	def test_a_chain_of_one_kind_still_parses
 		refute_raises(StandardError) { Code.parse "if a\n\t1\nelif b\n\t2\nelsif c\n\t3\nelse\n\t4\nend" }
 		refute_raises(StandardError) { Code.parse "while a\n\t1\neluntil b\n\t2\nelswhile c\n\t3\nelsuntil d\n\t4\nelse\n\t5\nend" }
+	end
+	# 11. In a Dictionary entry, a bare name stays an Identifier_Expr (the String key), and parentheses make a grouping that is evaluated.
+	def test_dictionary_entry_left_sides
+		entries = Code.parse('{camp = 1, (camp) = 2, :id = 3, 123 = 4}').first.expressions
+		assert entries.all? { it.is_a?(Code::Infix_Expr) && it.operator.value == '=' }
+		assert_instance_of Code::Identifier_Expr, entries[0].left
+		assert_instance_of Code::Circumfix_Expr, entries[1].left
+		assert_instance_of Code::Symbol_Expr, entries[2].left
+		assert_kind_of Code::Number_Expr, entries[3].left
 	end
 end

@@ -1,0 +1,17 @@
+# A struct as a return type checks the returned value's members, by name or by position
+fetch (-> <ok: Bool, data: Any>;
+	<ok := true, data := [1, 2]>
+)
+@out fetch().ok                         # out: true
+
+split (-> <Bool, Any>;
+	<false, 'reason'>
+)
+(ok, why) := split()
+@out ok                                 # out: false
+@out why                                # out: reason
+
+broken (-> <ok: Bool>;
+	<ok := 5>
+)
+broken()                                # error: Type_Contract_Violation

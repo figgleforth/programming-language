@@ -1,6 +1,6 @@
 ### Introduction
 
-`name := value` at a call site binds by the callee's declared param *name*, not its position -- any order you supply them in binds to the right param. `name: value` (examples/labeled_arguments.code) is an alternate spelling of the same mechanism; the two are interchangeable.
+`name := value` at a call site binds by the callee's declared param *name*, not its position -- any order you supply them in binds to the right param.
 ###
 sub ( a, b;
 	a - b
@@ -12,7 +12,7 @@ sub ( a, b;
 
 ### Positional first, then named -- never the other way
 
-A call can start with positional arguments (bare or labeled) and switch to named arguments partway through, but not switch back. Positional args still fill params left-to-right by position; named args fill by name, so the two never fight over the same param as long as you don't supply one both ways.
+A call can start with positional arguments and switch to named arguments partway through, but not switch back. Positional args still fill params left-to-right by position; named args fill by name, so the two never fight over the same param as long as you don't supply one both ways.
 ###
 @assert sub(1, b := 2) == -1, 'positional then named should be fine'
 
@@ -59,3 +59,10 @@ The same name twice, a name that isn't a real param, or a param given both posit
 # sub(a := 1, a := 2)  -- raises Code::Duplicate_Named_Argument: a was given more than once
 # sub(a := 1, c := 2)  -- raises Code::Unknown_Named_Argument: c is not a declared parameter
 # sub(1, a := 2)       -- raises Code::Argument_Given_By_Name_And_Position: a was given both positionally and by name
+
+
+### `:` is not a named argument
+
+After a name, `:` starts a type annotation (`mode: "fill" | "line"`), so a call takes only `:=` for a named argument.
+###
+# sub(a: 1, b: 2)  -- raises Code::Colon_Named_Argument: write sub(a := 1, b := 2)

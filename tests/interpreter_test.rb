@@ -383,29 +383,19 @@ class Interpreter_Test < Base_Test
 		assert_equal Code::Array.new([1, 'test', 5]).values, out.values
 	end
 
-	def test_tuples
-		out = Code.interp '(1, 2)'
-		assert_kind_of Code::Tuple, out
+	def test_positional_struct_values
+		out = Code.interp '<1, 2>'
+		assert_kind_of Code::Struct, out
 		assert_equal [1, 2], out.values
 
-		out = Code.interp 't := ("Hello", "from" ,"Tuple")
+		out = Code.interp 't := <"Hello", "from" ,"Struct">
 		t_first := t.0
-		t2 := (t.0, t.1, t.2)
-		(t_first, t == t2, t_first == t2, t2)'
+		t2 := <t.0, t.1, t.2>
+		<t_first, (t == t2), (t_first == t2), t2>'
 		assert_equal "Hello", out.values.first
 		assert out.values[1]
 		refute out.values[2]
-		assert_equal ["Hello", "from", "Tuple"], out.values.last.values
-	end
-
-	def test_tuple_reports_its_own_type_not_array
-		out = Code.interp '
-			t := (1, 2)
-			(t.@type, t.@types, t.@name)'
-		type, types, name = out.values
-		assert_equal 'Tuple', type
-		assert_equal ['Tuple'], types.values
-		assert_equal 'Tuple', name
+		assert_equal ["Hello", "from", "Struct"], out.values.last.values
 	end
 
 	def test_empty_dictionary
@@ -414,91 +404,98 @@ class Interpreter_Test < Base_Test
 		assert_equal out.hash, {}
 	end
 
-	def test_create_dictionary_with_identifiers_as_keys_without_commas
-		out = Code.interp '{a b c}'
-		assert_equal %i(a b c), out.hash.keys
-		out.hash.values.each do |value|
-			assert_instance_of NilClass, value
-		end
+	# Only `=` entries make a Dictionary. Bare names are a block of statements, which reads each name.
+	def test_bare_names_in_braces_are_a_block_not_a_dictionary
+		assert_raises(Code::Undeclared_Identifier) { Code.interp '{a b c}' }
+		assert_equal 3, Code.interp("a := 1, b := 2, c := 3\n{a b c}")
 	end
 
-	def test_create_dictionary_with_identifiers_as_keys_with_commas
-		out = Code.interp '{a, b}'
-		out.hash.values.each do |value|
-			assert_instance_of NilClass, value
-		end
+	def test_create_dictionary_with_nil_values
+		out = Code.interp '{:a = nil, :b = nil}'
+		assert_equal({ a: nil, b: nil }, out.hash)
 	end
 
-	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation
-		out = Code.interp '{ x:0 y:1 z}'
-		refute_instance_of NilClass, out.hash.values.first
-		refute_instance_of NilClass, out.hash.values[1]
-		assert_instance_of NilClass, out.hash.values.last
-	end
-
-	def test_create_dictionary_with_keys_and_values_with_mixed_infix_notation_and_commas
-		out = Code.interp '{ x:4, y:8, z}'
-		assert_equal 4, out.hash.values.first
-		assert_equal 8, out.hash.values[1]
-		assert_instance_of NilClass, out.hash.values.last
+	# Entries can be separated by a comma or by a new line.
+	def test_create_dictionary_with_entries_on_separate_lines
+		out = Code.interp <<~CODE
+		    {
+		    	:x = 4
+		    	:y = 8,
+		    	:z = nil
+		    }
+		CODE
+		assert_equal({ x: 4, y: 8, z: nil }, out.hash)
 	end
 
 	def test_create_dictionary_with_local_value
-		out = Code.interp 'x:=4, y:=2, { x:x, y:y }'
+		out = Code.interp 'x:=4, y:=2, { :x = x, :y = y }'
 		assert_equal out.hash, { x: 4, y: 2 }
 	end
 
 	def test_symbol_as_dictionary_keys
-		out = Code.interp '{ :x : 1 }'
+		out = Code.interp '{ :x = 1 }'
 		assert_equal out.hash, { x: 1 }
 	end
 
 	def test_string_as_dictionary_keys
-		out = Code.interp '{ "x" : 1 }'
-		assert_equal out.hash, { x: 1 }
+		out = Code.interp '{ "x" = 1 }'
+		assert_equal out.hash, { 'x' => 1 } # a String key stays a String
 	end
 
-	def test_colon_as_dictionary_infix_operator
-		out = Code.interp 'x := 123, { x: x }'
-		assert_equal out.hash, { x: 123 }
+	# An entry uses `=`. `x: x` after a name is a type annotation, so the old `:` form raises.
+	def test_colon_dictionary_entry_raises
+		assert_raises(Code::Colon_Dictionary_Entry) { Code.interp 'x := 123, { x: x }' }
+		assert_raises(Code::Colon_Dictionary_Entry) { Code.interp '{name: "Jack", id: 4}' }
+		assert_raises(Code::Colon_Dictionary_Entry) { Code.interp '{5: "value"}' }
 	end
 
 	def test_equals_as_dictionary_infix_operator
-		out = Code.interp 'x := 123, { x : x }'
-		assert_equal out.hash, { x: 123 }
+		# A bare name on the left is the String key itself. Parentheses evaluate the left side, so `(x)` uses x's value.
+		out = Code.interp 'x := 123, { x = x, (x) = x }'
+		assert_equal({ 'x' => 123, 123 => 123 }, out.hash)
 	end
 
 	def test_dictionary_keys
-		out = Code.interp '{ a b c }.keys()'
-		assert_equal [:a, :b, :c], out.values
+		out = Code.interp "{ :a = 1, 'b' = 2, 3 = 3 }.keys()"
+		assert_equal [:a, 'b', 3], out.values
 	end
 
 	def test_dictionary_values
-		out = Code.interp '{ a b c }.values()'
+		out = Code.interp '{ :a = nil, :b = nil, :c = nil }.values()'
 		assert_equal [nil, nil, nil], out.values
 
-		out = Code.interp '{ a:1, b: "two", c: :three }.values()'
+		out = Code.interp '{ :a = 1, :b = "two", :c = :three }.values()'
 		assert_equal [1, "two", :three], out.values
 
-		out = Code.interp '{ a:1, b:"two", c: :three }.values()'
-		assert_equal [1, "two", :three], out.values
-
-		out = Code.interp '{ a:1, b:"two", c: :three }.values()'
+		out = Code.interp '{ :a=1, :b="two", :c=:three }.values()'
 		assert_equal [1, "two", :three], out.values
 	end
 
 	def test_dictionary_subscript
-		out = Code.interp "dict := {x}
+		out = Code.interp "dict := {:x = nil}
 		original := dict[:x]
 		dict[:x] = 4815
-		(original, dict[:x])"
+		<original, dict[:x]>"
 		assert_equal [nil, 4815], out.values
 	end
 
-	def test_dictionary_subscript_string_and_symbol_do_not_behave_differently
-		out = Code.interp "dict := {x:4815}
-		(dict['x'], dict[:x])"
-		assert_equal [4815, 4815], out.values
+	# A key keeps its own type, so a String and a Symbol with the same text are two keys.
+	def test_dictionary_string_and_symbol_keys_are_different
+		out = Code.interp "dict := {:x = 4815, 'x' = 1}
+		<dict['x'], dict[:x], dict.count()>"
+		assert_equal [1, 4815, 2], out.values
+	end
+
+	# Any value can be a key: a Number, a Bool, nil, a struct (by its member values).
+	def test_dictionary_keys_of_any_type
+		out = Code.interp <<~CODE
+		    Vec <x: Int, y: Int>
+		    player_a := 'a'
+		    d := {123 = <true>, true = 'yes', nil = 'none', Vec(0, 0) = player_a}
+		    <d[123].@values, d[true], d[nil], d[Vec(0, 0)], d[124]>
+		CODE
+		assert_equal [true], out.values[0].values
+		assert_equal ['yes', 'none', 'a', nil], out.values[1..]
 	end
 
 	# `[]`/`[]=` (#proxy_get/#proxy_set) normalize a key to a Symbol before touching the underlying hash -- `has_key?`/`delete`/`fetch` used to skip that normalization entirely, so a String key that matched what `[]=` actually stored (a Symbol) silently never matched.
@@ -510,14 +507,14 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_dictionary_delete_with_string_key_removes_the_entry
-		out = Code.interp "d := {a: 1}
+		out = Code.interp "d := {'a' = 1}
 		d.delete('a')
 		d.count()"
 		assert_equal 0, out
 	end
 
 	def test_dictionary_fetch_with_string_key_finds_the_value
-		out = Code.interp "d := {a: 1}
+		out = Code.interp "d := {'a' = 1}
 		d.fetch('a', 99)"
 		assert_equal 1, out
 	end
@@ -531,7 +528,7 @@ class Interpreter_Test < Base_Test
 	# The key normalization fix has to work for a real Code::String value (an ordinary call argument, e.g. a variable), not just a raw Ruby string literal interpreted directly by `[]`/`[]=`'s own subscript handling.
 	def test_dictionary_has_key_with_a_variable_holding_a_string_still_matches
 		out = Code.interp "d := {}
-		d[:x] = 1
+		d['x'] = 1
 		s := 'x'
 		d.has_key?(s)"
 		assert_equal true, out
@@ -544,7 +541,7 @@ class Interpreter_Test < Base_Test
 		d[-5] = 'b'
 		d[0] = 'c'
 		d.delete(0)
-		(d[5], d[-5], d[0], d.has_key?(-5), d.fetch(7, 'none'), d.count())"
+		<d[5], d[-5], d[0], d.has_key?(-5), d.fetch(7, 'none'), d.count()>"
 		assert_equal ['a', 'b', nil, true, 'none', 2], out.values
 	end
 
@@ -636,33 +633,33 @@ class Interpreter_Test < Base_Test
 
 	def test_too_many_dictionary_subscript_arguments
 		assert_raises Code::Too_Many_Subscript_Expressions do
-			Code.interp "dict := {x:4815}
+			Code.interp "dict := {:x = 4815}
 			dict[:x, 123]"
 		end
 
 		assert_raises Code::Too_Many_Subscript_Expressions do
-			Code.interp "dict := {x:4815}
+			Code.interp "dict := {:x = 4815}
 			dict[:x, 123] = 162342"
 		end
 	end
 
 	def test_nested_dictionary_subscript
-		out = Code.interp '{ a: { b: 42 } }[:a][:b]'
+		out = Code.interp '{ :a = { :b = 42 } }[:a][:b]'
 		assert_equal 42, out
 	end
 
 	def test_dictionary_subscript_nonexistent_key
-		out = Code.interp '{ a: 1 }[:nonexistent]'
+		out = Code.interp '{ :a = 1 }[:nonexistent]'
 		assert_nil out
 	end
 
 	def test_dictionary_subscript_with_variable
-		out = Code.interp 'key := :a, dict := { a: 99 }, dict[key]'
+		out = Code.interp 'key := :a, dict := { :a = 99 }, dict[key]'
 		assert_equal 99, out
 	end
 
 	def test_dictionary_subscript_in_expression
-		out = Code.interp '{ x: 10 }[:x] + 5'
+		out = Code.interp '{ :x = 10 }[:x] + 5'
 		assert_equal 15, out
 	end
 
@@ -723,10 +720,42 @@ class Interpreter_Test < Base_Test
 	def test_inline_scope_reassignment_mutates_enclosing_variable
 		out = Code.interp <<~CODE
 			x := 1
-			{ x = 2 }
+			{ x = 2
+			x }
 			x
 		CODE
 		assert_equal 2, out
+	end
+
+	# A `{}` body of only `=` entries is a Dictionary, so `{ x = 2 }` makes one (its key is "x") and does not assign x.
+	def test_braces_with_only_equals_entries_are_a_dictionary
+		out = Code.interp <<~CODE
+			x := 1
+			d := { x = 2 }
+			<x, d['x'], d.x>
+		CODE
+		assert_equal [1, 2, 2], out.values
+	end
+
+	# A dot reads the Symbol key, then the String key.
+	def test_a_dot_reads_a_symbol_key_then_a_string_key
+		out = Code.interp <<~CODE
+			d := { name = 'string', :id = 'symbol', :both = 'symbol wins', both = 'string loses' }
+			<d.name, d.id, d.both>
+		CODE
+		assert_equal ['string', 'symbol', 'symbol wins'], out.values
+	end
+
+	# `{ x }` is a block with its own scope: what it declares stays inside, and `=` still reaches an outer name.
+	def test_a_block_has_its_own_scope
+		out = Code.interp <<~CODE
+			r := { y := 5
+			y * 2 }
+			r
+		CODE
+		assert_equal 10, out
+		assert_raises(Code::Undeclared_Identifier) { Code.interp "{ y := 5\ny }\ny" }
+		assert_equal 7, Code.interp("x := 7\n{ x }")
 	end
 
 	def test_inline_scope_is_not_mistaken_for_a_dictionary
@@ -858,9 +887,9 @@ class Interpreter_Test < Base_Test
 			position := Vector2()
 		}
 		t := Transform()
-		(t.position, t.position.y)
+		<t.position, t.position.y>
 		'
-		assert_kind_of Code::Tuple, out
+		assert_kind_of Code::Struct, out
 		assert_kind_of Code::Instance, out.values.first
 		assert_equal 2, out.values.last
 	end
@@ -878,7 +907,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp "@load 'lang/table'
 			Tasks | Table {}
 			t := Tasks()
-			(t.@name, t.@composed_types)"
+			<t.@name, t.@composed_types>"
 		assert_equal 'Tasks', out.values.first
 		assert_equal %w(Tasks Table), out.values.last.set.to_a
 	end
@@ -951,7 +980,7 @@ class Interpreter_Test < Base_Test
 	def test_named_call_arguments_fall_back_to_defaults_when_omitted
 		out = Code.interp <<~CODE
 		    greet ( name := "World"; "Hello, `name`" )
-		    (greet(), greet(name := "Backend"))
+		    <greet(), greet(name := "Backend")>
 		CODE
 		assert_equal ['Hello, World', 'Hello, Backend'], out.values
 	end
@@ -975,18 +1004,25 @@ class Interpreter_Test < Base_Test
 		    	)
 		    }
 		    p := Point(y := 4, x := 3)
-		    (p.x, p.y)
+		    <p.x, p.y>
 		CODE
 		assert_equal [3, 4], out.values
 	end
 
-	# `label: value` is now an alternate spelling of `name := value` -- both bind by the param's declared name, order-independent, and can be freely mixed in the same call.
-	def test_colon_syntax_is_an_alternate_spelling_of_named_arguments
+	# A named argument is `name := value` only. `name: value` raises, because `:` after a name starts a type annotation.
+	def test_a_colon_argument_raises_and_colon_equals_names_it
 		out = Code.interp <<~CODE
 		    send ( person, subject := 'hi'; "`person`: `subject`" )
-		    send(person: 'Alice', subject: 'bye')
+		    send(person := 'Alice', subject := 'bye')
 		CODE
 		assert_equal 'Alice: bye', out
+
+		assert_raises Code::Colon_Named_Argument do
+			Code.interp <<~CODE
+			    send ( person, subject := 'hi'; "`person`: `subject`" )
+			    send(person: 'Alice', subject: 'bye')
+			CODE
+		end
 	end
 
 	def test_variadic_parameter_collects_the_positional_tail
@@ -998,14 +1034,14 @@ class Interpreter_Test < Base_Test
 		    	end
 		    	acc
 		    )
-		    (sum(1, 2, 3, 4), sum())
+		    <sum(1, 2, 3, 4), sum()>
 		CODE
 		assert_equal [10, 0], out.values
 	end
 
 	def test_variadic_after_a_fixed_parameter
 		out = Code.interp <<~CODE
-		    f ( a, rest...; (a, rest) )
+		    f ( a, rest...; <a, rest> )
 		    f(1, 2, 3)
 		CODE
 		assert_equal 1, out.values[0]
@@ -1014,7 +1050,7 @@ class Interpreter_Test < Base_Test
 
 	def test_args_annotation_is_the_same_as_the_ellipsis_form
 		out = Code.interp <<~CODE
-		    g ( xs: Args; (xs, xs === Arguments) )
+		    g ( xs: Args; <xs, (xs === Arguments)> )
 		    g(9, 8, 7)
 		CODE
 		assert_equal [9, 8, 7], out.values[0].values
@@ -1024,7 +1060,7 @@ class Interpreter_Test < Base_Test
 	# A variadic param binds an `Arguments` (an Array subtype).
 	def test_variadic_parameter_is_an_arguments_instance
 		out = Code.interp <<~CODE
-		    f ( xs...; (xs === Arguments, xs =>= Array) )
+		    f ( xs...; <(xs === Arguments), (xs =>= Array)> )
 		    f(1)
 		CODE
 		assert_equal [true, true], out.values
@@ -1057,7 +1093,7 @@ class Interpreter_Test < Base_Test
 
 	def test_variadic_is_the_only_parameter
 		out = Code.interp <<~CODE
-		    f ( xs...; (xs.length(), xs) )
+		    f ( xs...; <xs.length(), xs> )
 		    f()
 		CODE
 		assert_equal 0, out.values[0]
@@ -1075,7 +1111,7 @@ class Interpreter_Test < Base_Test
 	# A param after a variadic is keyword-only -- it can't be filled positionally.
 	def test_parameter_after_a_variadic_is_keyword_only
 		out = Code.interp <<~CODE
-		    f ( a, mid..., z; (a, mid, z) )
+		    f ( a, mid..., z; <a, mid, z> )
 		    f(1, 2, 3, z := 9)
 		CODE
 		assert_equal 1, out.values[0]
@@ -1093,8 +1129,8 @@ class Interpreter_Test < Base_Test
 	# A real param declared after a variadic still takes its default / named value.
 	def test_defaulted_parameter_after_a_variadic
 		out = Code.interp <<~CODE
-		    f ( args..., flag := 5; (args, flag) )
-		    (f(1, 2).1, f(1, 2, flag := 8).1)
+		    f ( args..., flag := 5; <args, flag> )
+		    <f(1, 2).1, f(1, 2, flag := 8).1>
 		CODE
 		assert_equal [5, 8], out.values
 	end
@@ -1143,10 +1179,10 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	def test_colon_named_argument_with_a_variadic_tail
+	def test_named_argument_with_a_variadic_tail
 		out = Code.interp <<~CODE
-		    f ( a, rest...; (a, rest) )
-		    f(a: 1, rest: [2, 3])
+		    f ( a, rest...; <a, rest> )
+		    f(a := 1, rest := [2, 3])
 		CODE
 		assert_equal 1, out.values[0]
 		assert_equal [2, 3], out.values[1].values
@@ -1233,7 +1269,7 @@ class Interpreter_Test < Base_Test
 		    Point { x, y, Self ( x, y; self.x = x, self.y = y ) }
 		    coords := [3, 4]
 		    p := Point(...coords)
-		    (p.x, p.y)
+		    <p.x, p.y>
 		CODE
 		assert_equal [3, 4], out.values
 	end
@@ -1256,14 +1292,14 @@ class Interpreter_Test < Base_Test
 	def test_callsite_splat_of_a_dictionary_binds_by_name_not_position
 		out = Code.interp <<~CODE
 		    f ( a, b; a - b )
-		    f(...{a: 10, b: 3})
+		    f(...{:a = 10, :b = 3})
 		CODE
 		assert_equal 7, out
 
 		# Order inside the dictionary doesn't matter, unlike an Array splat -- each key names its own param.
 		out = Code.interp <<~CODE
 		    f ( a, b; a - b )
-		    f(...{b: 3, a: 10})
+		    f(...{:b = 3, :a = 10})
 		CODE
 		assert_equal 7, out
 	end
@@ -1294,7 +1330,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Coords { x, y, Self ( x, y; self.x = x, self.y = y ), magnitude (; (x * x + y * y) ) }
 		    c := Coords(3, 4)
-		    describe ( x, y, magnitude; (x, y, magnitude) )
+		    describe ( x, y, magnitude; <x, y, magnitude> )
 		    describe(...c)
 		CODE
 		x, y, magnitude = out.values
@@ -1316,27 +1352,27 @@ class Interpreter_Test < Base_Test
 	def test_callsite_splat_of_a_dictionary_can_be_followed_by_more_named_arguments
 		out = Code.interp <<~CODE
 		    f ( a, b, c; "`a`-`b`-`c`" )
-		    f(...{a: 1}, b := 2, c := 3)
+		    f(...{:a = 1}, b := 2, c := 3)
 		CODE
 		assert_equal '1-2-3', out
 	end
 
 	def test_callsite_splat_of_a_dictionary_then_a_positional_argument_raises
 		assert_raises Code::Positional_Argument_After_Named do
-			Code.interp "f ( a, b, c; a ), f(...{a: 1}, 2)"
+			Code.interp "f ( a, b, c; a ), f(...{:a = 1}, 2)"
 		end
 	end
 
 	def test_callsite_splat_of_a_dictionary_with_unknown_key_raises
 		error = assert_raises Code::Unknown_Named_Argument do
-			Code.interp "f ( a, b; a - b ), f(...{a: 1, z: 2})"
+			Code.interp "f ( a, b; a - b ), f(...{:a = 1, :z = 2})"
 		end
 		assert_match 'z', error.message
 	end
 
 	def test_callsite_splat_of_two_dictionaries_with_a_duplicate_key_raises
 		assert_raises Code::Duplicate_Named_Argument do
-			Code.interp "f ( a, b; a - b ), f(...{a: 1}, ...{a: 2, b: 3})"
+			Code.interp "f ( a, b; a - b ), f(...{:a = 1}, ...{:a = 2, :b = 3})"
 		end
 	end
 
@@ -1555,8 +1591,8 @@ class Interpreter_Test < Base_Test
 
 	def test_nested_array_access_by_dot_index
 		out = Code.interp 'things := [4, [8, 15, 16], 23, [42, 108, 418, 3]]
-		(things.1.0, things.3.1)'
-		assert_instance_of Code::Tuple, out
+		<things.1.0, things.3.1>'
+		assert_instance_of Code::Struct, out
 		assert_equal 8, out.values.first
 		assert_equal 108, out.values.last
 	end
@@ -1635,7 +1671,7 @@ class Interpreter_Test < Base_Test
 		else
 			z = 1_516
 		end
-		(x, y, z)'
+		<x, y, z>'
 		assert_equal [4, -8, 1516], out.values
 	end
 
@@ -1700,7 +1736,7 @@ class Interpreter_Test < Base_Test
 		    else
 		    	log.push('else')
 		    end
-		    (n, log)
+		    <n, log>
 		CODE
 		assert_equal 2, out.values[0]
 		assert_equal [], out.values[1].values
@@ -1766,7 +1802,7 @@ class Interpreter_Test < Base_Test
 		else
 			y = x
 		end
-		(x, y)
+		<x, y>
 		'
 		assert_equal [23, 23], out.values
 	end
@@ -1803,7 +1839,7 @@ class Interpreter_Test < Base_Test
 			16
 		end
 
-		(a, b, c, d)
+		<a, b, c, d>
 		'
 		assert_equal [4, nil, nil, 16], out.values
 	end
@@ -1814,7 +1850,7 @@ class Interpreter_Test < Base_Test
 		y,
 
 		equal := x == y
-		(x, y, equal)'
+		<x, y, equal>'
 		assert_equal out.values[0].object_id, out.values[1].object_id
 		assert_equal true, out.values[2]
 	end
@@ -1860,9 +1896,9 @@ class Interpreter_Test < Base_Test
 		# Let's remove Vec2 from a type that composes with Transform
 		Xform | Transform ~ Vec2 {}
 
-		(a, b, t)"
+		<a, b, t>"
 
-		# Testing in order of the values in the tuple
+		# Testing in order of the values in the struct
 		assert_equal "Transform(4,8)", out.values[0]
 		assert_equal "Transform(12,24)", out.values[1]
 
@@ -1916,7 +1952,7 @@ class Interpreter_Test < Base_Test
 			Union | Aa | Bb {}
 
 			u := Union()
-			(u.a, u.b, u.unique)
+			<u.a, u.b, u.unique>
 			'
 			assert_equal [1, 2, 10], out.values
 		end
@@ -1946,7 +1982,7 @@ class Interpreter_Test < Base_Test
 			out = Code.interp "#{shared_code}
 			a := Aa()
 			b := Bb()
-			(d.a, a.common, b.common, d.common)"
+			<d.a, a.common, b.common, d.common>"
 			assert_equal [8, 15, 16, 23], out.values
 		end
 
@@ -1990,7 +2026,7 @@ class Interpreter_Test < Base_Test
 			Sym_Diff | Aa ^ Bb {}
 			s := Sym_Diff()\n"
 
-		out = Code.interp "#{shared_code} (s.a, s.b)"
+		out = Code.interp "#{shared_code} <s.a, s.b>"
 		assert_equal [4, 8], out.values
 
 		assert_raises Code::Undeclared_Identifier do
@@ -2017,7 +2053,7 @@ class Interpreter_Test < Base_Test
 			|Bb
 		}
 		u := Union()
-		(u.a, u.b)"
+		<u.a, u.b>"
 		assert_equal [15, nil], out.values
 	end
 
@@ -2047,7 +2083,7 @@ class Interpreter_Test < Base_Test
 		}
 
 		it := My_Div()
-		(My_Div, it, it.render())"
+		<type := My_Div, element := it, text := it.render()>"
 		assert_instance_of Code::Type, out.values[0]
 		assert_instance_of Code::Instance, out.values[1]
 		assert_instance_of String, out.values[2]
@@ -2056,7 +2092,7 @@ class Interpreter_Test < Base_Test
 
 	def test_loading_external_source_files
 		out = Code.interp "@load 'lang/global.code'
-		(Bool, Bool())"
+		<type := Bool, value := Bool()>"
 
 		assert_instance_of Code::Type, out.values[0]
 		assert_kind_of Code::Instance, out.values[1]
@@ -2065,9 +2101,9 @@ class Interpreter_Test < Base_Test
 
 	def test_standalone_load_into_current_scope
 		out = Code.interp "@load 'tests/fixtures/test_module.code'
-		(MODULE_NAME, MODULE_VALUE, module_func(10))"
+		<MODULE_NAME, MODULE_VALUE, module_func(10)>"
 
-		assert_instance_of Code::Tuple, out
+		assert_instance_of Code::Struct, out
 		assert_equal "Test_Module", out.values[0]
 		assert_equal 42, out.values[1]
 		assert_equal 20, out.values[2]
@@ -2075,9 +2111,9 @@ class Interpreter_Test < Base_Test
 
 	def test_load_assignment_into_variable_identifier
 		out = Code.interp "mod := @load 'tests/fixtures/test_module.code'
-		(mod, mod.MODULE_NAME, mod.MODULE_VALUE, mod.module_func(10))"
+		<mod, mod.MODULE_NAME, mod.MODULE_VALUE, mod.module_func(10)>"
 
-		assert_instance_of Code::Tuple, out
+		assert_instance_of Code::Struct, out
 		assert_instance_of Code::Scope, out.values[0]
 		assert_equal "Test_Module", out.values[1]
 		assert_equal 42, out.values[2]
@@ -2092,9 +2128,9 @@ class Interpreter_Test < Base_Test
 
 	def test_load_assignment_into_class_identifier
 		out = Code.interp "Module := @load 'tests/fixtures/test_module.code'
-		(Module, Module.MODULE_NAME, Module.MODULE_VALUE, Module.module_func(10))"
+		<Module, Module.MODULE_NAME, Module.MODULE_VALUE, Module.module_func(10)>"
 
-		assert_instance_of Code::Tuple, out
+		assert_instance_of Code::Struct, out
 		assert_instance_of Code::Scope, out.values[0]
 		assert_equal "Test_Module", out.values[1]
 		assert_equal 42, out.values[2]
@@ -2109,9 +2145,9 @@ class Interpreter_Test < Base_Test
 
 	def test_load_assignment_into_constant_identifier
 		out = Code.interp "MODULE := @load 'tests/fixtures/test_module.code'
-		(MODULE, MODULE.MODULE_NAME, MODULE.MODULE_VALUE, MODULE.module_func(10))"
+		<MODULE, MODULE.MODULE_NAME, MODULE.MODULE_VALUE, MODULE.module_func(10)>"
 
-		assert_instance_of Code::Tuple, out
+		assert_instance_of Code::Struct, out
 		assert_instance_of Code::Scope, out.values[0]
 		assert_equal "Test_Module", out.values[1]
 		assert_equal 42, out.values[2]
@@ -2129,9 +2165,9 @@ class Interpreter_Test < Base_Test
 		lib1 := @load 'tests/fixtures/test_module.code'
 		lib2 := @load 'tests/fixtures/test_module.code'
 
-		(lib1, lib2, lib1.MODULE_VALUE, lib2.MODULE_VALUE, lib1 != lib2)"
+		<lib1, lib2, lib1.MODULE_VALUE, lib2.MODULE_VALUE, (lib1 != lib2)>"
 
-		assert_instance_of Code::Tuple, out
+		assert_instance_of Code::Struct, out
 		assert_instance_of Code::Scope, out.values[0]
 		assert_instance_of Code::Scope, out.values[1]
 		assert_equal 42, out.values[2]
@@ -2159,7 +2195,7 @@ class Interpreter_Test < Base_Test
 			numbers << it
 		end
 
-		(numbers == NUMBERS, numbers, NUMBERS)"
+		<(numbers == NUMBERS), numbers, NUMBERS>"
 		assert out.values[0]
 	end
 
@@ -2235,7 +2271,7 @@ class Interpreter_Test < Base_Test
 		end
 
 
-		(zero, one, two, three)"
+		<zero, one, two, three>"
 		assert_equal [1, 2, 3, 4, 5], out.values[0].values
 		assert_equal [2, 3, 4], out.values[1].values
 		assert_equal [2, 3, 4, 5], out.values[2].values
@@ -2270,7 +2306,7 @@ class Interpreter_Test < Base_Test
 	def test_for_loop_over_a_bare_integer_supports_verbs_and_stride
 		out = Code.interp <<~CODE
 		    doubled := for 6 map by 2
-		        (it.0, it.1)
+		        <it.0, it.1>
 		    end
 		    doubled
 		CODE
@@ -2470,7 +2506,7 @@ class Interpreter_Test < Base_Test
 		# a step of (3 - 1) = 2.
 		out = Code.interp "
 		for [1, 2, 3, 4, 5, 6, 7] map by 3,1
-			(it.0, it.?1, it.?2)
+			<it.0, it.?1, it.?2>
 		end"
 		assert_equal [[1, 2, 3], [3, 4, 5], [5, 6, 7],  [7, nil, nil]], out.values.map(&:values)
 	end
@@ -2482,7 +2518,7 @@ class Interpreter_Test < Base_Test
 		# leftover `5` here.
 		out = Code.interp "
 		for [1, 2, 3, 4, 5] map by 2,1
-			(it.0, it.?1)
+			<it.0, it.?1>
 		end"
 		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5], [5, nil]], out.values.map(&:values)
 	end
@@ -2538,7 +2574,7 @@ class Interpreter_Test < Base_Test
 		stride := 2
 		overlap := 1
 		for [1, 2, 3, 4, 5, 6] map by stride,overlap
-			(it.0, it.?1)
+			<it.0, it.?1>
 		end"
 		assert_equal [[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, nil]], out.values.map(&:values)
 	end
@@ -2604,7 +2640,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 			result := []
 			for i := 10, i < 15, i++
-				result << (it, at)
+				result << <it, at>
 			end
 			result
 		CODE
@@ -2711,7 +2747,7 @@ class Interpreter_Test < Base_Test
 			result := []
 			for i := 0, i < 2, i++
 				for j := 0, j < 2, j++
-					result << (i, j)
+					result << <i, j>
 				end
 			end
 			result
@@ -2970,7 +3006,7 @@ class Interpreter_Test < Base_Test
 		@unsplat p
 
 		@splatr Point(15, 16)
-		(one, a + b)"
+		<one, a + b>"
 		assert_equal [12, 31], out.values
 	end
 
@@ -3015,7 +3051,7 @@ class Interpreter_Test < Base_Test
 
 		v := Vector(3)
 		local_result := add(v)
-		(local_result, v.x)"
+		<local_result, v.x>"
 		assert_equal [999, 3], out.values
 	end
 
@@ -3174,7 +3210,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp "#{shared_code}
 		Merged | Base | Other {}
 		m := Merged()
-		(m.base_instance_public, m.other_instance)"
+		<m.base_instance_public, m.other_instance>"
 		assert_equal [1, 3], out.values
 
 		# Static members accessible from union
@@ -3531,7 +3567,7 @@ class Interpreter_Test < Base_Test
 		    	@label: String = "widget"
 		    	@meta := 42
 		    }
-		    (Thing.@label, Thing.@meta)
+		    <Thing.@label, Thing.@meta>
 		CODE
 		assert_equal ['widget', 42], out.values
 	end
@@ -3620,7 +3656,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp "#{shared_code}
 		p := Point(4, 8)
 		@splatr p
-		(a, b)"
+		<a, b>"
 		assert_equal [4, 8], out.values
 
 		# note: Unpacks function like a stack, the most recent unpack is the one whose identifier takes precedence.
@@ -3629,7 +3665,7 @@ class Interpreter_Test < Base_Test
 		p2 := Point(15, 16)
 		@splatr p
 		@splatr p2
-		(a, b)"
+		<a, b>"
 		assert_equal [15, 16], out.values
 
 		out = Code.interp "#{shared_code}
@@ -3637,7 +3673,7 @@ class Interpreter_Test < Base_Test
 		p2 := Point(15, 16)
 		@splatr p
 		@unsplat p2
-		(a, b)"
+		<a, b>"
 		assert_equal [4, 8], out.values
 	end
 
@@ -3784,7 +3820,7 @@ class Interpreter_Test < Base_Test
 		    f ( n := nil -> Int | Nil;
 		    	return n
 		    )
-		    (f(4), f())
+		    <f(4), f()>
 		CODE
 		out = Code.interp src
 		assert_equal [4, nil], out.values
@@ -3799,10 +3835,10 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_union_type_annotation_in_destructuring_target
-		out = Code.interp '(x: Int | Nil, y) := (1, 2), (x, y)'
+		out = Code.interp '(x: Int | Nil, y) := <1, 2>, <x, y>'
 		assert_equal [1, 2], out.values
 
-		out = Code.interp '(a: Int | Nil, b) := (nil, 5), (a, b)'
+		out = Code.interp '(a: Int | Nil, b) := <nil, 5>, <a, b>'
 		assert_equal [nil, 5], out.values
 	end
 
@@ -3842,7 +3878,7 @@ class Interpreter_Test < Base_Test
 		    f ( n := nil -> Int ~ String;
 		    	return n
 		    )
-		    (f(4), f())
+		    <f(4), f()>
 		CODE
 		assert_equal [4, nil], out.values
 
@@ -3862,10 +3898,10 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_composition_operators_in_destructuring_target
-		out = Code.interp "(x: Int ~ Nil, y) := (1, 2), (x, y)"
+		out = Code.interp "(x: Int ~ Nil, y) := <1, 2>, <x, y>"
 		assert_equal [1, 2], out.values
 
-		out = Code.interp "(a: Int & Nil, b) := (nil, 5), (a, b)"
+		out = Code.interp "(a: Int & Nil, b) := <nil, 5>, <a, b>"
 		assert_equal [nil, 5], out.values
 	end
 
@@ -3974,13 +4010,13 @@ class Interpreter_Test < Base_Test
 	def test_new_comma_nil_init
 		assert_raises(Code::Undeclared_Identifier) do
 			Code.interp <<~CODE
-			    x := (abc,1)
-				(x, abc)
+			    x := <abc,1>
+				<x, abc>
 			CODE
 		end
 
 		out = Code.interp <<~CODE
-		    abc := 2, (abc,1),
+		    abc := 2, <abc,1>,
 		CODE
 		assert_equal [2, 1], out.values
 	end
@@ -4071,7 +4107,7 @@ class Interpreter_Test < Base_Test
 	def test_prefix_increment_returns_the_new_value_and_mutates_the_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x, ++x)
+			<x, ++x>
 		CODE
 		assert_equal [5, 6], out.values
 	end
@@ -4079,7 +4115,7 @@ class Interpreter_Test < Base_Test
 	def test_prefix_decrement_returns_the_new_value_and_mutates_the_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x, --x)
+			<x, --x>
 		CODE
 		assert_equal [5, 4], out.values
 	end
@@ -4087,7 +4123,7 @@ class Interpreter_Test < Base_Test
 	def test_prefix_increment_works_on_a_float
 		out = Code.interp <<~CODE
 			x := 5.5
-			(x, ++x)
+			<x, ++x>
 		CODE
 		assert_equal [5.5, 6.5], out.values
 	end
@@ -4095,7 +4131,7 @@ class Interpreter_Test < Base_Test
 	def test_prefix_decrement_works_on_a_float
 		out = Code.interp <<~CODE
 			x := 5.5
-			(x, --x)
+			<x, --x>
 		CODE
 		assert_equal [5.5, 4.5], out.values
 	end
@@ -4113,7 +4149,7 @@ class Interpreter_Test < Base_Test
 	def test_prefix_increment_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x, ++(x), x)
+			<x, ++(x), x>
 		CODE
 		assert_equal [5, 6, 5], out.values
 	end
@@ -4121,7 +4157,7 @@ class Interpreter_Test < Base_Test
 	def test_prefix_decrement_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x, --(x), x)
+			<x, --(x), x>
 		CODE
 		assert_equal [5, 4, 5], out.values
 	end
@@ -4147,7 +4183,7 @@ class Interpreter_Test < Base_Test
 	def test_postfix_increment_returns_the_old_value_and_mutates_the_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x++, x)
+			<x++, x>
 		CODE
 		assert_equal [5, 6], out.values
 	end
@@ -4155,7 +4191,7 @@ class Interpreter_Test < Base_Test
 	def test_postfix_decrement_returns_the_old_value_and_mutates_the_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x--, x)
+			<x--, x>
 		CODE
 		assert_equal [5, 4], out.values
 	end
@@ -4163,7 +4199,7 @@ class Interpreter_Test < Base_Test
 	def test_postfix_increment_works_on_a_float
 		out = Code.interp <<~CODE
 			x := 5.5
-			(x++, x)
+			<x++, x>
 		CODE
 		assert_equal [5.5, 6.5], out.values
 	end
@@ -4171,7 +4207,7 @@ class Interpreter_Test < Base_Test
 	def test_postfix_decrement_works_on_a_float
 		out = Code.interp <<~CODE
 			x := 5.5
-			(x--, x)
+			<x--, x>
 		CODE
 		assert_equal [5.5, 4.5], out.values
 	end
@@ -4179,7 +4215,7 @@ class Interpreter_Test < Base_Test
 	def test_postfix_increment_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x, (x)++, x)
+			<x, (x)++, x>
 		CODE
 		assert_equal [5, 5, 5], out.values
 	end
@@ -4187,7 +4223,7 @@ class Interpreter_Test < Base_Test
 	def test_postfix_decrement_on_a_non_identifier_expression_does_not_mutate_the_underlying_variable
 		out = Code.interp <<~CODE
 			x := 5
-			(x, (x)--, x)
+			<x, (x)--, x>
 		CODE
 		assert_equal [5, 5, 5], out.values
 	end
@@ -4214,7 +4250,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 			x := 5
 			result := x++
-			(result, x)
+			<result, x>
 		CODE
 		assert_equal [5, 6], out.values
 	end
@@ -4223,7 +4259,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 			x := 5
 			result := x--
-			(result, x)
+			<result, x>
 		CODE
 		assert_equal [5, 4], out.values
 	end
@@ -4232,7 +4268,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 			x := 5
 			result := ++x
-			(result, x)
+			<result, x>
 		CODE
 		assert_equal [6, 6], out.values
 	end
@@ -4241,12 +4277,46 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 			x := 5
 			result := --x
-			(result, x)
+			<result, x>
 		CODE
 		assert_equal [4, 4], out.values
 	end
 
 	# Unlike C, & ^ | bind tighter than comparisons, so `a | b == 5` means `(a | b) == 5` (C's order is a known trap).
+	# An UPPERCASE name can be a constant that holds a value, so `MASK | 4` is a bitwise or, not a type composition.
+	def test_bitwise_operators_on_uppercase_constants
+		out = Code.interp <<~CODE
+		    MASK := 8
+		    OTHER := 4
+		    flags := 2
+		    <MASK | 4, MASK | OTHER, MASK & 12, MASK | OTHER & 6, MASK | OTHER + 1, (MASK | OTHER == 12), MASK | flags>
+		CODE
+		assert_equal [12, 12, 8, 12, 13, true, 10], out.values
+
+		out = Code.interp <<~CODE
+		    MASK := 8
+		    f ( n: Int = MASK | 1;
+		    	n
+		    )
+		    f()
+		CODE
+		assert_equal 9, out
+	end
+
+	# An UPPERCASE type still composes, in a declaration and in a value.
+	def test_uppercase_types_still_compose
+		out = Code.interp <<~CODE
+		    AB { a := 1 }
+		    CD { c := 2 }
+		    EF | AB | CD {}
+		    composed := AB | CD
+		    <EF().a, EF().c, composed.@types>
+		CODE
+		assert_equal 1, out.values[0]
+		assert_equal 2, out.values[1]
+		assert_equal %w(AB CD), out.values[2].values
+	end
+
 	def test_bitwise_operators_bind_tighter_than_comparisons
 		assert_equal true, Code.interp('0b0001 | 0b0101 == 5')
 		assert_equal true, Code.interp('0b0110 & 0b0011 == 2')
@@ -4324,56 +4394,56 @@ class Interpreter_Test < Base_Test
 	def test_dictionary_in_for_loops
 		out = Code.interp <<~CODE
 		    dict := {
-		    	x : 4,
-		    	y : 8
+		    	:x = 4,
+		    	:y = 8
 		    }
 
 		    collection := []
 		    for dict
-		    	collection << (at, it) # at is the string key, it is the vlaue
+		    	collection << <at, it> # at is the key, it is the value
 		    end
 
 		    collection
 		CODE
 		assert_equal 2, out.values.count
-		assert_equal [Code::Tuple.new([:x, 4]), Code::Tuple.new([:y, 8])], out.values
+		assert_equal [[:x, 4], [:y, 8]], out.values.map(&:values)
 	end
 
 	def test_dictionary_in_for_loops_key_and_value_builtins
 		out = Code.interp <<~CODE
 		    dict := {
-		    	x : 4,
-		    	y : 8
+		    	:x = 4,
+		    	:y = 8
 		    }
 
 		    collection := []
 		    for dict
-		    	collection << (key, value)
+		    	collection << <key, value>
 		    end
 
 		    collection
 		CODE
 		assert_equal 2, out.values.count
-		assert_equal [Code::Tuple.new([:x, 4]), Code::Tuple.new([:y, 8])], out.values
+		assert_equal [[:x, 4], [:y, 8]], out.values.map(&:values)
 	end
 
 	def test_dictionary_in_for_loops_stride_is_ignored
 		out = Code.interp <<~CODE
 		    dict := {
-		    	a : 15,
-		    	b : 16,
-				c : 23
+		    	:a = 15,
+		    	:b = 16,
+				:c = 23
 		    }
 
 		    collection := []
 		    for dict by 2
-		    	collection << (at, it) # at is the string key, it is the vlaue
+		    	collection << <at, it> # at is the string key, it is the vlaue
 		    end
 
 		    collection
 		CODE
 		assert_equal 3, out.values.count
-		assert_equal [Code::Tuple.new([:a, 15]), Code::Tuple.new([:b, 16]), Code::Tuple.new([:c, 23])], out.values
+		assert_equal [[:a, 15], [:b, 16], [:c, 23]], out.values.map(&:values)
 	end
 
 	def test_type_comparison_operators
@@ -4386,7 +4456,7 @@ class Interpreter_Test < Base_Test
 		    Right | Base {}
 			l := Left()
 			r := Right()
-			(Left === Right, Left === Left, l === r, l === l)
+			<(Left === Right), (Left === Left), (l === r), (l === l)>
 		CODE
 		assert_equal [false, true, false, true], out.values
 
@@ -4396,7 +4466,7 @@ class Interpreter_Test < Base_Test
 		    Right | Base {}
 			l := Left()
 			r := Right()
-			(Left =!= Right, Right =!= Right, l =!= r, r =!= r)
+			<(Left =!= Right), (Right =!= Right), (l =!= r), (r =!= r)>
 		CODE
 		assert_equal [true, false, true, false], out.values
 
@@ -4407,7 +4477,7 @@ class Interpreter_Test < Base_Test
 		    Right | Base {}
 			l := Left()
 			r := Right()
-			(Left =>= Right, Right =>= Left, l =>= r, r =>= l)
+			<(Left =>= Right), (Right =>= Left), (l =>= r), (r =>= l)>
 		CODE
 		assert_equal [false, false, false, false], out.values
 
@@ -4417,7 +4487,7 @@ class Interpreter_Test < Base_Test
 		    Right | Base {}
 			l := Left()
 			r := Right()
-			(Left =<= Right, Right =<= Left, l =<= r, r =<= l)
+			<(Left =<= Right), (Right =<= Left), (l =<= r), (r =<= l)>
 		CODE
 		assert_equal [false, false, false, false], out.values
 
@@ -4427,7 +4497,7 @@ class Interpreter_Test < Base_Test
 		    Left | Base {}
 			l := Left()
 			n := Base()
-			(Left =>= Base, Base =>= Left, Left =>= Left, l =>= n, n =>= l)
+			<(Left =>= Base), (Base =>= Left), (Left =>= Left), (l =>= n), (n =>= l)>
 		CODE
 		assert_equal [true, false, true, true, false], out.values
 
@@ -4437,7 +4507,7 @@ class Interpreter_Test < Base_Test
 		    Left | Base {}
 			l := Left()
 			n := Base()
-			(Base =<= Left, Left =<= Base, Left =<= Left, n =<= l, l =<= n)
+			<(Base =<= Left), (Left =<= Base), (Left =<= Left), (n =<= l), (l =<= n)>
 		CODE
 		assert_equal [true, false, true, true, false], out.values
 
@@ -4452,7 +4522,7 @@ class Interpreter_Test < Base_Test
 			b := Bb()
 			l := Left()
 			r := Right()
-			(Aa =/= Bb, Aa =/= Aa, Left =/= Right, Left =/= Base, a =/= b, l =/= r, l =/= Base)
+			<(Aa =/= Bb), (Aa =/= Aa), (Left =/= Right), (Left =/= Base), (a =/= b), (l =/= r), (l =/= Base)>
 		CODE
 		assert_equal [true, false, false, false, true, false, false], out.values
 	end
@@ -4469,7 +4539,7 @@ class Interpreter_Test < Base_Test
 		    Aa {}
 		    Bb {}
 		    Sym | Aa ^ Bb {}
-		    (Sym =>= Aa, Sym =>= Bb)
+		    <(Sym =>= Aa), (Sym =>= Bb)>
 		CODE
 		assert_equal [true, false], out.values
 
@@ -4477,7 +4547,7 @@ class Interpreter_Test < Base_Test
 		    Aa { a := 1 }
 		    Bb { a := 2, b := 3 }
 		    Inter | Aa & Bb {}
-		    (Inter =>= Aa, Inter =>= Bb)
+		    <(Inter =>= Aa), (Inter =>= Bb)>
 		CODE
 		assert_equal [true, false], out.values
 	end
@@ -4491,7 +4561,7 @@ class Interpreter_Test < Base_Test
 		    Table {}
 		    Other | Table {}
 		    Task | Other ~ Other {}
-		    (Task =>= Table, Task =>= Other)
+		    <(Task =>= Table), (Task =>= Other)>
 		CODE
 		assert_equal [true, false], out.values
 	end
@@ -4502,7 +4572,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Thing { x := 1 }
 		    t := Thing()
-		    (String == Any, Any == String, Number == Any, Thing == Any, t == Any, Any == t, 4 == Any, 'hi' == Any)
+		    <(String == Any), (Any == String), (Number == Any), (Thing == Any), (t == Any), (Any == t), (4 == Any), ('hi' == Any)>
 		CODE
 		assert_equal [true, true, true, true, true, true, true, true], out.values
 	end
@@ -4516,7 +4586,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Thing { x := 1 }
 		    t := Thing()
-		    (String === Any, Any === String, t === Any, Any === t)
+		    <(String === Any), (Any === String), (t === Any), (Any === t)>
 		CODE
 		assert_equal [false, false, false, false], out.values
 
@@ -4525,7 +4595,7 @@ class Interpreter_Test < Base_Test
 
 	# nil is the one thing that doesn't count as Any -- "if you're not nil, you're Any at the very least" stops short of nil itself.
 	def test_nil_is_not_any
-		out = Code.interp '(nil == Any, Any == nil, nil === Any, Any === nil)'
+		out = Code.interp '<(nil == Any), (Any == nil), (nil === Any), (Any === nil)>'
 		assert_equal [false, false, false, false], out.values
 	end
 
@@ -4536,7 +4606,7 @@ class Interpreter_Test < Base_Test
 	def test_string_equals_a_bare_type_by_name
 		out = Code.interp <<~CODE
 		    Flying { airborne := true }
-		    ('Flying' == Flying, Flying == 'Flying', 'Swimming' == Flying, 'Flying' != Flying)
+		    <('Flying' == Flying), (Flying == 'Flying'), ('Swimming' == Flying), ('Flying' != Flying)>
 		CODE
 		assert_equal [true, true, false, false], out.values
 
@@ -4548,7 +4618,7 @@ class Interpreter_Test < Base_Test
 		    Flying { airborne := true }
 		    Swimming { submerged := true }
 		    Duck | Flying { name := 'duck' }
-		    (Duck.@composed_types.include?(Flying), Duck.@composed_types.include?(Swimming))
+		    <Duck.@composed_types.include?(Flying), Duck.@composed_types.include?(Swimming)>
 		CODE
 		assert_equal [true, false], out.values
 	end
@@ -4557,24 +4627,24 @@ class Interpreter_Test < Base_Test
 	# mirrors `===`'s deliberate lack of one (see test_any_type_is_not_exactly_equal_to_other_types_via_triple_equals)
 	# -- true, since String and Any are genuinely different composed-type sets.
 	def test_any_type_negated_comparisons_stay_consistent
-		out = Code.interp '(String != Any, Any != String, String =!= Any, Any =!= String)'
+		out = Code.interp '<(String != Any), (Any != String), (String =!= Any), (Any =!= String)>'
 		assert_equal [false, false, true, true], out.values
 
-		out = Code.interp '(nil != Any, Any != nil, nil =!= Any, Any =!= nil)'
+		out = Code.interp '<(nil != Any), (Any != nil), (nil =!= Any), (Any =!= nil)>'
 		assert_equal [true, true, true, true], out.values
 	end
 
 	# `===` is documented as "mutual `=>=`" -- Any wouldn't actually be a universal supertype if `X === Any` were true while `X =>= Any` stayed false, so `=>=`/`=<=`/`=/=` get the same wildcard treatment as `==`/`===` above, not just the two operators the feature originally shipped with.
 	def test_any_type_is_universal_via_superset_and_disjoint_operators
-		out = Code.interp '(String =>= Any, Any =>= String, String =<= Any, Any =<= String)'
+		out = Code.interp '<(String =>= Any), (Any =>= String), (String =<= Any), (Any =<= String)>'
 		assert_equal [true, true, true, true], out.values
 
 		# Any is never disjoint from anything non-nil -- the same "you're Any at the very least" rule.
-		out = Code.interp '(String =/= Any, Any =/= String)'
+		out = Code.interp '<(String =/= Any), (Any =/= String)>'
 		assert_equal [false, false], out.values
 
 		# nil stays the one exception here too: not a superset relationship, and disjoint (shares nothing).
-		out = Code.interp '(nil =>= Any, Any =>= nil, nil =<= Any, Any =<= nil, nil =/= Any, Any =/= nil)'
+		out = Code.interp '<(nil =>= Any), (Any =>= nil), (nil =<= Any), (Any =<= nil), (nil =/= Any), (Any =/= nil)>'
 		assert_equal [false, false, false, false, true, true], out.values
 	end
 
@@ -4840,15 +4910,7 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	def test_tuple_and_struct_destructuring
-		# Tuple source.
-		out = Code.interp <<~CODE
-		    (a, b) := (1, 2)
-		    a + b
-		CODE
-		assert_equal 3, out
-
-		# Struct source.
+	def test_struct_destructuring
 		out = Code.interp <<~CODE
 		    (a, b) := <1, 2>
 		    a + b
@@ -4858,19 +4920,19 @@ class Interpreter_Test < Base_Test
 		# Both targets are declared in the current scope, independently readable afterward.
 		out = Code.interp <<~CODE
 		    (a, b) := <Number,Number>(10, 20)
-		    (a, b)
+		    <a, b>
 		CODE
 		assert_equal [10, 20], out.values
 
 		# An explicit `: Type` per target is checked against that position's extracted value.
 		out = Code.interp <<~CODE
-		    (x: Number, y) := (1, 2)
+		    (x: Number, y) := <1, 2>
 		    x
 		CODE
 		assert_equal 1, out
 
 		error = assert_raises Code::Type_Contract_Violation do
-			Code.interp '(x: String, y) := (1, 2)'
+			Code.interp '(x: String, y) := <1, 2>'
 		end
 		assert_equal 'String', error.contract
 		assert_equal 'Number', error.actual
@@ -4887,19 +4949,19 @@ class Interpreter_Test < Base_Test
 			a + b'
 		assert_equal 3, out
 
-		# Only a Tuple/Struct can be destructured.
+		# Only a Struct can be destructured.
 		assert_raises Code::Invalid_Destructuring_Source do
 			Code.interp '(a, b) := 5'
 		end
 
 		# Every target must be a plain identifier or an existing-member dot-target.
 		assert_raises Code::Invalid_Destructuring_Target do
-			Code.interp '(1, c) := (1, 2)'
+			Code.interp '(1, c) := <1, 2>'
 		end
 
 		out = Code.interp 'a := 0
-			(a, b) := (1, 2)
-			(a,b)'
+			(a, b) := <1, 2>
+			<a,b>'
 		assert_equal [1, 2], out.values
 	end
 
@@ -4909,7 +4971,7 @@ class Interpreter_Test < Base_Test
 		    Thing { member, Self (; self.member = 0 ) }
 		    thing := Thing()
 		    (thing.member, local) := <Number, Number>(1, 1)
-		    (thing.member, local)
+		    <thing.member, local>
 		CODE
 		assert_equal [1, 1], out.values
 
@@ -4986,7 +5048,7 @@ class Interpreter_Test < Base_Test
 			    @load 'lang/struct.code'
 			    m := Member('x', String, 4)
 			    s := <1, 2>
-			    (m != nil, m == nil, s != nil, s == nil)
+			    <(m != nil), (m == nil), (s != nil), (s == nil)>
 			CODE
 			assert_equal [true, false, true, false], out.values
 		end
@@ -5056,13 +5118,13 @@ class Interpreter_Test < Base_Test
 		assert_raises Code::Undeclared_Identifier do
 			Code.interp <<~CODE
 			    # @declare <id: Number, name: String = "Locke">
-				(it, name)
+				<it, name>
 			CODE
 		end
 
 		out = Code.interp <<~CODE
 		    @declare <id: Number, name: String = "Locke">
-			(id, name)
+			<id, name>
 		CODE
 		assert_equal [nil, "Locke"], out.values
 	end
@@ -5297,7 +5359,7 @@ class Interpreter_Test < Base_Test
 		    first  := outer()
 		    second := outer()
 
-		    (first, second, calls_memoized, calls_unmemoized)
+		    <first, second, calls_memoized, calls_unmemoized>
 		CODE
 
 		first, second, calls_memoized, calls_unmemoized = out.values
@@ -5410,7 +5472,7 @@ class Interpreter_Test < Base_Test
 		        get_via_name (; Thing.count )
 		    }
 		    t := Thing()
-		    (t.get_via_Self(), t.get_via_name())
+		    <t.get_via_Self(), t.get_via_name()>
 		CODE
 		assert_equal [5, 5], out.values
 	end
@@ -5538,7 +5600,7 @@ class Interpreter_Test < Base_Test
 	def test_function_body_arg_with_other_arguments
 		out = Code.interp <<~CODE
 		    f ( callable: (;), num: Number;
-		    	(callable(), num)
+		    	<callable(), num>
 		    )
 
 		    f( (; 4), 42 )
@@ -5774,7 +5836,7 @@ class Interpreter_Test < Base_Test
 		    		'small'
 		    	end
 		    )
-		    (describe(5), describe(2), describe(-1))
+		    <describe(5), describe(2), describe(-1)>
 		CODE
 		assert_equal ['big', 'small', nil], out.values
 	end
@@ -6468,7 +6530,7 @@ class Interpreter_Test < Base_Test
 		    nothing ( anything: Any -> Nil;
 				anything
 			)
-			(nothing(123), nothing('456'), nothing(nothing))
+			<nothing(123), nothing('456'), nothing(nothing)>
 		CODE
 		assert_equal 3, out.values.count
 		assert_equal [nil, nil, nil], out.values
@@ -6479,7 +6541,7 @@ class Interpreter_Test < Base_Test
 		    go ( x: Number -> Nil;
 				return x
 			)
-			(go(5), go(-5))
+			<go(5), go(-5)>
 		CODE
 		assert_equal [nil, nil], out.values
 	end
@@ -6504,8 +6566,48 @@ class Interpreter_Test < Base_Test
 				x
 			)
 			result := go(5)
-			(result, tally)
+			<result, tally>
 		CODE
 		assert_equal [nil, 5], out.values
+	end
+	# An Array key compares by its values, the same as a struct key, and follows a change to them.
+	def test_array_keys_compare_by_value
+		out = Code.interp <<~CODE
+		    k := [1, 2]
+		    d := {(k) = 'list'}
+		    before := <d[[1, 2]], d[k]>
+		    k.push(3)
+		    <before, d[k], d[[1, 2]], d[[1, 2, 3]], d.count()>
+		CODE
+		assert_equal ['list', 'list'], out.values[0].values
+		assert_equal ['list', nil, 'list', 1], out.values[1..]
+
+		# A struct is never the same key as an Array
+		assert_equal [nil, 's'], Code.interp("d := {<1, 2> = 's'}\n<d[[1, 2]], d[<1, 2>]>").values
+	end
+
+	# Arrays compare by value in `uniq` and in a Set too, since both use the same key rule.
+	def test_equal_arrays_are_one_value_in_uniq_and_set
+		assert_equal [[1, 2]], Code.interp('[[1, 2], [1, 2]].uniq()').values.map(&:values)
+		assert_equal 1, Code.interp('Set([[1, 2], [1, 2]]).count()')
+	end
+
+	# 9. A Dictionary with String keys (bare names) spreads into named arguments the same as one with Symbol keys.
+	def test_callsite_splat_of_a_dictionary_with_string_keys
+		out = Code.interp <<~CODE
+		    f ( a, b;
+		    	a - b
+		    )
+		    f(...{a = 10, b = 3})
+		CODE
+		assert_equal 7, out
+	end
+
+	# A dot only reads a Dictionary key. A write uses a subscript, so it cannot be mistaken for a struct or an instance member.
+	def test_a_dot_write_to_a_dictionary_raises
+		["d.a = 2", "d.n = 4", "d.a += 1", "d.a := 2"].each do |code|
+			assert_raises(Code::Dictionary_Dot_Write, code) { Code.interp "d := {a = 1}\n#{code}" }
+		end
+		assert_equal({ 'a' => 2, n: 4 }, Code.interp("d := {a = 1}\nd['a'] = 2\nd[:n] = 4\nd").hash)
 	end
 end

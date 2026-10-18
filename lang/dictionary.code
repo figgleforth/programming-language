@@ -14,6 +14,7 @@ Dictionary {
 	empty? (; @ruby )
 	clear (; @ruby )
 	fetch ( key, default; @ruby )
+	_bare_name? ( key; @ruby )
 
 	each ( func;
 		for hash
@@ -37,6 +38,7 @@ Dictionary {
 		keep
 	)
 
+	# Shown the way it is written: `{name = 'Jack', :id = 4, 'first name' = 'J'}`
 	to_s (;
 		ks     := keys()
 		vs     := values()
@@ -44,10 +46,21 @@ Dictionary {
 			v := vs.get(at)
 			displayed := if v === String
 				v.?to_string() or "`v`"
+			elif v === Symbol
+				":`v`"
 			else
 				"`v`"
 			end
-			"`key`: `displayed`"
+			key_text := if key === Symbol
+				":`key`"
+			elif _bare_name?(key)
+				"`key`"
+			elif key === String
+				"'`key`'"
+			else
+				"`key`"
+			end
+			"`key_text` = `displayed`"
 		))
 		"{`pieces.join(', ')`}"
 	)

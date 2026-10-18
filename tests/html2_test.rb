@@ -132,7 +132,7 @@ class Html2_Test < Base_Test
 		    #{HTML}
 		    tree := div([h1('A'), p('B'), img([Attribute('src', 'a.png')])])
 		    stats := Html_Stats_Visitor().analyze(tree)
-		    (stats.node_count, stats.max_depth)
+		    <stats.node_count, stats.max_depth>
 		CODE
 		assert_equal [4, 1], out.values
 	end
@@ -143,7 +143,7 @@ class Html2_Test < Base_Test
 		    tree := div([h1('A'), p('B'), img([Attribute('src', 'a.png')])])
 		    Html_Stats_Visitor().analyze(tree).unique_tags()
 		CODE
-		assert_equal %i[div h1 p img], out.values
+		assert_equal %w[div h1 p img], out.values # a String key stays a String
 	end
 
 	def test_stats_sizes_reflect_minified_vs_pretty_render
@@ -151,7 +151,7 @@ class Html2_Test < Base_Test
 		    #{HTML}
 		    tree := div([h1('A'), p('B')])
 		    stats := Html_Stats_Visitor()
-		    (stats.minified_size(tree), stats.pretty_size(tree))
+		    <stats.minified_size(tree), stats.pretty_size(tree)>
 		CODE
 		minified, pretty = out.values
 		assert_equal Code.interp("#{HTML}\nHtml_Render.render(div([h1('A'), p('B')])).length"), minified
@@ -316,7 +316,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    node := Element('div')
-		    (node.attributes.length(), node.css, node.children.length())
+		    <node.attributes.length(), node.css, node.children.length()>
 		CODE
 		assert_equal [0, nil, 0], out.values
 	end

@@ -235,6 +235,7 @@ module Code
 				break if str == Code::TAG_OPERATOR && curr == '<'
 				break if str == Code::CONTEXT_OPERATOR && curr == '.'
 				break if str == '<' && curr == '>'
+				break if !str.empty? && !str.end_with?(':') && curr == ':' && identifier?(peek) # `:three` in `{:c=:three}` starts a Symbol; `::` stays one operator
 
 				str << eat
 

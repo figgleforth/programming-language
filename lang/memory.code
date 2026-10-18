@@ -19,8 +19,8 @@ Memory {
 	type: Symbol        # like :u8 or :f32
 	alignment: Int      # Address must % alignment == 0
 
-	strides: Tuple
-	dimensions: Tuple
+	strides: Array
+	dimensions: Array
 
 	starts_at: Int              # index of the start of this buffer
 	ends_at: Int                # index of the end   of this buffer
@@ -36,11 +36,13 @@ Memory {
 	sizing      := Sizing.FIXED            # Sizing: how the buffer grows
 	concurrency := Concurrency.UNSAFE      # Concurrency: for multi-threaded access
 
-	# Memory(:u8, (8,)) is 1d, Memory(:f32, (8, 8)) is 2d, and so on. With no dimensions it is 8 x 8 x 1.
-	Self ( type: Symbol = :u8, dimensions: Tuple | Integer = (8, 8, 1), offset: Int = 0;
+	# Memory(:u8, 8) is 1d, Memory(:f32, <8, 8>) is 2d, and so on. With no dimensions it is 8 x 8 x 1.
+	Self ( type: Symbol = :u8, dimensions: Struct | Array | Integer = <8, 8, 1>, offset: Int = 0;
+		# `<8, 8>` or `8` (1d) as an Array of axes: [8, 8], or [8].
 		if dimensions === Integer
-			# `(5,)` is just 5, so 1d dimensions arrive as an Integer.
-			dimensions = Tuple.from_array([dimensions])
+			dimensions = [dimensions]
+		elif dimensions === Struct
+			dimensions = dimensions.@values
 		end
 
 		# Pre-calculate stride based on dimensions
@@ -53,7 +55,7 @@ Memory {
 			strides_arr.push(current_stride)
 			current_stride *= it
 		end
-		self.strides = Tuple.from_array(strides_arr)
+		self.strides = strides_arr
 
 		self.type       = type
 		self.dimensions = dimensions
@@ -62,7 +64,7 @@ Memory {
 		self.ends_at    = offset + buffer.length() - 1
 	)
 
-	# Read the cell at `coord` (a Tuple, or an Integer for 1d).
+	# Read the cell at `coord` (a struct like `<2, 3>`, an Array, or an Integer for 1d).
 	get ( coord, type := self.type;
 		slot := to_index(check_boundary(check_axes(coord)))
 		buffer.get(type, slot * Buffer.size_of(type)) # @pasted
@@ -76,24 +78,25 @@ Memory {
 	)
 
 	# Runs before the pipeline: a coord must have one number per dimension.
-	check_axes ( coord: Tuple | Integer -> Tuple;
-		# `(5,)` is just 5, so a 1d coord arrives as an Integer.
-		if coord === Integer
-			coord = Tuple.from_array([coord])
+	check_axes ( coord: Struct | Array | Integer -> Array;
+		if coord === Integer # @pasted
+			coord = [coord]
+		elif coord === Struct
+			coord = coord.@values
 		end
-		if coord.values.length() != dimensions.values.length()
-			@raise "Memory has `dimensions.values.length()` dimensions, but the coord `coord` has `coord.values.length()`"
+		if coord.length() != dimensions.length()
+			@raise "Memory has `dimensions.length()` dimensions, but the coord `coord` has `coord.length()`"
 		end
 		coord
 	)
 
 	# Boundary step: coord -> coord.
-	check_boundary ( coord: Tuple -> Tuple;
+	check_boundary ( coord: Array -> Array;
 		unless boundary == Boundary.FAIL
 			@raise "Boundary `boundary` is not supported yet"
 		end
 		for dimensions
-			# Check each axis on its own -- on a 4 x 2 grid, (5, 0) would otherwise silently read (1, 1).
+			# Check each axis on its own -- on a 4 x 2 grid, <5, 0> would otherwise silently read <1, 1>.
 			unless coord[at] >= 0 and coord[at] < it
 				@raise "Memory coord `coord` is out of bounds: axis `at` is `coord[at]`, but must be 0 to `it - 1`"
 			end
@@ -102,7 +105,7 @@ Memory {
 	)
 
 	# Layout step: coord -> index.
-	to_index ( coord: Tuple -> Integer;
+	to_index ( coord: Array -> Integer;
 		unless layout == Layout.ROW_MAJOR
 			@raise "Layout `layout` is not supported yet"
 		end
@@ -115,7 +118,7 @@ Memory {
 	)
 
 	# Layout step, backward: index -> coord. Used to walk every cell in order.
-	to_coord ( index: Integer -> Tuple;
+	to_coord ( index: Integer -> Array;
 		unless layout == Layout.ROW_MAJOR
 			@raise "Layout `layout` is not supported yet"
 		end
@@ -128,7 +131,7 @@ Memory {
 			coord.push(index % it)
 			index = index / it
 		end
-		Tuple.from_array(coord)
+		coord
 	)
 
 	# Reserve `size` bytes that start on a multiple of `align`. Returns the byte where they start.

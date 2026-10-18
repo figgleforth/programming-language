@@ -54,7 +54,7 @@ class Type_Alias_Test < Base_Test
 	end
 
 	def test_a_value_on_the_right_raises
-		assert_raises(Code::Invalid_Type_Alias) { Code.parse 'Five :: 5' }
+		assert_raises(Code::Invalid_Type_Alias) { Code.parse 'Bad :: five' }
 	end
 
 	def test_the_next_statement_is_separate
@@ -113,7 +113,7 @@ class Type_Alias_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Expressions :: Array\\Bool | Number
 		    A :: Number | Array\\Bool\\Int | Array\\<String>
-		    ("`Expressions`", "`A`")
+		    <"`Expressions`", "`A`">
 		CODE
 		assert_equal ['Expressions :: Array\Bool | Number', 'A :: Number | Array\Bool\Int | Array\<...>'], out.values
 	end
@@ -122,7 +122,7 @@ class Type_Alias_Test < Base_Test
 	def test_a_tagged_operand_checks_its_base_type
 		out = Code.interp <<~CODE
 		    Expressions :: Array\\Bool | Number
-		    (5 =>= Expressions, [true] =>= Expressions, [5] =>= Expressions, :x =>= Expressions)
+		    <(5 =>= Expressions), ([true] =>= Expressions), ([5] =>= Expressions), (:x =>= Expressions)>
 		CODE
 		assert_equal [true, true, true, false], out.values
 
@@ -179,7 +179,7 @@ class Type_Alias_Test < Base_Test
 	def test_reflection
 		out = Code.interp <<~CODE
 		    Strumber :: String | Number
-		    (Strumber.@name, Strumber.@types, Strumber.@composed_types.count(), "`Strumber`")
+		    <Strumber.@name, Strumber.@types, Strumber.@composed_types.count(), "`Strumber`">
 		CODE
 		assert_equal ['Strumber', 'String | Number', 0, 'Strumber :: String | Number'], out.values
 	end
@@ -225,7 +225,7 @@ class Type_Alias_Test < Base_Test
 	def test_greater_or_equal_asks_whether_a_value_satisfies_it
 		out = Code.interp <<~CODE
 		    Strumber :: String | Number
-		    (5 =>= Strumber, 'a' =>= Strumber, :a =>= Strumber, nil =>= Strumber, Strumber =<= 5)
+		    <(5 =>= Strumber), ('a' =>= Strumber), (:a =>= Strumber), (nil =>= Strumber), (Strumber =<= 5)>
 		CODE
 		assert_equal [true, true, false, false, true], out.values
 	end
@@ -234,7 +234,7 @@ class Type_Alias_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Strumber :: String | Number
 		    Other :: String | Number
-		    (Strumber === Strumber, Strumber === Other, 5 === Strumber, Strumber =!= Other)
+		    <(Strumber === Strumber), (Strumber === Other), (5 === Strumber), (Strumber =!= Other)>
 		CODE
 		assert_equal [true, false, false, true], out.values
 	end
@@ -290,7 +290,7 @@ class Type_Alias_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Strumber :: String | Number
 		    Wide :: Strumber | Symbol
-		    (5 =>= Wide, :a =>= Wide, true =>= Wide)
+		    <(5 =>= Wide), (:a =>= Wide), (true =>= Wide)>
 		CODE
 		assert_equal [true, true, false], out.values
 	end
@@ -333,13 +333,13 @@ class Type_Alias_Test < Base_Test
 		out = Code.interp <<~CODE
 		    @load 'lang/css'
 		    rule := Style_Rule(['p'], [])
-		    (rule =>= Css, 5 =>= Css)
+		    <(rule =>= Css), (5 =>= Css)>
 		CODE
 		assert_equal [true, false], out.values
 	end
 
 	def test_standard_library_aliases_are_the_type_itself
-		out = Code.interp '(Int === Integer, Dict === Dictionary, Str === String, Args === Arguments)'
+		out = Code.interp '<(Int === Integer), (Dict === Dictionary), (Str === String), (Args === Arguments)>'
 		assert_equal [true, true, true, true], out.values
 	end
 
@@ -392,5 +392,187 @@ class Type_Alias_Test < Base_Test
 		decls = Code.declare 'Strumber :: String | Number'
 		assert decls.key? 'Strumber'
 		assert_instance_of Code::Type_Alias_Expr, decls['Strumber'].expr
+	end
+	# --- Literal types: a literal allows only that one value ---
+
+	def test_a_literal_parses_in_each_type_position
+		{
+			'Mode :: "fill" | "line"'          => ->(e) { e.right },
+			'Five :: 5'                        => ->(e) { e.right },
+			'm: "fill" | "line" = "fill"'      => ->(e) { e.left.type },
+			'S <m: "fill" | "line">'           => ->(e) { e.types.first.type },
+			'f ( m: "fill" | "line"; m )'      => ->(e) { e.parameters.first.type },
+			'f (-> "fill" | "line"; "fill")'   => ->(e) { e.type },
+		}.each do |code, type_of|
+			type = type_of.call Code.parse(code).first
+			assert_instance_of Code::Type_Expr, type, code
+			assert type.anonymous_composition, code
+			assert_includes [Code::String_Expr, Code::Number_Expr], type.leading_literal.class, code
+		end
+	end
+
+	# A named argument is `name := value`, and a Dictionary entry is `key = value`, so `name: "fill"` is free to be an annotation.
+	def test_a_colon_after_a_name_is_an_annotation_not_a_named_argument
+		assert_raises(Code::Colon_Named_Argument) { Code.parse 'f(m: "a")' }
+		assert_raises(Code::Colon_Dictionary_Entry) { Code.parse '{m: "a", n: 5}' }
+		assert_equal 3, Code.interp("f ( flags: Any;\n\tflags\n)\nf(flags := 1 | 2)")
+		assert_equal({ m: 'a', 'n' => 5 }, Code.interp('{:m = "a", "n" = 5}').hash)
+	end
+
+	def test_a_literal_type_on_a_variable
+		out = Code.interp <<~CODE
+		    mode: "fill" | "line" = "fill"
+		    mode = "line"
+		    mode
+		CODE
+		assert_equal 'line', out
+
+		# With no value, it declares nil locked to the type, the same as `x: Int`
+		out = Code.interp <<~CODE
+		    mode: "fill" | "line"
+		    first := mode
+		    mode = "fill"
+		    <first, mode>
+		CODE
+		assert_equal [nil, 'fill'], out.values
+
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+			    value := "dash"
+			    mode: "fill" | "line" = "fill"
+			    mode = value
+			CODE
+		end
+		assert_match '"fill" | "line"', err.message
+	end
+
+	def test_a_literal_type_on_a_struct_member_param_and_return
+		assert_equal ['a', 'b'], Code.interp("f ( m: \"a\" | \"b\" = \"a\";\n\tm\n)\n<f(), f(\"b\")>").values
+		assert_equal 'line', Code.interp("S <mode: \"fill\" | \"line\" = \"fill\">\nS(\"line\").mode")
+		assert_raises(Code::Type_Contract_Violation) { Code.interp "S <mode: \"fill\" | \"line\">\nv := \"dash\"\nS(v)" }
+
+		code = <<~CODE
+		    pick ( mode: "fill" | "line" -> :ok | :no;
+		    	if mode == "fill"
+		    		:ok
+		    	else
+		    		:no
+		    	end
+		    )
+		CODE
+		assert_equal :ok, Code.interp(code + 'pick("fill")')
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + "v := \"dash\"\npick(v)" }
+	end
+
+	def test_a_literal_alias
+		out = Code.interp <<~CODE
+		    Mode :: "fill" | 'line'
+		    m: Mode = "fill"
+		    <"`Mode`", ("line" =>= Mode), ("dash" =>= Mode)>
+		CODE
+		assert_equal ["Mode :: \"fill\" | 'line'", true, false], out.values
+	end
+
+	# `Five :: 5` is a type that only 5 satisfies, not a value, so it cannot be computed with.
+	def test_an_alias_of_one_literal_is_a_type_not_a_value
+		out = Code.interp <<~CODE
+		    Five :: 5
+		    <(5 =>= Five), (6 =>= Five), (5.0 =>= Five), (Five == Five)>
+		CODE
+		assert_equal [true, false, true, true], out.values
+
+		["Five()", "Five + 1", "1 + Five", "Five | 4", "-Five", "Five < 6", "x := 5\nx += Five", "y := Five | Number"].each do |code|
+			assert_raises(Code::Type_Alias_Is_Not_A_Type, code) { Code.interp "Five :: 5\n#{code}" }
+		end
+	end
+
+	def test_every_literal_kind_mixed_with_type_names
+		out = Code.interp <<~CODE
+		    A :: Int | "auto" | :x | true | nil | 2.5
+		    <"`A`", (:x =>= A), ('auto' =>= A), (true =>= A), (false =>= A), (4 =>= A), (2.5 =>= A), (3.5 =>= A), (:y =>= A)>
+		CODE
+		assert_equal ['A :: Int | "auto" | :x | true | nil | 2.5', true, true, true, false, true, true, false, false], out.values
+	end
+
+	def test_operators_keep_their_set_meaning_with_literals
+		out = Code.interp <<~CODE
+		    Port :: Int ~ 0
+		    <(80 =>= Port), (0 =>= Port)>
+		CODE
+		assert_equal [true, false], out.values
+	end
+
+	def test_a_string_literal_does_not_match_a_symbol
+		assert_equal [true, false], Code.interp("A :: \"fill\"\n<(\"fill\" =>= A), (:fill =>= A)>").values
+	end
+
+	# A literal default or argument is checked before the program runs.
+	def test_the_static_checker_checks_literal_values
+		{
+			'm: "fill" | "line" = "fil"'      => '"fil"',
+			'm: "fill" | "line" = :fill'      => ':fill',
+			'f ( m: "a" | "b" = "c"; m )'     => '"c"',
+			"f ( m: \"a\" | \"b\"; m )\nf(\"c\")" => '"c"',
+			'x: Int | "auto" = 2.5'           => '2.5',
+		}.each do |code, shown|
+			err = assert_raises(Code::Type_Checking_Failed, code) { Code.type_check code }
+			assert_match shown, err.message, code
+		end
+
+		['m: "fill" | "line" = "line"', 'x: Int | "auto" = "auto"', 'x: Int | "auto" = 4', "f ( m: \"a\" | \"b\"; m )\nf(\"a\")"].each do |code|
+			refute_raises(Code::Type_Checking_Failed) { Code.type_check code }
+		end
+	end
+
+	def test_a_literal_then_a_value_operator_in_a_return_type_raises
+		assert_raises(Code::Invalid_Return_Type_In_Function) { Code.parse 'f (-> 1+2; 3)' }
+	end
+
+	# --- The name of an alias ---
+
+	def test_a_lowercase_alias_name_raises
+		err = assert_raises(Code::Invalid_Type_Alias_Name) { Code.parse 'lowercase :: true' }
+		assert_match 'capitalized', err.message
+	end
+	# Named literals shared by several types, as in CSS: one name for each, no typos.
+	def test_aliases_of_literals_shared_by_several_types
+		out = Code.interp <<~CODE
+		    Auto    :: "auto"
+		    Inherit :: "inherit"
+		    Width   :: Number | Auto | Inherit
+		    Margin  :: Number | Auto
+		    <(12 =>= Width), ("auto" =>= Width), ("inherit" =>= Width), ("inherit" =>= Margin), ("12px" =>= Width), "`Width`">
+		CODE
+		assert_equal [true, true, true, false, false, 'Width :: Number | Auto | Inherit'], out.values
+
+		out = Code.interp <<~CODE
+		    Auto   :: "auto"
+		    Margin :: Number | Auto
+		    Box <margin: Margin = "auto">
+		    <Box().margin, Box(4).margin>
+		CODE
+		assert_equal ['auto', 4], out.values
+		assert_raises(Code::Type_Contract_Violation) { Code.interp "Auto :: \"auto\"\nMargin :: Number | Auto\nBox <margin: Margin>\nv := \"inherit\"\nBox(v)" }
+	end
+
+	# "Anything except one value"
+	def test_anything_except_one_literal
+		out = Code.interp <<~CODE
+		    Port    :: Int ~ 0
+		    Nonzero :: Number ~ 0
+		    <(80 =>= Port), (0 =>= Port), (2.5 =>= Nonzero), (0 =>= Nonzero), (0.0 =>= Nonzero)>
+		CODE
+		assert_equal [true, false, true, false, false], out.values
+	end
+
+	def test_negative_literals
+		out = Code.interp <<~CODE
+		    Sign :: -1 | 0 | 1
+		    Offset :: Int ~ -1
+		    <(-1 =>= Sign), (2 =>= Sign), (-1 =>= Offset), (5 =>= Offset), "`Sign`">
+		CODE
+		assert_equal [true, false, false, true, 'Sign :: -1 | 0 | 1'], out.values
+		assert_equal [-1, 1], Code.interp("S <n: -1 | 1 = -1>\n<S().n, S(1).n>").values
+		assert_raises(Code::Type_Checking_Failed) { Code.type_check 'n: -1 | 1 = 2' }
 	end
 end

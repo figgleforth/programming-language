@@ -1,0 +1,17 @@
+# A `{}` body that is not only `=` entries is a block with its own scope
+x := 7
+@out { x }                              # out: 7
+
+r := { y := 5
+y * 2 }
+@out r                                  # out: 10
+
+# A typed declaration stays inside the block
+s := { z: Int = 5
+z + 1 }
+@out s                                  # out: 6
+
+# A plain `=` reaches the outer name
+{ x = 8
+x }
+@out x                                  # out: 8

@@ -74,9 +74,9 @@ end
 ###
 deliveries := []
 for day := 0, day < 10, day += 3
-	deliveries.push((it, at))
+	deliveries.push(<it, at>)
 end
-@assert deliveries == [(0, 0), (3, 1), (6, 2), (9, 3)], 'it should follow the counter while at counts plain iterations'
+@assert deliveries == [<0, 0>, <3, 1>, <6, 2>, <9, 3>], 'it should follow the counter while at counts plain iterations'
 
 
 ### The counter doesn't leak past the loop

@@ -4,10 +4,13 @@ module Code
 		# A tagged type in the tree (`Array\Bool`). A check reads only `name`, the same as a `x: Array\Bool` annotation does, and `text` is for display.
 		Tagged = ::Data.define :name, :text
 
-		# @return [::String, Tagged, ::Array] a type name, a Tagged, or [operator, left, right]
+		# A literal in the tree (`"fill"`, `5`, `:fill`, `true`, `nil`). It allows only a value equal to `value`. `type_name` is the literal's own type, for a check that has only type names.
+		Literal = ::Data.define :value, :type_name, :text
+
+		# @return [::String, Tagged, Literal, ::Array] a type name, a Tagged, a Literal, or [operator, left, right]
 		attr_accessor :tree
 
-		# @param tree [::String, Tagged, ::Array] see #tree
+		# @param tree [::String, Tagged, Literal, ::Array] see #tree
 		# @param name [::String, nil] nil for an annotation that has no alias name
 		def initialize tree, name = nil
 			super name
@@ -15,7 +18,7 @@ module Code
 		end
 
 		# Builds the tree from a flat chain (`A | B & C` is [A, B, C] with ['|', '&']), so `&` binds tighter than `|` the same way it does in a value expression.
-		# @param operands [[::String, Tagged]]
+		# @param operands [[::String, Tagged, Literal]]
 		# @param operators [[::String]]
 		# @return [::String, ::Array]
 		def self.tree_from_chain operands, operators
@@ -33,15 +36,15 @@ module Code
 			output.first
 		end
 
-		# @yieldparam name [::String] one type name in the tree
-		# @yieldreturn [Boolean] whether the value satisfies that one type
-		def satisfied? node = tree, &satisfies_name
-			return satisfies_name.call(node.name) if node.is_a? Tagged
-			return satisfies_name.call(node) unless node.is_a? ::Array
+		# @yieldparam leaf [::String, Literal] one type name, or one literal, in the tree
+		# @yieldreturn [Boolean] whether the value satisfies that one leaf
+		def satisfied? node = tree, &satisfies_leaf
+			return satisfies_leaf.call(node.name) if node.is_a? Tagged
+			return satisfies_leaf.call(node) unless node.is_a? ::Array
 
 			operator, left, right = node
-			left_result           = satisfied? left, &satisfies_name
-			right_result          = satisfied? right, &satisfies_name
+			left_result           = satisfied? left, &satisfies_leaf
+			right_result          = satisfied? right, &satisfies_leaf
 			case operator
 			when '|' then left_result || right_result
 			when '&' then left_result && right_result
@@ -52,7 +55,7 @@ module Code
 
 		# @return [::String] the expression as written, for example "String | Number"
 		def expression_to_s node = tree, parent_precedence = 0
-			return node.text if node.is_a? Tagged
+			return node.text if node.is_a?(Tagged) || node.is_a?(Literal)
 			return node unless node.is_a? ::Array
 
 			operator, left, right = node

@@ -130,6 +130,19 @@ module Code
 			Code::Array.new values.uniq
 		end
 
+		# As a Dictionary key, an Array compares by its values, the same as a struct (Struct#hash), so `d[[1, 2]]` finds an entry made with another `[1, 2]`.
+		def eql? other
+			other.is_a?(Code::Array) && key_values.eql?(other.key_values)
+		end
+
+		def hash
+			[self.class, key_values].hash
+		end
+
+		def key_values
+			values.map { |value| value.is_a?(Code::Number) || value.is_a?(Code::String) ? value.value : value }
+		end
+
 		def == other
 			# I think there's more to this than a simple evaluation. Tbd...
 			values == other&.values
@@ -151,13 +164,14 @@ module Code
 		end
 	end
 
-	class Tuple < Code::Array
-		def initialize values = []
-			super values, 'Tuple'
-		end
-
-		def inspect
-			"(#{values.map(&:inspect).join(', ')})"
+	class Array
+		# Each of these changes the values in place, so the Array may be a Dictionary key now under its old hash (Dictionary#find_key).
+		%i[proxy_push proxy_pop proxy_shift proxy_prepend proxy_delete_at proxy_delete proxy_insert proxy_concat proxy_set].each do |name|
+			changes_values = instance_method name
+			define_method name do |*args, &block|
+				Code::Dictionary.key_changed!
+				changes_values.bind(self).call(*args, &block)
+			end
 		end
 	end
 end

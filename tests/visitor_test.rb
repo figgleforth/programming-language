@@ -40,7 +40,7 @@ class Visitor_Test < Base_Test
 		b := Thing_B()
 		a.warn('from a')
 		b.warn('from b')
-		(a.warnings, b.warnings)"
+		<a.warnings, b.warnings>"
 		assert_equal [['from a'], ['from b']], out.values.map(&:values)
 	end
 
@@ -52,7 +52,7 @@ class Visitor_Test < Base_Test
 		a := Thing()
 		b := Thing()
 		a.warn('from a')
-		(a.warnings, b.warnings)"
+		<a.warnings, b.warnings>"
 		assert_equal [['from a'], []], out.values.map(&:values)
 	end
 end

@@ -1,6 +1,8 @@
 module Code
 	class Struct < Instance
 		attr_accessor :names, :type_names, :type_objects, :members, :bare_reference_name, :composed_types
+		# The members written `name := value`, with no `: Type`. As the right side of `=>=` their values count as literals: `Missing =>= <status := 404>` needs status 404 (Interpreter#struct_shape_mismatch).
+		attr_accessor :value_member_names
 		attr_reader   :values
 
 		def initialize names = [], type_names = [], types = [], values = []
@@ -16,6 +18,7 @@ module Code
 				next unless name
 				declare name, values[i], type_names[i]
 			end
+			@constructed = true
 		end
 
 		# A struct is built as 'Struct' and named later (`Hex <...>`), so its display name follows the new name, unless a tag already gave it a richer one (see Interpreter#declare_tag).
@@ -31,6 +34,7 @@ module Code
 		def []= key, value
 			result = super
 			if @names && (i = @names.index(key.to_s))
+				Code::Dictionary.key_changed! if @constructed # this struct may be a Dictionary key, now under its old hash
 				@values[i] = value
 				if (member = @members&.values&.at(i)).is_a?(Code::Member)
 					member.value      = value
@@ -84,7 +88,8 @@ module Code
 			# A member typed with a contract (`v: String | Number`) holds a Code::Type_Alias, which decides from the candidate names.
 			type_names.each_with_index.all? do |declared_type, i|
 				candidates = candidate_type_lists[i]
-				declared_type.is_a?(Type_Alias) ? declared_type.satisfied? { candidates.include? it } : candidates.include?(declared_type)
+				# A literal leaf has no value to compare here, only candidate type names, so its own type name stands in for it.
+				declared_type.is_a?(Type_Alias) ? declared_type.satisfied? { candidates.include?(it.is_a?(Type_Alias::Literal) ? it.type_name : it) } : candidates.include?(declared_type)
 			end
 		end
 

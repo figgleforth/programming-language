@@ -49,9 +49,9 @@ _privately_do ( x, y, z; )
 [1, 2, 3].map(n; n * 2)     # == [1, 2, 3].map((n; n * 2))
 ```
 
-## Labeled & Named Function Arguments
+## Named Function Arguments
 
-**Named arguments** — `name := value` at a call site binds by the callee's declared param name, order-independent. `name: value` is an alternate spelling of the same thing — the two are interchangeable. Positional args must come first; once you name one, the rest must be named too.
+**Named arguments** — `name := value` at a call site binds by the callee's declared param name, order-independent. Positional args must come first; once you name one, the rest must be named too. `name: value` is not a named argument: after a name, `:` starts a [type annotation](#literal-types), so `sub(a: 1)` raises `Colon_Named_Argument`.
 
 ```code
 sub ( a, b; a - b )
@@ -59,7 +59,6 @@ sub ( a, b; a - b )
 sub(a := 1, b := 2)   # -1
 sub(b := 2, a := 1)   # -1 reordered, same result
 sub(1, b := 2)        # -1 positional then named is fine
-sub(a: 1, b: 2)        # -1 -- `:` works exactly like `:=`
 
 # sub(a := 1, 2)       raises Positional_Argument_After_Named
 # sub(a := 1, a := 2)  raises Duplicate_Named_Argument
@@ -75,6 +74,15 @@ f ( right: <name: String, type: Any, value: Any>; right.name )
 m := Member('x', String, 4)
 f(m)     # 'x' -- Member isn't named in the annotation, it just has all three members
 f(nil)   # raises Type_Contract_Violation
+```
+
+An unnamed member checks by position: `<String, Number>` needs a String at 0 and a Number at 1.
+
+```code
+g ( pair: <String, Number>; pair.0 )
+
+g(<'x', 4>)   # 'x'
+g(<4, 'x'>)   # raises Type_Contract_Violation
 ```
 
 ## Recursion
@@ -422,6 +430,7 @@ Use `::` for a plain synonym (`Int :: Integer` in the standard library); use `| 
 4. An alias of a composition checks values only. It works in an annotation, in a tag (`Array\Shape`), and with `=>=`. `Shape()` raises `Code::Type_Alias_Is_Not_A_Type`, and so does `=/=`. `===` is true only for the same alias
 5. An alias hoists, so it works before its own line in the file
 6. A second `::` with the same name replaces the first, the same as `:=`. An annotation that names the alias reads it when the check runs, so it follows the replacement
+7. The name must be capitalized, because `::` names a type. `lowercase :: true` raises `Code::Invalid_Type_Alias_Name`
 
 ```code
 Strumber :: String | Number
@@ -441,6 +450,63 @@ Callback :: (;)
 run ( callback: Callback; callback() )
 
 x := String | Number # a value: one new Type that composes both, the same as `Both | String | Number {}`, then `x := Both`
+```
+
+### Literal Types
+
+A literal in a type position is a type that allows only that one value: a String, a Number (negative ones too), a Symbol, `true`, `false`, or `nil`. Use them for a quick list of allowed values, without an enum.
+
+1. They work in every type position: a variable, a struct member, a param, a return type, and the right side of `::`
+2. They mix with type names and with each other, and each operator keeps its set meaning: `Int | "auto"`, `Int ~ 0`
+3. A value matches a literal with `==`, so `5.0` matches `5`, but `:fill` does not match `"fill"`
+4. Only literals, not expressions: `x + 1` is not a type
+5. `Five :: 5` is a type that only `5` satisfies, not a value, so `Five + 1` raises `Code::Type_Alias_Is_Not_A_Type`. For a named value, use a constant: `FIVE := 5`
+6. The static type checker checks a literal value against a literal type before the program runs
+7. A Dictionary entry uses `=` (`{:mode = "fill"}`), so `name: "fill"` inside `{}` is never an entry
+
+```code
+mode: "fill" | "line" = "fill"
+mode = "line"            # ok
+mode = "dash"            # raises Code::Type_Contract_Violation
+other: "fill" | "line" = "fil"   # raises Code::Type_Mismatch before the program runs
+
+Stroke <mode: "fill" | "line" = "fill", width: Number | "auto" = "auto">
+draw ( mode: "fill" | "line" -> :ok | :skipped; ... )
+
+Auto    :: "auto"        # one name for a literal that several types share
+Inherit :: "inherit"
+Width   :: Number | Auto | Inherit
+Margin  :: Number | Auto
+
+Port :: Int ~ 0          # any Int except 0
+Sign :: -1 | 0 | 1
+80 =>= Port              # true
+```
+
+A struct member with a literal type tells structs apart. A member typed with one literal starts with that value, so a call does not need to give it:
+
+```code
+Ok      <status: 200, body: String>
+Missing <status: 404>
+Reply   :: Ok | Missing
+
+Missing().status         # 404
+Ok(404, 'x')             # raises Code::Type_Contract_Violation
+
+v := <status := 404>
+v =>= <status: 404>      # true -- an anonymous struct shape matches by its members
+v =>= <status: 200>      # false
+v =>= Missing            # false -- a named struct is a type, matched by name
+
+Missing =>= <status := 404>   # true  -- `A =>= B`: A has everything B has
+Missing =>= <status := 200>   # false -- a `name := value` member on the right counts as a literal
+
+for replies
+when <status: 200>
+    "ok: `it.body`"
+when <status: 404>
+    'missing'
+end
 ```
 
 ## Conditionals
@@ -622,12 +688,12 @@ end  # 3
 
 ```code
 pairs := for [1, 2, 3, 4, 5, 6] map by 2,1   # stride 2, sliding forward by 1
-    (it.0, it.?1)
-end  # [(1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, nil)] -- every consecutive pair, plus a trailing short window
+    <it.0, it.?1>
+end  # [<1, 2>, <2, 3>, <3, 4>, <4, 5>, <5, 6>, <6, nil>] -- every consecutive pair, plus a trailing short window
 
 windows := for [1, 2, 3, 4, 5, 6, 7] map by 3,1   # stride 3, sliding forward by 2
-    (it.0, it.?1, it.?2)
-end  # [(1, 2, 3), (3, 4, 5), (5, 6, 7), (7, nil, nil)] -- each window shares 1 element with the next
+    <it.0, it.?1, it.?2>
+end  # [<1, 2, 3>, <3, 4, 5>, <5, 6, 7>, <7, nil, nil>] -- each window shares 1 element with the next
 ```
 
 A trailing window shorter than `stride` is kept, not dropped. Use `.?N` (not `.N`) past index 0, since only the first element is guaranteed. `overlap` must be smaller than `stride`.
@@ -830,12 +896,16 @@ arr.filter(x; x > 2)    # (equivalent to arr.filter((x; x > 2)))
 
 ## Dictionaries
 
-1. Created with `{}` braces and key-value pairs
-2. Keys can be symbols, strings, or identifiers
-3. Access with subscript `dict[:key]`
+1. Created with `{}` braces and `key = value` entries, separated by a comma or a new line
+2. A bare name on the left is a String key: `{name = 'Jack'}` has the key "name". Write `{:name = 'Jack'}` for a Symbol key, or `{'first name' = 'J'}` for any String
+3. Any other left side is evaluated, so any value can be a key: a Number, `true`, `nil`, a struct, or an Array. A struct or an Array compares by its current values, so after one changes, its new value finds the entry and its old value does not. A Set follows its struct and Array elements the same way. Parentheses evaluate a name: `{(camp) = 'hut'}` uses camp's value
+4. A key keeps its own type, as in Ruby: `:x` and `'x'` are two keys
+5. A `{}` body of only `=` entries (or nothing) is a Dictionary. Anything else is a block with its own scope: `{ x }` gives x, and a `:=` inside it stays inside
+6. Read with a subscript, `dict[key]`. A dot reads the Symbol key, then the String key: `dict.x`. A dot never writes: `dict.x = 1` raises `Code::Dictionary_Dot_Write`, so write with a subscript, `dict[:x] = 1`
+7. The old `{x: 10}` raises `Code::Colon_Dictionary_Entry`, because after a name `:` starts a type annotation
 
 ```code
-dict := {x: 10, y: 20}
+dict := {:x = 10, :y = 20}
 dict[:x]            # 10
 dict[:z] = 30       # Assignment
 
@@ -845,8 +915,16 @@ dict.has_key?(:x)   # true
 dict.count()        # 3
 dict.empty?()       # false
 dict.delete(:z)
-dict.merge({a: 1})
+dict.merge({:a = 1})
 dict.fetch(:missing, 'default')
+
+camp := 'beach'
+places := {name = 'Jack', :name = :Jack, 123 = <true>, (camp) = 'hut', Vec2(0, 0) = player_a}
+places['name']      # 'Jack' -- a bare name is a String key
+places[:name]       # :Jack -- another key
+places.name         # :Jack -- a dot reads the Symbol key first
+places['beach']     # 'hut' -- (camp) uses camp's value
+places[Vec2(0, 0)]  # player_a -- a struct key compares by its member values
 ```
 
 ## Sets
@@ -1202,8 +1280,7 @@ Each built-in collection prints inside a different bracket, so you can tell what
 
 ```code
 @puts [1, 2, 3]      # [1, 2, 3]      -- Array
-@puts (1, 2, 3)      # (1, 2, 3)      -- Tuple
-@puts {x: 1, y: 2}   # {x: 1, y: 2}   -- Dictionary
+@puts {x = 1, :y = 2}   # {x = 1, :y = 2}   -- Dictionary
 @puts <1, 2, 3>      # <1, 2, 3>      -- Struct
 ```
 
@@ -1341,7 +1418,7 @@ db.find_table('users')          # -> a Table, or nil
 db.delete_table!(User)          # also takes a bare :users
 ```
 
-Column types: `Primary_Key`, `String`/`Text`, `Int`/`Integer`, `Number`, `Float`, `Decimal`, `Bool`, `Date`, `Time`, `Date_Time`, and an `Enum` (stored as text). A member of any other type (`Array`, `Dictionary`, `Set`, `Tuple`, `Range`, `Rational`, `Symbol`, `Buffer`, a nested struct) gets no column yet, and nothing reports it.
+Column types: `Primary_Key`, `String`/`Text`, `Int`/`Integer`, `Number`, `Float`, `Decimal`, `Bool`, `Date`, `Time`, `Date_Time`, and an `Enum` (stored as text). A member of any other type (`Array`, `Dictionary`, `Set`, `Range`, `Rational`, `Symbol`, `Buffer`, a nested struct) gets no column yet, and nothing reports it.
 
 ## Record ORM
 
@@ -1479,6 +1556,23 @@ Html_Render.render(page)
 << >>         # Bitwise shift / Array append
 ```
 
+### Bitwise
+
+`&`, `^`, and `|` on numbers are bitwise AND, XOR, and OR. Prefix `~` is bitwise NOT. They bind tighter than the comparisons, as in Ruby: `a | b == 5` is `(a | b) == 5`.
+
+```code
+MASK  := 12
+OTHER := 3
+
+MASK | 4           # 12
+MASK & 4           # 4
+MASK ^ OTHER       # 15
+~MASK & 15         # 3
+MASK | OTHER & 6   # 14 -- `&` binds tighter than `|`
+```
+
+An UPPERCASE name can be a type or a constant. `MASK | OTHER` is bitwise when `MASK` holds a value, and a [composition](#type-composition) when it is a type (`H1 | Dom {}`).
+
 ### Comparison
 
 ```code
@@ -1604,7 +1698,7 @@ Time { hour, minute, period, }
     left
 )
 
-11:22pm  # Time(hour: 11, minute: 22, period: 'pm')
+11:22pm  # Time(hour := 11, minute := 22, period := 'pm')
 
 # Or a prefix operator that builds a value from a bare literal
 Currency { amount, name, code, }
@@ -1617,7 +1711,7 @@ Currency { amount, name, code, }
     c
 )
 
-$42  # Currency(amount: 42, name: 'US Dollar', code: 'USD')
+$42  # Currency(amount := 42, name := 'US Dollar', code := 'USD')
 
 # A type's own overload beats a same-named global one (a fresh symbol, ~>, since redeclaring -> here would just overwrite the pipeline above)
 @operator ~> @infix 300 ( left, right; 999 )
@@ -1665,7 +1759,7 @@ word := 'four'
 double(word)  # raises Code::Type_Contract_Violation — checked on the call
 ```
 
-A `: Type` annotation can join types with `|`, `&`, `^`, or `~`. Each one compares the values that the types allow: `|` either, `&` both, `~` the left but not the right, `^` exactly one. An annotation never builds a new composed type. `nil` passes every annotation. Give an annotation a name with [`::`](#type-aliases).
+A `: Type` annotation can join types, and [literals](#literal-types), with `|`, `&`, `^`, or `~`. Each one compares the values that the types allow: `|` either, `&` both, `~` the left but not the right, `^` exactly one. An annotation never builds a new composed type. `nil` passes every annotation. Give an annotation a name with [`::`](#type-aliases).
 
 ```code
 x: Int | Nil = 1           # ok — an Int
@@ -1700,6 +1794,7 @@ x: Combined = c    # ok — c really is a Combined
 5. An untyped or `Any` param or return matches any type in that slot, on either side. The param count must still match, and any other typed slot must match exactly
 6. `(;)` matches any function, whatever its params and return type — write `x: (;)` for "any function"
 7. A signature-typed param, inline (`fn: (Number -> Number;)`) or named (`fmt: Currency_Formatter`), is checked with the same rules on every call
+8. Parentheses after `->` group one type: `-> (String | Number)`. A list there is not a type: `-> (String, Number)` raises `Code::Values_In_Parentheses` when the file parses. Use a struct shape for several values: `-> <String, Number>`
 
 ```code
 Currency_Formatter := (Number -> String;)    # takes a Number, returns a String
@@ -1751,7 +1846,9 @@ nothing ( anything: Any -> Nil;
 	anything
 )
 
-(nothing(123), nothing('456'), nothing(nothing)) # (nil, nil, nil)
+nothing(123)        # nil
+nothing('456')      # nil
+nothing(nothing)    # nil
 ```
 
 ## Structs
@@ -1775,7 +1872,7 @@ String\<num: Number> {
     to_s (; "number: `tag.num`" )
 }
 
-String\<{x=1}>().to_s()   # "dict: {x: 1}"
+String\<{:x = 1}>().to_s()   # "dict: {:x = 1}"
 String\<5>().to_s()       # "number: 5"
 
 Format_A {} Format_B {} Format_C {}
@@ -1793,6 +1890,37 @@ Tree <
     children: Array
     parent: Tree             # a member typed with the struct's own name
 >
+```
+
+### Several Values
+
+1. A struct holds an ordered list of values: `<404, []>`. Read a value by its position with `.0` or `[0]`
+2. `(status, body) := <404, []>` takes the values out by position. The `( )` on the left is the list of targets
+3. A function returns several values as a struct. The return type is a struct shape, by name (`-> <ok: Bool, data: Any>`) or by position (`-> <Bool, Any>`). Each call checks the value it returns
+4. `( )` around one value groups it. A list of values in `( )` is not a value: `(404, [])` raises `Code::Values_In_Parentheses`
+5. A Type in a positional member is the member's type, not its value: `<Number>` is a slot for a Number. Give the member a name to keep a Type as a value: `<type := Number>`
+
+```code
+fetch (-> <ok: Bool, data: Any>;
+    <ok := true, data := [1, 2]>
+)
+fetch().ok                  # true
+
+split (-> <Bool, Any>;
+    <false, 'reason'>
+)
+(ok, why) := split()        # ok is false, why is 'reason'
+
+pair := <404, []>
+pair.0                      # 404
+pair[1]                     # []
+
+broken (-> <ok: Bool>;
+    <ok := 5>
+)
+broken()                    # raises Code::Type_Contract_Violation -- ok is not a Bool
+
+pair := (404, [])           # raises Code::Values_In_Parentheses
 ```
 
 ## Enums (not finalized — don't rely on yet)

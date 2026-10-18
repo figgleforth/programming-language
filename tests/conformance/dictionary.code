@@ -1,0 +1,30 @@
+# A Dictionary entry is `key = value`. A bare name is a String key, `:name` a Symbol key, and any other left side is evaluated.
+camp := 'beach'
+d := {name = 'Jack', :id = 4, 'first name' = 'J', 123 = true, (camp) = 'hut'}
+@out d                                  # out: {name = 'Jack', :id = 4, 'first name' = 'J', 123 = true, beach = 'hut'}
+@out d['name']                          # out: Jack
+@out d[:name]                           # out: nil
+@out d[123]                             # out: true
+@out d['beach']                         # out: hut
+
+# A dot reads the Symbol key, then the String key. A write uses a subscript.
+@out d.name                             # out: Jack
+@out d.id                               # out: 4
+d[:id] = 5
+d[:added] = 6
+@out d.id                               # out: 5
+@out d[:added]                          # out: 6
+
+# Nested, with a trailing comma
+nested := { outer = { inner = 1 }, }
+@out nested                             # out: {outer = {inner = 1}}
+@out nested.outer.inner                 # out: 1
+
+# A key keeps its own type, so a String key is not a Symbol key
+@out {a = 1} == {a = 1}                 # out: true
+@out {a = 1} == {:a = 1}                # out: false
+
+# A struct key compares by its member values
+Spot <x: Int, y: Int>
+places := {Spot(0, 0) = 'hatch'}
+@out places[Spot(0, 0)]                 # out: hatch

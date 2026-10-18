@@ -89,7 +89,8 @@ module Code
 			return if expr.parameters.any?(&:variadic) # variadic arity / element typing isn't statically modeled
 
 			param_types = expr.parameters.map do |p|
-			    # structural params aren't checked statically
+				next p.type if composed_annotation? p.type # `m: "a" | "b"` -- #check_call reads the whole chain
+				# structural params aren't checked statically
 				p.type&.value unless p.type.is_a?(Code::Struct_Expr) # todo;  add #check_struct
 			end
 			declare :funcs, expr.name.value, param_types
@@ -113,10 +114,11 @@ module Code
 			expr.arguments.each_with_index.filter_map do |arg, i|
 				expected = signature[i]
 				next nil unless expected
+				next nil if composed_annotation?(expected) && annotation_accepts?(expected, arg)
 				inferred = infer_type arg
-				next nil if inferred.nil?
-				next nil if types_compatible? expected, inferred
-				Type_Mismatch.new arg, expected, inferred
+				next nil if inferred.nil? && !composed_annotation?(expected)
+				next nil if !composed_annotation?(expected) && types_compatible?(expected, inferred)
+				Type_Mismatch.new arg, composed_annotation?(expected) ? annotation_display(expected) : expected, value_display(arg, expected)
 			end
 		end
 
@@ -135,43 +137,93 @@ module Code
 			return nil unless expr.left.respond_to?(:type) && expr.left.type
 			return nil if expr.left.type.is_a? Code::Struct_Expr # structural annotations aren't checked statically
 
-			declared = annotation_type_names expr.left.type # e.g. ["String"], or ["Int", "Nil"] for `x: Int | Nil`
-			declare_member expr.left.value, declared.first
-			inferred = infer_type expr.right # e.g. "Integer" or nil
+			operands = annotation_operands expr.left.type # e.g. ["String"], ["Int", "Nil"] for `x: Int | Nil`, or literal expressions for `x: "a" | "b"`
+			first    = operands.first
+			declare_member expr.left.value, first.is_a?(::String) ? first : infer_type(first)
+			return nil if annotation_accepts? expr.left.type, expr.right
 
-			return nil if inferred.nil?
-			return nil if declared.any? { |name| types_compatible? name, inferred }
-
-			Type_Mismatch.new expr, annotation_display(expr.left.type), inferred
+			Type_Mismatch.new expr, annotation_display(expr.left.type), value_display(expr.right, expr.left.type)
 		end
 
-		# The alternative type name(s) an annotation names -- a plain `x: Int` is just `[expr.value]`; a
-		# composition chain in the annotation position (`x: Int | Nil`) parses to an anonymous_composition
-		# Type_Expr (same as a func's own `-> Type` return-type annotation) -- walk its leading name plus
-		# each `|`/`&`/`~`/`^` operand's name. A value that satisfies the annotation at run time satisfies at least one of these names, whatever the operators are, so a literal that matches none of them is always a mismatch. The operators themselves are checked only at run time (Code::Type_Alias).
-		def annotation_type_names type_expr
+		# The operands an annotation names: a type name String (`x: Int` gives ["Int"], `x: Int | Nil` gives ["Int", "Nil"]), or a literal expression (`x: "a" | "b"`). A value that satisfies the annotation at run time satisfies at least one operand, whatever the operators are, so a value that matches none of them is always a mismatch. The operators themselves are checked only at run time (Code::Type_Alias).
+		def annotation_operands type_expr
 			return [] unless type_expr
-			return [type_expr.value] unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
+			return [type_expr.value] unless composed_annotation? type_expr
 
-			names = [type_expr.name]
+			operands = [type_expr.leading_literal || type_expr.name]
 			type_expr.expressions.each do |composition|
 				next unless composition.is_a? Code::Composition_Expr
 
 				operand = composition.identifier
-				names << (operand.is_a?(Code::Type_Expr) ? operand.name : operand.value)
+				operands << if literal_type_expr? operand
+					operand
+				else
+					operand.is_a?(Code::Type_Expr) ? operand.name : operand.value
+				end
 			end
-			names.compact
+			operands.compact
 		end
 
-		# The annotation as written, with its own operators (`Int & String`), for an error message.
-		def annotation_display type_expr
-			return type_expr.value unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
+		def composed_annotation? type_expr
+			type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
+		end
 
-			operands = type_expr.expressions.grep(Code::Composition_Expr).map do |composition|
-				operand = composition.identifier
-				"#{composition.operator.value} #{operand.is_a?(Code::Type_Expr) ? operand.name : operand.value}"
+		# @pasted from Interpreter#literal_type_expr?
+		def literal_type_expr? expr
+			return %w(true false nil).include?(expr.value) if expr.is_a? Code::Identifier_Expr
+
+			expr.is_a?(Code::String_Expr) || expr.is_a?(Code::Number_Expr) || expr.is_a?(Code::Symbol_Expr)
+		end
+
+		# Can `value_expr` satisfy the annotation? A literal value must equal a literal operand, or have a type that a type operand allows. Any other value is checked by its type only, and a value of unknown type always passes.
+		def annotation_accepts? type_expr, value_expr
+			value_literal = literal_type_expr?(value_expr) ? literal_key(value_expr) : nil
+			inferred      = infer_type value_expr
+			return true if value_literal.nil? && inferred.nil?
+
+			annotation_operands(type_expr).any? do |operand|
+				if operand.is_a? ::String
+					inferred.nil? || types_compatible?(operand, inferred)
+				elsif value_literal
+					literal_key(operand) == value_literal
+				else
+					operand_type = infer_type operand # `"a"` allows only Strings, so an Integer value cannot match it
+					inferred.nil? || operand_type.nil? || types_compatible?(operand_type, inferred)
+				end
 			end
-			[type_expr.name, *operands].compact.join ' '
+		end
+
+		# The same key for two literals that the language's `==` calls equal: `5` and `5.0`, but not `"fill"` and `:fill`.
+		def literal_key expr
+			case expr
+			when Code::String_Expr then ['String', expr.value]
+			when Code::Symbol_Expr then ['Symbol', expr.value.to_s]
+			when Code::Number_Expr then ['Number', expr.value]
+			else [expr.value] # true, false, nil
+			end
+		end
+
+		# The annotation as written, with its own operators (`Int & String`, `"fill" | "line"`), for an error message.
+		def annotation_display type_expr
+			return type_expr.value unless composed_annotation? type_expr
+
+			text     = ->(operand) { literal_type_expr?(operand) ? literal_text(operand) : (operand.is_a?(Code::Type_Expr) ? operand.name : operand.value) }
+			operands = type_expr.expressions.grep(Code::Composition_Expr).map { "#{it.operator.value} #{text.call it.identifier}" }
+			[type_expr.leading_literal ? text.call(type_expr.leading_literal) : type_expr.name, *operands].compact.join ' '
+		end
+
+		# Against an annotation with a literal in it, a literal value shows as written (`"fil"`), since its type alone (`String`) would not say why it fails. Otherwise the value shows as its type.
+		def value_display expr, type_expr
+			literal_annotation = composed_annotation?(type_expr) && annotation_operands(type_expr).any? { !it.is_a?(::String) }
+			literal_annotation && literal_type_expr?(expr) ? literal_text(expr) : infer_type(expr)
+		end
+
+		def literal_text expr
+			case expr
+			when Code::String_Expr then expr.quotation_style == :double ? %("#{expr.value}") : "'#{expr.value}'"
+			when Code::Symbol_Expr then ":#{expr.value}"
+			else expr.value.to_s
+			end
 		end
 
 		# `x := Type(...)` / `x := Type<Struct>(...)` / `Ident := SomeType`
@@ -228,12 +280,9 @@ module Code
 			return nil unless expr.type && expr.default
 			return nil if expr.variadic # `x: Args` is a variadic marker, not a real element type
 			return nil if expr.type.is_a? Code::Struct_Expr # structural annotations aren't checked statically
-			declared = annotation_type_names expr.type
-			inferred = infer_type expr.default
-			return nil if inferred.nil?
-			return nil if declared.any? { |name| types_compatible? name, inferred }
+			return nil if annotation_accepts? expr.type, expr.default
 
-			Type_Mismatch.new expr, annotation_display(expr.type), inferred
+			Type_Mismatch.new expr, annotation_display(expr.type), value_display(expr.default, expr.type)
 		end
 
 		def check_return_type expr
@@ -241,13 +290,10 @@ module Code
 			return nil if expr.type.is_a? Code::Struct_Expr # structural annotations aren't checked statically
 			return nil if expr.expressions.empty?
 
-			declared = annotation_type_names expr.type
-			return nil if declared == ['Nil'] # `-> Nil` discards the last expression at runtime, see #interp_func_body
-			inferred = infer_type expr.expressions.last
-			return nil if inferred.nil?
-			return nil if declared.any? { |name| types_compatible? name, inferred }
+			return nil if annotation_operands(expr.type) == ['Nil'] # `-> Nil` discards the last expression at runtime, see #interp_func_body
+			return nil if annotation_accepts? expr.type, expr.expressions.last
 
-			raise Code::Type_Contract_Violation.new(expr.expressions.last, annotation_display(expr.type), inferred)
+			raise Code::Type_Contract_Violation.new(expr.expressions.last, annotation_display(expr.type), value_display(expr.expressions.last, expr.type))
 		end
 
 		# `nil` means there is no error with the expression. The pattern for most of the cases is just: recurse into child expressions and collect errors.

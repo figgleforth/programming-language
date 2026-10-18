@@ -182,7 +182,7 @@ class ProxiesTest < Base_Test
 		    }
 
 		    a := [Point(1, 2), Point(3, 4)]
-		    (a.include?(Point(1, 2)), a.include?(Point(9, 9)))
+		    <a.include?(Point(1, 2)), a.include?(Point(9, 9))>
 		CODE
 		out = Code.interp src
 		assert_equal true, out.values[0]
@@ -208,7 +208,7 @@ class ProxiesTest < Base_Test
 		    a := [Point(1, 2), Point(3, 4)]
 		    b := [Point(1, 2), Point(3, 4)]
 		    c := [Point(1, 2), Point(9, 9)]
-		    (a == b, a == c, a == [Point(1, 2)])
+		    <(a == b), (a == c), (a == [Point(1, 2)])>
 		CODE
 		out = Code.interp src
 		assert_equal true, out.values[0]
@@ -218,27 +218,27 @@ class ProxiesTest < Base_Test
 
 	def test_dictionary_proxies
 		assert Code.interp("{}.empty?()")
-		refute Code.interp("{x: 1}.empty?()")
+		refute Code.interp("{:x = 1}.empty?()")
 
-		out = Code.interp("d := {x: 1, y: 2}, d.clear(), d")
+		out = Code.interp("d := {:x = 1, :y = 2}, d.clear(), d")
 		assert_equal({}, out.hash)
 
-		assert_equal 1, Code.interp("{x: 1}.fetch(:x, 0)")
-		assert_equal 0, Code.interp("{x: 1}.fetch(:y, 0)")
+		assert_equal 1, Code.interp("{:x = 1}.fetch(:x, 0)")
+		assert_equal 0, Code.interp("{:x = 1}.fetch(:y, 0)")
 
-		assert_equal [:x, :y, :z], Code.interp("{x: 1, y: 2, z: 3}.keys()").values
-		assert_equal [1, 2, 3], Code.interp("{x: 1, y: 2, z: 3}.values()").values
+		assert_equal [:x, :y, :z], Code.interp("{:x = 1, :y = 2, :z = 3}.keys()").values
+		assert_equal [1, 2, 3], Code.interp("{:x = 1, :y = 2, :z = 3}.values()").values
 
-		assert Code.interp("{x: 1, y: 2}.has_key?(:x)")
-		refute Code.interp("{x: 1, y: 2}.has_key?(:z)")
+		assert Code.interp("{:x = 1, :y = 2}.has_key?(:x)")
+		refute Code.interp("{:x = 1, :y = 2}.has_key?(:z)")
 
-		out = Code.interp("d := {x: 1, y: 2, z: 3}, d.delete(:y), d")
+		out = Code.interp("d := {:x = 1, :y = 2, :z = 3}, d.delete(:y), d")
 		assert_equal({ x: 1, z: 3 }, out.hash)
 
-		assert_equal 3, Code.interp("{x: 1, y: 2, z: 3}.count()")
+		assert_equal 3, Code.interp("{:x = 1, :y = 2, :z = 3}.count()")
 		assert_equal 0, Code.interp("{}.count()")
 
-		out = Code.interp "{x: 1}.merge({y: 2, z: 3})"
+		out = Code.interp "{:x = 1}.merge({:y = 2, :z = 3})"
 		assert_equal({ x: 1, y: 2, z: 3 }, out.hash)
 	end
 
@@ -341,12 +341,34 @@ class ProxiesTest < Base_Test
 		    }
 
 		    a := Set([Point(1, 2), Point(3, 4)])
-		    (a.include?(Point(1, 2)), a == Set([Point(1, 2), Point(3, 4)]), a == Set([Point(1, 2)]))
+		    <a.include?(Point(1, 2)), (a == Set([Point(1, 2), Point(3, 4)])), (a == Set([Point(1, 2)]))>
 		CODE
 		out = Code.interp src
 		assert_equal true, out.values[0]
 		assert_equal true, out.values[1]
 		assert_equal false, out.values[2]
+	end
+
+	# A struct or Array element compares by its current values, the same as a Dictionary key: after one changes, the Set finds it by its new value, and two elements that became equal count as one.
+	def test_set_follows_a_changed_struct_or_array_element
+		out = Code.interp <<~CODE
+		    Hex <x: Int, y: Int, z: Int>
+		    h := Hex(1, 0, 0)
+		    s := Set([h, Hex(2, 0, 0)])
+		    before := s.count()
+		    h.x = 2
+		    <before, s.count(), s.include?(Hex(2, 0, 0)), s.include?(Hex(1, 0, 0))>
+		CODE
+		assert_equal [2, 1, true, false], out.values
+
+		out = Code.interp <<~CODE
+		    k := [1]
+		    s := Set([k])
+		    k.push(2)
+		    s.add([1, 2])
+		    s.count()
+		CODE
+		assert_equal 1, out
 	end
 
 	def test_number_proxies
@@ -450,5 +472,17 @@ class ProxiesTest < Base_Test
 		    get_it()
 		CODE
 		assert_equal "Hello, Read!\n", Code.interp(wrapped).value
+	end
+	# 12. A key keeps its own type: a wrapped primitive unwraps to its Ruby value, and anything else stays as it is.
+	def test_dictionary_normalize_dict_key
+		dict = Code::Dictionary.new
+		assert_equal 'name', dict.normalize_dict_key(Code::String.new('name'))
+		assert_equal 5, dict.normalize_dict_key(Code::Integer.new(5))
+		assert_equal :name, dict.normalize_dict_key(:name)
+		assert_equal 'name', dict.normalize_dict_key('name')
+		assert_nil dict.normalize_dict_key(nil)
+
+		struct = Code::Struct.new ['x'], ['Integer'], [nil], [1]
+		assert_same struct, dict.normalize_dict_key(struct)
 	end
 end

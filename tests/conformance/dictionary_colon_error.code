@@ -1,0 +1,2 @@
+# After a name, `:` starts a type annotation, so the old `name: value` entry raises
+survivor := {name: 'Jack', number: 23} # error: Colon_Dictionary_Entry

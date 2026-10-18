@@ -7,7 +7,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		v := Viewer()
-		(v.can_view, v.can_list, v.user_type)"
+		<v.can_view, v.can_list, v.user_type>"
 
 		assert_equal [true, true, 'viewer'], out.values
 	end
@@ -25,7 +25,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		e := Editor()
-		(e.can_view, e.can_list, e.can_create, e.can_update, e.can_delete, e.user_type)"
+		<e.can_view, e.can_list, e.can_create, e.can_update, e.can_delete, e.user_type>"
 
 		assert_equal [true, true, true, true, true, 'editor'], out.values
 	end
@@ -34,7 +34,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		a := Administrator()
-		(a.can_view, a.can_create, a.can_manage_users, a.user_type)"
+		<a.can_view, a.can_create, a.can_manage_users, a.user_type>"
 
 		assert_equal [true, true, true, 'admin'], out.values
 	end
@@ -44,7 +44,7 @@ class Composition_Test < Base_Test
 			out = Code.interp "
 			@load 'examples/compositions.code'
 			l := Limited_Editor()
-			(l.can_create, l.can_update, l.user_type)"
+			<l.can_create, l.can_update, l.user_type>"
 			assert_equal [true, true, 'limited_editor'], out.values
 		end
 
@@ -61,7 +61,7 @@ class Composition_Test < Base_Test
 			out = Code.interp "
 			@load 'examples/compositions.code'
 			r := Read_Only_Admin()
-			(r.can_manage_users, r.can_view, r.user_type)"
+			<r.can_manage_users, r.can_view, r.user_type>"
 			assert_equal [true, true, 'read_only_admin'], out.values
 		end
 
@@ -85,7 +85,7 @@ class Composition_Test < Base_Test
 			out = Code.interp "
 			@load 'examples/compositions.code'
 			a := Auditor()
-			(a.can_view_logs, a.user_type)"
+			<a.can_view_logs, a.user_type>"
 			assert_equal [true, 'auditor'], out.values
 		end
 
@@ -109,7 +109,7 @@ class Composition_Test < Base_Test
 			out = Code.interp "
 			@load 'examples/compositions.code'
 			s := Specialist()
-			(s.can_manage_users, s.can_configure_system, s.can_export_data, s.user_type)"
+			<s.can_manage_users, s.can_configure_system, s.can_export_data, s.user_type>"
 			assert_equal [true, true, true, 'specialist'], out.values
 		end
 
@@ -125,7 +125,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		s := Sedan()
-		(s.has_engine, s.has_wheels, s.model)"
+		<s.has_engine, s.has_wheels, s.model>"
 
 		assert_equal [true, true, 'sedan'], out.values
 	end
@@ -134,7 +134,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		l := Luxury_Sedan()
-		(l.has_engine, l.has_leather_seats, l.has_sunroof, l.model)"
+		<l.has_engine, l.has_leather_seats, l.has_sunroof, l.model>"
 
 		assert_equal [true, true, true, 'luxury_sedan'], out.values
 	end
@@ -143,7 +143,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		e := Electric_Car()
-		(e.has_wheels, e.has_battery, e.has_engine, e.model)"
+		<e.has_wheels, e.has_battery, e.has_engine, e.model>"
 
 		assert_equal [true, true, false, 'electric'], out.values
 	end
@@ -152,7 +152,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		l := Luxury_Electric()
-		(l.has_wheels, l.has_leather_seats, l.has_battery, l.has_engine, l.model)"
+		<l.has_wheels, l.has_leather_seats, l.has_battery, l.has_engine, l.model>"
 
 		assert_equal [true, true, true, false, 'luxury_electric'], out.values
 	end
@@ -162,7 +162,7 @@ class Composition_Test < Base_Test
 			out = Code.interp "
 			@load 'examples/compositions.code'
 			p := Public_User_Response()
-			(p.status, p.user_id, p.username, p.response_type)"
+			<p.status, p.user_id, p.username, p.response_type>"
 			assert_equal [200, 0, '', 'public'], out.values
 		end
 
@@ -185,7 +185,7 @@ class Composition_Test < Base_Test
 		out = Code.interp "
 		@load 'examples/compositions.code'
 		p := Private_User_Response()
-		(p.status, p.user_id, p.username, p.email, p.response_type)"
+		<p.status, p.user_id, p.username, p.email, p.response_type>"
 
 		assert_equal [200, 0, '', '', 'private'], out.values
 	end
@@ -195,7 +195,7 @@ class Composition_Test < Base_Test
 			out = Code.interp "
 			@load 'examples/compositions.code'
 			l := Limited_User_Response()
-			(l.user_id, l.username, l.response_type)"
+			<l.user_id, l.username, l.response_type>"
 			assert_equal [0, '', 'limited'], out.values
 		end
 
@@ -229,7 +229,7 @@ class Composition_Test < Base_Test
 		That { b := 2, shared := 'that' }
 		z := |This ^ That
 		w := z()
-		(w.a, w.b)"
+		<w.a, w.b>"
 		assert_equal [1, 2], out.values
 	end
 
@@ -238,7 +238,7 @@ class Composition_Test < Base_Test
 		Compo { a := 1 }
 		x := |Compo
 		y := x()
-		(y =>= Compo, y === Compo)"
+		<(y =>= Compo), (y === Compo)>"
 		assert_equal [true, true], out.values
 	end
 
@@ -307,7 +307,7 @@ class Composition_Test < Base_Test
 		b := A()
 		a.items.push('a-item')
 		b.items.push('b-item')
-		(a.items, b.items)"
+		<a.items, b.items>"
 		assert_equal [['a-item'], ['b-item']], out.values.map(&:values)
 	end
 
@@ -319,7 +319,7 @@ class Composition_Test < Base_Test
 		b := A()
 		a.store[:x] = 1
 		b.store[:x] = 2
-		(a.store[:x], b.store[:x])"
+		<a.store[:x], b.store[:x]>"
 		assert_equal [1, 2], out.values
 	end
 
@@ -343,7 +343,7 @@ class Composition_Test < Base_Test
 		b := S()
 		a.items.push('a-item')
 		b.items.push('b-item')
-		(a.items, b.items)"
+		<a.items, b.items>"
 		assert_equal [['a-item'], ['b-item']], out.values.map(&:values)
 	end
 end

@@ -1,0 +1,33 @@
+# `A =>= B`: A has everything B has. A `name := value` member on the right counts as a literal.
+Missing <status: 404>
+@out Missing =>= <status := 404>        # out: true
+@out Missing =>= <status := 200>        # out: false
+@out <status := 404> =>= Missing        # out: false
+
+# An anonymous struct shape matches a value by its members
+v := <status := 404>
+@out v =>= <status: 404>                # out: true
+@out v =>= <status: 200>                # out: false
+
+for [<status := 200, body := 'a'>, <status := 404>, <status := 500>]
+when <status: 200>
+	@out "ok `it.body`"                 # out: ok a
+when <status: 404>
+	@out 'missing'                      # out: missing
+when it
+	@out 'other'                        # out: other
+end
+
+# A union of named structs, told apart by name
+Ok    <status: 200, body: String>
+Reply :: Ok | Missing
+describe ( reply: Reply;
+	if reply
+	when Ok
+		"ok: `reply.body`"
+	when Missing
+		'missing'
+	end
+)
+@out describe(Ok(body := 'hi'))         # out: ok: hi
+@out describe(Missing())                # out: missing

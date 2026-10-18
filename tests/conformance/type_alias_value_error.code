@@ -1,0 +1,4 @@
+# `Five :: 5` is a type that only 5 satisfies, not a value
+Five :: 5
+@out 5 =>= Five                         # out: true
+@out Five + 1                           # error: Type_Alias_Is_Not_A_Type

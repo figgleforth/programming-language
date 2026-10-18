@@ -73,12 +73,12 @@ class Error_Test < Base_Test
 
 	def test_cannot_call_value_when_a_dictionary_field_shadows_a_builtin_method_name
 		assert_raises Code::Receiver_Is_Not_Callable do
-			Code.interp 'dict := {keys: 4}, dict.keys()'
+			Code.interp 'dict := {:keys = 4}, dict.keys()'
 		end
 	end
 
-	def test_invalid_dictionary_key
-		error = assert_raises Code::Invalid_Dictionary_Key do
+	def test_colon_dictionary_entry
+		assert_raises Code::Colon_Dictionary_Entry do
 			Code.interp '{5: "value"}'
 		end
 	end

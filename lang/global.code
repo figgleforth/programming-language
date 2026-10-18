@@ -19,7 +19,6 @@
 @load 'lang/struct'
 @load 'lang/statement'
 @load 'lang/enum'
-@load 'lang/tuple'
 @load 'lang/bool'
 @load 'lang/context'
 @load 'lang/pointer'

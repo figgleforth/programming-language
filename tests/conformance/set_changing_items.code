@@ -1,0 +1,9 @@
+# A struct or Array in a Set compares by its current values, the same as a Dictionary key
+Hex <x: Int, y: Int, z: Int>
+h := Hex(1, 0, 0)
+s := Set([h, Hex(2, 0, 0)])
+@out s.count()                          # out: 2
+h.x = 2
+@out s.count()                          # out: 1
+@out s.include?(Hex(2, 0, 0))           # out: true
+@out s.include?(Hex(1, 0, 0))           # out: false

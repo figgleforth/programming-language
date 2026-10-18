@@ -1,0 +1,13 @@
+# An UPPERCASE constant that holds a value works with bitwise operators, with the usual precedence
+MASK  := 8
+OTHER := 4
+@out MASK | 4                           # out: 12
+@out MASK | OTHER                       # out: 12
+@out MASK | OTHER & 6                   # out: 12
+@out MASK | OTHER + 1                   # out: 13
+
+# An UPPERCASE type still composes
+AB { a := 1 }
+CD { c := 2 }
+EF | AB | CD {}
+@out <EF().a, EF().c>                   # out: <1, 2>

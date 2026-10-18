@@ -1,0 +1,29 @@
+# A literal in a type position allows only that one value
+mode: "fill" | "line" = "fill"
+mode = "line"
+@out mode                               # out: line
+
+Mode :: "fill" | "line"
+@out Mode                               # out: Mode :: "fill" | "line"
+@out "fill" =>= Mode                    # out: true
+@out "dash" =>= Mode                    # out: false
+
+# One name for a literal that several types share
+Auto    :: "auto"
+Inherit :: "inherit"
+Width   :: Number | Auto | Inherit
+Margin  :: Number | Auto
+@out Width                              # out: Width :: Number | Auto | Inherit
+@out "inherit" =>= Width                # out: true
+@out "inherit" =>= Margin               # out: false
+
+# Anything except one value, and negative literals
+Port :: Int ~ 0
+Sign :: -1 | 0 | 1
+@out <(80 =>= Port), (0 =>= Port)>          # out: <true, false>
+@out <(-1 =>= Sign), (2 =>= Sign)>          # out: <true, false>
+
+# A struct member typed with one literal starts with that value
+Missing <status: 404>
+@out Missing()                          # out: <status: 404 = 404>
+@out Missing().status                   # out: 404

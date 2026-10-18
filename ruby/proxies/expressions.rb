@@ -130,6 +130,8 @@ module Code
 		attr_accessor :anonymous_composition
 		# A trailing `<...>` (instead of `{...}`) after a composition chain (`Both | Abc | Def <extra: String>`) -- a Struct_Expr holding this declaration's own extra members, merged in on top of whatever the chain composes. Struct-flavored sibling of a `{}` body; nil for an ordinary type declaration/composition.
 		attr_accessor :struct_body
+		# A type position that starts with a literal (`"fill" | "line"`) -- the literal expression, with `name` left nil. See Parser#parse_literal_type_chain.
+		attr_accessor :leading_literal
 	end
 
 	class Number_Expr < Expression

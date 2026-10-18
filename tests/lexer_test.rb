@@ -655,4 +655,9 @@ class Lexer_Test < Base_Test
 		assert_equal %w(1 entry), out.map(&:value)
 	end
 
+	# A Symbol right after an operator is its own token: `=:` in `{:c=:three}` is `=` then `:three`. `::` stays one operator.
+	def test_a_symbol_after_an_operator_is_not_part_of_it
+		values = Code.lex('{:c=:three} A::B x:=:y').map(&:value)
+		assert_equal ['{', ':', 'c', '=', ':', 'three', '}', 'A', '::', 'B', 'x', ':=', ':', 'y'], values
+	end
 end

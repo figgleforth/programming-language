@@ -263,7 +263,7 @@ class Scopes_Test < Base_Test
 			@splat w
 			@splatr r
 			x = 999
-			(x, w.x)
+			<x, w.x>
 		CODE
 		assert_equal [999, 1], out.values
 	end
@@ -380,7 +380,7 @@ class Scopes_Test < Base_Test
 		out = Code.interp <<-CODE
 			Mine | Array { extra := true }
 			m := Mine([1, 2, 3])
-			(m.length(), m.extra)
+			<m.length(), m.extra>
 		CODE
 		assert_equal [3, true], out.values
 	end

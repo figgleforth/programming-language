@@ -113,8 +113,8 @@ class Code_Location_Test < Base_Test
 
 	# --- Circumfix_Expr / Percent_Literal_Expr / Operator_Expr ---------------------
 
-	def test_circumfix_expr_tuple
-		assert_span '1:1..1:9', parse('(1, 2, 3)')
+	def test_circumfix_expr_parens
+		assert_span '1:1..1:9', parse('(a, b, c)')
 	end
 
 	def test_circumfix_expr_array

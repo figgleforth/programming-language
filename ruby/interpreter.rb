@@ -623,6 +623,7 @@ module Code
 			return true if expected.nil? || expected == 'Any'
 			return true if value.nil? || value.is_a?(Code::Nil)
 			return expected.satisfied? { type_contract_satisfied? value, it } if expected.is_a? Code::Type_Alias
+			return literal_type_matches?(value, expected) if expected.is_a? Code::Type_Alias::Literal
 			return true if type_name_to_string(value) == expected
 
 			value_types = composed_types_for value
@@ -658,16 +659,50 @@ module Code
 		def type_alias_for type_expr
 			return nil unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
 
-			operands  = [type_alias_operand(type_expr.name, type_expr.tag)]
+			operands  = [type_expr.leading_literal ? type_alias_literal(type_expr.leading_literal) : type_alias_operand(type_expr.name, type_expr.tag)]
 			operators = []
 			type_expr.expressions.each do |composition|
 				next unless composition.is_a? Code::Composition_Expr
 
 				operand = composition.identifier
 				operators << composition.operator.value
-				operands << type_alias_operand(operand.is_a?(Code::Type_Expr) ? operand.name : operand.value, operand.tag)
+				operands << if literal_type_expr? operand
+					type_alias_literal operand
+				else
+					type_alias_operand(operand.is_a?(Code::Type_Expr) ? operand.name : operand.value, operand.tag)
+				end
 			end
 			Code::Type_Alias.new Code::Type_Alias.tree_from_chain(operands, operators)
+		end
+
+		# A literal in a type position: a String, Number, or Symbol, or `true`/`false`/`nil` (Parser#parse_literal_type).
+		def literal_type_expr? expr
+			return %w(true false nil).include?(expr.value) if expr.is_a? Code::Identifier_Expr
+
+			expr.is_a?(Code::String_Expr) || expr.is_a?(Code::Number_Expr) || expr.is_a?(Code::Symbol_Expr)
+		end
+
+		def type_alias_literal expr
+			value = interpret expr
+			text  = case expr
+			when Code::String_Expr then expr.quotation_style == :double ? %("#{value}") : "'#{value}'"
+			when Code::Symbol_Expr then ":#{value}"
+			else expr.value.to_s # a number as written (`0xff`, `2.5`), or true/false/nil
+			end
+			text = 'nil' if value.nil?
+			Code::Type_Alias::Literal.new value, type_name_to_string(value) || 'Nil', text
+		end
+
+		# Does `value` equal a literal type's value?
+		def literal_type_matches? value, literal
+			values_equal? value, literal.value
+		end
+
+		# The language's own `==`, so a String instance equals a String literal, and two structs compare by their members.
+		def values_equal? left, right
+			infix          = Infix_Expr.new
+			infix.operator = Lexeme.new :operator, '=='
+			truthy? interp_comparison_infix(infix, left, right)
 		end
 
 		# One operand of a Code::Type_Alias tree: the type name, or a Type_Alias::Tagged that keeps the tag for display (`Array\Bool`).
@@ -1519,11 +1554,11 @@ module Code
 				# increment value of original, return new value
 				interp_increment_decrement_pre_or_postfix expr
 			when '-'
-				-interpret(expr.expression)
+				-value_operand(expr)
 			when '+'
-				+interpret(expr.expression)
+				+value_operand(expr)
 			when '~'
-				~interpret(expr.expression)
+				~value_operand(expr)
 			when '!', 'not'
 				!truthy?(interpret(expr.expression))
 			when 'return'
@@ -1539,6 +1574,14 @@ module Code
 					raise Code::Unhandled_Prefix.new(expr)
 				end
 			end
+		end
+
+		# The operand of `-`, `+`, or `~`. A Code::Type_Alias is a type, not a value, so it has none.
+		def value_operand expr
+			operand = interpret expr.expression
+			raise Code::Type_Alias_Is_Not_A_Type.new(expr) if operand.is_a? Code::Type_Alias
+
+			operand
 		end
 
 		# @param expr [Code::Postfix_Expr]
@@ -1709,7 +1752,7 @@ module Code
 		# todo; Types may be composed of multiple types, what happens in that case?
 		# @param expr [Code::Infix_Expr]
 		def interp_infix_declaration expr
-			# `(a, b) := <tuple-or-struct-valued expr>` -- destructuring, handled entirely separately from the single-identifier case below (no scope operators, no type-by-identifier locking against a bare `.value`, none of it applies to a target list).
+			# `(a, b) := <struct-valued expr>` -- destructuring, handled entirely separately from the single-identifier case below (no scope operators, no type-by-identifier locking against a bare `.value`, none of it applies to a target list).
 			if expr.left.is_a?(Code::Circumfix_Expr) && expr.left.grouping == '()'
 				return interp_destructuring_declaration expr
 			end
@@ -1843,6 +1886,9 @@ module Code
 				raise Code::Receiver_Is_Nil.new(target)
 			end
 
+			# A dot only reads a Dictionary key (#interp_dot_dictionary). A write uses a subscript, so it is clear that it changes a Dictionary, not a struct or an instance.
+			raise Code::Dictionary_Dot_Write.new(target) if receiver.is_a? Code::Dictionary
+
 			# Bare `self`/`Self` on the left of a `.` write target. The scope-operator write paths (#interp_infix_declaration's `scope_operator` branch, #interp_infix_assignment's general flow) never run Cannot_Reassign_Constant or check_dot_access_permissions! -- only the external-`.`-write rules below do (see "Member Creation Is Strict") -- so `self`/`Self` route around both entirely here too, for both `=` and `:=`, rather than only the not-yet-declared case.
 			self_keyword = target.left.is_a?(Code::Identifier_Expr) && !target.left.scope_operator &&
 			               Code::SCOPE_KEYWORDS.include?(target.left.value)
@@ -1891,12 +1937,9 @@ module Code
 			value
 		end
 
-		# Code::Tuple/Code::Struct both carry a plain Ruby-level `.values` reader holding the raw proxy array (distinct from their Code-level `.values` dot-access, which wraps the same data in an Code::Array for Code code to read).
+		# Code::Struct carries a plain Ruby-level `.values` reader holding the raw proxy array (distinct from the Code-level `.values` dot-access, a member of that name).
 		def destructurable_values value
-			case value
-			when Code::Tuple, Code::Struct
-				value.values
-			end
+			value.values if value.is_a? Code::Struct
 		end
 
 		# @param expr [Code::Infix_Expr]
@@ -1917,11 +1960,11 @@ module Code
 			end
 
 			case receiver
-			when Code::Array, Code::Tuple, Code::Struct
-				# A Struct's own `.values` makes `.0`-style positional access work for it too, same as Array/Tuple.
-				interp_dot_array_or_tuple receiver, expr
+			when Code::Array, Code::Struct
+				# A Struct's own `.values` makes `.0`-style positional access work for it too, same as Array.
+				interp_dot_array_or_struct receiver, expr
 			when Code::String
-				# Separate dispatch, not shared with Array/Tuple/Struct's -- that one's `.each` shorthand would misfire, since String has no #each.
+				# Separate dispatch, not shared with Array/Struct's -- that one's `.each` shorthand would misfire, since String has no #each.
 				interp_dot_string receiver, expr
 			when Code::Range
 				interp_dot_range receiver, expr
@@ -2029,7 +2072,7 @@ module Code
 		end
 
 		# The dot sub-handlers below all take the receiver #interp_dot_infix already interpreted rather than re-interpreting expr.left themselves — re-interpreting ran the receiver expression's side effects (calls, constructions) a second or third time.
-		# Bounds/type-checked element access for `.N`/`.N.M...` dot-index syntax on an Array/Tuple -- plain `values[index]` (Ruby's own Array#[]) silently returns nil past the end, and silently truncates a non-integer index (e.g. `.0.1` lexes as the single float 0.1, which Ruby's [] truncates to index 0) -- both looked like a legitimate result instead of a mistake.
+		# Bounds/type-checked element access for `.N`/`.N.M...` dot-index syntax on an Array/Struct -- plain `values[index]` (Ruby's own Array#[]) silently returns nil past the end, and silently truncates a non-integer index (e.g. `.0.1` lexes as the single float 0.1, which Ruby's [] truncates to index 0) -- both looked like a legitimate result instead of a mistake.
 		def array_index_value collection, index, expr
 			def valid_index? index, length
 				index.is_a?(::Integer) && index.between?(-length, length - 1)
@@ -2074,7 +2117,7 @@ module Code
 			end
 		end
 
-		def interp_dot_array_or_tuple scope, expr
+		def interp_dot_array_or_struct scope, expr
 			case
 			when expr.right.is(Code::Func_Expr) && expr.right.name.value == 'each'
 				interp_functional_form_of_each_loop scope, expr.right
@@ -2099,12 +2142,12 @@ module Code
 			interp_dot_scope range, expr
 		end
 
+		# `d.name` reads the Symbol key :name, then the String key "name".
 		def interp_dot_dictionary dict, expr
 			if expr.right.is_a? Code::Identifier_Expr
-				key_sym = expr.right.value.to_sym
-				if dict.hash.has_key?(key_sym)
-					return dict.hash[key_sym]
-				end
+				name = expr.right.value
+				return dict.hash[name.to_sym] if dict.hash.has_key? name.to_sym
+				return dict.hash[name] if dict.hash.has_key? name
 			end
 
 			interp_member_access dict, expr.right
@@ -2205,6 +2248,11 @@ module Code
 			left  = interpret expr.left
 			right = interpret expr.right
 
+			# A Code::Type_Alias is a type, not a value (`Five :: 5`, then `Five + 1`), so only the comparisons take one.
+			if (left.is_a?(Code::Type_Alias) || right.is_a?(Code::Type_Alias)) && !%w(=== =!= =>= =<= =/= == !=).include?(operator)
+				raise Code::Type_Alias_Is_Not_A_Type.new(expr)
+			end
+
 			case
 			when INFIX_ARITHMETIC_OPERATORS.include?(operator)
 				interp_arithmetic_infix expr, left, right
@@ -2231,8 +2279,10 @@ module Code
 			# `&` and `|` do not short-circuit, so they evaluate both operands first, and the left operand's own overload (Array's `&`/`|`) gets a chance, like any arithmetic operator.
 			if %w(& |).include? expr.operator.value
 				left, right = interpret(expr.left), interpret(expr.right)
+				raise Code::Type_Alias_Is_Not_A_Type.new(expr) if left.is_a?(Code::Type_Alias) || right.is_a?(Code::Type_Alias)
 				overload    = find_operator_overload expr.operator.value, maybe_instance(left)
 				return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
+				return compose_type_values(left, expr.operator.value, right) if left.instance_of?(Code::Type) && right.is_a?(Code::Scope)
 				return left.send expr.operator.value, right
 			end
 
@@ -2300,6 +2350,12 @@ module Code
 				value, contract = operator == '=<=' ? [right, left] : [left, right]
 				raise Code::Type_Alias_Is_Not_A_Type.new(expr) unless operator != '=/=' && contract.is_a?(Code::Type_Alias) && !value.is_a?(Code::Type_Alias)
 				return !nil_value?(value) && type_contract_satisfied?(value, contract) # `nil =>= String` is false, so `nil =>= Strumber` is too
+			end
+
+			# A value against an anonymous struct shape (`reply =>= <status: 404>`, `when <status: 404>`) matches by its members, the same as a struct-typed param. A named struct (`Missing`) is a type, so it still matches by name.
+			if %w(=>= =<=).include? operator
+				value, shape = operator == '=>=' ? [left, right] : [right, left]
+				return !nil_value?(value) && struct_shape_mismatch(shape, value, values_are_literals: true).nil? if anonymous_struct_shape? shape
 			end
 
 			# Every nil is `== nil`, whatever its tag (`nil\<reason: String>`, `Nil()`), and a nil is never `==` anything else. This comes before any `@operator ==` overload, so an overload never sees a nil operand.
@@ -2488,22 +2544,13 @@ module Code
 
 				array
 			when '()'
-				if expr.expressions.count == 1
-					# note: Single expressions should be treated as though they were not inside parentheses so that algebraic expressions can be grouped using parentheses. If I wrap single expressions in a Tuple then I have to also unwrap them later for arithmetic operations.
-					interpret expr.expressions.first
-				else
-					values = expr.expressions.map { |e| interpret(e) }
-					tuple  = Code::Tuple.new values
-					adopt_type tuple, 'Tuple'
-					tuple.declarations['values'] = tuple.values
-					tuple
-				end
-			when '{}'
-				is_dictionary = expr.expressions.all? do |kv|
-					kv.is(Identifier_Expr) || (kv.is(Infix_Expr) && kv.operator.value == ':')
-				end
+				# `(x)` groups one value. A list (`(1, 2)`) is not a value, a struct (`<1, 2>`) is. A destructuring target list (`(a, b) := ...`) never runs as a value.
+				raise Code::Values_In_Parentheses.new(expr) unless expr.expressions.count == 1
 
-				is_dictionary ? interp_dictionary(expr) : interp_inline_scope(expr)
+				interpret expr.expressions.first
+			when '{}'
+				# A body of only `key = value` entries (or nothing, `{}`) is a Dictionary. Anything else is a block of statements.
+				expr.expressions.all? { dictionary_entry? it } ? interp_dictionary(expr) : interp_inline_scope(expr)
 			else
 				raise Code::Unknown_Circumfix_Grouping.new(expr)
 			end
@@ -2521,28 +2568,24 @@ module Code
 			last_expr
 		end
 
-		# @param expr [Circumfix_Expr
+		# `name` in `{name = 'Jack'}`: a plain name, which is the key itself. `true`/`false`/`nil` and the scope keywords (`self`) are values, so they are evaluated.
+		def bare_dictionary_key? expr
+			expr.is_a?(Code::Identifier_Expr) && !expr.scope_operator && !expr.prefixed_with_at && !expr.tag && !%w(true false nil self Self Global).include?(expr.value)
+		end
+
+		# `key = value` inside `{}`. A left side with a `: Type` (`{ x: Int = 5 }`) is a typed declaration, so its `{}` is a block.
+		def dictionary_entry? expr
+			expr.is_a?(Code::Infix_Expr) && expr.operator.value == '=' && !(expr.left.is_a?(Code::Identifier_Expr) && expr.left.type)
+		end
+
+		# `{name = 'Jack', :id = 4, 'first name' = 'J', 123 = x, Vec2(0, 0) = player}`: a bare name on the left is a String key ("name"), and any other left side is evaluated, so `(camp) = 'hut'` uses camp's value. The key keeps its own type (Dictionary#normalize_dict_key), and the right side is always evaluated.
+		# note; Deliberately NOT wrap_string_literal_value here, unlike Array literals -- Dictionary#hash is handed straight to Ruby-level consumers as a raw Hash (Sequel queries in table.rb chief among them), so wrapping a value into Code::String here broke every DB call passing string attributes.
+		# @param expr [Circumfix_Expr]
 		def interp_dictionary expr
-			dict = expr.expressions.reduce(Code::Dictionary.new) do |dict, it|
-				if it.is_a? Code::Identifier_Expr
-					existing_value = find_in_stack it.value # returns nil if not found
-					dict.proxy_set it.value.to_sym, existing_value
-				elsif it.is_a? Code::Infix_Expr
-					case it.operator.value
-					when ':'
-						if it.left.is_a?(Code::Identifier_Expr) || it.left.is_a?(Code::Symbol_Expr) || it.left.is_a?(Code::String_Expr)
-							# note; Deliberately NOT wrap_string_literal_value here, unlike Array/Tuple literals -- Dictionary#hash is handed straight to Ruby-level consumers as a raw Hash (Sequel queries in table.rb chief among them), so wrapping a value into Code::String here broke every DB call passing string attributes. #to_s below just always double-quotes String values instead of matching the original literal's quote char.
-							dict.proxy_set it.left.value.to_sym, interpret(it.right)
-						else
-							# The left operand should be allowed to be any hashable object. It's too early in the project to consider hashing but this'll be a good reminder.
-							raise Code::Invalid_Dictionary_Key.new(it)
-						end
-					else
-						raise Code::Invalid_Dictionary_Infix_Operator.new(it)
-					end
-				end
-				# In case I forget, #reduce requires that the injected value be returned to be passed to the next iteration.
-				dict
+			dict = Code::Dictionary.new
+			expr.expressions.each do |entry|
+				key = bare_dictionary_key?(entry.left) ? entry.left.value : interpret(entry.left)
+				dict.proxy_set key, interpret(entry.right)
 			end
 			link_instance_to_type dict, 'Dictionary'
 			dict
@@ -2694,6 +2737,11 @@ module Code
 
 		# A composition chain with no `{}` body (`Abc|Def`, `A & B`, ...) is a value, not a declaration, built by applying the chain to a fresh, unnamed Type exactly as if `X | Abc | Def { }` had been written for some unnamed X.
 		def interp_anonymous_composition expr
+			# `MASK | OTHER`, where the names hold values: the chain is the value operators `|`, `&`, `^`, not a type composition.
+			head = expr.name && find_in_stack(expr.name)
+			raise Code::Type_Alias_Is_Not_A_Type.new(expr) if head.is_a? Code::Type_Alias # a contract has no declarations to compose
+			return interp_value_chain(expr) unless head.nil? || head.is_a?(Code::Scope)
+
 			anonymous             = Code::Type.new nil
 			anonymous.types       = ::Set.new # Type#initialize seeds `@types = ::Set[name]` -- ::Set[nil] here, which would leave a stray nil in .types (breaking #find_ruby_class_for_type's `"Code::#{type_name}"` lookup) since the union step below only ever adds, never resets.
 			anonymous.expressions = [] # A real declaration always ends up with this set (even to []) via #interp_bare_type_declaration's own body-merge -- there's no body here, but #run_type_body_on_instance still expects an Array to iterate when constructing an instance.
@@ -2711,6 +2759,49 @@ module Code
 			end
 
 			anonymous
+		end
+
+		# `x := H1 | Dom`: an UPPERCASE head parses as a value expression (Parser#type_composition_follows?), so two types joined by `|` or `&` reach here, and compose into a new anonymous type, the same as `x := String | Number`.
+		def compose_type_values left, operator, right
+			operands = Temporary.new 'Composition Operands'
+			operands.declare 'Composed_Left', left
+			operands.declare 'Composed_Right', right
+
+			chain                       = Code::Type_Expr.new
+			chain.name                  = 'Composed_Left'
+			chain.anonymous_composition = true
+			right_name                  = Code::Identifier_Expr.new
+			right_name.lexeme           = Code::Lexeme.new :Identifier, 'Composed_Right'
+			composition                 = Code::Composition_Expr.new
+			composition.operator        = Code::Lexeme.new :operator, operator
+			composition.identifier      = right_name
+			chain.expressions           = [composition]
+			result = nil
+			push_then_pop(operands) { result = interp_anonymous_composition chain }
+			result
+		end
+
+		# Runs a composition chain as value operators, with the same precedence as a value expression.
+		def interp_value_chain expr
+			operands  = [Code::Identifier_Expr.new.tap do
+				it.lexeme = Code::Lexeme.new(Code.type_of_identifier(expr.name), expr.name)
+			end]
+			operators = []
+			expr.expressions.each do |composition|
+				operators << composition.operator.value
+				operands << composition.identifier
+			end
+
+			to_infix = ->(node) do
+				next node unless node.is_a? ::Array
+
+				infix          = Code::Infix_Expr.new
+				infix.operator = Code::Lexeme.new :operator, node[0]
+				infix.left     = to_infix.call node[1]
+				infix.right    = to_infix.call node[2]
+				infix
+			end
+			interpret to_infix.call(Code::Type_Alias.tree_from_chain(operands, operators))
 		end
 
 		# Shared tail of both declaration paths below: parent the type to the declaring scope, link it to its Code:: Ruby class when one exists, record its own name in @types, and run `body_expressions` in the type's scope.
@@ -2834,25 +2925,53 @@ module Code
 		# A struct-typed param (`right: <name: String, ...>`) is structural, not nominal -- any argument with those declarations, compatibly typed, satisfies it. Raises Type_Contract_Violation on mismatch. `Any` is a wildcard.
 		def check_struct_type_contract param, value, expr
 			# Interpreted fresh per call, not cached -- a Param_Expr can be shared across Interpreter instances.
-			struct = interp_struct param.type, allow_spread: false
+			struct                             = interp_struct param.type, allow_spread: false
+			kind, declared_type, member_value = struct_shape_mismatch struct, value
 
-			struct.names.each_with_index do |name, i|
-				next unless name # unnamed members have nothing to check by name
+			case kind
+			when :missing
+				raise Code::Type_Contract_Violation.new(expr, "<#{struct.names.compact.join(', ')}>", describe_value_shape(value))
+			when :mismatch
+				raise Code::Type_Contract_Violation.new(expr, type_contract_display(declared_type), inferred_type_name(member_value))
+			end
+		end
 
-				declared_type = struct.type_names[i]
+		# The first named member of `shape` that `value` lacks (`[:missing]`), or does not satisfy (`[:mismatch, declared type, member value]`), or nil when every one fits. A literal type matches by value, so `<status := 404>` does not fit `<status: 200>`.
+		# With `values_are_literals`, a member written `name := value` in the shape counts as a literal too, so `Missing =>= <status := 200>` is false. A struct-typed param leaves it off: there, `name := value` is a default.
+		def struct_shape_mismatch shape, value, values_are_literals: false
+			shape.names.each_with_index do |name, i|
+				declared_type = shape.type_names[i]
 				next if declared_type == 'Any'
 
-				unless value.is_a?(Code::Scope) && value.has?(name)
-					raise Code::Type_Contract_Violation.new(expr, "<#{struct.names.compact.join(', ')}>", describe_value_shape(value))
+				if name
+					return [:missing] unless value.is_a?(Code::Scope) && value.has?(name)
+
+					member_value = value.get name
+					literal      = values_are_literals && shape.value_member_names&.include?(name)
+				else
+					# A positional member (`<Bool, Any>`) checks the value's member at the same position. Given a value (`<404, []>`), it counts as a literal the same way.
+					return [:missing] unless value.is_a?(Code::Struct) && i < value.values.length
+
+					member_value = value.values[i]
+					literal      = values_are_literals && !shape.values[i].nil?
 				end
 
-				member_value = value.get name
-				candidates   = member_value.nil? ? [] : member_candidate_type_names(member_value)
-				satisfied    = declared_type.is_a?(Code::Type_Alias) ? declared_type.satisfied? { candidates.include? it } : candidates.include?(declared_type)
-				unless satisfied
-					raise Code::Type_Contract_Violation.new(expr, type_contract_display(declared_type), inferred_type_name(member_value))
+				candidates = member_value.nil? ? [] : member_candidate_type_names(member_value)
+				satisfied  = if literal
+					values_equal? member_value, shape.values[i]
+				elsif declared_type.is_a? Code::Type_Alias
+					declared_type.satisfied? { it.is_a?(Code::Type_Alias::Literal) ? literal_type_matches?(member_value, it) : candidates.include?(it) }
+				else
+					candidates.include? declared_type
 				end
+				return [:mismatch, declared_type, member_value] unless satisfied
 			end
+			nil
+		end
+
+		# `<status: 404>`, `<status := 404>`, or `<Bool, Any>`: a struct with no name and at least one member. A named struct (`Missing <status: 404>`) is a type, matched by name.
+		def anonymous_struct_shape? value
+			value.is_a?(Code::Struct) && value.name.nil? && !value.names.empty?
 		end
 
 		# A `@splat`/`@splatr` param's nominal `: Type` annotation is load-bearing -- it names the
@@ -3228,12 +3347,12 @@ module Code
 
 					kind, name_or_label, value_expr = classify_argument arg
 
-					# Named arguments must come last -- once you switch to naming arguments, every argument after that has to be named too. A bare positional argument can never follow one. `label: value` is folded into `:named` here -- it's just an alternate spelling of `label := value`, matched by declared parameter name like any other named argument.
+					# Named arguments must come last -- once you switch to naming arguments, every argument after that has to be named too. A bare positional argument can never follow one.
 					if seen_named && kind == :positional
 						raise Code::Positional_Argument_After_Named.new(expr)
 					end
 
-					if kind == :named || kind == :labeled
+					if kind == :named
 						seen_named = true
 						raise Code::Duplicate_Named_Argument.new(expr, name_or_label) if named_args.key? name_or_label
 						named_args[name_or_label] = interpret value_expr
@@ -3394,7 +3513,14 @@ module Code
 
 			return_value = result.is_a?(Code::Return) ? result.value : result
 
-			if func.func_signature.return_type
+			# `-> <ok: Bool, data: Any>` or `-> <Bool, Any>`: the returned value must have each member, by name or by position, the same check a struct-typed param uses. As for a param, a nil has no members, so it fails.
+			if (struct_type = func.func_expr&.type).is_a? Code::Struct_Expr
+				shape = interp_struct struct_type, allow_spread: false
+				if struct_shape_mismatch(shape, return_value)
+					returned = return_value.is_a?(Code::Struct) ? stringify_for_display(return_value) : describe_value_shape(return_value)
+					raise Code::Type_Contract_Violation.new(expr, stringify_for_display(shape), returned)
+				end
+			elsif func.func_signature.return_type
 				return nil if func.func_signature.return_type == 'Nil'
 
 				actual_type = type_name_to_string return_value
@@ -3411,17 +3537,11 @@ module Code
 		# Classifies a call argument's syntactic form:
 		#   - `name := value` (named)  -- parses as a plain `:=` Infix_Expr, same production a struct
 		#     member's bare default uses. Matched by the callee's declared param *name*, not position.
-		#   - `name: value` (labeled)  -- parses as a plain `:` Infix_Expr, same production named
-		#     struct members use. #interp_func_body folds this into :named, treating it as an alternate
-		#     spelling of `name := value`. Other callers don't: #interp_struct_call treats it as plain
-		#     positional, and #split_dom_prop_arguments's `kind == :named` check simply skips it.
-		#   - anything else (positional)
-		# Returns [kind, name_or_label, value_expr] -- name_or_label is nil for :positional. Never interprets `arg`/the name-or-label side itself; that's the caller's job once it knows which expression actually holds the real value.
+		#   - anything else (positional). `name: value` never reaches here: Parser#check_named_arguments raises Code::Colon_Named_Argument for it.
+		# Returns [kind, name, value_expr] -- name is nil for :positional. Never interprets `arg`/the name side itself; that's the caller's job once it knows which expression actually holds the real value.
 		def classify_argument arg
 			if arg.is_a?(Code::Infix_Expr) && arg.operator&.value == ':=' && arg.left.is_a?(Code::Identifier_Expr)
 				[:named, arg.left.value, arg.right]
-			elsif arg.is_a?(Code::Infix_Expr) && arg.operator&.value == ':' && arg.left.is_a?(Code::Identifier_Expr)
-				[:labeled, arg.left.value, arg.right]
 			else
 				[:positional, nil, arg]
 			end
@@ -3439,9 +3559,7 @@ module Code
 		#
 		# Arguments can be positional (matched by index, same order as declared) or named (`name := value`,
 		# matched by the member's declared *name* -- #classify_argument, same production/mechanism
-		# #interp_func_body already uses for named function arguments). A `label: value` argument has no
-		# struct equivalent to check a label against, so it's treated as plain positional, same as an
-		# unlabeled one. A member the call doesn't supply (positionally or by name) is left unset, same
+		# #interp_func_body already uses for named function arguments). A member the call doesn't supply (positionally or by name) is left unset, same
 		# as it always has been -- structs don't raise Missing_Argument the way functions do; Struct.new's
 		# own values[i].nil? ? types[i] fallback (struct.rb) is what shows it as type-only.
 		#
@@ -3783,6 +3901,7 @@ module Code
 			# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
 			right      = maybe_instance interpret expr.identifier
+			raise Code::Type_Alias_Is_Not_A_Type.new(expr) if right.is_a? Code::Type_Alias # a contract has no declarations to compose
 			unless right.is_a? Code::Scope
 				raise Code::Invalid_Composition_With_A_Non_Scope_type.new(right)
 			end
@@ -4593,6 +4712,12 @@ module Code
 					return sliced.is_a?(::Array) ? wrap_prog_array(sliced) : sliced
 				end
 				receiver.proxy_get key
+			when Code::Struct
+				# `<4, 5>[1]` reads a member by its position, the same as `.1`.
+				index = interpret subscript
+				raise Code::Invalid_Array_Index.new(subscript) unless index.is_a? ::Integer
+
+				receiver.values[index]
 			when Code::Nil
 				# todo: What should happen when subscripting nil? A warning of some kind maybe?
 				nil
@@ -4694,6 +4819,7 @@ module Code
 			values        = [] # per-member real value, nil when a named member has none
 			names         = []
 			contracts     = {} # types index => Code::Type_Alias, for a member annotated with one
+			value_members = [] # names written `name := value`, see Struct#value_member_names
 			single_member = allow_spread && expr.types.length == 1 # only a lone unnamed member spreads -- see below
 
 			expr.types.each_with_index do |member, i|
@@ -4712,6 +4838,8 @@ module Code
 						if member.member_default
 							default_value = interpret(member.member_default)
 							values << wrap_string_literal_value(member.member_default, default_value)
+						elsif type_object.is_a?(Code::Type_Alias) && type_object.tree.is_a?(Code::Type_Alias::Literal)
+							values << type_object.tree.value # `<status: 404>` allows only 404, so that is its value until one is given
 						else
 							values << nil
 						end
@@ -4720,6 +4848,7 @@ module Code
 						default_value = interpret(member.member_default)
 						types << find_in_stack(inferred_type_name(default_value)) # numerics collapse to `Number`
 						values << wrap_string_literal_value(member.member_default, default_value)
+						value_members << expr.names[i]
 					end
 					names << expr.names[i]
 				else
@@ -4741,6 +4870,7 @@ module Code
 			# Each member's "type" here is just its value's own inferred type name (numerics stay `Number`)
 			type_names = types.each_with_index.map { |value, i| contracts[i] || inferred_type_name(value) }
 			struct     = build_struct names, type_names, types, values
+			struct.value_member_names = value_members
 
 			# A leading TYPE_IDENTIFIER before `<...>` (`Task <id: Number, done: Bool>`) makes `expr.name` a raw Lexeme -- a Bare Named Struct (see CLAUDE.md), registered globally here. `\<...>`'s inline-literal form sets `.tag.name` to a plain String instead, so it never re-triggers this.
 			if expr.name.is_a? Code::Lexeme
@@ -4812,7 +4942,7 @@ module Code
 			raise Code::Undeclared_Tagged_Type.new(expr)
 		end
 
-		# A value built directly from a string literal gets wrapped into a real Code::String carrying the literal's own `quotation_style`, instead of staying the bare Ruby string #interp_string normally returns. Struct/Member's to_s(;) (lang/member.code) and Array/Dictionary/Tuple's to_s(;) (lang/array.code, lang/dictionary.code, lang/global.code) read `.quotation_style` straight off the value to decide how to quote it for display.
+		# A value built directly from a string literal gets wrapped into a real Code::String carrying the literal's own `quotation_style`, instead of staying the bare Ruby string #interp_string normally returns. Struct/Member's to_s(;) (lang/member.code) and Array/Dictionary's to_s(;) (lang/array.code, lang/dictionary.code) read `.quotation_style` straight off the value to decide how to quote it for display.
 		def wrap_string_literal_value source_expr, value
 			return value unless source_expr.is_a?(Code::String_Expr) && value.is_a?(::String)
 			finish_intrinsic_instance Code::String.new(value, source_expr.quotation_style), 'String'

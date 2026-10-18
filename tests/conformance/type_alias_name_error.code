@@ -1,0 +1,2 @@
+# `::` names a type, so the name must be capitalized
+lowercase :: true # error: Invalid_Type_Alias_Name
