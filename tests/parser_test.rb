@@ -1410,4 +1410,34 @@ class Parser_Test < Base_Test
 		out = Code.parse "x := `@load 'lang/string'`"
 		assert_kind_of Code::Statement_Expr, out.last.right
 	end
+	def test_eluntil_and_elsuntil_chain_like_elwhile
+		out = Code.parse("until a\n\t1\neluntil b\n\t2\nelsuntil c\n\t3\nend").first
+		assert_equal 'until', out.type.value
+		assert_equal 'eluntil', out.when_false.type.value
+		assert_equal 'elsuntil', out.when_false.when_false.type.value
+		assert_equal 3, out.when_false.when_false.when_true.first.value
+	end
+	# A chain keeps one kind, so the order it is read in is the order it runs in.
+	def test_elif_in_a_loop_chain_raises
+		%w(elif elsif).each do |link|
+			%w(while until).each do |head|
+				assert_raises(Code::Elif_In_Loop_Chain, "#{head} ... #{link}") { Code.parse "#{head} a\n\t1\n#{link} b\n\t2\nend" }
+				assert_raises(Code::Elif_In_Loop_Chain, "#{head} ... elwhile ... #{link}") { Code.parse "#{head} a\n\t1\nelwhile c\n\t3\n#{link} b\n\t2\nend" }
+			end
+		end
+	end
+
+	def test_a_loop_branch_in_an_if_chain_raises
+		%w(elwhile elswhile eluntil elsuntil).each do |link|
+			%w(if unless).each do |head|
+				assert_raises(Code::Loop_Branch_In_If_Chain, "#{head} ... #{link}") { Code.parse "#{head} a\n\t1\n#{link} b\n\t2\nend" }
+			end
+			assert_raises(Code::Loop_Branch_In_If_Chain, "if ... elif ... #{link}") { Code.parse "if a\n\t1\nelif c\n\t3\n#{link} b\n\t2\nend" }
+		end
+	end
+
+	def test_a_chain_of_one_kind_still_parses
+		refute_raises(StandardError) { Code.parse "if a\n\t1\nelif b\n\t2\nelsif c\n\t3\nelse\n\t4\nend" }
+		refute_raises(StandardError) { Code.parse "while a\n\t1\neluntil b\n\t2\nelswhile c\n\t3\nelsuntil d\n\t4\nelse\n\t5\nend" }
+	end
 end

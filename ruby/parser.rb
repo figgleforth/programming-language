@@ -392,11 +392,14 @@ module Code
 			set_expr_location it, start, it.condition
 		end
 
+		LOOP_CHAIN_KEYWORDS = %w(while until elwhile elswhile eluntil elsuntil).freeze
+		IF_CHAIN_LINKS      = %w(elif elsif).freeze
+
 		def parse_conditional_expr
 			start = curr_lexeme
 
 			it            = Code::Conditional_Expr.new
-			it.type       = eat # One of %w(if while unless until)
+			it.type       = eat # One of %w(if while unless until), or a chain link (elif, elwhile, ...)
 			it.condition  = parse_expression
 			it.when_true  = []
 			it.when_false = []
@@ -405,7 +408,7 @@ module Code
 
 			# @clean
 
-			until curr? %w(end else elif elsif elwhile elswhile)
+			until curr? %w(end else elif elsif elwhile elswhile eluntil elsuntil)
 				if curr? 'when'
 					it.when_cases << parse_when_expr
 				else
@@ -416,7 +419,12 @@ module Code
 				reduce_newlines
 			end
 
-			closing = if curr? %w(elif elsif elwhile elswhile)
+			closing = if curr? %w(elif elsif elwhile elswhile eluntil elsuntil)
+				# A chain keeps one kind: a loop chain takes only loop branches, and an if chain only `elif`/`elsif`. Mixed, the order the code is read in would not be the order it runs in.
+				loop_chain = LOOP_CHAIN_KEYWORDS.include? it.type.value
+				raise Code::Elif_In_Loop_Chain.new(curr_lexeme) if loop_chain && curr?(IF_CHAIN_LINKS)
+				raise Code::Loop_Branch_In_If_Chain.new(curr_lexeme) if !loop_chain && !curr?(IF_CHAIN_LINKS)
+
 				it.when_false = parse_conditional_expr
 
 			elsif curr? %w(else) and eat

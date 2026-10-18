@@ -105,6 +105,18 @@ module Code
 	class Cannot_Reassign_Constant < Error
 	end
 
+	class Elif_In_Loop_Chain < Error
+		def detail_message
+			"A `while`/`until` chain takes only loop branches: `elwhile`, `elswhile`, `eluntil`, `elsuntil`. To check something once after the loop, write `else`, then an `if` inside it."
+		end
+	end
+
+	class Loop_Branch_In_If_Chain < Error
+		def detail_message
+			"An `if`/`unless` chain takes only `elif`, `elsif`, and `else`. To loop, start a `while` or `until` of its own."
+		end
+	end
+
 	class Invalid_Type_Alias < Error
 		def detail_message
 			"`::` names a type expression, so its right side must be a type: `Int :: Integer`, `Strumber :: String | Number`, or a signature such as `Func :: (;)`. A function with a body is a value; give it a name with `:=`."

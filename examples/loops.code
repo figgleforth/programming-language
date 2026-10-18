@@ -249,7 +249,7 @@ end
 
 ### Chaining with elwhile
 
-`elwhile` chains another loop once the prior one's condition goes false, the same way `elif` chains conditionals. Hurley counts numbers while he's below 4, then Charlie counts down while he's above -8:
+`elwhile` adds a branch to the same loop, the same way `elif` adds one to an `if`. Each pass checks the branches in order and runs the first one that holds, so a later branch runs only on passes where the earlier ones do not hold. `eluntil` adds a branch that holds while its condition is false, and `elswhile`/`elsuntil` are other spellings. A loop chain takes only loop branches: `elif` here is an error. Hurley counts numbers while he's below 4, then Charlie counts down while he's above -8:
 ###
 hurley_count := 0
 charlie_count := 0
@@ -264,7 +264,7 @@ end
 
 ### else always runs last
 
-`else`, if present, always evaluates after the while/elwhile chain finishes -- regardless of whether any loop in the chain ever ran -- and its value becomes the whole expression's result, overriding whatever the loop bodies produced. That's completely optional though.
+`else`, if present, runs once when no branch holds, so the loop ends -- whether or not any branch ever ran -- and its value becomes the whole expression's result, overriding whatever the loop bodies produced. A `stop` ends the loop without it. That's completely optional though.
 ###
 tally := 0
 result := while tally < 4

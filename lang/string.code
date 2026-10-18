@@ -44,7 +44,10 @@ String {
 	include? ( substr; @ruby )
 	replace ( new; @ruby )
 	reverse (; @ruby )
-	split ( delimiter := nil; @ruby )
+
+	# If limit is positive integer n, no more than n-1 splits occur, so that at most n substrings are returned. @pasted from ::String's split docs
+	split ( delimiter: String | Nil = nil, limit: Int = 0; @ruby )
+
 	start_with? ( prefix; @ruby )
 	starts_with? ( prefix; start_with?(prefix))
 	to_md5_hash (; @ruby )

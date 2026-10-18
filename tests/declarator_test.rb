@@ -28,7 +28,7 @@ class Declarator_Test < Base_Test
 		    check (;
 		    	if true
 		    		a := 1
-		    	elwhile false
+		    	elif false
 		    		b := 2
 		    	else
 		    		c := 3

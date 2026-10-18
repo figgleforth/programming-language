@@ -4245,49 +4245,8 @@ module Code
 			# All conditional forms (if/unless/while/until) use #truthy? uniformly now -- `if`/`while` used to require the condition be the literal value `true`, so `if [1,2,3]` never took its true branch.
 
 			case expr.type.value
-			when 'while', 'until', 'elwhile', 'elswhile'
-				result    = nil
-				condition = interpret expr.condition
-
-				index           = 0
-				on_skip_handler = Proc.new do
-					expr.when_true.each do |_expr|
-						result = interpret(_expr)
-					end
-				end
-
-				iteration_proc = Proc.new do
-					catch :skip do
-						on_skip_handler.call
-						index += 1
-					end
-
-					condition = interpret(expr.condition)
-
-					index += 1
-				end
-
-				catch :stop do
-					if expr.type.value == 'until'
-						until truthy? condition
-							iteration_proc.call
-						end
-					else
-						while truthy? condition
-							iteration_proc.call
-						end
-					end
-				end
-
-				if expr.when_false.is_a? Code::Conditional_Expr
-					result = interp_conditional expr.when_false
-				elsif expr.when_false.is_a? ::Array
-					expr.when_false.each do |expr|
-						result = interpret expr
-					end
-				end
-
-				return result
+			when *LOOP_KEYWORDS
+				interp_loop_chain expr
 			else
 				# Handle if/unless here.
 				#
@@ -4304,6 +4263,41 @@ module Code
 					run_else_branch expr, condition
 				end
 			end
+		end
+
+		LOOP_KEYWORDS  = %w(while until elwhile elswhile eluntil elsuntil).freeze
+		UNTIL_KEYWORDS = %w(until eluntil elsuntil).freeze
+
+		# A `while`/`until` with its `elwhile`/`eluntil` branches, which is one loop, the same shape as an if/elif chain. Each pass checks every branch in order, and the first one that holds runs its body once (a `while` holds on a truthy condition, an `until` on a falsy one). When none holds, `else` runs and the loop ends. `skip` ends the pass, and `stop` ends the loop without `else`. The parser keeps `elif` out of a loop chain.
+		# A branch's `when` cases see its condition's value, the same as an `if`. The cases after `else` see the value of the last condition checked.
+		def interp_loop_chain expr
+			branches = [expr]
+			branches << branches.last.when_false while branches.last.when_false.is_a? Code::Conditional_Expr
+			last = branches.last
+
+			result    = nil
+			condition = nil
+			catch :stop do
+				loop do
+					taken = branches.find do |branch|
+						condition = interpret branch.condition
+						UNTIL_KEYWORDS.include?(branch.type.value) ? !truthy?(condition) : truthy?(condition)
+					end
+
+					unless taken
+						has_else = last.when_false.any? || last.else_when_cases&.any?
+						result   = run_else_branch last, condition if has_else
+						break
+					end
+
+					catch :skip do
+						result              = run_conditional_body taken.when_true
+						matched, when_value = dispatch_when_cases taken, condition
+						result              = when_value if matched
+					end
+				end
+			end
+			result
 		end
 
 		# The `else` branch of an if/unless (`expr.when_false`, or an elif chain). Its body runs first, then its own `when` cases (written after `else`), where a matching case replaces the value. A second `else` runs when no case matched.
@@ -4337,7 +4331,7 @@ module Code
 				#   Use `=>=` only when the when_case's own value is a bare Type (`when Number`)
 				#   Use `==`  otherwise (`when :two`, `when 123`).
 				#
-				# Not yet implemented: a when_case whose condition references `it` directly (e.g. `when it == :three`) should be run as its own condition check, bypassing this comparison entirely.
+				# A case that uses `it` in an expression (`when it > 3`, `when it =>= Number`) is a condition of its own: it matches when it is truthy, with no comparison. A bare `when it` still compares, so it stays the catch-all.
 
 				when_scope   = Temporary.new 'When Scope'
 				case_matched = false
@@ -4348,13 +4342,17 @@ module Code
 
 					when_value = interpret when_case.condition
 
-					bare_type   = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
-					bare_struct = when_value.is_a?(Code::Struct)
-					bare        = bare_type || bare_struct
+					matched_case = if !bare_it?(when_case.condition) && references_it?(when_case.condition)
+						truthy? when_value
+					else
+						bare_type   = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
+						bare_struct = when_value.is_a?(Code::Struct)
+						bare        = bare_type || bare_struct
 
-					infix          = Infix_Expr.new
-					infix.operator = Lexeme.new :operator, bare ? '=>=' : '=='
-					matched_case   = interp_comparison_infix infix, it_value, when_value
+						infix          = Infix_Expr.new
+						infix.operator = Lexeme.new :operator, bare ? '=>=' : '=='
+						interp_comparison_infix infix, it_value, when_value
+					end
 
 					if matched_case
 						when_case.body.each do |case_body_expr|
@@ -4371,6 +4369,20 @@ module Code
 			end
 
 			[!!matched, last_value]
+		end
+
+		def bare_it? expr
+			expr.is_a?(Code::Identifier_Expr) && expr.value == 'it' && !expr.scope_operator
+		end
+
+		# Does `expr` read `it` anywhere inside it? Walks every child expression.
+		def references_it? node
+			case node
+			when Code::Identifier_Expr then bare_it? node
+			when Code::Expression then node.instance_variables.any? { references_it? node.instance_variable_get(it) }
+			when ::Array then node.any? { references_it? it }
+			else false
+			end
 		end
 
 		# The value-producing Context functions (`@puts`, `@assert`, `@connect`, ...). Args are
@@ -4408,7 +4420,7 @@ module Code
 			when 'unreachable'
 				# Each argument adds one line after the fixed message.
 				lines = args.map { |v| stringify_for_display(v, show_quotes: false) }
-				raise Code::Raised.new(nil, ["This code should be unreachable.", *lines].join("\n"))
+				raise Code::Raised.new(nil, ["This code should be unreachable:", *lines].join("\n"))
 			when 'todo'
 				# @pasted
 				message = args.map do |v|

@@ -1639,6 +1639,114 @@ class Interpreter_Test < Base_Test
 		assert_equal [4, -8, 1516], out.values
 	end
 
+	# A while chain is one loop, the same shape as an if/elif chain: each pass runs the first branch that holds, then checks every branch again.
+	def test_a_while_chain_checks_every_branch_on_each_pass
+		out = Code.interp <<~CODE
+		    a := 2
+		    b := 2
+		    log := []
+		    while a > 0
+		    	log.push("a`a`")
+		    	a -= 1
+		    elwhile b > 0
+		    	log.push("b`b`")
+		    	b -= 1
+		    	if b == 1
+		    		a = 1
+		    	end
+		    else
+		    	log.push('else')
+		    end
+		    log
+		CODE
+		assert_equal %w(a2 a1 b2 a1 b1 else), out.values # b sets a back to 1, so the next pass runs a again
+	end
+
+	# An `until` branch holds while its condition is falsy. All six spellings work.
+	def test_a_loop_chain_mixes_while_and_until_branches
+		out = Code.interp <<~CODE
+		    i := 0
+		    log := []
+		    until i >= 2
+		    	log.push("u`i`")
+		    	i += 1
+		    eluntil i >= 3
+		    	log.push("eu`i`")
+		    	i += 1
+		    elsuntil i >= 4
+		    	log.push("esu`i`")
+		    	i += 1
+		    elwhile i < 5
+		    	log.push("ew`i`")
+		    	i += 1
+		    elswhile i < 6
+		    	log.push("esw`i`")
+		    	i += 1
+		    end
+		    log
+		CODE
+		assert_equal %w(u0 u1 eu2 esu3 ew4 esw5), out.values
+	end
+
+	def test_stop_ends_a_while_chain_without_its_else
+		out = Code.interp <<~CODE
+		    log := []
+		    n := 0
+		    while true
+		    	n += 1
+		    	stop if n == 2
+		    elwhile true
+		    	log.push('never')
+		    else
+		    	log.push('else')
+		    end
+		    (n, log)
+		CODE
+		assert_equal 2, out.values[0]
+		assert_equal [], out.values[1].values
+	end
+
+	def test_skip_ends_one_pass_of_a_while_chain
+		out = Code.interp <<~CODE
+		    log := []
+		    n := 0
+		    while n < 4
+		    	n += 1
+		    	skip if n == 2
+		    	log.push(n)
+		    end
+		    log
+		CODE
+		assert_equal [1, 3, 4], out.values
+	end
+
+	# A branch's `when` cases see its condition's value, the same as an `if`. The cases after `else` see the last condition checked.
+	def test_when_cases_on_a_while_chain
+		out = Code.interp <<~CODE
+		    values := ['GET', 'Host', nil\\<reason := 'closed'>]
+		    i := -1
+		    log := []
+		    while line := values[i += 1]
+		    	log.push('body')
+		    when 'GET'
+		    	log.push('get')
+		    when String
+		    	log.push("string `it`")
+		    else
+		    when nil\\<reason: String>
+		    	log.push("nil: `it.@tag.reason`")
+		    when nil
+		    	log.push('plain nil')
+		    end
+		    log
+		CODE
+		assert_equal ['body', 'get', 'body', 'string Host', 'nil: closed'], out.values
+	end
+
+	def test_a_while_loop_gives_its_last_body_value
+		assert_equal 30, Code.interp("n := 0\nr := while n < 3\n\tn += 1\n\tn * 10\nend\nr")
+	end
+
 	def test_until_loops
 		out = Code.interp '
 		x := 1
@@ -5653,6 +5761,62 @@ class Interpreter_Test < Base_Test
 			result
 		CODE
 		assert_equal 'number-case', out
+	end
+
+	# A case that uses `it` in an expression is a condition of its own, and matches when it is truthy.
+	def test_when_with_an_it_expression_is_a_condition
+		out = Code.interp <<~CODE
+		    describe ( n;
+		    	if n
+		    	when it > 3
+		    		'big'
+		    	when it > 0
+		    		'small'
+		    	end
+		    )
+		    (describe(5), describe(2), describe(-1))
+		CODE
+		assert_equal ['big', 'small', nil], out.values
+	end
+
+	def test_when_with_an_it_expression_works_on_for_and_after_else
+		out = Code.interp <<~CODE
+		    log := []
+		    for [1, 'two', 3.5]
+		    when it =>= Integer
+		    	log.push('int')
+		    when String
+		    	log.push('string')
+		    end
+		    log
+		CODE
+		assert_equal ['int', 'string'], out.values
+
+		out = Code.interp <<~CODE
+		    x := nil\\<reason := 'closed'>
+		    if x
+		    	'value'
+		    else
+		    when it.@tag.reason == 'closed'
+		    	'closed'
+		    end
+		CODE
+		assert_equal 'closed', out
+	end
+
+	# A bare `when it` compares the subject with itself, so it stays the catch-all, falsy values included.
+	def test_a_bare_when_it_is_still_the_catch_all
+		out = Code.interp <<~CODE
+		    if false
+		    	'value'
+		    else
+		    when nil
+		    	'nil'
+		    when it
+		    	'catch-all'
+		    end
+		CODE
+		assert_equal 'catch-all', out
 	end
 
 	def test_when_first_match_wins_no_fallthrough

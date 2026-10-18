@@ -493,7 +493,10 @@ end
 
 1. `while` loops while condition is true
 2. `until` loops until condition becomes true
-3. `elwhile` chains another loop when prior condition becomes false
+3. `elwhile` (or `elswhile`) and `eluntil` (or `elsuntil`) add branches, the same way `elif` does for `if`. The whole chain is one loop: each pass checks every branch in order and runs the first one that holds (a `while` branch on a truthy condition, an `until` branch on a falsy one). When no branch holds, `else` runs and the loop ends
+4. A chain keeps one kind. A loop chain takes only loop branches, so `elif` in it raises `Code::Elif_In_Loop_Chain`: write `else`, then an `if` inside it. An `if`/`unless` chain takes only `elif`/`elsif`, so `elwhile` in it raises `Code::Loop_Branch_In_If_Chain`
+5. `skip` ends the current pass. `stop` ends the whole loop, and `else` does not run
+6. `when` cases work on each branch, the same as on `if`: they see the branch's condition value. The cases after `else` see the last condition that was checked
 
 ```code
 i := 0
@@ -508,7 +511,7 @@ until j == 5
     j += 1
 end
 
-# Chained loops with elwhile
+# Chained loops: one loop, the first branch that holds runs each pass
 x := 0
 y := 0
 while x < 4
@@ -516,7 +519,18 @@ while x < 4
 elwhile y > -8
     y -= 1
 else
-    @puts 'done'
+    @puts 'done'   # runs once, when neither branch holds
+end
+
+# `when` on a loop branch, with the cases after `else` for the nil that ends it
+while line := read_line(socket)
+when 'GET / HTTP/1.1'
+    @puts 'the root'
+when String
+    @puts "a line: `it`"
+else
+when nil\<reason: String>
+    @puts "ended: `it.@tag.reason`"
 end
 ```
 
@@ -620,13 +634,14 @@ A trailing window shorter than `stride` is kept, not dropped. Use `.?N` (not `.N
 
 ## `when`
 
-1. Attaches to `if`/`elif`/`unless` and to `for`, comparing against a subject: the condition's value for `if`/`elif`/`unless`, the current element for `for` (the counter, for C-style `for`).
+1. Attaches to `if`/`elif`/`unless`, to each branch of a `while`/`until` chain, and to `for`, comparing against a subject: the condition's value for `if`/`elif`/`unless` and for a `while`/`until` branch, the current element for `for` (the counter, for C-style `for`).
 2. The block's own body runs first; a matching `when` then replaces its value. First match wins.
 3. Compares with `==` for a plain value, `=>=` (is-a) for a bare Type.
 4. A bare `when it` matches everything — a catch-all.
-5. On `for`, `else` runs only when nothing matched. On `if`, each group of cases belongs to its branch: the cases after the body see only truthy values, and `else` takes every falsy value (see below). Each `elif` has its own `when` group.
-6. One `end` closes the whole block — a `when` clause has none of its own.
-7. Inside a matching `when`, `it` holds the matched value — but only `for`, `.each`, and a `when` clause declare `it`; a plain `if`/`unless` with no `when` does not.
+5. A case that uses `it` in an expression is a condition of its own: `when it > 3`, `when it =>= Number`, `when it.@tag.reason == 'closed'`. It matches when the expression is truthy, and nothing is compared.
+6. On `for`, `else` runs only when nothing matched. On `if`, each group of cases belongs to its branch: the cases after the body see only truthy values, and `else` takes every falsy value (see below). Each `elif` has its own `when` group.
+7. One `end` closes the whole block — a `when` clause has none of its own.
+8. Inside a matching `when`, `it` holds the matched value — but only `for`, `.each`, and a `when` clause declare `it`; a plain `if`/`unless` with no `when` does not.
 
 ```code
 result := if 100
@@ -655,8 +670,6 @@ else
     @puts 'else runs each time'
 end
 ```
-
-`when` does not run inside `while`/`until` yet.
 
 `when` cases can also follow `else`. They belong to the else branch, so on an `if` they see every falsy value, and the cases after the `if` body never do. The else body runs first, a matching case replaces its value, and a second `else` runs when no case matched. That second `else` catches every value that is left, so nothing can follow it. On `unless`, the branches swap: the cases after the body see falsy values, and the cases after `else` see truthy ones.
 
