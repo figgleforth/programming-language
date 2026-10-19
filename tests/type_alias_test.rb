@@ -2,7 +2,7 @@ require 'minitest/autorun'
 require_relative '../ruby/main'
 require_relative 'base_test'
 
-# `Name :: type expression` -- see readme.md's "Type Aliases" section.
+# `Name :: type expression` -- see reference.md's "Type Aliases" section.
 class Type_Alias_Test < Base_Test
 	# --- Parsing ---
 
