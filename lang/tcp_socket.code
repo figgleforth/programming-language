@@ -1,0 +1,21 @@
+# One TCP connection: a two-way pipe of bytes between two (IP, port) pairs. Tcp_Server.accept() gives you the server's end. Tcp_Socket(host, port) connects as a client.
+Tcp_Socket {
+	Self ( host: String, port: Int;
+		connect(host, port)
+	)
+
+	connect ( host: String, port: Int -> Tcp_Socket; @ruby )
+
+	read_line (-> String; @ruby )             # up to and with the next "\n"; nil when the other side closed
+	read ( count: Int -> String; @ruby )      # waits for count bytes, or fewer when the other side closes first; nil when it closed before the first byte
+	write ( text: String -> Int; @ruby )      # the number of bytes written; nil when the other side closed
+
+	close   (; @ruby )
+	closed? (-> Bool; @ruby )
+
+	peer_ip    (-> String; @ruby )   # the other end's IP address, for example "::1"
+	peer_port  (-> Int; @ruby )      # the other end's port; a new port means a new connection
+	local_port (-> Int; @ruby )      # this end's port; on a socket from accept(), the server's port
+
+	to_s (-> String; @ruby )
+}

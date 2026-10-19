@@ -1,0 +1,26 @@
+@load 'lang/tcp_socket'
+
+# Listens for TCP connections on one port. Each wait_for_connection() gives back one Tcp_Socket: one connection to one client.
+Tcp_Server {
+	port: Int
+	host: String  # nil listens on every address, IPv4 and IPv6
+
+	# Port 0 lets the OS pick a free port. Read the real one back from .port.
+	Self ( port: Int, host: String = nil;
+		self.port = port
+		self.host = host
+		open_socket()
+	)
+
+	# Opens the socket; Repeated calls to `open_socket` do nothing.
+	open_socket (backlog: Int = nil -> Tcp_Server; @ruby )
+
+	# Waits until a client connects (blocking)
+	wait_for_connection (-> Tcp_Socket; @ruby )
+
+	# Stops listening for new connections. A Tcp_Socket that wait_for_connection() already gave back stays open.
+	close   (; @ruby )
+	closed? (-> Bool; @ruby )
+
+	to_s (-> String; @ruby )
+}

@@ -1,0 +1,38 @@
+@load 'lang/tcp_server'
+
+# One process plays both sides: client writes, conn reads. Port 0 lets the OS pick a free port, so parallel tests never clash.
+server := Tcp_Server(0)
+client := Tcp_Socket('localhost', server.port)
+conn   := server.wait_for_connection()
+
+# The connection
+@out conn.peer_port() == client.local_port()  # out: true
+@out conn.local_port() == server.port          # out: true
+
+# The request line and headers: read_line() keeps the "\r\n"
+client.write("GET /hello?x=1 HTTP/1.1\r\nHost: localhost\r\n\r\n")
+@out conn.read_line().trim()                   # out: GET /hello?x=1 HTTP/1.1
+@out conn.read_line().trim()                   # out: Host: localhost
+@out conn.read_line() == "\r\n"                # out: true
+
+# The body: read(n) counts bytes, so "héllo" is 6, not 5
+client.write("héllo")
+@out conn.read("héllo".bytesize)               # out: héllo
+
+# A byte that is not valid UTF-8 (255) comes back as U+FFFD, so string methods on the line still work
+bad := String.from_buffer(Buffer(1).fill(255))
+client.write("X-Bad: " + bad + "\r\n")
+@out conn.read_line().split(':', 2).1.trim()   # out: �
+
+# todo; repeated headers join with ", "
+# todo; a line or header count past the limit
+# todo; Expect: 100-continue
+# todo; Transfer-Encoding: chunked
+
+# Closing: a read after the other side closed gives nil
+client.close()
+@out conn.read_line()                          # out: nil
+@out conn.read(4)                              # out: nil
+conn.close()
+server.close()
+@out server.closed?()                          # out: true
