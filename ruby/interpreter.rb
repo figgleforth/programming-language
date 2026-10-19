@@ -771,16 +771,20 @@ module Code
 		end
 
 		# Does `a` (composed types + struct members) carry at least everything `b` does? Shared by `=>=`/`=<=`/`===`/`=!=` -- see #interp_comparison_infix.
-		# `a_tag`/`b_tag` are the tag structs. A named struct tag (`nil\Error`) also counts as the type of that name, so a tag that composes it is-a it: `nil\Bad_Header =>= nil\Error` when `Bad_Header | Error {}`.
+		# `a_tag`/`b_tag` are the tag structs. A named struct tag (`nil\Error`) is the type of that name, so only a tag that composes it is-a it: `nil\Bad_Header =>= nil\Error` when `Bad_Header | Error {}`.
+		# Members alone do not decide a named tag, or two empty `X | Error <>` structs would match each other through the members both get from Error.
 		def superset_of_types_and_tag? a_types, a_tag, b_types, b_tag
 			types_superset = b_types.all? { |type| a_types.include? type }
 			a_members      = a_tag&.type_objects || []
 			b_members      = b_tag&.type_objects || []
 
-			members_superset = b_members.all? do |member|
-				a_members.any? { |own| own == member || bare_type_is_a?(own, member) }
+			members_superset = if b_tag&.name
+				a_tag&.types&.include?(b_tag.name) || a_members.any? { |own| bare_type_is_a? own, b_tag.name }
+			else
+				b_members.all? do |member|
+					a_members.any? { |own| own == member || bare_type_is_a?(own, member) }
+				end
 			end
-			members_superset ||= !b_tag&.name.nil? && a_members.any? { |own| bare_type_is_a? own, b_tag.name }
 
 			types_superset && members_superset
 		end

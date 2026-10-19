@@ -1,0 +1,39 @@
+@load 'lang/errors.code'
+
+# Kinds declared as structs with `<>` get the same members from Error, but each one is still its own type
+Http_Error        | Error <>
+Client_Error      | Http_Error <>
+Bad_Header        | Client_Error <>
+Line_Too_Long     | Client_Error <>
+Connection_Closed | Http_Error <>
+Unknown_Thing     | Error <>
+
+handle ( value;
+	if value
+		'a value'
+	else
+	when nil\Connection_Closed
+		'stop'
+	when nil\Client_Error
+		'400'
+	when nil\Error
+		'panic'
+	when nil
+		'plain nil'
+	end
+)
+@out handle(nil\Connection_Closed)    # out: stop
+@out handle(nil\Bad_Header)           # out: 400
+@out handle(nil\Line_Too_Long)        # out: 400
+@out handle(nil\Unknown_Thing)        # out: panic
+@out handle(nil)                      # out: plain nil
+
+# Two kinds with the same members are not each other
+@out nil\Bad_Header =>= nil\Line_Too_Long        # out: false
+@out nil\Bad_Header =>= nil\Connection_Closed    # out: false
+@out nil\Bad_Header === nil\Bad_Header           # out: true
+
+# A parent is not a child
+@out nil\Bad_Header =>= nil\Client_Error         # out: true
+@out nil\Client_Error =>= nil\Bad_Header         # out: false
+@out nil\Bad_Header =>= nil\Error                # out: true

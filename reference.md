@@ -1639,6 +1639,16 @@ nil\Bad_Header === nil\Client_Error       # false
 Array\Bad_Header =>= Array\Client_Error   # true
 ```
 
+A named struct tag counts only by its name, not by its members. So kinds declared with `<>` stay apart, although each one gets the same members from `Error`:
+
+```code
+Bad_Header    | Error <>
+Line_Too_Long | Error <>
+
+nil\Bad_Header =>= nil\Line_Too_Long      # false
+nil\Bad_Header =>= nil\Error              # true
+```
+
 `Any` is a universal wildcard for `==`/`!=`/`=>=`/`=<=`/`=/=`: anything that isn't `nil` counts as equal to it, no composition needed. `===`/`=!=` are the exception — exact type-set equality, so a bare `Any` only matches `Any` itself there.
 
 ```code
