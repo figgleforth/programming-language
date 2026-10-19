@@ -15,6 +15,9 @@ _This page is a short tour that shows the language off. The [reference](referenc
 
 Server, database, HTML, and click handlers that run on the server, with no JavaScript.
 
+> [!NOTE]
+> For now, one single instance serves every visitor, so all visitors share its state. A separate state for each visitor is [coming soon](#one-state-per-visitor).
+
 ```code
 @load 'lang/server'
 @load 'lang/database'
