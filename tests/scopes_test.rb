@@ -230,7 +230,8 @@ class Scopes_Test < Base_Test
 
 	def test_readable_scope_membership_does_not_keep_an_instance_alive_on_its_own
 		# WeakMap, not Set -- membership alone shouldn't keep an instance alive. `interpreter` is kept alive on purpose so Global dying doesn't confound the result.
-		interpreter, ref = _build_interpreter_with_orphaned_readable_instance
+		# Built on its own thread, whose stack is gone when it ends. Ruby scans a thread stack conservatively, so a stale copy of the instance pointer left there could keep it alive. On Ruby 4.0 in CI (Linux) one did, and the test failed.
+		interpreter, ref = Thread.new { _build_interpreter_with_orphaned_readable_instance }.value
 		GC.start(full_mark: true, immediate_sweep: true) # a plain GC.start doesn't reliably force an immediate sweep
 		GC.start(full_mark: true, immediate_sweep: true)
 		refute ref.weakref_alive?, 'expected the instance to be collectible even though readable_scopes alone still "contains" it'
@@ -311,7 +312,7 @@ class Scopes_Test < Base_Test
 
 	def test_writable_scope_membership_does_not_keep_an_instance_alive_on_its_own
 		# Mirrors the readable-scope version -- separate WeakMap, needs its own proof, not provable by symmetry.
-		interpreter, ref = _build_interpreter_with_orphaned_writable_instance
+		interpreter, ref = Thread.new { _build_interpreter_with_orphaned_writable_instance }.value # on its own thread, see the readable-scope version
 		GC.start(full_mark: true, immediate_sweep: true)
 		GC.start(full_mark: true, immediate_sweep: true)
 		refute ref.weakref_alive?, 'expected the instance to be collectible even though writable_scopes alone still "contains" it'
