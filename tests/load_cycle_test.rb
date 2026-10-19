@@ -123,4 +123,20 @@ class Load_Cycle_Test < Base_Test
 		# If the failed load had stayed marked, this @load would return early and `x` would not exist.
 		assert_equal 2, interpreter.run("needed := 1\n@load '#{dir}/bad'\nx")
 	end
+
+	def test_the_main_file_runs_once_in_a_load_cycle
+		dir = write_files(
+			a: "@load 'DIR/b'\n@puts 'a runs'\nhelper (; 'from a' )\nb_value",
+			b: "@load 'DIR/a'\nb_value := helper()"
+		)
+		result = nil
+		assert_output("a runs\n") { result = Code.interp_file "#{dir}/a.code" }
+		assert_equal 'from a', result
+	end
+
+	def test_a_plain_value_across_a_cycle_from_the_main_file_says_which_file_is_still_loading
+		dir   = write_files(v1: "@load 'DIR/v2'\nlimit := 10", v2: "@load 'DIR/v1'\ny := limit + 1")
+		error = assert_raises(Code::Undeclared_Identifier) { Code.interp_file "#{dir}/v1.code" }
+		assert_includes plain(error.message), 'v1.code is still loading (v1.code → v2.code → v1.code)'
+	end
 end

@@ -71,8 +71,9 @@ module Code
 		def run source_code
 			register_source nil, source_code unless current_source_file
 			top_level_source_file = current_source_file
+			first_run             = @stack.empty?
 
-			if @stack.empty?
+			if first_run
 				# todo; Global should be created by interping lang/global.code, which is what I want to rename lang/global.code to
 				global  = Global.new
 				@global = global # kept separately from @stack -- #interp_member_access temporarily swaps @stack out for dot-access resolution, so `stack.first` isn't reliably Global the way this needs
@@ -95,7 +96,17 @@ module Code
 			end
 			@input                = @parser.output # Expressions
 
-			@last_output = output
+			# The main file counts as a file that is loading, the same as one reached through @load, so a load cycle back to it stops there instead of running it a second time. Only on the first run: a later run (the REPL, a test) has no file of its own, and `current_source_file` still names the last file that loaded.
+			main_file = top_level_source_file if first_run && top_level_source_file != '<inline>'
+			if main_file
+				@global.loaded_filepaths[main_file] = nil
+				@loading_files << Loading_File.new(main_file, @global, nil, [])
+			end
+			begin
+				@last_output = output
+			ensure
+				@loading_files.pop if main_file
+			end
 			if servers.any? { |server| server.webrick_server&.status == :Running }
 				# Hot_Reloader sets this false: it owns the wait loop itself (watching files, tearing
 				# servers down and rebuilding on change), so `run` must return with the servers left
@@ -4487,8 +4498,18 @@ module Code
 
 			result    = nil
 			condition = nil
+
+			# `at` counts the passes, as in a `for` loop. A while loop pushes no scope (a `:=` in its body lands in the enclosing one), so `at` goes on that scope for the loop and is put back after.
+			at_scope  = stack.last
+			had_outer = at_scope.declarations.key? 'at'
+			outer_at  = at_scope.declarations['at']
+			pass      = 0
+
 			catch :stop do
 				loop do
+					at_scope.declare 'at', pass
+					pass += 1
+
 					taken = branches.find do |branch|
 						condition = interpret branch.condition
 						UNTIL_KEYWORDS.include?(branch.type.value) ? !truthy?(condition) : truthy?(condition)
@@ -4508,6 +4529,14 @@ module Code
 				end
 			end
 			result
+		ensure
+			if at_scope
+				if had_outer
+					at_scope.declarations['at'] = outer_at
+				else
+					at_scope.declarations.delete 'at'
+				end
+			end
 		end
 
 		# The `else` branch of an if/unless (`expr.when_false`, or an elif chain). Its body runs first, then its own `when` cases (written after `else`), where a matching case replaces the value. A second `else` runs when no case matched.

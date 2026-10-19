@@ -1742,6 +1742,34 @@ class Interpreter_Test < Base_Test
 		assert_equal [], out.values[1].values
 	end
 
+	def test_at_counts_the_passes_of_a_while_loop
+		out = Code.interp <<~CODE
+		    seen := []
+		    while at < 3
+		    	seen.push(at)
+		    end
+		    seen
+		CODE
+		assert_equal [0, 1, 2], out.values
+	end
+
+	def test_a_while_loop_puts_the_outer_at_back
+		out = Code.interp <<~CODE
+		    seen := []
+		    for [10, 20]
+		    	i := 0
+		    	while i < 2
+		    		seen.push(at)
+		    		i += 1
+		    	end
+		    	seen.push(at)
+		    end
+		    seen
+		CODE
+		assert_equal [0, 1, 0, 0, 1, 1], out.values
+		assert_raises(Code::Undeclared_Identifier) { Code.interp "while at < 2\nend\nat" }
+	end
+
 	def test_skip_ends_one_pass_of_a_while_chain
 		out = Code.interp <<~CODE
 		    log := []
