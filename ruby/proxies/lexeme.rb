@@ -20,13 +20,13 @@ module Code
 		end
 
 		def is compare
-			if compare.is_a? Symbol
+			if compare.is_a? ::Symbol
 				compare == type
 			elsif compare.is_a? ::String
 				!LITERAL_TYPES.include?(type) && compare == value
 			elsif compare.is_a? ::Array
 				compare.any? do |it|
-					if it.is_a? Symbol
+					if it.is_a? ::Symbol
 						it == type
 					else
 						!LITERAL_TYPES.include?(type) && it == value

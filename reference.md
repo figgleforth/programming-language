@@ -1043,6 +1043,23 @@ cached()                   # 4 -- didn't run again
 
 See `examples/statements.code` for the full picture, including `.use_caller_scope`.
 
+## Symbols
+
+A Symbol is a name used as a value: `:onclick`. It has its own type, `Symbol`, and it is never `==` to a String.
+
+```code
+:onclick.to_s()                 # "onclick"
+:onclick.length()               # 7
+:onclick.upcase()               # :ONCLICK
+:onclick.start_with?("on")      # true
+:onclick === Symbol             # true
+:onclick == "onclick"           # false — a Symbol is not a String
+Symbol("onclick") == :onclick   # true — built from a String
+"it is `:onclick`"              # "it is onclick" — interpolation gives the bare name
+```
+
+Also: `downcase`, `capitalize`, `swapcase`, `end_with?`, `empty?`, and `to_string` (`":onclick"`).
+
 ## Numbers
 
 `Number` is the abstract base — never instantiated directly. Each concrete type wraps a Ruby class:

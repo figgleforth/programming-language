@@ -31,7 +31,7 @@ module Code
 		# A key keeps its own type, the same as in Ruby: `{:name = 1}` and `{'name' = 1}` hold two keys, and `{123 = 1}` a Number key. A wrapped primitive (a Code::String, Number, or Bool) unwraps to its Ruby value, so a variable that holds `'name'` finds the same entry as the literal `'name'`. Any other value is its own key: a struct compares by its name and member values (Struct#hash), so `d[Vec2(0, 0)]` finds an entry made with another `Vec2(0, 0)`, and an instance compares by identity.
 		def normalize_dict_key key
 			case key
-			when Code::String, Code::Number then key.value
+			when Code::String, Code::Symbol, Code::Number then key.value
 			when Code::Bool then key.truthiness
 			when Code::Nil then nil
 			else key

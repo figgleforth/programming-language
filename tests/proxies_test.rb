@@ -52,6 +52,37 @@ class ProxiesTest < Base_Test
 		assert_equal 'heyo world', Code.interp("'hello world'.gsub('hell', 'hey')")
 	end
 
+	def test_symbol_proxies
+		assert_equal 'onclick', Code.interp(':onclick.to_s()')
+		assert_equal 7, Code.interp(':onclick.length()')
+		assert_equal :ONCLICK, Code.interp(':onclick.upcase()')
+		assert_equal :onclick, Code.interp(':ONCLICK.downcase()')
+		assert_equal :Onclick, Code.interp(':onclick.capitalize()')
+		assert_equal :oNcLICK, Code.interp(':OnClick.swapcase()')
+		assert Code.interp(":onclick.start_with?('on')")
+		assert Code.interp(":onclick.end_with?('click')")
+		refute Code.interp(':onclick.empty?()')
+		assert_equal ':onclick', Code.interp(':onclick.to_string()')
+	end
+
+	def test_a_symbol_is_boxed_only_when_used_as_an_object
+		assert_instance_of ::Symbol, Code.interp(':onclick')
+		assert_instance_of Code::Symbol, Code.interp('Symbol(:onclick)')
+		assert_equal :onclick, Code.interp('Symbol(:onclick)').value
+	end
+
+	def test_a_symbol_built_from_a_string
+		symbol = Code.interp("Symbol('onclick')")
+		assert_instance_of Code::Symbol, symbol
+		assert_equal :onclick, symbol.value
+		assert Code.interp("Symbol('onclick') == :onclick")
+		assert Code.interp(":onclick == Symbol('onclick')")
+	end
+
+	def test_a_boxed_symbol_is_the_same_dictionary_key
+		assert_equal 1, Code.interp("d := {:onclick = 1}\nd[Symbol('onclick')]")
+	end
+
 	def test_array_proxies
 		out = Code.interp <<~CODE
 		    x := [1, 2, 3]

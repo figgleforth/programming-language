@@ -408,6 +408,8 @@ module Code
 				finish_intrinsic_instance prog_class.new(expr), type_name
 			when ::String
 				finish_intrinsic_instance Code::String.new(expr), 'String'
+			when ::Symbol
+				finish_intrinsic_instance Code::Symbol.new(expr), 'Symbol'
 			when ::Array
 				finish_intrinsic_instance Code::Array.new(expr), 'Array'
 			when ::Hash
@@ -483,9 +485,9 @@ module Code
 			when 'types' then context_types_for(scope)
 			when 'type' then context_type_for(scope)
 			when 'object_id'
-				# A plain number, String, Bool or nil is boxed again on each `.@`, so its id comes from the Ruby value inside, which stays the same. Every nil is one nil, as in Ruby.
+				# A plain number, String, Symbol, Bool or nil is boxed again on each `.@`, so its id comes from the Ruby value inside, which stays the same. Every nil is one nil, as in Ruby.
 				case scope
-				when Code::String, Code::Number then scope.value.object_id
+				when Code::String, Code::Symbol, Code::Number then scope.value.object_id
 				when Code::Bool then scope.truthiness.object_id
 				when Code::Nil then nil.object_id
 				else scope.object_id
@@ -614,6 +616,7 @@ module Code
 			when Code::Rational then 'Rational'
 			when Code::Number then 'Number'
 			when Code::String then 'String'
+			when Code::Symbol then 'Symbol'
 			when Code::Array then 'Array'
 			when Code::Range then 'Range'
 			when Code::Dictionary then 'Dictionary'
@@ -1616,6 +1619,7 @@ module Code
 
 				parsed.each do |sub, sub_expr|
 					value        = interpret sub_expr
+					value        = value.value if value.is_a? Code::Symbol
 					shown        = value.is_a?(::Symbol) ? value.to_s : stringify_for_display(value) # a Symbol interpolates as its bare name
 					result       = result.gsub "`#{sub}`", shown.to_s
 				end
@@ -2104,7 +2108,7 @@ module Code
 
 		# `method_name` picks the function to call (`@pputs`/`@pout` pass `to_string`); a value without it falls back to `to_s`.
 		def stringify_for_display value, show_quotes: false, pretty_print: false, method_name: nil
-			return ":#{value}" if value.is_a? ::Symbol # shown as written; interpolation still gives the bare name
+			return ":#{value.is_a?(Code::Symbol) ? value.value : value}" if value.is_a?(::Symbol) || value.is_a?(Code::Symbol) # shown as written; interpolation still gives the bare name
 			# A plain String or Integer/Float shows as its Ruby text, the same as its `to_s`, without boxing it and running that function first.
 			return value if value.is_a?(::String) && !show_quotes && [nil, 'to_s'].include?(method_name)
 			return value.to_s if value.is_a?(::Integer) || value.is_a?(::Float)
@@ -2575,6 +2579,7 @@ module Code
 					equal = same_instance_values? left, right
 					operator == '==' ? equal : !equal
 				elsif left.respond_to?(expr.operator.value) && !(expr.operator.value == '<=>' && left.method(:<=>).owner == ::Kernel)
+					right = right.value if left.is_a?(::Symbol) && right.is_a?(Code::Symbol) # Ruby's own Symbol#== knows only another ::Symbol, so `:a == Symbol('a')` needs the plain one
 					left.send expr.operator.value, right
 				else
 					# note; Numbers/Strings reach here fine (they decay to plain Ruby values with a native <=>/</>/etc.), but a plain Code::Instance has none of these implemented -- except <=>, which Ruby's own Kernel/Object gives every object a trivial, identity-based default for. `respond_to?` alone can't tell that apart from a real one, so the method's actual owner is checked too. There's no sensible fallback to invent here, equality doesn't imply order.
@@ -4085,7 +4090,11 @@ module Code
 		def interp_composition expr
 			# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
-			right      = maybe_instance interpret expr.identifier
+			value = interpret expr.identifier
+			# A plain value (`:bar`, 'bar', 4) has nothing to compose, though #maybe_instance would box it into a Scope.
+			raise Code::Invalid_Composition_With_A_Non_Scope_type.new(value) if [::Symbol, ::String, ::Numeric, ::TrueClass, ::FalseClass].any? { value.is_a? it }
+
+			right = maybe_instance value
 			raise Code::Type_Alias_Is_Not_A_Type.new(expr) if right.is_a? Code::Type_Alias # a contract has no declarations to compose
 			unless right.is_a? Code::Scope
 				raise Code::Invalid_Composition_With_A_Non_Scope_type.new(right)

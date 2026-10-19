@@ -1,0 +1,21 @@
+# A Symbol is a value with its own type, the same as a String
+handlers := {:onclick = 'click', :onhover = 'hover'}
+for handlers.keys()
+	@out it.to_s()                        # out: onclick
+	                                      # out: onhover
+end
+
+@out :onclick.length()                    # out: 7
+@out :onclick.upcase()                    # out: :ONCLICK
+@out :onclick.start_with?('on')           # out: true
+@out :onclick === Symbol                  # out: true
+@out :onclick == 'onclick'                # out: false
+@out :onclick.to_s() == 'onclick'         # out: true
+
+# Built from a String
+s := Symbol('onclick')
+@out s                                    # out: :onclick
+@out s == :onclick                        # out: true
+@out :onclick == s                        # out: true
+@out handlers[s]                          # out: click
+@out "it is `s`"                          # out: it is onclick

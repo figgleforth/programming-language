@@ -1,3 +1,20 @@
-Symbol {}
+Symbol {
+	value,
+	Self ( value := '';
+		self.value = value
+	)
 
-# Ask Claude to back this with Ruby as well. All primitives that are complex should probably be backed by Ruby. Then I'll build my constructs on top of that.
+	to_s (; @ruby ) # the bare name: :onclick gives 'onclick'
+	to_string (-> String;
+		':' + to_s()
+	)
+
+	length (; @ruby )
+	empty? (; @ruby )
+	upcase (; @ruby )
+	downcase (; @ruby )
+	capitalize (; @ruby )
+	swapcase (; @ruby )
+	start_with? ( prefix; @ruby )
+	end_with? ( suffix; @ruby )
+}

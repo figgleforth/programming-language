@@ -28,6 +28,7 @@ require_relative 'proxies/type_alias'
 require_relative 'proxies/return'
 
 require_relative 'proxies/string'
+require_relative 'proxies/symbol'
 require_relative 'proxies/array'
 require_relative 'proxies/range'
 require_relative 'proxies/set'
