@@ -1,5 +1,5 @@
 require_relative 'main'
-require 'readline'
+require 'reline'
 
 module Code
 	class REPL
@@ -17,8 +17,8 @@ module Code
 		def run
 			puts Ascii.dim "Code REPL  \\q to quit"
 
-			Readline.completion_append_character = nil
-			Readline.completion_proc             = proc { [] }
+			Reline.completion_append_character = nil
+			Reline.completion_proc             = proc { [] }
 			trap('INT') { exit }
 
 			loop do
@@ -44,7 +44,7 @@ module Code
 		def read_input
 			input = ''
 			loop do
-				line = Readline.readline '', true
+				line = Reline.readline '', true
 				exit if line.nil?
 
 				if %w[\q \x exit].include? line.strip.downcase

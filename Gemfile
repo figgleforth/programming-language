@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-ruby '3.4.1'
+ruby '4.0.0'
 
 # Runtime
 gem 'webrick', '~> 1.9'
@@ -12,7 +12,7 @@ gem 'reline',  '~> 0.6.3'
 gem "fiddle", "~> 1.1"
 
 group :development do
-	gem 'minitest', '5.25.4'
+	gem 'minitest', '~> 5.25' # 5.25.4 does not install on Ruby 4
 	gem 'rake',     '13.3.0'
 end
 

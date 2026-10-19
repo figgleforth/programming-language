@@ -21,11 +21,17 @@ module Code
 			attr_accessor :currently_loading_filepaths
 		end
 
-		# The first path that exists wins: next to `from_file` (the file that holds the @load), then the working directory, then ROOT_PATH, so `lang/x` always reaches the standard library. Interpreter#load_file_into_scope resolves through this too. With none found, it returns the first candidate, so the error names the place most people expect.
-		def self.resolve_load_filepath filepath, from_file = nil
+		# The places a @load looks, in order: next to `from_file` (the file that holds the @load), then the working directory, then ROOT_PATH, so `lang/x` always reaches the standard library.
+		def self.load_filepath_candidates filepath, from_file = nil
 			filepath   = filepath.end_with?('.code') ? filepath : "#{filepath}.code"
 			candidates = [::File.expand_path(filepath), ::File.join(Code::ROOT_PATH, filepath)]
 			candidates.unshift ::File.expand_path(filepath, ::File.dirname(from_file)) if from_file && ::File.file?(from_file)
+			candidates.uniq
+		end
+
+		# The first candidate that exists. Interpreter#load_file_into_scope resolves through this too, and raises Code::Load_File_Not_Found when none exists. With none found, this returns the first candidate.
+		def self.resolve_load_filepath filepath, from_file = nil
+			candidates = load_filepath_candidates filepath, from_file
 			candidates.find { ::File.exist? it } || candidates.first
 		end
 

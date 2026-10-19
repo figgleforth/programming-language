@@ -1,6 +1,6 @@
 ### Quick Start
 
-> Requires Ruby `3.4.1` or higher, and Bundler
+> Requires Ruby `4.0.0` or higher, and Bundler
 
 ```bash
 git clone https://github.com/figgleforth/programming-language.git

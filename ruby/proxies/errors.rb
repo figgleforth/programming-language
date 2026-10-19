@@ -374,6 +374,22 @@ module Code
 	class Load_Cycle < Error
 	end
 
+	class Load_File_Not_Found < Error
+		attr_accessor :filepath, :candidates
+
+		# `expr` is the path in the @load, so the error points at it. Set the ivars before super, because Code::Error formats its message in the constructor.
+		def initialize expr, filepath, candidates
+			@filepath   = filepath
+			@candidates = candidates
+			super expr
+		end
+
+		def detail_message
+			places = candidates.map { it.sub(Dir.home, '~') }
+			"no file `#{filepath}`, looked in: #{places.join ', '}"
+		end
+	end
+
 	class Missing_Ruby_Proxy_Declaration < Error
 		attr_accessor :target, :proxy_method_name
 

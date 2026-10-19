@@ -66,6 +66,11 @@ module Code
 
 	extend Helpers
 
+	class << self
+		# Turn YJIT on once the standard library has loaded (Interpreter#run). bin/program sets it.
+		attr_accessor :jit
+	end
+
 	def self.interp source_code, load_standard_library: true
 		interpreter                       = Interpreter.new
 		interpreter.load_standard_library = load_standard_library

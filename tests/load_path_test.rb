@@ -29,6 +29,16 @@ class Load_Path_Test < Base_Test
 		end
 	end
 
+	def test_a_missing_load_names_every_place_it_looked
+		with_files('main' => "@load 'lib/missing'") do |dir|
+			error = assert_raises(Code::Load_File_Not_Found) { from_elsewhere { Code.interp_file File.join(dir, 'main.code') } }
+			assert_equal 'lib/missing', error.filepath
+			assert error.candidates.first.end_with?(File.join(File.basename(dir), 'lib/missing.code')), 'next to main.code comes first'
+			assert_includes error.candidates, File.join(Code::ROOT_PATH, 'lib/missing.code')
+			assert_equal 3, error.candidates.length, 'next to main.code, the working directory, and ROOT_PATH'
+		end
+	end
+
 	def test_a_loaded_file_resolves_its_own_loads_next_to_itself
 		files = {
 			'main'      => "@load './lib/outer'\nvalue",

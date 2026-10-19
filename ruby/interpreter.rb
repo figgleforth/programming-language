@@ -1,4 +1,5 @@
-require 'cgi'
+require 'cgi/escape' # Ruby 4 keeps only CGI's escaping; a form body goes through URI.decode_www_form
+require 'uri'
 require 'json'
 require 'securerandom' # #initialize mints @live_reload_token with this
 
@@ -83,6 +84,9 @@ module Code
 					load_file_into_scope STANDARD_LIBRARY_PATH, @stdlib_scope
 					global.add_readable_scope @stdlib_scope
 				end
+
+				# After the standard library, not before: compiling while it loads made startup about 0.5 s slower, and that code runs only once.
+				RubyVM::YJIT.enable if Code.jit && defined?(RubyVM::YJIT.enable) && !RubyVM::YJIT.enabled?
 			end
 			@lexer.source_file    = top_level_source_file
 			@lexer.input          = source_code
@@ -208,8 +212,13 @@ module Code
 		# @param [::String] filepath of the code to load
 		# @return The output of the interpreted file
 		# @param from_file [::String, nil] the file that holds the @load. A relative path resolves next to it first.
-		def load_file_into_scope filepath, into_scope, from_file = nil
+		# `path_expr` is the path in the @load: its file is where a relative path starts, and a missing file is reported at it.
+		def load_file_into_scope filepath, into_scope, path_expr = nil
+			from_file     = path_expr&.lexeme&.source_file
 			resolved_path = Declarator.resolve_load_filepath filepath, from_file
+			unless ::File.exist? resolved_path
+				raise Code::Load_File_Not_Found.new(path_expr, filepath, Declarator.load_filepath_candidates(filepath, from_file))
+			end
 
 			# This filepath may have been loaded in the given scope already. We don't want to double load it -- return the same result it produced the first time instead of re-running it (or, without this, silently returning nil).
 			# The file is marked loaded before it runs, so a load cycle back into the same scope also ends here. The paused file's declarations stay reachable to this one through #resolve_forward_declaration.
@@ -903,7 +912,7 @@ module Code
 			http_method  = request.request_method.downcase
 			path_parts   = request.path.split('/').reject { _1.empty? }
 
-			# CGI.parse only understands application/x-www-form-urlencoded bodies (key1=value1&key2=...).
+			# A form parse only understands application/x-www-form-urlencoded bodies (key1=value1&key2=...).
 			# A JSON body has no top-level `=` for it to split on, so it used to fall back to treating the
 			# *entire* raw JSON string as one keyless entry with zero values -- `{ "<the whole json>" => nil
 			# }`, both in this debug log line and in `request.body` as seen by every Code route/onclick
@@ -911,7 +920,8 @@ module Code
 			body_hash = if request.content_type&.start_with?('application/json')
 				JSON.parse(request.body || '{}') rescue {}
 			else
-				CGI.parse(request.body || "").transform_values(&:first)
+				# The first value wins for a repeated key, as it did with CGI.parse.
+				URI.decode_www_form(request.body || '').each_with_object({}) { |(key, value), form| form[key] ||= value } rescue {}
 			end
 
 			# Dictionary subscripts always normalize to a Symbol key, but these sources are String-keyed -- double-key both, like query_params/url_params below already do.
@@ -1712,7 +1722,7 @@ module Code
 			if load_call_expr?(expr.right)
 				filepath  = interpret expr.right.arguments.first
 				new_scope = Code::Scope.new expr.left.value
-				load_file_into_scope filepath, new_scope, expr.right.arguments.first.lexeme&.source_file
+				load_file_into_scope filepath, new_scope, expr.right.arguments.first
 				right_value = new_scope
 			else
 				right_value = interpret expr.right
@@ -1822,7 +1832,7 @@ module Code
 			right_value = if load_call_expr?(expr.right)
 				filepath  = interpret expr.right.arguments.first
 				new_scope = Code::Scope.new expr.left.value
-				load_file_into_scope filepath, new_scope, expr.right.arguments.first.lexeme&.source_file
+				load_file_into_scope filepath, new_scope, expr.right.arguments.first
 				new_scope
 			else
 				interpret expr.right
@@ -4739,7 +4749,7 @@ module Code
 
 			when 'load'
 				filepath = interpret arg_exprs.first
-				load_file_into_scope filepath, stack.last, arg_exprs.first.lexeme&.source_file
+				load_file_into_scope filepath, stack.last, arg_exprs.first
 
 			when 'push_scope'
 				# Must be a bare identifier naming something already bound -- a literal/constructor call builds a fresh object each time, so #pop_scope's identity assert could never match it later.

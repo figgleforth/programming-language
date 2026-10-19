@@ -17,4 +17,7 @@ end
 
 require_relative '../ruby/main.rb'
 
+# YJIT, set here and not as a Ruby flag, so a run from RubyMine gets it too. See Interpreter#run.
+Code.jit = true
+
 Code::CLI.run ARGV

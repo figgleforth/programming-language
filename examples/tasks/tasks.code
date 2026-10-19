@@ -162,7 +162,7 @@ App | Server {
 	)
 
 	get://:id (id;
-		Inverted_Html(Single_Task_Page(tasks, id))
+		Inverted_Html(Single_Task_Page(tasks, id.to_i()))
 	)
 
 	get://terminal (;
