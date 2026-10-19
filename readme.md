@@ -234,6 +234,8 @@ Array | Array {                  # extend built-ins, too
 
 ### Comparing
 
+Operators that ask what a type is made of.
+
 ```code
 4 == 5                             # false: other values
 4 === 5                            # true: the same shape, Integer
