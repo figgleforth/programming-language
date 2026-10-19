@@ -2326,6 +2326,12 @@ module Code
 
 		# If left (or left's type) declares this operator via @operator, call it like a regular function with (left, right) as arguments. Falls back to left.enclosing_scope (the Type) because shorthand-constructed instances (array/string/dict literals, e.g. `[1, 2, 3]`) never get the type's own declarations copied down onto themselves the way `Array(...)`-style construction does (see #interp_type_call) -- this mirrors the same fallback #interp_identifier already does for regular method calls like `arr.push(...)`. Falls back further to a same-named global operator if the operand itself doesn't declare one.
 		def interp_arithmetic_infix expr, left, right
+			# Two plain numbers stay plain, as they already do for a comparison: a number is boxed into a Code::Number only when it is used as an object (`4.abs()`). Only an @operator in scope applies to them.
+			if left.is_a?(::Numeric) && right.is_a?(::Numeric)
+				overload = find_operator_overload expr.operator.value
+				return overload.is_a?(Code::Func) ? call_operator_overload(overload, expr, [left, right]) : left.send(expr.operator.value, right)
+			end
+
 			overload = find_operator_overload expr.operator.value, maybe_instance(left)
 
 			if overload.is_a? Code::Func
@@ -2474,7 +2480,11 @@ module Code
 			return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
 
 			base_op = expr.operator.value[..-2] # Trim the = from +=, -=, etc.
-			result  = maybe_instance(left).send base_op, maybe_instance(right)
+			result  = if left.is_a?(::Numeric) && right.is_a?(::Numeric)
+				left.send base_op, right # plain numbers stay plain, as in #interp_arithmetic_infix
+			else
+				maybe_instance(left).send base_op, maybe_instance(right)
+			end
 
 			# Assign back to left side -- a dot-target (`instance.member += ...`) goes through the same
 			# #assign_dot_member path plain `.`-assignment uses; #scope_for_identifier only understands
