@@ -56,10 +56,13 @@ List | Div {                      # composition, applied to markup
 
 App | Server {
     list := List()
-    get:// (; Html(Body(list)) )
+    get:// (;
+        Html(Body(list))
+    )
 }
 
-@start_server App()
+app := App()
+@start_server app
 ```
 
 > For now, one single instance serves every visitor, so all visitors share its state. A separate state for each visitor is [coming soon](#one-state-per-visitor).
@@ -102,8 +105,6 @@ Common mistakes come with the correction.
                    ├─  v2.code:2:11
                    └─  Undeclared_Identifier
 ```
-
-### The Basics
 
 ### Variables
 
@@ -154,30 +155,15 @@ name := 'World'
 'Hello'.0              # 'H'
 ```
 
-### Comments
-
-One hash for a line, three for a block, and more to nest.
-
-```code
-# A single line.
-
-###
-A whole block, code included.
-###
-
-####
-### Safely nested. ###
-####
-```
-
-### Functions
-
 ### Functions
 
 The last expression is the return value.
 
 ```code
-add ( a, b; a + b )
+add ( a, b;
+    a + b
+)
+
 add(4, 8)                    # 12
 
 greet ( name := 'friend';
@@ -194,61 +180,13 @@ greet ( name := 'friend';
 Pass by name, in any order.
 
 ```code
-sub ( a, b; a - b )
+sub ( a, b;
+    a - b
+)
 
 sub(b := 2, a := 1)    # -1
 sub(1, b := 2)         # positional first, then named
 ```
-
-### Hoisting
-
-Functions, types, and imports are hoisted, so recursion just works.
-
-```code
-main()                       # 55
-
-main (; fib(10) )
-
-fib ( n;
-    if n <= 1
-        n
-    else
-        fib(n - 1) + fib(n - 2)
-    end
-)
-
-@load 'lang/html.code'       # imports can live at the bottom,
-                             # and load cycles work
-```
-
-### Signatures
-
-Declare a return type with `->`, and name a function's shape to check it.
-
-```code
-Formatter :: (Number -> String;)
-
-usd ( cents: Number -> String;
-    "$`cents / 100.0`"
-)
-
-format: Formatter = usd      # shape matches
-format = ( a, b; a )         # Type_Contract_Violation
-
-log ( x -> Nil; x )          # always returns nil
-```
-
-### Several values
-
-Return a struct and unpack it by position.
-
-```code
-split (-> <Bool, Any>; <false, 'reason'> )
-
-(ok, why) := split()         # false, 'reason'
-```
-
-### Types
 
 ### Classes
 
@@ -288,7 +226,9 @@ Ostrich().can_swim               # true
 Ostrich().can_fly                # Undeclared_Identifier
 
 Array | Array {                  # extend built-ins, too
-    second (; self.values.1 )
+    second (;
+        self.values.1
+    )
 }
 ```
 
@@ -313,7 +253,7 @@ Flying =/= Swimming    # true: nothing shared
 Int32 :: Integer              # the same type
 Whole | Integer {}            # a new type that composes Integer
 
-Strumber :: String | Number   # a contract
+Strumber :: String | Number   # a type that's either of them
 x: Strumber = 5
 x = 'five'                    # ok
 x = :five                     # Type_Contract_Violation
@@ -330,61 +270,6 @@ mode = "dash"                  # Type_Contract_Violation
 Sign :: -1 | 0 | 1
 s: Sign = 0
 s = 2                          # Type_Contract_Violation
-```
-
-### Dynamic or typed
-
-Start with open values and add types one value at a time, since nothing makes you type a whole file.
-
-```
- open                   locked by inference       locked by declaration
- ───────────────────────────────────────────────────────────────────────
- x := nil               x := 4        → Number    x: Int = 4
- pending,               T { n := 0 }  → Number    x: Int | Nil
- x: Any = 4             <a := 1>      → Number    f ( a: Number; … )
- f ( a; … )                                       f (-> String; … )
- T { n, }                                         mode: "fill" | "line"
-```
-
-```code
-# Open: takes any value, at any time, and never locks
-x := nil
-x = 5
-x = 'five'                 # still fine
-
-# Locked by inference: the first value sets the type
-y := 5                     # Number
-y = 4.5                    # ok: every number is a Number
-y = 'five'                 # Type_Contract_Violation
-y := 'five'                # declare again to change the type
-
-# Locked by declaration: : Type on a variable, param, return, or member
-z: Int | Nil               # starts as nil
-
-# Params lock too: a typed param, or one with a default
-f ( n: Number; n )         # n stays a Number inside the body
-g ( n := 0; n )            # n locks to the type of the value it gets
-g('x')                     # coming soon: an error, as with n: Number = 0
-
-P <n: Int>
-P(4.5)                     # coming soon: an error, since 4.5 is no Int
-```
-
-```code
-add ( a: Number, b: Number; a + b )
-
-# Before the program runs: a wrong literal for a declared type, anywhere
-x: String = 123            # Type_Mismatch
-
-never_called (;
-    add(1, 'oops')         # Type_Mismatch, even here
-)
-
-# While the program runs: everything else, at the line that breaks it
-s := 'oops'
-add(1, s)                  # Type_Contract_Violation
-
-# coming soon: a call above its function is checked before the run too
 ```
 
 ### Structs
@@ -407,24 +292,147 @@ User_Logic {
     greet (; "Hi `name`" )
 }
 
-User | User_Logic <name: String>   # data plus methods
+User | User_Logic <name: String>   # data with func members, yet still a Struct
 User(name := 'Ada').greet()        # 'Hi Ada'
 ```
 
-### Tagged types
+### Statements
 
-Attach metadata to a type with `\`, and each tag is its own type.
+Wrap an expression in backticks to run it later.
 
 ```code
-String\<num: Number> {
-    to_s (; "number: `@tag.num`" )
-}
-String\<5>().to_s()            # 'number: 5'
+counter := 0
+tick := `counter += 1`
+tick()
+tick()                        # counter is 2
 
-tasks: Array\Task              # a label only: elements are not type-checked
+tick.memoize = true           # run once, then cache
+tick.use_caller_scope = true  # resolve names where tick() is called,
+                              # not where it was written
 ```
 
-### Control Flow
+### The context
+
+Every scope knows about itself through `@`, its "context."
+
+```code
+Duck.@name              # 'Duck'
+Duck.@composed_types    # Set{'Duck', 'Flying', 'Swimming'}
+[1, 2].@type            # 'Array'
+
+Widget {
+    @version := 2       # custom declarations are valid
+}                       # as long as it doesn't collide
+
+double(@puts 5)         # prints 5, returns 10
+add(@puts 1, 2)         # coming soon: prints 1, returns 3
+@declare 'count', 3     # a local here, a member in a type body
+@todo                   # stops with [TODO]
+@todo 'add auth'        # stops with "[TODO] add auth"
+```
+
+### HTML
+
+Elements are types, and styles and attributes are members.
+
+```code
+@load 'lang/html.code'
+
+Card | Div {
+    css_padding := '1rem'     # style="padding: 1rem"
+    html_class := 'card'      # class="card"
+}
+
+Card([H1('Welcome'), P('Hello!')]).to_s()
+# <div><h1>Welcome</h1><p>Hello!</p></div>
+```
+
+The `class` and `style` attributes, and the escaping, come when a server renders the element.
+
+### Clicks run on the server
+
+Set `onclick` to a closure, and only the component with that `html_id` re-renders.
+
+```code
+Counter | Div {
+    html_id := 'counter'
+    count := 0                # coming soon: one count per visitor
+    button := Button('+1')
+
+    Self (;
+        # gets the click and every input's value
+        # coming soon: a checkbox sends whether it is checked
+        button.onclick = (;
+            count += 1
+        )
+    )
+
+    render (;                 # sent back, swapped with a view transition
+        [P("Clicked `count` times"), button]
+    )
+}
+```
+
+### CSS
+
+Stylesheets as plain data that you can format and lint.
+
+```code
+@load 'lang/css.code'
+
+rule := Style_Rule(['.card'], [Property('color', 'red')])
+
+Css_Formatter_Visitor(minify := true).format(rule)
+# '.card{color:red;}'
+
+Css_Lint_Visitor().lint(rule)   # duplicates, prefixes, 0px
+```
+
+### Database
+
+A struct is the schema, and the table follows.
+
+```code
+@load 'lang/database.code'
+
+db := @connect Sqlite.memory()
+
+User <id: Primary_Key, name: String, joined_at: Date_Time>
+
+users := db.find_or_create_table(User)   # table "users"
+ada := users.create(<name := 'Ada'>)
+users.find(ada.id)
+users.where(<name := 'Ada'>)
+users.delete(ada.id)
+```
+
+### Records
+
+Data, logic, and table under one name.
+
+```code
+User_Logic { greet (; "Hi `name`" ) }
+Account | User | User_Logic | users <>
+
+Account.find(1).name              # 'Ada'
+Account(name := 'Bob').greet()    # 'Hi Bob'
+```
+
+### Comments
+
+One hash for a line, three for a block, and more to nest.
+
+```code
+# A single line.
+
+###
+A whole block, code included.
+###
+
+####
+### Safely nested. ###
+####
+```
 
 ### Conditionals
 
@@ -442,100 +450,141 @@ end
 redirect('/login') unless logged_in
 ```
 
-### When
+### Hoisting
 
-Match inside any branch or loop, and the first match wins.
+Functions, types, and imports are hoisted, so recursion just works.
 
 ```code
-for [1, 'two', 3]
-    when String
-        'a string'
-    when it > 2
-        'a big number'
+main()                       # 55
+
+main (;
+    fib(10)
+)
+
+fib ( n;
+    if n <= 1
+        n
     else
-        'something else'
-end
+        fib(n - 1) + fib(n - 2)
+    end
+)
+
+@load 'lang/html.code'       # imports can live at the bottom,
+                             # and load cycles work
 ```
 
-### Tagged nil
+### Signatures
 
-Tag a nil with a reason, and it stays falsy while `when` tells them apart.
+Declare a function's return type with `->`, and name its shape to check it.
 
 ```code
-load_user (; nil\Error('not found') )
+Formatter :: (Number -> String;)
 
-if user := load_user()
-    user.name
-else                           # the branch for a falsy value
-    when nil\Error
-        "error: `it.@tag.message`"
-    when nil
-        'a plain nil'
-    else                       # no case matched
-        'false'
-end
+usd ( cents: Number -> String;
+    "$`cents / 100.0`"
+)
+
+format: Formatter = usd      # shape matches
+format = ( a, b; a )         # Type_Contract_Violation
+
+log ( x -> Nil; x )          # -> Nil always returns nil
 ```
 
-### For loops
+### Several values
 
-`it` is the element, and `at` is the index.
+Return a struct and unpack it by position.
 
 ```code
-for ['a', 'b']
-    @puts "`at`: `it`"          # 0: a, 1: b
-end
+split (-> <Bool, Any>;
+    <false, 'reason'>
+)
 
-for [1, 2, 3, 4] by 2           # [1, 2], [3, 4]
-    @puts it
-end
-
-for i := 0, i < 10, i += 2      # C-style, too
-    @puts i
-end
+(ok, why) := split()         # false, 'reason'
 ```
 
-### Loop verbs
+### Dynamic or typed
 
-Name the result you want.
+Start with open values and add types one value at a time, since nothing makes you type a whole file.
 
 ```code
-for [1, 2, 3] map             # [2, 4, 6]
-    it * 2
-end
+###
+open              locked by inference            locked by declaration
+───────────────────────────────────────────────────────────────────────
+x := nil          x := 4        → Number         x: Int = 4
+pending,          T { n := 0 }  → Number         x: Int | Nil
+x: Any = 4        <a := 1>      → Number         f ( a: Number; … )
+f ( a; … )                                       f (-> String; … )
+T { n, }                                         mode: "fill" | "line"
+###
 
-for [1, 2, 3] select          # [1, 3]
-    it.odd?()
-end
+# Open: takes any value, at any time, and never locks
+x := nil                   # or its equivalent nil-init `x,`
+x = 5
+x = 'five'                 # still fine
 
-for [1, 2, 3] count           # 2
-    it > 1
-end
+# Locked by inference: the first value sets the type
+y := 5                     # Number
+y = 4.5                    # ok: every number is a Number
+y = 'five'                 # Type_Contract_Violation
+y := 'five'                # declare again to change the type
 
-for [1, 2, 3] map by 2,1      # sliding windows of 2, step 1
-    <it.0, it.?1>
-end                           # [<1, 2>, <2, 3>, <3, nil>]
+# Locked by declaration: `: Type` on a variable, param, return, or member
+z: Int | Nil               # starts as nil
+
+# Params lock too: a typed param, or one with a default
+f ( n: Number; n )         # n stays a Number inside the body
+g ( n := 0; n )            # n locks to the type of the value it gets
+g('x')                     # coming soon: an error, as with n: Number = 0
+
+P <n: Int>
+P(4.5)                     # coming soon: an error, since 4.5 is no Int
 ```
-
-### While and until
-
-Chain branches into one loop, and steer it with `skip` and `stop`.
 
 ```code
-while x < 4
-    x += 1
-elwhile y > -8
-    y -= 1
-else
-    @puts 'done'        # neither branch holds
-end
+add ( a: Number, b: Number;
+    a + b
+)
 
-for items
-    skip if it.hidden
-    stop if it.last
-end
+# Before the program runs: a wrong literal for a declared type, anywhere
+x: String = 123            # Type_Mismatch
+
+never_called (;
+    add(1, 'oops')         # Type_Mismatch, even here
+)
+
+# While the program runs: everything else, at the line that breaks it
+s := 'oops'
+add(1, s)                  # Type_Contract_Violation
+
+# coming soon: a call above its function is checked before the run too
 ```
 
-### Collections
+### Tagged types
+
+Attach metadata to a type with `\`, and each tagged type becomes is its own type.
+
+```code
+String\<num: Number> {
+    to_s (; "number: `@tag.num`" )
+}
+String\<5>().to_s()            # 'number: 5'
+
+tasks: Array\Task              # a label only: elements are not type-checked.
+things: Dict\Formatter         # useful for complex formatters and such! 
+```
+
+### Numbers
+
+Integers, floats, and exact decimals.
+
+```code
+4                      # Int
+4.5                    # Flo
+Decimal('1.50')        # Dec
+
+42.clamp(0, 10)        # 10
+12 | 4                 # bitwise on numbers
+```
 
 ### Arrays
 
@@ -595,39 +644,161 @@ Trim either end, and slice with them.
 Lists of words, without the quotes.
 
 ```code
-%string(boo Hoo COOL)    # ['boo', 'Hoo', 'COOL']: casing kept
-%str(Boo hOO COOL)       # ['boo', 'hoo', 'cool']
-%Str(boo HOO cOOl)       # ['Boo', 'Hoo', 'Cool']
-%STR(boo Hoo cool)       # ['BOO', 'HOO', 'COOL']
+%string(boo Hoo COOL)      # ['boo', 'Hoo', 'COOL']: casing kept
+%str(Boo hOO COOL)         # ['boo', 'hoo', 'cool']  casing matches literal
+%Str(boo HOO cOOl)         # ['Boo', 'Hoo', 'Cool']
+%STR(boo Hoo cool)         # ['BOO', 'HOO', 'COOL']
 
-%symbol(BOO hoo Cool)    # [:BOO, :hoo, :Cool]: casing kept
-%sym(Boo HOO cOOl)       # [:boo, :hoo, :cool]
-%Sym(boo HOO cOOl)       # [:Boo, :Hoo, :Cool]
-%SYM(boo Hoo cool)       # [:BOO, :HOO, :COOL]
+%symbol(BOO hoo Cool)      # [:BOO, :hoo, :Cool]: casing kept
+%sym(Boo HOO cOOl)         # [:boo, :hoo, :cool]  casing matches literal
+%Sym(boo HOO cOOl)         # [:Boo, :Hoo, :Cool]
+%SYM(boo Hoo cool)         # [:BOO, :HOO, :COOL]
 
-%string(1px file.ext + -)  # ['1px', 'file.ext', '+', '-']
+%string(1px file.ext +-)   # ['1px', 'file.ext', '+-']
 
 cool := 2342
 %string(481516 `cool`)     # ['481516', '2342']: interpolated
 ```
 
-### Power Tools
+### Dates and files
+
+Built in, with no imports.
+
+```code
+Date.parse('2020-03-15').weekday     # 0: Sunday
+Time.now().epoch()
+
+File.read('./file.txt')
+Dir('./src').files()
+```
+
+### For loops
+
+`it` is the element, and `at` is the index.
+
+```code
+for ['a', 'b']
+    @puts "`at`: `it`"          # 0: a, 1: b
+end
+
+for [1, 2, 3, 4] by 2           # [1, 2], [3, 4]
+    @puts it
+end
+
+for i := 0, i < 10, i += 2      # C-style
+    @puts i
+end
+
+# inline, too
+@puts i for i := 0, i < 10, i += 2  # 0, 2, 4, 6, 8
+@puts it for 4>..<8                 # 5, 6, 7
+```
+
+### Loop verbs
+
+Name the result you want.
+
+```code
+for [1, 2, 3] map             # [2, 4, 6]
+    it * 2
+end
+
+for [1, 2, 3] select          # [1, 3]
+    it.odd?()
+end
+
+for [1, 2, 3] count           # 2
+    it > 1
+end
+
+for [1, 2, 3] map by 2,1      # sliding windows of 2, step 1
+    <it.0, it.?1>
+end                           # [<1, 2>, <2, 3>, <3, nil>]
+
+@puts it*2 for 4>..<8 map     # 10, 12, 14
+```
+
+### While and until
+
+Chain branches into one loop, and steer it with `skip` and `stop`.
+
+```code
+while x < 4
+    x += 1
+elwhile y > -8
+    y -= 1
+else
+    @puts 'done' # neither branch holds, this runs last, and loop exits
+end
+
+for items
+    skip if it.hidden
+    stop if it.last
+end
+```
+
+### When
+
+Like a switch case that may match inside any branch or loop, where the first match wins.
+
+```code
+for [1, 'two', 3]
+    when String
+        @out 'a string'
+    when it > 2
+        @out 'a big number'
+    else
+        @out 'something else'
+end
+# something else, a string, a big number
+```
+
+### Tagged nil
+
+Tag a nil with a reason, and it stays falsy while `when` tells them apart.
+
+```code
+load_user (;
+    nil\Error('not found')
+)
+
+if user := load_user()
+    user.name
+else                           # the branch for a falsy value
+    when nil\Error
+        "error: `it.@tag.message`"
+    when nil
+        'a plain nil'
+    else                       # no case matched
+        'false'
+end
+```
 
 ### Custom operators
 
 Infix, prefix, or postfix, with custom precedence.
 
 ```code
-double ( n; n * 2 )
-add_fifteen ( n; n + 15 )
+double ( n;
+    n * 2
+)
 
-@operator -> @infix 300 ( left, right; right(left) )
+add_fifteen ( n;
+    n + 15
+)
+
+@operator -> @infix 300 ( left, right;
+    right(left)
+
+)
 4 -> double -> add_fifteen     # 23
 
-@operator $ @prefix 900 ( amount; Currency(amount, 'USD') )
+@operator $ @prefix 900 ( amount;
+    Currency(amount, 'USD')
+)
 $42                            # Currency
 
-11:22pm                        # a Time, with : and pm defined
+11:22pm                        # a Time, possible with : and pm operators
 ```
 
 ### Operators on a type
@@ -647,7 +818,9 @@ Vec2 {
         Vec2(left.x + right.x, left.y + right.y)   # numbers: plain +
     )
 
-    to_s (; "Vec2(`x`, `y`)" )
+    to_s (;
+        "Vec2(`x`, `y`)"
+    )
 }
 
 Vec2(1, 2) + Vec2(3, 4)        # Vec2(4, 6)
@@ -670,214 +843,17 @@ double ( @splat vec;          # writable
 
 ### Reopen any scope
 
-Add to a type or a single instance, after the fact.
+Add to a type or a single instance, after the fact, by pushing its scope on top of the stack, then popping it.
 
 ```code
 @push_scope Button
     css_filter := 'invert()'  # every Button
-@pop_scope Button
+@pop_scope Button             # must supply the same object, Type here
 
-@push_scope b
+button := Button()
+@push_scope button
     clicked := true           # just this one
-@pop_scope b
-```
-
-### Statements
-
-Wrap an expression in backticks to run it later.
-
-```code
-counter := 0
-tick := `counter += 1`
-tick()
-tick()                        # counter is 2
-
-tick.memoize = true           # run once, then cache
-tick.use_caller_scope = true  # resolve names where tick() is called,
-                              # not where it was written
-```
-
-### The context
-
-Every scope knows about itself through `@`.
-
-```code
-Duck.@name              # 'Duck'
-Duck.@composed_types    # Set{'Duck', 'Flying', 'Swimming'}
-[1, 2].@type            # 'Array'
-
-Widget { @version := 2 }      # custom metadata
-
-double(@puts 5)         # prints 5, returns 10
-add(@puts 1, 2)         # coming soon: prints 1, returns 3
-@declare 'count', 3     # a local here, a member in a type body
-@todo                   # stops with [TODO]
-@todo 'add auth'        # stops with "[TODO] add auth"
-```
-
-### The Web
-
-### Servers and routes
-
-Routes are methods, and parameters are arguments.
-
-```code
-@load 'lang/server.code'
-
-App | Server {
-    Self (; self.port = 3000 )
-
-    get:// (; 'Hello, World!' )
-
-    get://users/:id ( id; "User `id`" )
-
-    get://search (; "Searching `request.query[:q]`" )
-
-    post://login (;
-        response.status = 401 unless authorized?(request.body)
-        'Done'
-    )
-}
-
-@start_server App()     # coming soon: a server written in .code itself
-```
-
-### Clicks run on the server
-
-Set `onclick` to a closure, and only the component with that `html_id` re-renders.
-
-```code
-Counter | Div {
-    html_id := 'counter'
-    count := 0                # coming soon: one count per visitor
-    button := Button('+1')
-
-    Self (;
-        # gets the click and every input's value
-        # coming soon: a checkbox sends whether it is checked
-        button.onclick = (;
-            count += 1
-        )
-    )
-
-    render (;                 # sent back, swapped with a view transition
-        [P("Clicked `count` times"), button]
-    )
-}
-```
-
-### Database
-
-A struct is the schema, and the table follows.
-
-```code
-@load 'lang/database.code'
-
-db := @connect Sqlite.memory()
-
-User <id: Primary_Key, name: String, joined_at: Date_Time>
-
-users := db.find_or_create_table(User)   # table "users"
-ada := users.create(<name := 'Ada'>)
-users.find(ada.id)
-users.where(<name := 'Ada'>)
-users.delete(ada.id)
-```
-
-### Records
-
-Data, logic, and table under one name.
-
-```code
-User_Logic { greet (; "Hi `name`" ) }
-Account | User | User_Logic | users <>
-
-Account.find(1).name              # 'Ada'
-Account(name := 'Bob').greet()    # 'Hi Bob'
-```
-
-### HTML
-
-Elements are types, and styles and attributes are members.
-
-```code
-@load 'lang/html.code'
-
-Card | Div {
-    css_padding := '1rem'     # style="padding: 1rem"
-    html_class := 'card'      # class="card"
-}
-
-Card([H1('Welcome'), P('Hello!')]).to_s()
-# <div><h1>Welcome</h1><p>Hello!</p></div>
-```
-
-The `class` and `style` attributes, and the escaping, come when a server renders the element.
-
-### CSS
-
-Stylesheets as plain data that you can format and lint.
-
-```code
-@load 'lang/css.code'
-
-rule := Style_Rule(['.card'], [Property('color', 'red')])
-
-Css_Formatter_Visitor(minify := true).format(rule)
-# '.card{color:red;}'
-
-Css_Lint_Visitor().lint(rule)   # duplicates, prefixes, 0px
-```
-
-### Tools
-
-### Hot reload
-
-A program that starts a server is watched, and the browser refreshes on save.
-
-```sh
-bin/program app.code
-bin/program run app.code         # the same
-```
-
-### Every stage, inspectable
-
-See the output of each step with `-p`.
-
-```sh
-bin/program lex "4 + 8" -p
-bin/program parse "4 + 8" -p
-bin/program declare "4 + 8" -p
-bin/program interp "4 + 8" -p
-
-bin/program parsef app.code -p   # lexf, parsef, declaref, interpf for files
-```
-
-### Everything Else
-
-### Numbers
-
-Integers, floats, and exact decimals.
-
-```code
-4                      # Int
-4.5                    # Flo
-Decimal('1.50')        # Dec
-
-42.clamp(0, 10)        # 10
-12 | 4                 # bitwise on numbers
-```
-
-### Dates and files
-
-Built in, with no imports.
-
-```code
-Date.parse('2020-03-15').weekday     # 0: Sunday
-Time.now().epoch()
-
-File.read('./file.txt')
-Dir('./src').files()
+@pop_scope button             # must supply the same object, instance here
 ```
 
 ### Modules
@@ -909,6 +885,28 @@ String | String {
     upcase (; "`@ruby`!" )
 }
 'hi'.upcase()                 # 'HI!'
+```
+
+### Hot reload
+
+A program that starts a server is watched, and the browser refreshes on save.
+
+```sh
+bin/program app.code
+bin/program run app.code         # the same
+```
+
+### Every stage, inspectable
+
+See the output of each step with `-p`.
+
+```sh
+bin/program lex "4 + 8" -p
+bin/program parse "4 + 8" -p
+bin/program declare "4 + 8" -p
+bin/program interp "4 + 8" -p
+
+bin/program parsef app.code -p   # lexf, parsef, declaref, interpf for files
 ```
 
 ### Coming soon

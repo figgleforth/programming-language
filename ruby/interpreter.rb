@@ -4794,8 +4794,9 @@ module Code
 				raise Code::Invalid_Scope_Function_Argument.new(target_expr) unless target_expr.is_a?(Code::Identifier_Expr)
 				scope_to_pop = maybe_instance interpret target_expr
 				raise Code::Invalid_Scope_Function_Argument.new(target_expr) unless scope_to_pop.is_a?(Code::Type)
-				# By identity -- an instance and a reference to its type don't interchange.
-				Code.assert pop_scope == scope_to_pop
+				# By identity -- an instance and a reference to its type don't interchange. Check before the pop, so a mismatch leaves the stack as it was.
+				Code.assert stack.last.equal?(scope_to_pop)
+				pop_scope
 				scope_to_pop
 
 			when 'splat', 'splatr'

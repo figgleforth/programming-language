@@ -84,13 +84,26 @@ class Scopes_Test < Base_Test
 	end
 
 	def test_pop_scope_with_nothing_pushed_raises
-		# No dedicated Code:: error -- pop_scope refuses to pop the last remaining scope, so the identity check fails.
+		# No dedicated Code:: error -- Global is on top, not Vec2, so the identity check fails before anything pops.
 		assert_raises RuntimeError do
 			Code.interp <<-CODE
 				#{SHARED_VEC2}
 				@pop_scope Vec2
 			CODE
 		end
+	end
+
+	def test_pop_scope_of_the_wrong_scope_leaves_the_stack_as_it_was
+		interpreter = Code::Interpreter.new
+		assert_raises RuntimeError do
+			interpreter.run <<-CODE
+				A { x := 1 }
+				B { y := 2 }
+				@push_scope A
+				@pop_scope B
+			CODE
+		end
+		assert interpreter.stack.last.equal?(interpreter.global['A'])
 	end
 
 	def test_pop_scope_without_target_raises_invalid_directive_usage
