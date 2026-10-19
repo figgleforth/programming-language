@@ -66,16 +66,12 @@ module Code
 		# todo: Currently there is no clear rule on multiple unpacks. :double_unpack
 		def has? identifier
 			id_str = identifier.to_s
+			return true if @declarations.key?(id_str) || @static_declarations.include?(id_str)
 
-			return true if @writable_scopes.keys.any? do |sibling|
-				sibling.has? id_str
-			end
-
-			return true if @readable_scopes.keys.any? do |sibling|
-				sibling.has? id_str
-			end
-
-			@declarations.key?(id_str) || @static_declarations.include?(id_str)
+			# `each_key`, not `.keys`: a lookup runs many times per call, and `.keys` builds a new Array each time.
+			@writable_scopes.each_key { return true if it.has? id_str }
+			@readable_scopes.each_key { return true if it.has? id_str }
+			false
 		end
 
 		def delete key

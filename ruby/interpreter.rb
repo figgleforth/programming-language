@@ -355,7 +355,7 @@ module Code
 				# If no scope operator, search through all scopes to find the identifier
 				found_scope = nil
 				stack.reverse_each do |scope|
-					if scope.has?(expr.value) || scope.respond_to?("proxy_#{expr.value}")
+					if scope.has?(expr.value) || scope.respond_to?(proxy_method_name(expr.value))
 						found_scope = scope
 						break
 					elsif scope.is_a?(Code::Instance) && scope.enclosing_scope&.has?(expr.value)
@@ -366,6 +366,11 @@ module Code
 				end
 				found_scope
 			end
+		end
+
+		# `:proxy_<name>`, the Ruby method behind a built-in member. Kept per name, because a lookup asks for it on each scope it checks.
+		def proxy_method_name name
+			(@proxy_method_names ||= Hash.new { |names, key| names[key] = :"proxy_#{key}" })[name]
 		end
 
 		def maybe_instance expr
@@ -1418,7 +1423,7 @@ module Code
 				end
 			elsif scope
 				# note: Delegate ruby calls automatically
-				proxy_method = "proxy_#{expr.value}"
+				proxy_method = proxy_method_name expr.value
 				if scope.has?(expr.value) && !scope.respond_to?(proxy_method)
 					result = scope.get expr.value
 					# If the result is a function, duplicate it and set its enclosing_scope to the current scope. This ensures composed types (like `Thing | Record`) have functions that reference the correct type
@@ -1514,13 +1519,20 @@ module Code
 				#
 
 				result = expr.value
-				# /m so a sub-expression containing a real newline (e.g. `` `arr.join("\n")` ``) still matches.
-				sub_exprs = result.scan(/(?<!\\)`(.*?)(?<!\\)`/m).flatten
 
-				sub_exprs.each do |sub|
-					# Reuses the interpreter's own @parser (not a fresh Code.parse) so it still knows about @operator declarations registered elsewhere in the program -- #input= resets the cursor but not @custom_infix/etc.
-					parser.input = Lexer.new(sub).output
-					value        = interpret parser.output.first
+				# Parsed once per string literal, not on every run of it. A loop that builds a string ran the lexer and parser again on each pass.
+				@parsed_interpolations ||= {}.compare_by_identity
+				parsed = @parsed_interpolations[expr] ||= begin
+					# /m so a sub-expression containing a real newline (e.g. `` `arr.join("\n")` ``) still matches.
+					result.scan(/(?<!\\)`(.*?)(?<!\\)`/m).flatten.map do |sub|
+						# Reuses the interpreter's own @parser (not a fresh Code.parse) so it still knows about @operator declarations registered elsewhere in the program -- #input= resets the cursor but not @custom_infix/etc.
+						parser.input = Lexer.new(sub).output
+						[sub, parser.output.first]
+					end
+				end
+
+				parsed.each do |sub, sub_expr|
+					value        = interpret sub_expr
 					shown        = value.is_a?(::Symbol) ? value.to_s : stringify_for_display(value) # a Symbol interpolates as its bare name
 					result       = result.gsub "`#{sub}`", shown.to_s
 				end
@@ -2010,6 +2022,9 @@ module Code
 		# `method_name` picks the function to call (`@pputs`/`@pout` pass `to_string`); a value without it falls back to `to_s`.
 		def stringify_for_display value, show_quotes: false, pretty_print: false, method_name: nil
 			return ":#{value}" if value.is_a? ::Symbol # shown as written; interpolation still gives the bare name
+			# A plain String or Integer/Float shows as its Ruby text, the same as its `to_s`, without boxing it and running that function first.
+			return value if value.is_a?(::String) && !show_quotes && [nil, 'to_s'].include?(method_name)
+			return value.to_s if value.is_a?(::Integer) || value.is_a?(::Float)
 
 			value = maybe_instance value
 
@@ -2247,6 +2262,8 @@ module Code
 			if operand.is_a?(Code::Instance) && operand.enclosing_scope.is_a?(Code::Type) && operand.enclosing_scope.has?(operator)
 				return operand.enclosing_scope.get operator
 			end
+
+			return nil unless @scoped_operator_names&.include? operator
 
 			stack.reverse_each do |scope|
 				next if scope.is_a?(Code::Type)
@@ -4658,7 +4675,7 @@ module Code
 			raise Code::Invalid_Ruby_Proxy_Usage.new(func_scope) unless func_scope.is_a? Code::Func
 
 			func_name        = func_scope.name
-			proxy_method     = "proxy_#{func_name.value}"
+			proxy_method     = proxy_method_name func_name.value
 			instance_or_type = func_scope.enclosing_scope
 
 			# For a static proxy on a Type (`Record.find`), build a throwaway instance of the Ruby class so the proxy can read the Type's declarations.
@@ -4676,7 +4693,7 @@ module Code
 			end
 
 			if proxy_method && !target.respond_to?(proxy_method)
-				raise Code::Missing_Ruby_Proxy_Declaration.new expr, target, proxy_method
+				raise Code::Missing_Ruby_Proxy_Declaration.new expr, target, proxy_method.to_s
 			end
 
 			result = target.send proxy_method, *func_scope.arguments
@@ -5054,17 +5071,36 @@ module Code
 			# expr attrs:  func_expr(Func_Expr)  fixity(Lexeme)  precedence(Int)  value(String)
 			# This is setting up operators to be treated as regular functions, whose identifier is its operator symbols without spaces.
 
+			# Recorded so #find_operator_overload searches the stack only for an operator that a scope there can hold. A type's own operator is found through its operand instead.
+			(@scoped_operator_names ||= ::Set.new) << expr.value unless stack.last.is_a? Code::Type
 			stack.last.declare expr.value, interpret(expr.func_expr)
 		end
 
 		# note: This is the entry point for all expressions. This is called in a loop until all expressions are evaluated, or the program crashes.
 		def interpret expr
+			# note; The most common expressions come first, since each `when` is one more class check on every run. A subclass still comes before its superclass (Nil_Init_Expr and Type_Alias_Expr before Infix_Expr).
 			case expr
 			when Code::Number_Expr, Code::Symbol_Expr
 				expr.value
 
 			when Code::Identifier_Expr
 				interp_identifier expr
+
+			when Code::Nil_Init_Expr
+				# This is a special infix expression `<ident>,` that desugars to `ident = ident or nil`. left is assigned nil if it doesn't exist, or is returned if it does
+				interp_nil_init expr
+
+			when Code::Type_Alias_Expr
+				interp_type_alias expr
+
+			when Code::Infix_Expr
+				interp_infix expr
+
+			when Code::Call_Expr
+				interp_call expr
+
+			when Code::Conditional_Expr
+				interp_conditional expr
 
 			when Code::String_Expr
 				interp_string expr
@@ -5088,16 +5124,6 @@ module Code
 			when Code::Prefix_Expr
 				interp_prefix expr
 
-			when Code::Nil_Init_Expr
-				# This is a special infix expression `<ident>,` that desugars to `ident = ident or nil`. left is assigned nil if it doesn't exist, or is returned if it does
-				interp_nil_init expr
-
-			when Code::Type_Alias_Expr
-				interp_type_alias expr
-
-			when Code::Infix_Expr
-				interp_infix expr
-
 			when Code::Postfix_Expr
 				interp_postfix expr
 
@@ -5107,14 +5133,8 @@ module Code
 			when Code::Circumfix_Expr
 				interp_circumfix expr
 
-			when Code::Call_Expr
-				interp_call expr
-
 			when Code::For_Loop_Expr
 				interp_for_loop expr
-
-			when Code::Conditional_Expr
-				interp_conditional expr
 
 			when Code::Array_Index_Expr
 				maybe_instance expr.indices_in_order
