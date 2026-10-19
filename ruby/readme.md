@@ -6,7 +6,7 @@
 git clone https://github.com/figgleforth/programming-language.git
 cd programming-language
 bundle install
-bundle exec bin/program examples/hello_world.code -p # => Hello, Code!
+bundle exec bin/program examples/hello_world.code # Hello, Code!
 ```
 
 ### What is in this folder?

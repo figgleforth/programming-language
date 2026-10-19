@@ -7,16 +7,24 @@
 
 An expressive language for myself, with features I wanted to experience. You can use it to write scripts, servers, and lots of stuff in between.
 
-[Get started](ruby/readme.md) · [Learn by example](examples/readme.md) · [Read the reference](reference.md)
+---
 
-_This page is a short tour that shows the language off. The [reference](reference.md) is the complete description, and it is the page that is kept up to date._
+[Learn by example](examples/readme.md) · [Read the reference](reference.md) · [Edit the language](ruby/readme.md)
 
+```sh
+# Needs Ruby 4.0.0 and Bundler.
+git clone https://github.com/figgleforth/programming-language.git
+cd programming-language
+bundle install
+bundle exec bin/program examples/hello_world.code   # Hello, Code!
+```
+
+> This readme is a short tour of the language. The reference is the complete description, and it is the page that is kept up to date.
+
+---
 ### A full-stack app in one file
 
 Server, database, HTML, and click handlers that run on the server, with no JavaScript.
-
-> [!NOTE]
-> For now, one single instance serves every visitor, so all visitors share its state. A separate state for each visitor is [coming soon](#one-state-per-visitor).
 
 ```code
 @load 'lang/server'
@@ -53,6 +61,8 @@ App | Server {
 
 @start_server App()
 ```
+
+> For now, one single instance serves every visitor, so all visitors share its state. A separate state for each visitor is [coming soon](#one-state-per-visitor).
 
 ### Errors that point at the problem
 
@@ -997,4 +1007,4 @@ add(@puts 1, 2)            # today: Missing_Argument
 
 ### Next steps
 
-[Get started](ruby/readme.md) · [Learn by example](examples/readme.md) · [Read the reference](reference.md)
+[Learn by example](examples/readme.md) · [Read the reference](reference.md) · [Edit the language](ruby/readme.md)
