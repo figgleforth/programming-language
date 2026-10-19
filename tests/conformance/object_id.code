@@ -1,0 +1,20 @@
+# `@object_id` tells whether two names hold the same object. `==` compares values, so this is the identity check.
+A {}
+a := A()
+b := a
+@out a.@object_id == b.@object_id      # out: true
+@out a.@object_id == A().@object_id    # out: false
+
+# A plain value keeps its id, though it is boxed again on each `.@`
+x := 4
+@out x.@object_id == x.@object_id      # out: true
+s := 'a'
+t := s
+@out s.@object_id == t.@object_id      # out: true
+@out 'a'.@object_id == 'a'.@object_id  # out: false
+f := 1.5
+@out f.@object_id == f.@object_id      # out: true
+yes := true
+@out yes.@object_id == yes.@object_id  # out: true
+n := nil
+@out n.@object_id == nil.@object_id    # out: true

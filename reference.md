@@ -1588,14 +1588,58 @@ An UPPERCASE name can be a type or a constant. `MASK | OTHER` is bitwise when `M
 ### Comparison
 
 ```code
-== !=             # Equality
+== !=             # Equality: the same value
 < <= > >=         # Relational
 <=>               # Spaceship (three-way)
 =~ !~             # Regex match
-=== =!=           # Composed-type-set equality
-=>= =<=           # Composed-type-set superset (and its mirror) =>= means "left superset of right?", and its mirror
-=/=               # Composed-type-set disjointness means they don't share anything
+=== =!=           # The same shape
+=>= =<=           # Is-a: left has everything right has, and its mirror
+=/=               # Disjoint: nothing shared
 ```
+
+#### The rules
+
+| Operator | Asks | Compares | Derived from |
+|---|---|---|---|
+| `==` | the same value? | values, member by member | |
+| `!=` | not the same value? | | `!(a == b)` |
+| `===` | the same shape? | composed types, and the types of tag members | `a =>= b` and `b =>= a` |
+| `=!=` | not the same shape? | | `!(a === b)` |
+| `=>=` | is `a` a `b`? | `a` has every composed type and tag member of `b` | |
+| `=<=` | is `b` an `a`? | | `b =>= a` |
+| `=/=` | nothing shared? | no composed type or tag member in common | |
+| `a.@object_id == b.@object_id` | the same object? | identity | |
+
+1. `==` compares values. A number, a String, an Array, a struct, and a value of your own type all work the same way. A value of your own type with no `@operator ==` is `==` to another one of the same type when each member is `==`. Methods do not count.
+2. `===` compares shape, never values. The shape of a value is its type, so `4 === 5` is true.
+3. On a tag, `===` reads the types of the members, and `==` reads their values. A value member counts as its type. Member names never count, for either one.
+4. Two types are `==` when they compose the same types and their tags hold the same values.
+5. A type can declare its own `@operator ==`. That one decides, and `!=` follows it.
+6. Identity is `@object_id`. Two equal values are often two objects, so `==` cannot tell them apart.
+
+```code
+Point {
+    x, y,
+    Self ( x, y;
+        self.x = x
+        self.y = y
+    )
+}
+
+4 == 5                             # false — other values
+4 === 5                            # true  — both are Integer
+Point(1, 2) == Point(1, 2)         # true  — the same members
+Point(1, 2) == Point(3, 4)         # false
+Point(1, 2) === Point(3, 4)        # true  — the same type
+Point(1, 2) =>= Point              # true  — a Point is a Point
+
+a := Point(1, 2)
+b := a
+a.@object_id == b.@object_id                 # true  — one object
+a.@object_id == Point(1, 2).@object_id       # false — two objects, though they are ==
+```
+
+#### Composed types
 
 `===`, `=!=`, `=>=`, `=<=`, and `=/=` compare *composed types* — a type's own name plus everything picked up via `|`/`&`/`~`/`^` — not values:
 
@@ -1618,6 +1662,8 @@ Duck =/= Fish          # false (both compose Swimming — not disjoint)
 Flying =/= Swimming    # true  (share nothing)
 ```
 
+#### Tags
+
 All five also take [Structs](#structs) into account. An untagged type counts as having no members, so plain comparisons above are unaffected:
 
 ```code
@@ -1636,8 +1682,6 @@ Int\<Int, String> === Int\<1234, "asdf">          # true
 S\4 === S\5                                       # true
 S\4 == S\5                                        # false
 ```
-
-A value of your own type follows the same rule. With no `@operator ==`, two values of one type are `==` when each member is, so `Point(1, 2) == Point(1, 2)`. To check that two names hold the same object, compare `a.@object_id == b.@object_id`.
 
 The values decide which declared variant a reference uses, so each value can have its own body. Variants that need the same body compose it in:
 
@@ -1669,6 +1713,10 @@ Line_Too_Long | Error <>
 nil\Bad_Header =>= nil\Line_Too_Long      # false
 nil\Bad_Header =>= nil\Error              # true
 ```
+
+#### Special cases
+
+Every nil is `==` every other nil, whatever its tag, and a nil is never `==` anything else.
 
 `Any` is a universal wildcard for `==`/`!=`/`=>=`/`=<=`/`=/=`: anything that isn't `nil` counts as equal to it, no composition needed. `===`/`=!=` are the exception — exact type-set equality, so a bare `Any` only matches `Any` itself there.
 

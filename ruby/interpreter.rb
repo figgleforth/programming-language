@@ -482,7 +482,14 @@ module Code
 			when 'composed_types' then set_of.call(scope.respond_to?(:types) && scope.types ? scope.types.to_a : [])
 			when 'types' then context_types_for(scope)
 			when 'type' then context_type_for(scope)
-			when 'object_id' then scope.object_id
+			when 'object_id'
+				# A plain number, String, Bool or nil is boxed again on each `.@`, so its id comes from the Ruby value inside, which stays the same. Every nil is one nil, as in Ruby.
+				case scope
+				when Code::String, Code::Number then scope.value.object_id
+				when Code::Bool then scope.truthiness.object_id
+				when Code::Nil then nil.object_id
+				else scope.object_id
+				end
 			when 'size_in_bytes' then ObjectSpace.memsize_of(scope)
 			when 'root_path' then Code::ROOT_PATH
 			when 'static_declarations' then set_of.call(scope.respond_to?(:static_declarations) && scope.static_declarations ? scope.static_declarations.to_a : [])

@@ -232,12 +232,22 @@ Array | Array {                  # extend built-ins, too
 }
 ```
 
-### Comparing types
-
-Operators that ask what a type is made of.
+### Comparing
 
 ```code
-Duck === Duck          # same composition
+4 == 5                             # false: other values
+4 === 5                            # true: the same shape, Integer
+Counter('a') == Counter('a')       # true: the same members
+Counter('a') === Counter('b')      # true: the same type
+Counter('a') != Counter('b')       # true
+Counter('a') =!= Duck()            # true
+
+a := Counter('a')
+b := a
+a.@object_id == b.@object_id       # true: the same object
+a.@object_id == Counter('a').@object_id   # false: equal, but two objects
+
+Duck === Duck          # true: the same composition
 Duck =>= Swimming      # true: Duck is a Swimming, a superset of it
 Swimming =<= Duck      # true: the same, read as a subset
 Swimming =>= Duck      # false: Swimming has no Flying
@@ -568,6 +578,8 @@ String\<num: Number> {
     to_s (; "number: `@tag.num`" )
 }
 String\<5>().to_s()            # 'number: 5'
+String\<5> === String\<6>      # true: the same shape
+String\<5> == String\<6>       # false: other values
 
 tasks: Array\Task              # a label only: elements are not type-checked.
 things: Dict\Formatter         # useful for complex formatters and such! 
