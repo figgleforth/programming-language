@@ -1626,6 +1626,27 @@ Abc\<Number> === Abc\<String>   # false — same composed type, different tag
 Abc === Abc                     # true  — neither side tagged
 ```
 
+On a tag, `===` compares only the shape (the types), and `==` compares the values. A value has the shape of its type, and member names never count:
+
+```code
+Int\<16, 8> === Int\<32, 4>                       # true  — the same shape
+Int\<16, 8> == Int\<32, 4>                        # false — other values
+Int\<bits := 16, fraction := 8> == Int\<16, 8>    # true  — names do not count
+Int\<Int, String> === Int\<1234, "asdf">          # true
+S\4 === S\5                                       # true
+S\4 == S\5                                        # false
+```
+
+A value of your own type follows the same rule. With no `@operator ==`, two values of one type are `==` when each member is, so `Point(1, 2) == Point(1, 2)`. To check that two names hold the same object, compare `a.@object_id == b.@object_id`.
+
+The values decide which declared variant a reference uses, so each value can have its own body. Variants that need the same body compose it in:
+
+```code
+Fixed\<bits := 16> { bits (; 16 ) }
+Fixed\<bits := 32> { bits (; 32 ) }
+Fixed\<32>().bits()                 # 32
+```
+
 A tag is-a its parent tag, on any tagged type. A tag that composes another type satisfies a tag of that type with `=>=`, but a parent never satisfies a child, and `===` stays exact:
 
 ```code

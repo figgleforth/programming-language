@@ -775,8 +775,8 @@ module Code
 		# Members alone do not decide a named tag, or two empty `X | Error <>` structs would match each other through the members both get from Error.
 		def superset_of_types_and_tag? a_types, a_tag, b_types, b_tag
 			types_superset = b_types.all? { |type| a_types.include? type }
-			a_members      = a_tag&.type_objects || []
-			b_members      = b_tag&.type_objects || []
+			a_members      = tag_member_types a_tag
+			b_members      = tag_member_types b_tag
 
 			members_superset = if b_tag&.name
 				a_tag&.types&.include?(b_tag.name) || a_members.any? { |own| bare_type_is_a? own, b_tag.name }
@@ -787,6 +787,57 @@ module Code
 			end
 
 			types_superset && members_superset
+		end
+
+		# The shape of a tag: a type member stays its type, and a value member (`S\4`, `Int\<bits := 16>`) counts as the type of its value. The set comparisons read tags through this, so `Int\<16, 8> === Int\<32, 4>`.
+		def tag_member_types tag
+			return [] unless tag
+
+			(tag.type_objects || []).each_with_index.map do |member, i|
+				next member unless tag.value_member? i
+
+				value = tag.values[i]
+				name  = type_name_to_string value
+				name ? (find_in_stack(name) || name) : value
+			end
+		end
+
+		# Do two tags hold the same values? `==` on two types compares their tags with this. A named struct tag (`nil\Error`) is a type, so its name decides, and member names never count, so `Int\<bits := 16> == Int\<16>`.
+		def same_tag_values? a, b
+			return a.nil? && b.nil? if a.nil? || b.nil?
+			return a.name == b.name if a.name || b.name
+			return false unless a.values.length == b.values.length
+
+			a.values.each_index.all? do |i|
+				next false unless a.value_member?(i) == b.value_member?(i)
+
+				a.value_member?(i) ? values_equal?(a.values[i], b.values[i]) : same_type?(a.type_objects[i], b.type_objects[i])
+			end && same_tag_values?(a.tag_instance, b.tag_instance)
+		end
+
+		# Two types are the same when they compose the same types and their tags hold the same values. A tagged reference is a copy of its variant, so identity alone cannot decide.
+		def same_type? a, b
+			return true if a.equal? b
+			return a == b unless [a, b].all? { it.is_a?(Code::Type) && !it.is_a?(Code::Instance) }
+
+			composed_types_for(a) == composed_types_for(b) && same_tag_values?(a.tag_instance, b.tag_instance)
+		end
+
+		# A value of a user type with no `@operator ==` equals another value of the same type when each member does, the same as a struct: `Point(1, 2) == Point(1, 2)`. Methods do not count. A pair that is already being compared counts as equal, so a cycle (an element and its parent) ends.
+		def same_instance_values? a, b
+			return true if a.equal? b
+			return false unless composed_types_for(a) == composed_types_for(b) && same_tag_values?(a.tag_instance, b.tag_instance)
+
+			pair = [a.object_id, b.object_id]
+			@instances_being_compared ||= ::Set.new
+			return true if @instances_being_compared.include? pair
+
+			@instances_being_compared << pair
+			members = ->(scope) { scope.declarations.reject { |_, value| value.is_a? Code::Func } }
+			a_members, b_members = members.(a), members.(b)
+			a_members.keys.sort == b_members.keys.sort && a_members.all? { |name, value| values_equal? value, b_members[name] }
+		ensure
+			@instances_being_compared&.delete pair if pair
 		end
 
 		# A bare Type is-a another Type, or a type name, when it composes it.
@@ -2450,6 +2501,12 @@ module Code
 				end
 			end
 
+			# Two types are `==` when they are the same type with the same tag values: `Int\<16, 8> == Int\<16, 8>`, but `S\4 != S\5`. `===` compares only the shape of the tags.
+			if %w(== !=).include?(operator) && [left, right].all? { it.is_a?(Code::Type) && !it.is_a?(Code::Instance) }
+				equal = same_type? left, right
+				return operator == '==' ? equal : !equal
+			end
+
 			case expr.operator.value
 			when '===', '=!=', '=>=', '=<=', '=/='
 				# `.type_objects`, not `.types` -- `Code::Struct < Instance < Type` inherits Type's own
@@ -2479,8 +2536,8 @@ module Code
 					shared_types   = left_types.any? do |type|
 						right_types.include? type
 					end
-					shared_members = (left_tag&.type_objects || []).any? do |member|
-						(right_tag&.type_objects || []).include? member
+					shared_members = tag_member_types(left_tag).any? do |member|
+						tag_member_types(right_tag).include? member
 					end
 
 					!shared_types && !shared_members
@@ -2507,6 +2564,9 @@ module Code
 				if overload.is_a? Code::Func
 					result = call_operator_overload overload, expr, [left, right]
 					negate_result ? !truthy?(result) : result
+				elsif %w(== !=).include?(operator) && [left, right].all? { it.instance_of? Code::Instance }
+					equal = same_instance_values? left, right
+					operator == '==' ? equal : !equal
 				elsif left.respond_to?(expr.operator.value) && !(expr.operator.value == '<=>' && left.method(:<=>).owner == ::Kernel)
 					left.send expr.operator.value, right
 				else
@@ -2790,6 +2850,12 @@ module Code
 					referenced.tag_instance                     = build_struct declaration_names, declaration_type_names, supplied.type_objects, resolved_values
 					referenced.tag_instance.bare_reference_name = supplied.bare_reference_name
 
+					# Keep which members hold a value, so `===`/`==` read this tag the way it was written (see Struct#value_member?). A default filled in from the declaration keeps the declaration's kind.
+					referenced.tag_instance.value_member_names = supplied.values.each_index.filter_map do |i|
+						from_default = resolved_values[i].equal?(declaration_values[i]) && !supplied.values[i].equal?(declaration_values[i])
+						declaration_names[i] if from_default ? declaration.value_member?(i) : supplied.value_member?(i)
+					end
+
 					if supplied.respond_to?(:types) && supplied.types
 						referenced.tag_instance.types = referenced.tag_instance.types.dup.merge(supplied.types)
 					end
@@ -2999,9 +3065,11 @@ module Code
 
 		# Shared by a real declaration and an auto-declared reference (interp_type) -- both just extend-or-create a Type variant under `name` tagged with `struct`.
 		def declare_tagged_type_variant name, struct, body_expressions
+			# The values decide the variant, the same as `==`: `S\4 {}` and `S\5 {}` are two variants.
 			existing = tagged_variants_for(name, current_scope_only: true).find do |variant|
 				variant.tag_declaration.structure_declaration_equal?(struct) &&
-					tag_chains_equal?(variant.tag_declaration.tag_instance, struct.tag_instance)
+					tag_chains_equal?(variant.tag_declaration.tag_instance, struct.tag_instance) &&
+					same_tag_values?(variant.tag_declaration, struct)
 			end
 
 			if existing
@@ -3127,6 +3195,12 @@ module Code
 
 			# A chained tag (`Ab\Cd\Ef`) only matches a variant whose own declared chain matches in lockstep.
 			candidates = candidates.select { |variant| tag_chains_satisfy? variant.tag_declaration.tag_instance, supplied.tag_instance }
+
+			# A member declared with a value (`S\4 {}`) matches only the same value, so `S\5` is not that variant. A member declared with a type matches by shape.
+			candidates = candidates.select do |variant|
+				declared = variant.tag_declaration
+				declared.values.each_index.all? { |i| !declared.value_member?(i) || values_equal?(declared.values[i], supplied.values[i]) }
+			end
 
 			exact_types = candidate_lists.map(&:first)
 			candidates.find { |variant| variant.tag_declaration.type_names == exact_types } ||

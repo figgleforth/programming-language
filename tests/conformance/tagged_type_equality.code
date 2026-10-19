@@ -1,0 +1,63 @@
+# `===` compares only the shape of a tag (its types), and `==` compares its values. Member names never count.
+@out Int\<16, 8> === Int\<32, 4>                                      # out: true
+@out Int\<16, 8> == Int\<32, 4>                                       # out: false
+@out Int\<16, 8> == Int\<16, 8>                                       # out: true
+@out Int\<bits := 16, fraction := 8> === Int\<16, 8>                  # out: true
+@out Int\<bits := 16, fraction := 8> == Int\<16, 8>                   # out: true
+@out Int\<bits := 16, fraction := 8> == Int\<bits := 32, fraction := 4>   # out: false
+
+# A value has the shape of its type
+@out Int\<Int, String> === Int\<1234, "asdf">                         # out: true
+@out Int\<Int, String> == Int\<1234, "asdf">                          # out: false
+
+# A tag that is one value
+S {}
+@out S\4 === S\5                                                      # out: true
+@out S\4 != S\5                                                       # out: true
+@out S\4 == S\4                                                       # out: true
+
+# A tag that is a type
+@out Array\String == Array\String                                     # out: true
+@out Array\String == Array\Int                                        # out: false
+@out Array == Array\String                                            # out: false
+
+# A type with no tag follows the same rule: it has no tag values, so the type itself decides
+A {}
+B {}
+Dog | A {}
+@out A === A                                                          # out: true
+@out A == A                                                           # out: true
+@out A == B                                                           # out: false
+@out Dog == A                                                         # out: false
+@out Dog =>= A                                                        # out: true
+@out A == Array\String                                                # out: false
+
+# A value's shape is its type, so `===` matches two values of one type, and `==` compares them
+@out 4 === 5                                                          # out: true
+@out 4 == 5                                                           # out: false
+@out [1] === [2]                                                      # out: true
+@out [1] == [1]                                                       # out: true
+P <x: Int>
+@out P(1) === P(2)                                                    # out: true
+@out P(1) == P(1)                                                     # out: true
+@out P(1) == P(2)                                                     # out: false
+
+# The values decide the variant, so each value can have its own body
+Fixed {
+	bits (;
+		'base'
+	)
+}
+Fixed\<bits := 16> {
+	bits (;
+		'16'
+	)
+}
+Fixed\<bits := 32> {
+	bits (;
+		'32'
+	)
+}
+@out Fixed\<bits := 16>().bits()                                      # out: 16
+@out Fixed\<32>().bits()                                              # out: 32
+@out Fixed\<64>().bits()                                              # out: base

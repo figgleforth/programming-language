@@ -21,6 +21,11 @@ module Code
 			@constructed = true
 		end
 
+		# Does member `i` hold a value, not a type? An unnamed value (`S\4`) or a `name := value` member does. A `name: Type = default` member is a type with a default, so in a tag only its type counts.
+		def value_member? i
+			names[i].nil? ? !values[i].nil? : !!value_member_names&.include?(names[i])
+		end
+
 		# A struct is built as 'Struct' and named later (`Hex <...>`), so its display name follows the new name, unless a tag already gave it a richer one (see Interpreter#declare_tag).
 		def name= value
 			@display_name = value if @display_name == 'Struct'
