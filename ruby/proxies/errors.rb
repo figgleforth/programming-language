@@ -120,7 +120,7 @@ module Code
 	# `(1, 2)` as a value. A struct holds a list of values: `<1, 2>`.
 	class Values_In_Parentheses < Error
 		def detail_message
-			"A list of values in `( )` is not a value. Use a struct: `<404, []>`, or `<ok: Bool, data: Any>` for a return type. `( )` around one value groups it, and `(a, b) := ...` destructures."
+			"A list of values in `( )` is not a value. A struct is this language's tuple: `<404, []>`, or `<ok: Bool, data: Any>` for a return type. `( )` around one value groups it, and `(a, b) := ...` destructures."
 		end
 	end
 

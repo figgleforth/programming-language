@@ -2063,6 +2063,31 @@ class Structs_Test < Base_Test
 		assert_empty body.values
 	end
 
+	def test_the_parentheses_error_says_a_struct_is_the_tuple
+		error = assert_raises(Code::Values_In_Parentheses) { Code.interp 'x := (1, 2)' }
+		assert_includes error.message, "A struct is this language's tuple"
+	end
+
+	# `Struct(...)` is `<...>`: each argument is a member, and a named argument is a named member.
+	def test_a_struct_call_builds_the_same_struct_as_angle_brackets
+		struct = Code.interp "Struct(404, body := [])"
+		assert_instance_of Code::Struct, struct
+		assert_equal [nil, 'body'], struct.names
+		assert_equal 404, struct.values.first
+		assert_empty struct.values.last.values
+		assert_equal true, Code.interp("Struct(404, body := []) == <404, body := []>")
+		assert_equal true, Code.interp("Struct() == <>")
+		assert_equal [nil], Code.interp("Struct(Number)").values, "a bare Type is a slot, as in <Number>"
+		assert_equal [200, 'ok'], Code.interp("(code, body) := Struct(200, 'ok')\n<code, body>").values
+	end
+
+	# A tagged reference is a dup that is still named 'Struct', so only the real Struct type takes the new path.
+	def test_a_tagged_struct_reference_call_fills_its_tag
+		tagged = Code.interp "Tagged := Struct\\<n: Int>\nTagged(5)"
+		assert_equal [5], tagged.tag_instance.values
+		assert_empty tagged.values
+	end
+
 	def test_a_subscript_reads_a_member_by_position
 		assert_equal [10, 20, nil], Code.interp("s := <10, 20>\n<s[0], s[-1], s[5]>").values
 		assert_equal 'b', Code.interp("<a := 1, 'b'>[1]")

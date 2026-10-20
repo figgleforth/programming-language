@@ -2776,6 +2776,15 @@ module Code
 				invoke_statement receiver
 
 			when Code::Instance, Code::Type
+				# `Struct(404, body := [])` is `<404, body := []>`: each argument is a member, and a named argument is a named member.
+				# By identity, not by name: a tagged reference (`Struct\<n: Int>`) is a dup that is still named 'Struct', and its arguments fill its tag.
+				if receiver.equal?(stdlib_scope&.[]('Struct'))
+					members = expr.arguments.map { classify_argument it }
+					return interp_struct(Code::Struct_Expr.new.tap do |it|
+						it.names = members.map { |_, name, _| name }
+						it.types = members.zip(expr.arguments).map { |(kind, _, value), arg| kind == :named ? arg.left.dup.tap { |left| left.member_default = value } : arg }
+					end)
+				end
 				interp_type_call receiver, expr
 
 			when Code::Func_Signature

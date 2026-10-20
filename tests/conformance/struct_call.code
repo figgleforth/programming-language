@@ -1,0 +1,17 @@
+# `Struct(...)` is `<...>`: each argument is a member, and a named argument is a named member.
+s := Struct(404, body := [])
+@out s == <404, body := []>             # out: true
+@out s.0                                # out: 404
+@out s.body                             # out: []
+@out s.@names                           # out: [nil, 'body']
+(code, body) := Struct(200, 'ok')
+@out code                               # out: 200
+@out body                               # out: ok
+@out Struct() == <>                     # out: true
+@out Struct(Number).@values             # out: [nil]
+
+# A tagged reference is not `Struct` itself: its arguments fill its tag, as for any type with no `Self`.
+Tagged := Struct\<n: Int>
+t := Tagged(5)
+@out t.@tag                             # out: <n: Integer = 5>
+@out t.@values                          # out: []
