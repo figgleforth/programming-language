@@ -327,8 +327,8 @@ module Code
 
 		def add_onclick_handler handler, render_scope, element_key = nil
 			token = next_render_token(render_scope, element_key)
-			# Stored with the component this render pass belongs to (`render_scope[:component]`, the nearest html_id-bearing Dom instance) so #handle_request re-renders *that* on a click. The handler's own closure is captured lexically and runs correctly wherever it was written. A `.map` callback, a plain helper, a method, so "which component to swap" no longer depends on the handler's scope chain reaching an Instance.
-			dom_onclick_function_handlers[token] = { handler: handler, component: render_scope[:component] }
+			# Stored with the target this render pass belongs to (`render_scope[:target]`, the nearest html_id-bearing Dom instance) so #handle_request re-renders *that* on a click. The handler's own closure is captured lexically and runs correctly wherever it was written. A `.map` callback, a plain helper, a method, so "which target to swap" no longer depends on the handler's scope chain reaching an Instance.
+			dom_onclick_function_handlers[token] = { handler: handler, target: render_scope[:target] }
 			token
 		end
 
@@ -338,8 +338,8 @@ module Code
 			token
 		end
 
-		# One stable, deterministic token per rendered element, within a component's render pass. The
-		# same component rendered against the same tree shape yields the same tokens every time -- so a
+		# One stable, deterministic token per rendered element, within a render pass of one html_id element. The
+		# same target rendered against the same tree shape yields the same tokens every time -- so a
 		# re-render (or a fresh request for the same page) overwrites the handler/input map entries in
 		# place instead of minting new random ones and growing the maps without bound. It also
 		# means a handler defined in render() keeps a stable data-prog-onclick across DOM swaps, which
@@ -1062,14 +1062,14 @@ module Code
 
 						interp_route_body route, req, res
 
-						# The component to re-render was recorded when the handler's token was minted, during
+						# The target to re-render was recorded when the handler's token was minted, during
 						# the render walk (#add_onclick_handler) -- no scope-chain reconstruction needed, so a
 						# handler defined in a `.map` callback or a plain helper works the same as one in a
 						# method.
-						component = entry[:component]
-						if component.is_a?(Code::Instance) && component.declarations['render']
-							new_html = render_dom_to_html component
-							html_id  = component.declarations['html_id']
+						target = entry[:target]
+						if target.is_a?(Code::Instance) && target.declarations['render']
+							new_html = render_dom_to_html target
+							html_id  = target.declarations['html_id']
 
 							response.status              = 200
 							response['Content-Type']     = 'text/html'
@@ -1278,15 +1278,15 @@ module Code
 
 		# `static: true` (`Dom#to_html`) registers no click handler or input, so the HTML has no data-prog-* tokens.
 		def render_dom_to_html dom_instance, render_scope: nil, static: false
-			# A component with its own html_id (a page-level component) anchors a fresh token namespace
-			# for its whole subtree, keyed by that stable id. A top-level component with no html_id
+			# A target with its own html_id (a page-level target) anchors a fresh token namespace
+			# for its whole subtree, keyed by that stable id. A top-level target with no html_id
 			# falls back to its object_id. Nested id-less elements just keep counting within the
-			# enclosing component's namespace -- see #next_render_token.
+			# enclosing target's namespace -- see #next_render_token.
 			own_html_id = dom_instance.declarations['html_id']
 			if render_scope.nil?
-				render_scope = { anchor: own_html_id || "auto#{dom_instance.object_id}", slot: 0, component: dom_instance, static: static }
+				render_scope = { anchor: own_html_id || "auto#{dom_instance.object_id}", slot: 0, target: dom_instance, static: static }
 			elsif own_html_id
-				render_scope = { anchor: own_html_id, slot: 0, component: dom_instance, static: render_scope[:static] }
+				render_scope = { anchor: own_html_id, slot: 0, target: dom_instance, static: render_scope[:static] }
 			end
 
 			render = dom_instance.declarations['render']

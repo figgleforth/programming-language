@@ -22,7 +22,7 @@ class Dom_Test < Base_Test
 
 	# --- #2  stable handler / input tokens ---
 
-	def test_re_rendering_a_component_reuses_the_same_tokens
+	def test_re_rendering_a_target_reuses_the_same_tokens
 		interp, html1 = render <<~CODE
 		    @load 'lang/html'
 		    Panel + Div {
@@ -90,10 +90,10 @@ class Dom_Test < Base_Test
 		assert_includes interp.render_dom_to_html(counter), 'count: 3'
 	end
 
-	def test_handler_in_a_map_callback_binds_to_the_component_and_keeps_its_closure
-		# Two things this exercises: the component to re-render is recorded during the render walk (not
+	def test_handler_in_a_map_callback_binds_to_the_target_and_keeps_its_closure
+		# Two things this exercises: the target to re-render is recorded during the render walk (not
 		# reconstructed from the handler's scope chain), and the callback keeps its closure through
-		# `.map`, so its onclick can still reach a member of the enclosing component.
+		# `.map`, so its onclick can still reach a member of the enclosing target.
 		interp, _ = render <<~CODE
 		    @load 'lang/html'
 		    List + Div {
@@ -112,10 +112,10 @@ class Dom_Test < Base_Test
 		list  = interp.last_output
 		entry = interp.dom_onclick_function_handlers.fetch('list-hit-2')
 
-		assert_equal list.object_id, entry[:component].object_id, 'recorded component is the html_id-bearing List, not the Li and not nil'
+		assert_equal list.object_id, entry[:target].object_id, 'recorded target is the html_id-bearing List, not the Li and not nil'
 
 		fire interp, 'list-hit-2'
-		assert_includes interp.render_dom_to_html(list), 'total: 2', 'the handler reached `total` on the enclosing component through the map callback'
+		assert_includes interp.render_dom_to_html(list), 'total: 2', 'the handler reached `total` on the enclosing target through the map callback'
 	end
 
 	def test_handler_made_in_a_for_loop_sees_the_names_around_it
