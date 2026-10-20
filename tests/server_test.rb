@@ -31,7 +31,7 @@ class Server_Test < Base_Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get:// (;
 		    		"Hello World"
 		    	)
@@ -54,7 +54,7 @@ class Server_Test < Base_Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get://hello (;
 		    		"Hi there!"
 		    	)
@@ -101,7 +101,7 @@ class Server_Test < Base_Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get:// (;
 		    		"Home"
 		    	)
@@ -129,7 +129,7 @@ class Server_Test < Base_Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get://users/:id ( id;
 		    		"User `id`"
 		    	)
@@ -167,7 +167,7 @@ class Server_Test < Base_Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get://users/:user_id/posts/:post_id ( user_id, post_id;
 		    		"User `user_id` Post `post_id`"
 		    	)

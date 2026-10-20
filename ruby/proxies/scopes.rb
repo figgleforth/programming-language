@@ -135,6 +135,7 @@ module Code
 		attr_accessor :tag_instance
 		attr_accessor :tag_declaration
 		attr_accessor :declaration_in_progress
+		attr_accessor :replayed_compositions # [composition, value] for each `Self += X` / `Self -= X` a method ran on this type; each instance built later runs them again
 
 		def initialize name = nil
 			super name
@@ -145,11 +146,37 @@ module Code
 			@display_name            = name
 			@declaration_in_progress = false
 		end
+
+		# The names of this type's members, shared by every instance it builds (Instance#type_member?). A declaration, even a later one, adds to the list. A method that composes (`Self += X`) gives the type a new list first (Interpreter#interp_composition), so the instances built before keep the old one.
+		attr_writer :member_names
+
+		def member_names
+			@member_names ||= ::Set.new(@declarations.keys)
+		end
+
+		def []= key, value
+			@member_names&.add key.to_s
+			super
+		end
+
+		def delete key
+			@member_names&.delete key.to_s
+			super
+		end
 	end
 
 	class Instance < Type
+		attr_accessor :type_member_names # its type's #member_names when it was built, minus what `self -= X` took off; nil reaches every member (an instance built in Ruby)
+
 		def initialize name = 'Instance'
 			super name
+		end
+
+		# A member of this instance's type that the instance still reaches. A name its type reaches through a splat is not on the list, so it stays reachable.
+		def type_member? name
+			return false unless enclosing_scope&.has? name
+
+			type_member_names.nil? || type_member_names.include?(name) || !enclosing_scope.declarations.key?(name)
 		end
 
 		# This is mostly for Array and Dictionary, so we can automatically forward [] and []= to the correct storage location. Their proxy_delegate is the object that ruby_proxies uses to forward calls to already anyway

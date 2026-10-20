@@ -1,0 +1,10 @@
+# A return type `Self` is the type of the instance the method runs on.
+
+Node {
+	make (-> Self;
+		5
+	)
+}
+
+node := Node()
+node.make()                             # error: Type_Contract_Violation

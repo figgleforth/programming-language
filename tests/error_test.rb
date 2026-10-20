@@ -170,7 +170,7 @@ class Error_Test < Base_Test
 
 	def test_invalid_composition_with_a_non_scope_type
 		assert_raises Code::Invalid_Composition_With_A_Non_Scope_type do
-			Code.interp 'Foo := :bar, Person | Foo { name, }'
+			Code.interp 'Foo := :bar, Person + Foo { name, }'
 		end
 	end
 
@@ -193,7 +193,7 @@ class Error_Test < Base_Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get://users/:id ( id;
 		    		"User `id`"
 		    	)

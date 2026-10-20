@@ -297,7 +297,7 @@ class Regression_Test < Base_Test
 	def test_self_inside_for_loop
 		# note: Composing Array with itself allows extending or overriding behavior of Array. Notice how `values` is accessible despite being declared on the original Array type.
 		without_prefix = <<~CODE
-		    Array | Array {
+		    Array + Array {
 		        each ( func;
 		        	for values
 		        		func(it)
@@ -307,7 +307,7 @@ class Regression_Test < Base_Test
 		CODE
 
 		with_prefix = <<~CODE
-		    Array | Array {
+		    Array + Array {
 		        each ( func;
 		        	for self.values
 		        		func(it)
@@ -760,27 +760,24 @@ class Regression_Test < Base_Test
 		    A { x := 1, shared (; 'from A' ) }
 		    B { y := 2, shared (; 'from B' ) }
 
-		    union        := (A | B)()
-		    intersection := (A & B)()
-		    difference   := (A ~ B)()
-		    symmetric    := (A ^ B)()
+		    union      := (A + B)()
+		    difference := (A - B)()
 
-		    <union.x, union.y, union.shared(), intersection.shared(), difference.x, symmetric.x, symmetric.y>
+		    <union.x, union.y, union.shared(), difference.x>
 		CODE
 		out = Code.interp src
-		assert_equal [1, 2, 'from A', 'from A', 1, 1, 2], out.values
+		assert_equal [1, 2, 'from A', 1], out.values
 
-		# Intersection/difference correctly DON'T keep what they're supposed to drop.
-		assert_raises(Code::Undeclared_Identifier) { Code.interp "#{src}\nintersection.x" }
+		# Difference correctly DOESN'T keep what it's supposed to drop.
 		assert_raises(Code::Undeclared_Identifier) { Code.interp "#{src}\ndifference.shared()" }
 
 		# Comparable with the existing Type comparison operators, same as any named composed type.
 		out = Code.interp <<~CODE
 		    Flying { can_fly := true }
 		    Swimming { can_swim := true }
-		    Duck | Flying | Swimming { name := 'duck' }
+		    Duck + Flying + Swimming { name := 'duck' }
 
-		    <(Duck =>= (Flying | Swimming)), ((Flying | Swimming) =>= Duck)>
+		    <(Duck =>= (Flying + Swimming)), ((Flying + Swimming) =>= Duck)>
 		CODE
 		assert_equal [true, false], out.values
 	end

@@ -32,19 +32,19 @@ Dom {
 }
 
 ### Predefined Dom elements ###
-Html | Dom {
+Html + Dom {
 	html_element := 'html'
 }
 
-Head | Dom {
+Head + Dom {
 	html_element := 'head'
 }
 
-Body | Dom {
+Body + Dom {
 	html_element := 'body'
 }
 
-Title | Dom {
+Title + Dom {
 	html_element := 'title'
 	title,
 
@@ -56,44 +56,44 @@ Title | Dom {
 }
 
 # Headings
-H1 | Dom {
+H1 + Dom {
 	html_element := 'h1'
 }
 
-H2 | Dom {
+H2 + Dom {
 	html_element := 'h2'
 }
 
-H3 | Dom {
+H3 + Dom {
 	html_element := 'h3'
 }
 
-H4 | Dom {
+H4 + Dom {
 	html_element := 'h4'
 }
 
-H5 | Dom {
+H5 + Dom {
 	html_element := 'h5'
 }
 
-H6 | Dom {
+H6 + Dom {
 	html_element := 'h6'
 }
 
 # Text and inline elements
-P | Dom {
+P + Dom {
 	html_element := 'p'
 }
 
-Small | Dom {
+Small + Dom {
 	html_element := 'small'
 }
 
-Span | Dom {
+Span + Dom {
 	html_element := 'span'
 }
 
-A | Dom {
+A + Dom {
 	html_element := 'a'
 	html_href,
 	title,
@@ -107,60 +107,60 @@ A | Dom {
 }
 Href :: A
 
-Strong | Dom {
+Strong + Dom {
 	html_element := 'strong'
 }
 
-Em | Dom {
+Em + Dom {
 	html_element := 'em'
 }
 
-Code | Dom {
+Code + Dom {
 	html_element := 'code'
 }
 
-Pre | Dom {
+Pre + Dom {
 	html_element := 'pre'
 }
 
 # Lists
-Ul | Dom {
+Ul + Dom {
 	html_element := 'ul'
 }
 
-Ol | Dom {
+Ol + Dom {
 	html_element := 'ol'
 }
 
-Li | Dom {
+Li + Dom {
 	html_element := 'li'
 }
 
 # Forms
-Form | Dom {
+Form + Dom {
 	html_element := 'form'
 }
 
-Input | Dom {
+Input + Dom {
 	html_element := 'input'
 }
 
-Button | Dom {
+Button + Dom {
 	html_element := 'button'
 }
 
-Textarea | Dom {
+Textarea + Dom {
 	html_element := 'textarea'
 }
 
-Checkbox | Dom {
+Checkbox + Dom {
 	html_element := 'input'
 	html_type    := 'checkbox'
 	html_checked: Bool
 }
 
 # Radios with the same html_name are one group, and only one radio in a group can be checked
-Radio | Dom {
+Radio + Dom {
 	html_element := 'input'
 	html_type    := 'radio'
 	html_name: String
@@ -168,16 +168,16 @@ Radio | Dom {
 	html_checked: Bool
 }
 
-Label | Dom {
+Label + Dom {
 	html_element := 'label'
 }
 
-Select | Dom {
+Select + Dom {
 	html_element := 'select'
 	html_multiple: Bool
 }
 
-Option | Dom {
+Option + Dom {
 	html_element := 'option'
 
 	# documentation @pasted from: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/option#attributes
@@ -196,83 +196,83 @@ Option | Dom {
 }
 
 # Containers
-Section | Dom {
+Section + Dom {
 	html_element := 'section'
 }
 
-Article | Dom {
+Article + Dom {
 	html_element := 'article'
 }
 
-Nav | Dom {
+Nav + Dom {
 	html_element := 'nav'
 }
 
-Header | Dom {
+Header + Dom {
 	html_element := 'header'
 }
 
-Footer | Dom {
+Footer + Dom {
 	html_element := 'footer'
 }
 
-Main | Dom {
+Main + Dom {
 	html_element := 'main'
 }
 
-Aside | Dom {
+Aside + Dom {
 	html_element := 'aside'
 }
 
-Div | Dom {
+Div + Dom {
 	html_element := 'div'
 }
 
 # Media
-Img | Dom {
+Img + Dom {
 	html_element := 'img'
 }
 
 # Tables
 # To avoid collision with database Table, this is called Html_Table, since both are likely to be used together.
-Html_Table | Dom {
+Html_Table + Dom {
 	html_element := 'table'
 }
 
-Thead | Dom {
+Thead + Dom {
 	html_element := 'thead'
 }
 
-Tbody | Dom {
+Tbody + Dom {
 	html_element := 'tbody'
 }
 
-Tr | Dom {
+Tr + Dom {
 	html_element := 'tr'
 }
 
-Th | Dom {
+Th + Dom {
 	html_element := 'th'
 }
 
-Td | Dom {
+Td + Dom {
 	html_element := 'td'
 }
 
 # Other
-Br | Dom {
+Br + Dom {
 	html_element := 'br'
 }
 
-Hr | Dom {
+Hr + Dom {
 	html_element := 'hr'
 }
 
-Dialog | Dom {
+Dialog + Dom {
 	html_element := 'dialog'
 }
 
-Style | Dom {
+Style + Dom {
 	html_element := 'style'
 }
 
@@ -283,38 +283,38 @@ Kbd & Samp: Semantic elements ideal for rendering keybindings (e.g., [CTRL+C]) a
 Link: Needed in Head to pull in custom retro webfonts (like VT323, IBM Plex Mono, or Fixedsys).
 ###
 
-Fieldset | Dom {
+Fieldset + Dom {
 	html_element := 'fieldset'
 }
 
-Legend | Dom {
+Legend + Dom {
 	html_element := 'legend'
 }
 
-Kbd | Dom {
+Kbd + Dom {
 	html_element := 'kbd'
 }
 
-Samp | Dom {
+Samp + Dom {
 	html_element := 'samp'
 }
 
-Meta | Dom {
+Meta + Dom {
 	html_element := 'meta'
 }
 
-Utf8_Meta | Meta {
+Utf8_Meta + Meta {
     html_charset := 'utf-8'
 }
 
-Link | Dom {
+Link + Dom {
 	html_element := 'link'
 }
 
-Script | Dom {
+Script + Dom {
 	html_element := 'script'
 }
 
-Canvas | Dom {
+Canvas + Dom {
 	html_element := 'canvas'
 }

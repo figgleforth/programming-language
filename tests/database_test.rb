@@ -546,10 +546,10 @@ class Database_Test < Base_Test
 			    #{DATABASE}
 			    db := @connect Sqlite('#{@filepath}')
 
-				Flo       | Number {}
-				Float     | Number {}
-				Decimal   | Number {}
-				Blob      | Number {}
+				Flo       + Number {}
+				Float     + Number {}
+				Decimal   + Number {}
+				Blob      + Number {}
 				Status [ACTIVE INACTIVE]
 
 				Everything <
@@ -677,7 +677,7 @@ class Database_Test < Base_Test
 		    db := @connect Sqlite('#{@filepath}')
 			Task <id: Primary_Key, text: String>
 			tasks_table := db.find_or_create_table(Task)
-			Tasks | Task | tasks_table <>
+			Tasks + Task + tasks_table <>
 			<table := tasks_table, tasks := Tasks, table_type := Table>
 		CODE
 		table, tasks, table_type = out.values
@@ -701,7 +701,7 @@ class Database_Test < Base_Test
 				shout (; text.upcase() )
 			}
 			tasks_table := db.find_or_create_table(Task)
-			Tasks | Task | Task_Logic | tasks_table <>
+			Tasks + Task + Task_Logic + tasks_table <>
 			record := Tasks(nil, 'hi')
 			<tasks_table, Tasks, record>
 		CODE

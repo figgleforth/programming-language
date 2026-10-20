@@ -6,11 +6,11 @@ require_relative 'base_test'
 class Tag_Is_A_Test < Base_Test
 	TYPES = <<~CODE
 		@load 'lang/errors.code'
-		Client_Error | Error {}
-		Bad_Header   | Client_Error {}
+		Client_Error + Error {}
+		Bad_Header   + Client_Error {}
 		Swimming {}
 		Flying {}
-		Duck | Swimming | Flying {}
+		Duck + Swimming + Flying {}
 	CODE
 
 	def setup

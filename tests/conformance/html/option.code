@@ -24,7 +24,7 @@ quote.html_value = 'a"b'
 @out quote.to_html()                     # out: <option value="a&quot;b">Quote</option>
 
 # A type that selects one option, like Task_Type_Option in the tasks example
-Picked | Option {
+Picked + Option {
 	Self ( label, selected := false;
 		self.children      = [label]
 		self.html_selected = selected

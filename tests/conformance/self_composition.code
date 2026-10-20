@@ -1,0 +1,50 @@
+# `+` adds members and `-` removes them, in a head, in a value, and with `Self +=` / `self +=`.
+Flying {
+	fly (;
+		'flew'
+	)
+}
+
+Swimming {
+	swim (;
+		'swam'
+	)
+}
+
+Logging {
+	log (;
+		'logged'
+	)
+}
+
+Duck + Flying + Swimming {}
+Ostrich + Duck - Flying {}
+@out Ostrich =>= Swimming               # out: true
+@out Ostrich =>= Flying                 # out: false
+
+Both := Flying + Swimming
+@out Both().swim()                      # out: swam
+
+n := 0
+
+Penguin {
+	Self += Swimming
+	n += 1
+	if n == 2
+		Self += Logging
+	end
+
+	learn_to_fly (;
+		self += Flying
+	)
+}
+
+a := Penguin()
+b := Penguin()
+@out a =>= Logging                      # out: true
+@out b =>= Logging                      # out: false
+@out Penguin =>= Logging                # out: false
+
+b.learn_to_fly()
+@out b.fly()                            # out: flew
+@out a =>= Flying                       # out: false

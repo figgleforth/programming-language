@@ -302,12 +302,16 @@ Counter.count  # 2
 
 ## Type Composition
 
-1. `|` union: merge all members from both types
-2. `&` intersection: keep only shared members
-3. `~` removal: remove members of right type from left
-4. `^` symmetric difference: keep non-shared members
+Composition changes the *members* of a type:
 
-These four meanings apply to `Type | Other { }` composition, and to `x := A | B`, which gives a new composed type. In a type position — a `: Type` annotation or the right side of `::` — the same symbols compare the values that each type allows: `|` either, `&` both, `~` the left but not the right, `^` exactly one. See [Runtime Type Contracts](#runtime-type-contracts) and [Type Aliases](#type-aliases).
+1. `+` adds the members of a type
+2. `-` removes the members of a type
+
+They work in a declaration head (`Type + Other { }`, `Type + Other <>`), in a body (`Self += Other`, see below), and in a value: `x := A + B` gives a new, anonymous composed type. A chain runs left to right, with no precedence between `+` and `-`.
+
+An anonymous type has no name, so the `@name` of its instances is `nil`. To give the result a name, declare it with a head instead: `Type_Base + Type + Base {}`, not `x := Type + Base`. In a body, a bare `Self` is the type, so `x := Self + Base` works too, and gives each instance a new anonymous type.
+
+In a type position — a `: Type` annotation or the right side of `::` — `|`, `&`, `~`, and `^` describe the *values* that each type allows: `|` either, `&` both, `~` the left but not the right, `^` exactly one. See [Runtime Type Contracts](#runtime-type-contracts) and [Type Aliases](#type-aliases).
 
 ```code
 Movable {
@@ -325,7 +329,7 @@ Drawable {
 }
 
 # Combine types
-Sprite | Movable | Drawable {
+Sprite + Movable + Drawable {
     name := 'sprite'
 }
 
@@ -334,18 +338,18 @@ s.move(10, 5)
 s.draw()
 ```
 
-Composition chains — `~` can remove a trait mixed in earlier in the same chain:
+Composition chains — `-` can remove a trait mixed in earlier in the same chain:
 
 ```code
 Flying { can_fly := true }
 Swimming { can_swim := true }
 
-Duck | Flying | Swimming { name := 'duck' }
+Duck + Flying + Swimming { name := 'duck' }
 d := Duck()
 d.can_fly     # true
 d.can_swim    # true
 
-Ostrich | Duck ~ Flying { name := 'ostrich' }
+Ostrich + Duck - Flying { name := 'ostrich' }
 o := Ostrich()
 o.can_swim    # true
 o.can_fly     # raises Code::Undeclared_Identifier
@@ -354,7 +358,7 @@ o.can_fly     # raises Code::Undeclared_Identifier
 A type can even compose with itself, to extend or override a built-in type's own behavior:
 
 ```code
-Array | Array {
+Array + Array {
     each ( func;
         for self.values   # self.values reaches the original Array's own values, despite `each` itself now being redefined
             func(it)
@@ -375,7 +379,7 @@ A [struct](#structs) value works as a composition operand too — its named memb
 ```code
 p := <a := 5, b := 'x'>
 
-Combined | p {
+Combined + p {
     foo (; a )
 }
 
@@ -391,18 +395,56 @@ In a chain, the *leftmost* operand that declares a given member wins a name coll
 A { Self (; self.label := 'A' ) }
 B { Self (; self.label := 'B' ) }
 
-Combined | A | B {}
+Combined + A + B {}
 Combined().label   # 'A' -- A's Self ran, not B's; A comes first in the chain
 ```
 
 A type's own `{}` body always wins over anything pulled in by composition, whatever position it holds in the chain.
+
+### Composing in a Body
+
+`Self += Other` and `Self -= Other` compose from inside a type. They work anywhere in a body, inside `if` and `for` too, and they run in place.
+
+1. A body runs on the type when it is declared, then again on each instance as it is built. So `Self += Other` at the top of a body is the same as `Type + Other {}`
+2. A condition can be true for one instance only. Then only that instance gets the members and the type, as with Ruby's `extend`. The type itself does not change
+3. In a method, `Self += Other` and `Self -= Other` change the type. An instance built after the change gets it, and an instance built before keeps what it had. `self += Other` changes only this instance
+4. A change a method makes to the type is replayed on each instance built later. Only what ran is replayed, with the value it had: a `Self += Other` behind a false condition replays nothing, and `Self += chosen` replays the type `chosen` held
+5. A later declaration of the type (a forward declaration, or reopening the type) still reaches the instances built before it. Only a change a method makes is held back
+6. `self += Other` in a body raises `Code::Cannot_Use_Instance_Scope_Operator_Outside_Instance`, because the body also runs on the type. Outside a type, `Self += Other` raises `Code::Composition_Outside_Type_Declaration`
+7. When an instance removes a type with `-=`, it loses the type's members and its identity (`=>=`), even when its own type still has them. So `self -= Flying` then `self += Robot` swaps one type for another, and a later `self += Flying` brings the members back
+
+```code
+Logging { log (; 'logged' ) }
+Flying { fly (; 'flew' ) }
+
+n := 0
+Duck {
+    n += 1
+    if n == 2
+        Self += Logging   # the second Duck only
+    end
+
+    learn_to_fly (;
+        self += Flying    # this Duck only
+    )
+}
+
+a := Duck()
+b := Duck()
+b =>= Logging      # true
+a =>= Logging      # false
+Duck =>= Logging   # false
+
+a.learn_to_fly()
+a.fly()            # 'flew'
+```
 
 ### Alias vs. subtype
 
 Two ways to give a type a second name, behaving differently under the [type comparison operators](#comparison):
 
 ```code
-Whole | Integer {}    # subtype — Whole is a NEW type that composes Integer
+Whole + Integer {}    # subtype — Whole is a NEW type that composes Integer
 Int32 :: Integer      # alias   — Int32 IS Integer, the same type object
 
 4 === Integer          # true
@@ -413,7 +455,7 @@ Whole  =>= Integer     # true   (a Whole is-a Integer)
 Integer =>= Whole      # false  (not every Integer is a Whole)
 ```
 
-Use `::` for a plain synonym (`Int :: Integer` in the standard library); use `| {}` for a distinct, narrower type that `=>=` its parent without being `===` to it.
+Use `::` for a plain synonym (`Int :: Integer` in the standard library); use `+ {}` for a distinct, narrower type that `=>=` its parent without being `===` to it.
 
 ### Type Aliases
 
@@ -444,7 +486,7 @@ Drawing <shapes: Array\Shape>
 Callback :: (;)
 run ( callback: Callback; callback() )
 
-x := String | Number # a value: one new Type that composes both, the same as `Both | String | Number {}`, then `x := Both`
+x := String + Number # a value: one new Type that composes both, the same as `Both + String + Number {}`, then `x := Both`
 ```
 
 ### Literal Types
@@ -825,7 +867,7 @@ doubled := double(v)  # doubled.x: 6, doubled.y: 8
 ```code
 # The standard library works the same way -- Array is reachable through
 # Global's own read-only splat, not declared on Global directly
-Mine | Array { extra := true }
+Mine + Array { extra := true }
 Array = Mine          # shadows the name -- the real Array is untouched
 [1, 2, 3].length()    # 3 -- still works, Mine composes Array
 [1].extra              # true -- and every array literal now has this too
@@ -1247,7 +1289,7 @@ Read-only facts about the scope, computed live on every access:
 
 ```code
 Flying { airborne := true }
-Duck | Flying {}
+Duck + Flying {}
 
 Duck.@name              # 'Duck'
 Duck.@composed_types    # Set{'Duck', 'Flying'} — own name plus every |/&/~/^ type
@@ -1399,7 +1441,7 @@ supplies := <water: Number = 40, wood: Number = 12>
 ```code
 @load 'lang/server.code'
 
-App | Server {
+App + Server {
     Self (;
         self.port = 3000
     )
@@ -1423,7 +1465,7 @@ App | Server {
 3. Query params via `request.query`
 
 ```code
-App | Server {
+App + Server {
     # Static route
     get://users (;
         'All users'
@@ -1533,7 +1575,7 @@ Compose the table into a struct to keep the data, its logic, and its table under
 User_Logic {
     greet (; "Hi `name`" )
 }
-User_Record | User | User_Logic | users <>
+User_Record + User + User_Logic + users <>
 
 User_Record.create(<name := 'Ada'>)
 User_Record.find(1).name            # 'Ada'
@@ -1555,7 +1597,7 @@ User_Record(name := 'Bob').greet()  # 'Hi Bob' -- a record built in memory gets 
 ```code
 @load 'lang/html.code'
 
-Card | Div {
+Card + Div {
     css_padding := '1rem'
     css_border_radius := '8px'
     css_background_color := '#fff'
@@ -1565,7 +1607,7 @@ Card | Div {
     html_aria_label,
 }
 
-Link | A {
+Link + A {
     html_href = '#'
     html_target := '_blank'
 }
@@ -1656,7 +1698,7 @@ MASK ^ OTHER       # 15
 MASK | OTHER & 6   # 14 -- `&` binds tighter than `|`
 ```
 
-An UPPERCASE name can be a type or a constant. `MASK | OTHER` is bitwise when `MASK` holds a value, and a [composition](#type-composition) when it is a type (`H1 | Dom {}`).
+An UPPERCASE name can be a type or a constant. `MASK | OTHER` and `MASK + OTHER` are value expressions. A chain is a [composition](#type-composition) only when a `{}` body or a `<…>` struct follows it (`H1 + Dom {}`).
 
 ### Comparison
 
@@ -1714,14 +1756,14 @@ a.@object_id == Point(1, 2).@object_id       # false — two objects, though the
 
 #### Composed types
 
-`===`, `=!=`, `=>=`, `=<=`, and `=/=` compare *composed types* — a type's own name plus everything picked up via `|`/`&`/`~`/`^` — not values:
+`===`, `=!=`, `=>=`, `=<=`, and `=/=` compare *composed types* — a type's own name plus everything picked up via `+` — not values:
 
 ```code
 Flying { can_fly := true }
 Swimming { can_swim := true }
 
-Duck | Flying | Swimming { name := 'duck' }
-Fish | Swimming { name := 'fish' }
+Duck + Flying + Swimming { name := 'duck' }
+Fish + Swimming { name := 'fish' }
 
 Duck === Duck          # true  (identical composed types)
 Duck === Fish          # false (Duck also composes Flying)
@@ -1767,8 +1809,8 @@ Fixed\<32>().bits()                 # 32
 A tag is-a its parent tag, on any tagged type. A tag that composes another type satisfies a tag of that type with `=>=`, but a parent never satisfies a child, and `===` stays exact:
 
 ```code
-Client_Error | Error {}
-Bad_Header   | Client_Error {}
+Client_Error + Error {}
+Bad_Header   + Client_Error {}
 
 nil\Bad_Header =>= nil\Client_Error       # true
 nil\Bad_Header =>= nil\Error              # true  — Error is a struct; its name counts too
@@ -1780,8 +1822,8 @@ Array\Bad_Header =>= Array\Client_Error   # true
 A named struct tag counts only by its name, not by its members. So kinds declared with `<>` stay apart, although each one gets the same members from `Error`:
 
 ```code
-Bad_Header    | Error <>
-Line_Too_Long | Error <>
+Bad_Header    + Error <>
+Line_Too_Long + Error <>
 
 nil\Bad_Header =>= nil\Line_Too_Long      # false
 nil\Bad_Header =>= nil\Error              # true
@@ -1807,7 +1849,7 @@ A String compares equal (`==`/`!=` only) to a bare Type whose `@name` it spells:
 
 ```code
 Flying { can_fly := true }
-Duck | Flying {}
+Duck + Flying {}
 
 "Flying" == Flying                       # true
 Duck.@composed_types.include?(Flying)    # true — the set holds the string 'Flying'
@@ -1950,17 +1992,37 @@ This holds everywhere a `: Type` annotation appears: a first assignment, a later
 Declaring a combined type first does *not* give a reusable OR check — a single named type in annotation position checks real is-a membership, not "one of the types it composed":
 
 ```code
-Int_Or_Nil | Int | Nil {}
+Int_Or_Nil + Int + Nil {}
 x: Int_Or_Nil = 4     # raises Code::Type_Mismatch, even though 4 is an Int (a literal, so the static checker finds it)
 ```
 
 Spell out `x: Int | Nil` at each spot you need it. Declaring a combined type first *is* the right move for the other direction — a value that must actually be, or extend, that whole combined type:
 
 ```code
-Combined | A | B {}
+Combined + A + B {}
 c := Combined()
 x: Combined = c    # ok — c really is a Combined
 ```
+
+### `Self` in an Annotation
+
+Inside a type, `Self` in an annotation is the type that uses it: on a member, a param, or a return type. When a method comes in through composition, `Self` is the type it was composed into, not the type that wrote it.
+
+```code
+Linked {
+    next_node: Self
+    link ( other: Self -> Self; other )
+}
+Node + Linked {}
+
+Node().link(Node())       # ok — a Node
+Node().link(Linked())     # raises Code::Type_Contract_Violation — expected Node, got Linked
+Linked().link(Linked())   # ok — on a Linked, Self is Linked
+```
+
+1. A member typed `Self` keeps that type, so `n.next_node = 5` from outside the type still raises. This works inside a composed annotation too: `next_node: Self | String`
+2. Outside a type — at the top level, or in a plain function — `Self` names nothing, so `x: Self = 5` raises `Code::Self_Outside_Type`
+3. A member that comes in through composition keeps no type lock, the same as any other composed member
 
 ## Function Signatures
 
@@ -2038,8 +2100,8 @@ nothing(nothing)    # nil
 6. `x.tag = new_tag` re-tags at runtime, only on a value whose type was declared with a tag, and only when `new_tag` composes at least everything the current tag does (`=>=`) — otherwise `Code::Tag_Signature_Violation`
 7. Bare `<...>` (no `\`) on an *undeclared* identifier builds a plain named struct instead of raising; a name already taken by a real Type still takes priority
 8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`), so two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring with a *different* shape raises `Code::Undeclared_Tagged_Type`
-9. A Type composed into a struct brings its methods with it, so the data and its logic can live apart: `User | User_Logic <name: String, age: Int>`, then `User('Ada', 36).greet()`. The methods go after the data members, so positional arguments fill the data members in order
-10. An instance composed into a struct brings its type's methods too, but they stay bound to that instance: `Tasks | Task | tasks_table <>` gives a `Tasks.find` that runs on `tasks_table`. See Record ORM
+9. A Type composed into a struct brings its methods with it, so the data and its logic can live apart: `User + User_Logic <name: String, age: Int>`, then `User('Ada', 36).greet()`. The methods go after the data members, so positional arguments fill the data members in order
+10. An instance composed into a struct brings its type's methods too, but they stay bound to that instance: `Tasks + Task + tasks_table <>` gives a `Tasks.find` that runs on `tasks_table`. See Record ORM
 
 ```code
 String\<dict: Dictionary> {

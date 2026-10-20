@@ -64,9 +64,9 @@ Number {
 # src/external/ruby/number.rb): an integer literal is an `Integer`, a literal with a fractional part
 # is a `Float`, and `Decimal(...)` wraps a BigDecimal. All compose `Number`, so `4 =>= Number` and
 # every `Number` method is inherited.
-Integer | Number {}
-Float | Number {}
-Decimal | Number {}
+Integer + Number {}
+Float + Number {}
+Decimal + Number {}
 
 # Short aliases -- Ruby has no equivalent, but the temporal structs (lang/date.code etc) and DB
 # schema columns lean on the brevity. `Int` is-a `Integer` is-a `Number`.

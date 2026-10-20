@@ -12,7 +12,7 @@ sign := Div([P('Welcome to the beach')])
 
 A `Dom` type's `render(;)` returns what belongs inside its tag -- by default that's just `children`, but overriding it lets a type build its own inner structure instead of taking children at all.
 ###
-Camp_Sign | Dom {
+Camp_Sign + Dom {
 	message,
 
 	Self ( message;
@@ -29,7 +29,7 @@ Camp_Sign | Dom {
 
 An `html_*` declaration becomes an HTML attribute (`html_class` -> `class`); a `css_*` declaration becomes an inline style property (`css_padding` -> `padding`). Both are just regular declarations underneath, readable like any other -- but they're only actually folded into attribute/style output by the server's own rendering pipeline when a `Dom` instance comes back from a route (see examples/web_servers.code). Calling `.to_s()` directly, like above, ignores them entirely and only wraps `children` in the tag.
 ###
-Card | Div {
+Card + Div {
 	css_padding := '1rem'
 	css_background_color := '#f5deb3'
 	html_class := 'card'
@@ -60,12 +60,12 @@ CSS anchor positioning needs no new Backend-side plumbing at all -- it's plain C
 
 A common pairing is a Popover-API element (`html_popover`) positioned next to whatever triggered it -- the popover shows/hides itself, and anchor positioning places it. Neither needs the other, but they're built for exactly this combination.
 ###
-Trigger | Button {
+Trigger + Button {
 	css_anchor_name := '--menu-trigger'
 	html_popovertarget := 'menu'
 }
 
-Menu | Div {
+Menu + Div {
 	html_id := 'menu'
 	html_popover := 'auto'
 	css_position := 'absolute'
@@ -80,7 +80,7 @@ menu     := Menu()
 @assert menu.css_position_anchor == '--menu-trigger', 'the positioned element points back at that same name'
 @assert menu.css_top == 'anchor(bottom)', 'anchor() reads as a plain string -- Backend never needs to parse what is inside it'
 
-Close | Button {
+Close + Button {
 	html_popovertarget := 'menu'
 	html_popovertargetaction := 'hide'
 }

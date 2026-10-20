@@ -662,24 +662,23 @@ class Parser_Test < Base_Test
 		assert_equal 2, out.first.expressions.count
 
 		out = Code.parse 'Entity {
-			|Transform
+			Self += Transform
 		}'
 		assert_kind_of Code::Composition_Expr, out.first.expressions.first
-		assert_equal '|', out.first.expressions.first.operator.value
+		assert_equal '+', out.first.expressions.first.operator.value
+		assert_equal 'Self', out.first.expressions.first.target
 		assert_equal 'Transform', out.first.expressions.first.identifier.value
 	end
 
 	def test_mixed_inline_compositions
-		out = Code.parse 'Xform | Transform ~ Vec2 & This ^ That {}'
+		out = Code.parse 'Xform + Transform - Vec2 + This {}'
 		assert_kind_of Code::Composition_Expr, out.first.expressions.first
-		assert_equal '|', out.first.expressions[0].operator.value
+		assert_equal '+', out.first.expressions[0].operator.value
 		assert_equal 'Transform', out.first.expressions[0].identifier.value
-		assert_equal '~', out.first.expressions[1].operator.value
+		assert_equal '-', out.first.expressions[1].operator.value
 		assert_equal 'Vec2', out.first.expressions[1].identifier.value
-		assert_equal '&', out.first.expressions[2].operator.value
+		assert_equal '+', out.first.expressions[2].operator.value
 		assert_equal 'This', out.first.expressions[2].identifier.value
-		assert_equal '^', out.first.expressions[3].operator.value
-		assert_equal 'That', out.first.expressions[3].identifier.value
 	end
 
 	def test_control_flows

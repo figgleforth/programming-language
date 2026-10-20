@@ -378,7 +378,7 @@ module Code
 					if scope.has?(expr.value) || scope.respond_to?(proxy_method_name(expr.value))
 						found_scope = scope
 						break
-					elsif scope.is_a?(Code::Instance) && scope.enclosing_scope&.has?(expr.value)
+					elsif scope.is_a?(Code::Instance) && scope.type_member?(expr.value)
 						# Method exists on the Type - return the instance as the scope so lookups happen in instance context
 						found_scope = scope
 						break
@@ -655,6 +655,11 @@ module Code
 		# `expected` may also be a Code::Type_Alias (`x: Int | Nil`, see #annotation_type_name), or the name of one (`x: Strumber`). Each operator in it keeps its set meaning: `|` either, `&` both, `~` not, `^` exactly one.
 		def type_contract_satisfied? value, expected
 			return expected.any? { |name| type_contract_satisfied? value, name } if expected.is_a? ::Array
+
+			# `Self` is the type that uses the annotation: the nearest type or instance on the stack. So a method that `Node + Linked {}` gets from `Linked` takes and returns a `Node`.
+			if expected == 'Self'
+				expected = stack.reverse_each.find { it.is_a? Code::Type }&.name or raise Code::Self_Outside_Type.new
+			end
 			return true if expected.nil? || expected == 'Any'
 			return true if value.nil? || value.is_a?(Code::Nil)
 			return expected.satisfied? { type_contract_satisfied? value, it } if expected.is_a? Code::Type_Alias
@@ -687,7 +692,22 @@ module Code
 		def annotation_type_name type_expr
 			return nil unless type_expr
 
-			type_alias_for(type_expr) || type_expr.value
+			type_alias = type_alias_for type_expr
+			return type_expr.value unless type_alias || type_expr.value == 'Self'
+
+			# `Self` is the type that uses the annotation (see #type_contract_satisfied?). A lock records that type, so `n.next_node = x` from outside the type still checks against it.
+			self_type = stack.reverse_each.find { it.is_a? Code::Type }&.name
+			return self_type || raise(Code::Self_Outside_Type.new(type_expr)) unless type_alias
+
+			# `next: Self | String`: each `Self` in the tree.
+			replace_self = ->(node) do
+				next self_type || raise(Code::Self_Outside_Type.new(type_expr)) if node == 'Self'
+				next node unless node.is_a? ::Array
+
+				[node[0], replace_self.call(node[1]), replace_self.call(node[2])]
+			end
+			type_alias.tree = replace_self.call type_alias.tree
+			type_alias
 		end
 
 		# A Code::Type_Alias for a composition chain in a type position (`String | Number`, from a `: Type` annotation or the right side of `::`), or nil for a single type.
@@ -1534,7 +1554,7 @@ module Code
 						# It's a variable/property
 						return scope.send(proxy_method)
 					end
-				elsif scope.is_a?(Code::Instance) && scope.enclosing_scope&.is_a?(Code::Type) && scope.enclosing_scope&.has?(expr.value)
+				elsif scope.is_a?(Code::Instance) && scope.enclosing_scope.is_a?(Code::Type) && scope.type_member?(expr.value)
 					if expr.type || expr.tag
 						self_declare_annotated_identifier expr
 					else
@@ -2347,7 +2367,7 @@ module Code
 			end
 
 			# Only an Instance gets its Type's overload. A tagged variant (`Array\X`) or a nested Type also has a Type as its enclosing_scope, but it is not a value of that Type.
-			if operand.is_a?(Code::Instance) && operand.enclosing_scope.is_a?(Code::Type) && operand.enclosing_scope.has?(operator)
+			if operand.is_a?(Code::Instance) && operand.enclosing_scope.is_a?(Code::Type) && operand.type_member?(operator)
 				return operand.enclosing_scope.get operator
 			end
 
@@ -2411,8 +2431,7 @@ module Code
 				raise Code::Type_Alias_Is_Not_A_Type.new(expr) if left.is_a?(Code::Type_Alias) || right.is_a?(Code::Type_Alias)
 				overload    = find_operator_overload expr.operator.value, maybe_instance(left)
 				return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
-				return compose_type_values(left, expr.operator.value, right) if left.instance_of?(Code::Type) && right.is_a?(Code::Scope)
-				return compose_struct_values(expr, left, right) if left.is_a? Code::Struct
+				raise Code::Undeclared_Infix_Operator.new(expr) unless left.respond_to? expr.operator.value
 				return left.send expr.operator.value, right
 			end
 
@@ -2437,12 +2456,19 @@ module Code
 				return overload.is_a?(Code::Func) ? call_operator_overload(overload, expr, [left, right]) : left.send(expr.operator.value, right)
 			end
 
+			# `Duck + Flying` in a value composes. A bare type never reaches an instance's own `@operator +`.
+			if left.instance_of?(Code::Type) && right.is_a?(Code::Scope) && MEMBER_COMPOSITION_OPERATORS.include?(expr.operator.value)
+				return compose_type_values(left, expr.operator.value, right)
+			end
+
 			overload = find_operator_overload expr.operator.value, maybe_instance(left)
 
 			if overload.is_a? Code::Func
 				call_operator_overload overload, expr, [left, right]
-			elsif expr.operator.value == '^' && left.is_a?(Code::Struct)
+			elsif left.is_a?(Code::Struct) && MEMBER_COMPOSITION_OPERATORS.include?(expr.operator.value)
 				compose_struct_values expr, left, right
+			elsif !maybe_instance(left).respond_to?(expr.operator.value)
+				raise Code::Undeclared_Infix_Operator.new(expr)
 			else
 				result = maybe_instance(left).send expr.operator.value, maybe_instance(right)
 				# A Ruby-level operator (`Code::Array#+`) builds its result outside the interpreter, so it needs linking to its type like any `@ruby` return.
@@ -2905,20 +2931,18 @@ module Code
 
 		# A composition chain with no `{}` body (`Abc|Def`, `A & B`, ...) is a value, not a declaration, built by applying the chain to a fresh, unnamed Type exactly as if `X | Abc | Def { }` had been written for some unnamed X.
 		def interp_anonymous_composition expr
-			# `MASK | OTHER`, where the names hold values: the chain is the value operators `|`, `&`, `^`, not a type composition.
 			head = expr.name && find_in_stack(expr.name)
 			raise Code::Type_Alias_Is_Not_A_Type.new(expr) if head.is_a? Code::Type_Alias # a contract has no declarations to compose
-			return interp_value_chain(expr) unless head.nil? || head.is_a?(Code::Scope)
 
 			anonymous             = Code::Type.new nil
 			anonymous.types       = ::Set.new # Type#initialize seeds `@types = ::Set[name]` -- ::Set[nil] here, which would leave a stray nil in .types (breaking #find_ruby_class_for_type's `"Code::#{type_name}"` lookup) since the union step below only ever adds, never resets.
 			anonymous.expressions = [] # A real declaration always ends up with this set (even to []) via #interp_bare_type_declaration's own body-merge -- there's no body here, but #run_type_body_on_instance still expects an Array to iterate when constructing an instance.
 
 			push_then_pop anonymous do
-				# A bare prefix chain (`x := |Compo`) has no base name to seed with -- only the two-name form (`Base | Compo`) needs Base unioned in first.
+				# A struct-only chain has no base name to seed with -- only the two-name form (`Base + Compo`) needs Base added first.
 				if expr.name
 					seed            = Code::Composition_Expr.new
-					seed.operator   = Code::Lexeme.new(:operator, '|')
+					seed.operator   = Code::Lexeme.new(:operator, '+')
 					seed.identifier = Code::Identifier_Expr.new.tap { |it| it.lexeme = Code::Lexeme.new(:Identifier, expr.name) }
 					interp_composition seed
 				end
@@ -2929,7 +2953,7 @@ module Code
 			anonymous
 		end
 
-		# `x := H1 | Dom`: an UPPERCASE head parses as a value expression (Parser#type_composition_follows?), so two types joined by `|` or `&` reach here, and compose into a new anonymous type, the same as `x := String | Number`.
+		# `x := Duck + Flying`: two types joined by `+` or `-` in a value compose into a new anonymous type.
 		def compose_type_values left, operator, right
 			operands = Temporary.new 'Composition Operands'
 			operands.declare 'Composed_Left', left
@@ -2949,7 +2973,7 @@ module Code
 			result
 		end
 
-		# `<x := 1> | <y := 2>`: two struct values compose by member name, with the rules of a declared `A | B <…>` (#interp_struct_composition).
+		# `<x := 1> + <y := 2>`: two struct values compose by member name, with the rules of a declared `A + B <…>` (#interp_struct_composition).
 		def compose_struct_values expr, left, right
 			raise Code::Invalid_Composition_With_A_Non_Struct_type.new(expr) unless right.is_a? Code::Scope
 
@@ -2958,7 +2982,7 @@ module Code
 			operands.declare 'Composed_Right', right
 
 			chain             = Code::Type_Expr.new
-			chain.expressions = [['|', 'Composed_Left'], [expr.operator.value, 'Composed_Right']].map do |op, name|
+			chain.expressions = [['+', 'Composed_Left'], [expr.operator.value, 'Composed_Right']].map do |op, name|
 				composition            = Code::Composition_Expr.new
 				composition.operator   = Code::Lexeme.new :operator, op
 				composition.identifier = Code::Identifier_Expr.new.tap { |ident| ident.lexeme = Code::Lexeme.new :Identifier, name }
@@ -2967,29 +2991,6 @@ module Code
 			result = nil
 			push_then_pop(operands) { result = interp_struct_composition chain }
 			result
-		end
-
-		# Runs a composition chain as value operators, with the same precedence as a value expression.
-		def interp_value_chain expr
-			operands  = [Code::Identifier_Expr.new.tap do
-				it.lexeme = Code::Lexeme.new(Code.type_of_identifier(expr.name), expr.name)
-			end]
-			operators = []
-			expr.expressions.each do |composition|
-				operators << composition.operator.value
-				operands << composition.identifier
-			end
-
-			to_infix = ->(node) do
-				next node unless node.is_a? ::Array
-
-				infix          = Code::Infix_Expr.new
-				infix.operator = Code::Lexeme.new :operator, node[0]
-				infix.left     = to_infix.call node[1]
-				infix.right    = to_infix.call node[2]
-				infix
-			end
-			interpret to_infix.call(Code::Type_Alias.tree_from_chain(operands, operators))
 		end
 
 		# Shared tail of both declaration paths below: parent the type to the declaring scope, link it to its Code:: Ruby class when one exists, record its own name in @types, and run `body_expressions` in the type's scope.
@@ -3007,8 +3008,8 @@ module Code
 			begin
 				push_then_pop type do
 					body_expressions.each do |sub_expr|
-						# A bare composition (`| Compo`) only means anything as a direct top-level item of a type's own body -- dispatch it explicitly rather than through #interpret's generic case (which raises).
-						sub_expr.is_a?(Code::Composition_Expr) ? interp_composition(sub_expr) : interpret(sub_expr)
+						# A head composition runs on the type directly. `Self += Duck` goes through #interpret, which finds its scope (#interp_self_composition).
+						sub_expr.is_a?(Code::Composition_Expr) && !sub_expr.target ? interp_composition(sub_expr) : interpret(sub_expr)
 					end
 				end
 			ensure
@@ -3327,8 +3328,10 @@ module Code
 							end
 
 							# Same bypass as #finish_type_declaration's body walk, re-run per instance here.
-							expr.is_a?(Code::Composition_Expr) ? interp_composition(expr) : interpret(expr)
+							expr.is_a?(Code::Composition_Expr) && !expr.target ? interp_composition(expr) : interpret(expr)
 						end
+
+						type.replayed_compositions&.each { |composition, value| interp_composition composition, value }
 					end
 				end
 			end
@@ -3362,10 +3365,11 @@ module Code
 			# `.name` / `.types` are both `@`-only now (`@.name` / `@.types`) -- the Ruby-level attrs are
 			# the store. Setting `.name` here matters for a composed type sharing a built-in's Ruby class
 			# (`Tasks | Table {}` -> Code::Table baked in "Table"); `@.name` must report "Tasks".
-			instance.name            = type.name
-			instance.types           = type.types
-			instance.enclosing_scope = type
-			instance.expressions     = type.expressions
+			instance.name              = type.name
+			instance.types             = type.types
+			instance.enclosing_scope   = type
+			instance.expressions       = type.expressions
+			instance.type_member_names = type.member_names
 
 			# note; Bind structs onto the instance before the type's expressions (and therefore `new`) are interpreted below, so `Self(;)`'s own body can reference `.tag`. This is a completely separate binding path from the call's own arguments — member values never get forwarded into `new`'s params.
 			effective_tag = type.tag_instance || type.tag_declaration
@@ -4108,10 +4112,10 @@ module Code
 			duped
 		end
 
-		def interp_composition expr
+		# `value` is given when it was found before: a replayed composition (#run_type_body_on_instance) has no scope left to evaluate its operand in.
+		def interp_composition expr, value = interpret(expr.identifier)
 			# These are interpreted sequentially, so there are no precedence rules. I think that'll be better in the long term because there's no magic behind their evaluation. You can ensure the correct outcome by using these operators to form the types you need.
 
-			value = interpret expr.identifier
 			# A plain value (`:bar`, 'bar', 4) has nothing to compose, though #maybe_instance would box it into a Scope.
 			raise Code::Invalid_Composition_With_A_Non_Scope_type.new(value) if [::Symbol, ::String, ::Numeric, ::TrueClass, ::FalseClass].any? { value.is_a? it }
 
@@ -4121,10 +4125,13 @@ module Code
 				raise Code::Invalid_Composition_With_A_Non_Scope_type.new(right)
 			end
 			curr_scope = stack.last
+			# An instance shares its type's `types` Set (#build_instance_of_type). Whichever of them changes it later takes its own copy first: a composition in one instance leaves the type and the other instances alone, and a type changed in a method leaves the instances it already built alone.
+			shares_types = curr_scope.is_a?(Code::Instance) ? curr_scope.types.equal?(curr_scope.enclosing_scope&.types) : curr_scope.is_a?(Code::Type) && !curr_scope.declaration_in_progress
+			curr_scope.member_names = curr_scope.member_names.dup if shares_types && !curr_scope.is_a?(Code::Instance) # the same for its member names
 
 			case expr.operator.value
-			when '|'
-				# Union with Code::Type
+			when '+'
+				# Adds the operand's members
 
 				right.declarations.each do |key, value|
 					initter         = curr_scope.has? 'Self'
@@ -4141,6 +4148,7 @@ module Code
 
 				unless right.is_a?(Code::Struct) && right.name.nil?
 					curr_scope.types ||= ::Set.new
+					curr_scope.types = curr_scope.types.dup if shares_types && !curr_scope.types.superset?(right.types)
 					curr_scope.types.merge right.types
 
 					# Keep `@.composed_types` reading like a history
@@ -4148,8 +4156,8 @@ module Code
 						curr_scope.types << 'Struct'
 					end
 				end
-			when '~'
-				# Removal of Code::Type
+			when '-'
+				# Removes the operand's members
 
 				operand_keys_to_remove = right.declarations.keys
 
@@ -4162,47 +4170,48 @@ module Code
 					curr_scope.delete key
 				end
 
+				# `self -= Flying` on one instance also takes Flying's names off its list (Instance#type_member?), so its type does not give them back. A head's or a replayed `-` has no target: its type has already lost them.
+				if curr_scope.is_a?(Code::Instance) && expr.target && curr_scope.enclosing_scope.is_a?(Code::Type)
+					curr_scope.type_member_names = (curr_scope.type_member_names || curr_scope.enclosing_scope.member_names) - operand_keys_to_remove
+				end
+
 				curr_scope.static_declarations.subtract right.static_declarations
 
+				curr_scope.types = curr_scope.types.dup if shares_types && curr_scope.types.include?(expr.identifier.value)
 				curr_scope.types.delete_if do |type|
 					type == expr.identifier.value
 				end
-			when '&'
-				# Intersection of Types, aka what they share.
-
-				shared_keys    = right.declarations.keys.select do |key|
-					curr_scope.has? key
-				end
-				keys_to_delete = curr_scope.declarations.keys - shared_keys
-
-				keys_to_delete.each do |key|
-					curr_scope.declarations.delete key
-				end
-
-				curr_scope.static_declarations = curr_scope.static_declarations & right.static_declarations
-
-			when '^'
-				# Symmetric difference of Types, aka what they don't share.
-
-				shared_keys = curr_scope.declarations.keys.select do |key|
-					right.has? key
-				end
-
-				current_unique_keys = curr_scope.declarations.keys - shared_keys
-				operand_unique_keys = right.declarations.keys - shared_keys
-				keys_to_keep        = current_unique_keys + operand_unique_keys
-
-				curr_scope.declarations.delete_if do |key, _|
-					!keys_to_keep.include? key
-				end
-
-				curr_scope.static_declarations = curr_scope.static_declarations ^ right.static_declarations
-
-				operand_unique_keys.each do |key|
-					curr_scope[key] = dup_composed_value(right[key])
-				end
 			else
 				raise Code::Invalid_Composition_Operator.new(expr)
+			end
+		end
+
+		# `Self += Duck` / `self -= Flying`, anywhere in a type body or a method. In a type body, `Self` is the scope the body runs on: the type when it is declared, then each instance as it is built, the same as a head. In a method, `Self` is the type, so every instance gets the new members through it, and `self` is only this instance.
+		def interp_self_composition expr
+			owner_index = stack.rindex { it.is_a? Code::Type }
+			raise Code::Composition_Outside_Type_Declaration.new(expr) unless expr.target && owner_index
+
+			owner  = stack[owner_index]
+			target = if expr.target == 'self'
+				raise Code::Cannot_Use_Instance_Scope_Operator_Outside_Instance.new(expr) unless owner.is_a? Code::Instance
+				owner
+			elsif owner.is_a?(Code::Instance) && stack[(owner_index + 1)..].any? { it.is_a? Code::Func }
+				owner.enclosing_scope
+			else
+				owner
+			end
+			value = interpret expr.identifier
+			push_then_pop(target) { interp_composition expr, value }
+
+			# An instance is built by running its type's body again, so it would never see a change that a method made to the type. The type records the change, and each instance built later runs it after its body (#run_type_body_on_instance).
+			changed_by_a_method = target.instance_of?(Code::Type) && !target.declaration_in_progress
+			if changed_by_a_method
+				replay        = expr.dup
+				replay.target = nil # it runs like a head composition, so it changes no instance's name list
+
+				# The value, not the operand: a local operand (`Self += chosen`) is gone by the time it replays.
+				target.replayed_compositions ||= []
+				target.replayed_compositions << [replay, value]
 			end
 		end
 
@@ -4240,7 +4249,7 @@ module Code
 				end
 
 				case composition_expr.operator.value
-				when '|'
+				when '+'
 					# Union -- leftmost source wins a name collision, same as #interp_composition's own `unless curr_scope.has?(key)`.
 					operand_members.each do |member|
 						next if member_index.call(member[0])
@@ -4250,24 +4259,10 @@ module Code
 					# Record the operand's own name, plus whatever it was itself composed from, so a chain (`A | B | C`) carries every name forward.
 					composed_type_names << operand.name if operand.respond_to?(:name) && operand.name
 					composed_type_names.merge operand.composed_types if operand.is_a?(Code::Struct) && operand.composed_types
-				when '~'
+				when '-'
 					# Removal -- drop any accumulated member whose name the operand also declares.
 					operand_names = operand_members.filter_map { |m| m[0] }
 					members.reject! { |m| m[0] && operand_names.include?(m[0]) }
-				when '&'
-					# Intersection -- keep only accumulated members the operand also names. An unnamed member has nothing to share by name, so it doesn't survive an intersection.
-					operand_names = operand_members.filter_map { |m| m[0] }
-					members.select! { |m| m[0] && operand_names.include?(m[0]) }
-				when '^'
-					# Symmetric difference -- drop whatever's shared, keep (and pull in) whatever's unique to either side.
-					operand_names = operand_members.filter_map { |m| m[0] }
-					shared_names  = members.filter_map { |m| m[0] }.select { |name| operand_names.include? name }
-					members.reject! { |m| shared_names.include? m[0] }
-					operand_members.each do |member|
-						next unless member[0]
-						next if shared_names.include? member[0]
-						members << member
-					end
 				else
 					raise Code::Invalid_Composition_Operator.new(composition_expr)
 				end
@@ -5273,8 +5268,7 @@ module Code
 				interp_func_signature expr
 
 			when Code::Composition_Expr
-				# Reaching here means a bare `| Compo` showed up nested somewhere other than a type body's own top level -- #finish_type_declaration/#run_type_body_on_instance dispatch that case explicitly, bypassing this.
-				raise Code::Composition_Outside_Type_Declaration.new(expr)
+				interp_self_composition expr
 
 			when Code::Prefix_Expr
 				interp_prefix expr

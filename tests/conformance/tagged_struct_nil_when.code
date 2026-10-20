@@ -1,12 +1,12 @@
 @load 'lang/errors.code'
 
 # Kinds declared as structs with `<>` get the same members from Error, but each one is still its own type
-Http_Error        | Error <>
-Client_Error      | Http_Error <>
-Bad_Header        | Client_Error <>
-Line_Too_Long     | Client_Error <>
-Connection_Closed | Http_Error <>
-Unknown_Thing     | Error <>
+Http_Error        + Error <>
+Client_Error      + Http_Error <>
+Bad_Header        + Client_Error <>
+Line_Too_Long     + Client_Error <>
+Connection_Closed + Http_Error <>
+Unknown_Thing     + Error <>
 
 handle ( value;
 	if value

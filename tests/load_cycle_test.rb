@@ -33,8 +33,8 @@ class Load_Cycle_Test < Base_Test
 
 	def test_a_type_can_use_a_type_declared_later_in_the_other_file_while_loading
 		dir = write_files(
-			c: "@load 'DIR/d'\nThing | Base {}\nBase {}",
-			d: "@load 'DIR/c'\nX | Thing {}"
+			c: "@load 'DIR/d'\nThing + Base {}\nBase {}",
+			d: "@load 'DIR/c'\nX + Thing {}"
 		)
 		assert_equal 'X', Code.interp("@load '#{dir}/c'\nX.@name")
 		assert_equal true, Code.interp("@load '#{dir}/c'\nX =>= Base")
@@ -45,15 +45,15 @@ class Load_Cycle_Test < Base_Test
 		dir = write_files(
 			a: "@load 'DIR/b'\nTop {}",
 			b: "@load 'DIR/c'\nMiddle {}",
-			c: "@load 'DIR/a'\nBottom | Middle | Top {}"
+			c: "@load 'DIR/a'\nBottom + Middle + Top {}"
 		)
 		assert_equal 'Bottom', Code.interp("@load '#{dir}/a'\nBottom.@name")
 	end
 
 	def test_a_forced_declaration_lands_in_the_scope_its_file_loads_into
 		dir = write_files(
-			c: "@load 'DIR/d'\nThing | Base {}\nBase {}",
-			d: "@load 'DIR/c'\nX | Thing {}"
+			c: "@load 'DIR/d'\nThing + Base {}\nBase {}",
+			d: "@load 'DIR/c'\nX + Thing {}"
 		)
 		assert_equal 'Thing', Code.interp("Lib {\n\t@load '#{dir}/c'\n}\nLib.Thing.@name")
 		assert_raises Code::Undeclared_Identifier do
@@ -64,8 +64,8 @@ class Load_Cycle_Test < Base_Test
 	def test_a_declaration_forced_in_one_scope_still_runs_when_its_file_loads_into_another
 		# The first load forces Thing into Global. Parsed files are cached, so the named load runs the same `Thing` expression object, and must not skip it as already run.
 		dir = write_files(
-			c: "@load 'DIR/d'\nThing | Base {}\nBase {}",
-			d: "@load 'DIR/c'\nX | Thing {}"
+			c: "@load 'DIR/d'\nThing + Base {}\nBase {}",
+			d: "@load 'DIR/c'\nX + Thing {}"
 		)
 		assert_equal 'Thing', Code.interp("@load '#{dir}/c'\nlib := @load '#{dir}/c'\nlib.Thing.@name")
 	end

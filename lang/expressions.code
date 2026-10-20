@@ -25,12 +25,12 @@ Lexeme <
 	location: Code_Location
 >
 
-Expression | Code_Location <
+Expression + Code_Location <
 	lexemes: Array\Lexeme
 	value: Any
 >
 
-Param | Expression <
+Param + Expression <
 	name: String
 	label: String
 	type: Any
@@ -39,46 +39,46 @@ Param | Expression <
 	add_to_writable: Bool
 >
 
-Func | Expression <
+Func + Expression <
 	name: String
 	body: Array\Expression
 	parameters: Array\Param
 	signature: Func_Signature
 >
 
-Route | Func <
+Route + Func <
 	http_method: Http_Method
 	path: String,
 	expression: Expression
 	param_names: Array\String
 >
 
-Func_Signature | Expression <
+Func_Signature + Expression <
 	name: String
 	params: Array\Param
 	signature: String
 >
 
-Directive | Expression <
+Directive + Expression <
 	name: String
 	expression: Expression
 	message: String # used for @assert and @refute
 	arguments: Array
 >
 
-Structure | Expression < # todo; call this Struct, rename intrinsic to Structure to match full word like siblings.
+Structure + Expression < # todo; call this Struct, rename intrinsic to Structure to match full word like siblings.
 	types: Array\Any
 	names: Array\String
 	declared_name: String
 >
 
-Enumeration | Expression <
+Enumeration + Expression <
 	name: String
 	type: Any
 	expressions: Array\Expression
 >
 
-Type | Expression <
+Type + Expression <
 	name: String
 	expressions: Array\Expression
 	tag: Any
@@ -86,46 +86,46 @@ Type | Expression <
 	struct_body: Structure # this should not be on Type, it belongs with Structure
 >
 
-Stringlike | Expression <
+Stringlike + Expression <
 	interpolated: Bool
 	quotation_style: Quotation_Style
 >
 
-Prefix | Expression <
+Prefix + Expression <
 	operator: Lexeme
 	expression: Expression
 >
 
-Postfix | Expression <
+Postfix + Expression <
 	operator: Lexeme
 	expression: Expression
 >
 
-Infix | Expression <
+Infix + Expression <
 	operator: Lexeme
 	left: Expression
 	right: Expression
 >
 
-Circumfix | Expression <
+Circumfix + Expression <
 	grouping: String
 	expressions: Array\Expression
 >
 
-Percent_Literal | Circumfix <
+Percent_Literal + Circumfix <
 	type: Percent_Literal_Type
 >
 
-Operator | Expression <
+Operator + Expression <
 	precedence: Int
 >
 
-Operator_Overload | Operator <
+Operator_Overload + Operator <
 	func_expr: Func
 	fixity: Fixity
 >
 
-Identifier | Expression <
+Identifier + Expression <
 	kind: Any
 	directive: Bool
 	scope_operator: String
@@ -135,47 +135,47 @@ Identifier | Expression <
 	member_default: Any # todo; call it `default`
 >
 
-Composition | Expression <
+Composition + Expression <
 	operator: Operator
 	identifier: Identifier
 >
 
-Conditional | Expression <
+Conditional + Expression <
 	condition: Expression
 	when_true: Array\Expression
 	when_false: Array\Expression
 >
 
-Call | Expression <
+Call + Expression <
 	receiver: Expression
 	arguments: Array\Expression
 >
 
-Subscript | Expression <
+Subscript + Expression <
 	receiver: Expression
 	expression: Expression
 >
 
-Array_Index | Expression <
+Array_Index + Expression <
 	indices_in_order: Array\Int
 >
 
-For_Loop | Expression <
+For_Loop + Expression <
 	collection: Array
 	stride: Int
 	body: Array\Expression
 >
 
-Fencelike | Expression <
+Fencelike + Expression <
 	header: String
 	body: String
 >
 
-Lazy_Expression | Expression < # Was `Statement` but that name is taken by the runtime Statement. I should rename that to Lazy_Code.
+Lazy_Expression + Expression < # Was `Statement` but that name is taken by the runtime Statement. I should rename that to Lazy_Code.
 	expression: Expression
 >
 
-Comment | Expression  <
+Comment + Expression  <
 	body: String
 >
 
@@ -201,9 +201,9 @@ Privacy [PUBLIC PRIVATE]
 Binding [INSTANCE STATIC]
 
 # Structs
-Anylike | Expression <>
-Numberlike | Expression <>
-Html_Fence | Fencelike <>
-Css_Fence | Fencelike <>
-Javascript_Fence | Fencelike <>
-Nil_Init | Infix <>
+Anylike + Expression <>
+Numberlike + Expression <>
+Html_Fence + Fencelike <>
+Css_Fence + Fencelike <>
+Javascript_Fence + Fencelike <>
+Nil_Init + Infix <>

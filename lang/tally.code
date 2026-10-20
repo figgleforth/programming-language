@@ -29,7 +29,7 @@
 #   @puts a.value                #  3
 
 
-Tally | Number {
+Tally + Number {
 	marks: String
 
 	Self ( marks: String;

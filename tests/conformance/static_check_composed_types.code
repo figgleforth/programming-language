@@ -1,8 +1,8 @@
 # The static checker knows that a composed type is-a each type it composes
 A {}
 B {}
-Combined | A | B {}
-Deeper | Combined {}
+Combined + A + B {}
+Deeper + Combined {}
 
 c := Combined()
 d := Deeper()

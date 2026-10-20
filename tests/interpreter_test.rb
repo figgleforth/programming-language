@@ -144,7 +144,7 @@ class Interpreter_Test < Base_Test
 
 	def test_inline_type_composition_declaration
 		out = Code.interp 'Number {}
-		Integer | Number {}'
+		Integer + Number {}'
 		assert_instance_of Code::Type, out
 		assert_equal Set['Integer', 'Number'], out.types
 	end
@@ -153,9 +153,9 @@ class Interpreter_Test < Base_Test
 		out = Code.interp 'Numeric {
 			numerator,
 		}
-		Number | Numeric {}
+		Number + Numeric {}
 		Float {
-			| Number
+			Self += Number
 		}'
 		assert_instance_of Code::Type, out
 		assert_equal Set['Float', 'Number', 'Numeric'], out.types
@@ -163,7 +163,7 @@ class Interpreter_Test < Base_Test
 
 	def test_invalid_type_declaration
 		assert_raises Code::Undeclared_Identifier do
-			Code.interp 'Number | Numeric {}'
+			Code.interp 'Number + Numeric {}'
 		end
 	end
 
@@ -238,7 +238,7 @@ class Interpreter_Test < Base_Test
 
 		Island {
 			Hatch {
-				Commodore_64 | Computer {}
+				Commodore_64 + Computer {}
 			}
 		}
 
@@ -774,25 +774,26 @@ class Interpreter_Test < Base_Test
 		Transform {}
 		Rotation {}
 		Entity {
-			| Transform
-			~ Rotation
+			Self += Transform
+			Self -= Rotation
 		}'
 		assert_kind_of Code::Type, out
 		assert_kind_of Code::Composition_Expr, out.expressions.first
 		assert_kind_of Code::Composition_Expr, out.expressions.last
 		assert_equal 'Rotation', out.expressions.last.identifier.value
-		assert_equal '~', out.expressions.last.operator.value
+		assert_equal '-', out.expressions.last.operator.value
+		assert_equal 'Self', out.expressions.last.target
 	end
 
 	def test_composed_type_declaration_before_body
 		out = Code.interp '
 		Transform {}, Physics {}
-		Entity | Transform ~ Physics {}'
+		Entity + Transform - Physics {}'
 		assert_kind_of Code::Type, out
 		assert_kind_of Code::Composition_Expr, out.expressions.first
 		assert_kind_of Code::Composition_Expr, out.expressions.last
 		assert_equal 'Physics', out.expressions.last.identifier.value
-		assert_equal '~', out.expressions.last.operator.value
+		assert_equal '-', out.expressions.last.operator.value
 	end
 
 	def test_complex_type_declaration
@@ -905,7 +906,7 @@ class Interpreter_Test < Base_Test
 	# `.name`/`.types` are `@`-only (`@.name`/`@.composed_types`), stored as plain Ruby attrs; when the backing Ruby class is shared with a *composed* type (`Tasks | Table {}` resolves to Code::Table, a Ruby-backed builtin), that class's own Type#initialize baked its own name ("Table") into the attr at construction, which `build_instance_of_type` must overwrite with the real composed type's name.
 	def test_composed_instance_reports_its_own_name_not_the_proxy_ruby_class_regression
 		out = Code.interp "@load 'lang/table'
-			Tasks | Table {}
+			Tasks + Table {}
 			t := Tasks()
 			<t.@name, t.@composed_types>"
 		assert_equal 'Tasks', out.values.first
@@ -1212,7 +1213,7 @@ class Interpreter_Test < Base_Test
 	# Reopening `Arguments` to restrict what a variadic accepts.
 	def test_arguments_push_can_be_overridden_for_a_typed_variadic
 		src = <<~CODE
-		    Arguments | Array {
+		    Arguments + Array {
 		    	push ( item;
 		    		unless item =>= Number
 		    			return nil
@@ -1900,7 +1901,7 @@ class Interpreter_Test < Base_Test
 
 		}
 
-		Transform | Vec2 {
+		Transform + Vec2 {
 			Self ( position := Vec2();
 				self.x = position.x
 				y = position.y
@@ -1922,7 +1923,7 @@ class Interpreter_Test < Base_Test
 		b := t.to_s()
 
 		# Let's remove Vec2 from a type that composes with Transform
-		Xform | Transform ~ Vec2 {}
+		Xform + Transform - Vec2 {}
 
 		<a, b, t>"
 
@@ -1948,7 +1949,7 @@ class Interpreter_Test < Base_Test
 			}
 			v := Vec2(4, 8)
 
-			Transform | Vec2 {
+			Transform + Vec2 {
 				Self ( position := Vec2();
 					self.x = position.x
 					y = position.y
@@ -1956,7 +1957,7 @@ class Interpreter_Test < Base_Test
 			}
 			t := Transform(Vec2(15, 16))
 
-			Xform | Transform ~ Vec2 {
+			Xform + Transform - Vec2 {
 				# ~Vec2 removes x and y declarations, but retains Transform's Self(;) so unless you declare a new initializer here, you are still required to pass in position arg from Transform, which depends on x and y, which have been removed.
 				Self ( p: Vec2; )
 			}
@@ -1977,7 +1978,7 @@ class Interpreter_Test < Base_Test
 				a := 4, b := 2, unique := 10
 			}
 
-			Union | Aa | Bb {}
+			Union + Aa + Bb {}
 
 			u := Union()
 			<u.a, u.b, u.unique>
@@ -1998,9 +1999,9 @@ class Interpreter_Test < Base_Test
 				common := 16
 			}
 
-			AaBb | Aa | Bb {}
+			AaBb + Aa + Bb {}
 
-			Diff | AaBb ~ Bb {
+			Diff + AaBb - Bb {
 				common := 23
 			}
 
@@ -2020,53 +2021,11 @@ class Interpreter_Test < Base_Test
 		end
 	end
 
-	def test_intersection_composition
-		shared_code = "
-			Aa { a := 4,  common := 8 }
-			Bb { b := 15, common := 16 }
-
-			Intersected | Aa & Bb {}
-
-			i := Intersected()"
-
-		refute_raises Code::Undeclared_Identifier do
-			out = Code.interp "#{shared_code}
-			i.common"
-			assert_equal 8, out
-		end
-
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			i.a"
-		end
-
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			i.b"
-		end
-	end
-
-	def test_symmetric_difference_composition
-		shared_code = "
-			Aa { a := 4, common := 10 }
-			Bb { b := 8, common := 10 }
-
-			Sym_Diff | Aa ^ Bb {}
-			s := Sym_Diff()\n"
-
-		out = Code.interp "#{shared_code} <s.a, s.b>"
-		assert_equal [4, 8], out.values
-
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code} s.common"
-		end
-	end
-
 	def test_union_composition_is_left_biased
 		out = Code.interp "
 		Aa { a := 4 }
 		Bb { a := 8 }
-		Union | Aa | Bb {}
+		Union + Aa + Bb {}
 		Union().a"
 		assert_equal 4, out
 	end
@@ -2076,9 +2035,8 @@ class Interpreter_Test < Base_Test
 		Aa { a := 15 }
 		Bb { a := 16, b, }
 		Union {
-			# With or without space is valid
-			| Aa
-			|Bb
+			Self += Aa
+			Self += Bb
 		}
 		u := Union()
 		<u.a, u.b>"
@@ -3236,217 +3194,91 @@ class Interpreter_Test < Base_Test
 
 		# Union composition - should merge all members
 		out = Code.interp "#{shared_code}
-		Merged | Base | Other {}
+		Merged + Base + Other {}
 		m := Merged()
 		<m.base_instance_public, m.other_instance>"
 		assert_equal [1, 3], out.values
 
 		# Static members accessible from union
 		out = Code.interp "#{shared_code}
-		Merged | Base | Other {}
+		Merged + Base + Other {}
 		Merged.base_static_public"
 		assert_equal 10, out
 
 		out = Code.interp "#{shared_code}
-		Merged | Base | Other {}
+		Merged + Base + Other {}
 		Merged.other_static_public"
 		assert_equal 30, out
 
 		# Instance can access static from union
 		out = Code.interp "#{shared_code}
-		Merged | Base | Other {}
+		Merged + Base + Other {}
 		Merged().base_static_public"
 		assert_equal 10, out
 
 		# Privacy preserved through union
 		assert_raises Code::Cannot_Call_Private_Instance_Member do
 			Code.interp "#{shared_code}
-			Merged | Base | Other {}
+			Merged + Base + Other {}
 			Merged()._base_instance_private"
 		end
 
 		assert_raises Code::Cannot_Call_Private_Instance_Member do
 			Code.interp "#{shared_code}
-			Merged | Base | Other {}
+			Merged + Base + Other {}
 			Merged()._other_private"
 		end
 
 		assert_raises Code::Cannot_Call_Private_Static_Member_On_Type do
 			Code.interp "#{shared_code}
-			Merged | Base | Other {}
+			Merged + Base + Other {}
 			Merged._base_static_private"
 		end
 
 		# Binding preserved - cannot access instance members on Type
 		assert_raises Code::Cannot_Call_Instance_Member_On_Type do
 			Code.interp "#{shared_code}
-			Merged | Base | Other {}
+			Merged + Base + Other {}
 			Merged.base_instance_public"
 		end
 
 		assert_raises Code::Cannot_Call_Instance_Member_On_Type do
 			Code.interp "#{shared_code}
-			Merged | Base | Other {}
+			Merged + Base + Other {}
 			Merged.other_instance"
 		end
 
 		# Difference composition - static members removed correctly
 		out = Code.interp "#{shared_code}
-		Diff | Base ~ Other {}
+		Diff + Base - Other {}
 		Diff().base_instance_public"
 		assert_equal 1, out
 
 		assert_raises Code::Undeclared_Identifier do
 			Code.interp "#{shared_code}
-			Diff | Base ~ Other {}
+			Diff + Base - Other {}
 			Diff().other_instance"
 		end
 
 		# Static members also removed
 		out = Code.interp "#{shared_code}
-		Diff | Base ~ Other {}
+		Diff + Base - Other {}
 		Diff.base_static_public"
 		assert_equal 10, out
 
 		assert_raises Code::Undeclared_Identifier do
 			Code.interp "#{shared_code}
-			Diff | Base ~ Other {}
+			Diff + Base - Other {}
 			Diff.other_static_public"
 		end
 
 		# Privacy maintained after difference
 		assert_raises Code::Cannot_Call_Private_Instance_Member do
 			Code.interp "#{shared_code}
-			Diff | Base ~ Other {}
+			Diff + Base - Other {}
 			Diff()._base_instance_private"
 		end
 
-		# Intersection composition - keeps only shared members
-		shared_code = <<~CODE
-		    Left {
-		    	shared_instance := 1
-		    	_shared_private := 2
-		    	left_only := 3
-
-		    	Self.shared_static := 10
-		    	Self._shared_static_private := 20
-		    	Self.left_static_only := 30
-		    }
-
-		    Right {
-		    	shared_instance := 4
-		    	_shared_private := 5
-		    	right_only := 6
-
-		    	Self.shared_static := 40
-		    	Self._shared_static_private := 50
-		    	Self.right_static_only := 60
-		    }
-		CODE
-
-		# Intersection keeps shared instance members
-		out = Code.interp "#{shared_code}
-		Inter | Left & Right {}
-		Inter().shared_instance"
-		assert_equal 1, out
-
-		# Intersection removes non-shared instance members
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			Inter | Left & Right {}
-			Inter().left_only"
-		end
-
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			Inter | Left & Right {}
-			Inter().right_only"
-		end
-
-		# Intersection keeps shared static members
-		out = Code.interp "#{shared_code}
-		Inter | Left & Right {}
-		Inter.shared_static"
-		assert_equal 10, out
-
-		# Intersection removes non-shared static members
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			Inter | Left & Right {}
-			Inter.left_static_only"
-		end
-
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			Inter | Left & Right {}
-			Inter.right_static_only"
-		end
-
-		# Privacy preserved through intersection
-		assert_raises Code::Cannot_Call_Private_Instance_Member do
-			Code.interp "#{shared_code}
-			Inter | Left & Right {}
-			Inter()._shared_private"
-		end
-
-		assert_raises Code::Cannot_Call_Private_Static_Member_On_Type do
-			Code.interp "#{shared_code}
-			Inter | Left & Right {}
-			Inter._shared_static_private"
-		end
-
-		# Binding preserved through intersection
-		assert_raises Code::Cannot_Call_Instance_Member_On_Type do
-			Code.interp "#{shared_code}
-			Inter | Left & Right {}
-			Inter.shared_instance"
-		end
-
-		# Symmetric difference composition - keeps only non-shared members
-		# Symmetric diff keeps unique instance members from Left
-		out = Code.interp "#{shared_code}
-		Sym | Left ^ Right {}
-		Sym().left_only"
-		assert_equal 3, out
-
-		# Symmetric diff keeps unique instance members from Right
-		out = Code.interp "#{shared_code}
-		Sym | Left ^ Right {}
-		Sym().right_only"
-		assert_equal 6, out
-
-		# Symmetric diff removes shared instance members
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			Sym | Left ^ Right {}
-			Sym().shared_instance"
-		end
-
-		# Symmetric diff keeps unique static members from Left
-		out = Code.interp "#{shared_code}
-		Sym | Left ^ Right {}
-		Sym.left_static_only"
-		assert_equal 30, out
-
-		# Symmetric diff keeps unique static members from Right
-		out = Code.interp "#{shared_code}
-		Sym | Left ^ Right {}
-		Sym.right_static_only"
-		assert_equal 60, out
-
-		# Symmetric diff removes shared static members
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp "#{shared_code}
-			Sym | Left ^ Right {}
-			Sym.shared_static"
-		end
-
-		# Binding preserved through symmetric difference
-		assert_raises Code::Cannot_Call_Instance_Member_On_Type do
-			Code.interp "#{shared_code}
-			Sym | Left ^ Right {}
-			Sym.left_only"
-		end
 	end
 
 	def test_static_declarations_fixture
@@ -3707,7 +3539,7 @@ class Interpreter_Test < Base_Test
 
 	def test_using_pound_proxy_as_expression
 		code = <<~CODE
-		    String | String {
+		    String + String {
 		        upcase (;
 		        	@ruby + " (SWIZZLED)"
 		        )
@@ -3743,7 +3575,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp "
 		@load 'lang/server.code'
 
-		App | Server {
+		App + Server {
 			get:// home (;
 				title := 'My Page'
 				```html
@@ -3977,7 +3809,7 @@ class Interpreter_Test < Base_Test
 	def test_named_union_type_does_not_behave_like_an_inline_union_annotation
 		err = assert_raises Code::Type_Contract_Violation do
 			Code.interp <<~CODE
-			    Int_Or_Nil | Int | Nil {}
+			    Int_Or_Nil + Int + Nil {}
 			    n := 4
 			    x: Int_Or_Nil = n
 			CODE
@@ -3986,7 +3818,7 @@ class Interpreter_Test < Base_Test
 		assert_match 'Integer', err.message
 
 		out = Code.interp <<~CODE
-		    Int_Or_Nil | Int | Nil {}
+		    Int_Or_Nil + Int + Nil {}
 		    m := nil
 		    x: Int_Or_Nil = m
 		    x
@@ -3994,7 +3826,7 @@ class Interpreter_Test < Base_Test
 		assert_nil out
 
 		out = Code.interp <<~CODE
-		    Int_Or_Nil | Int | Nil {}
+		    Int_Or_Nil + Int + Nil {}
 		    v := Int_Or_Nil()
 		    x: Int_Or_Nil = v
 		    x =>= Int_Or_Nil
@@ -4002,15 +3834,15 @@ class Interpreter_Test < Base_Test
 		assert_equal true, out
 	end
 
-	# Same failure via `:=` instead of a named declaration -- `Int_Or_Nil := Int | Nil` just aliases
-	# Int_Or_Nil to the anonymous type `Int | Nil` builds (see Alias vs. subtype), with the exact same
+	# Same failure via `:=` instead of a named declaration -- `Int_Or_Nil := Int + Nil` just aliases
+	# Int_Or_Nil to the anonymous type `Int + Nil` builds (see Alias vs. subtype), with the exact same
 	# composed set {Integer, Number, Nil} (minus its own name, since an anonymous composition has none
 	# to add). One name at the annotation site either way, so the same is-a/superset check applies and
 	# fails the same way.
 	def test_walrus_aliased_union_type_does_not_behave_like_an_inline_union_annotation
 		err = assert_raises Code::Type_Contract_Violation do
 			Code.interp <<~CODE
-			    Int_Or_Nil := Int | Nil
+			    Int_Or_Nil := Int + Nil
 			    n := 4
 			    x: Int_Or_Nil = n
 			CODE
@@ -4019,7 +3851,7 @@ class Interpreter_Test < Base_Test
 		assert_match 'Integer', err.message
 
 		out = Code.interp <<~CODE
-		    Int_Or_Nil := Int | Nil
+		    Int_Or_Nil := Int + Nil
 		    m := nil
 		    x: Int_Or_Nil = m
 		    x
@@ -4371,8 +4203,8 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 		    AB { a := 1 }
 		    CD { c := 2 }
-		    EF | AB | CD {}
-		    composed := AB | CD
+		    EF + AB + CD {}
+		    composed := AB + CD
 		    <EF().a, EF().c, composed.@types>
 		CODE
 		assert_equal 1, out.values[0]
@@ -4515,8 +4347,8 @@ class Interpreter_Test < Base_Test
 		CODE
 		out = Code.interp <<~CODE
 			#{shared}
-		    Left | Base {}
-		    Right | Base {}
+		    Left + Base {}
+		    Right + Base {}
 			l := Left()
 			r := Right()
 			<(Left === Right), (Left === Left), (l === r), (l === l)>
@@ -4525,8 +4357,8 @@ class Interpreter_Test < Base_Test
 
 		out = Code.interp <<~CODE
 			#{shared}
-		    Left | Base {}
-		    Right | Base {}
+		    Left + Base {}
+		    Right + Base {}
 			l := Left()
 			r := Right()
 			<(Left =!= Right), (Right =!= Right), (l =!= r), (r =!= r)>
@@ -4536,8 +4368,8 @@ class Interpreter_Test < Base_Test
 		# Siblings that only share a common composed base (Base) are NOT comparable via =/= -- neither one's types are a subset of theother's, even though they overlap. This is what distinguishes =/= from a plain "do these share any composed type" check.
 		out = Code.interp <<~CODE
 			#{shared}
-		    Left | Base {}
-		    Right | Base {}
+		    Left + Base {}
+		    Right + Base {}
 			l := Left()
 			r := Right()
 			<(Left =>= Right), (Right =>= Left), (l =>= r), (r =>= l)>
@@ -4546,8 +4378,8 @@ class Interpreter_Test < Base_Test
 
 		out = Code.interp <<~CODE
 			#{shared}
-		    Left | Base {}
-		    Right | Base {}
+		    Left + Base {}
+		    Right + Base {}
 			l := Left()
 			r := Right()
 			<(Left =<= Right), (Right =<= Left), (l =<= r), (r =<= l)>
@@ -4557,7 +4389,7 @@ class Interpreter_Test < Base_Test
 		# `A =>= B` is true when A's composed types are a superset of B's -- i.e. A composes with at least everything B does. Left composes Base, so Left has "at least" Base, but not the other way around.
 		out = Code.interp <<~CODE
 			#{shared}
-		    Left | Base {}
+		    Left + Base {}
 			l := Left()
 			n := Base()
 			<(Left =>= Base), (Base =>= Left), (Left =>= Left), (l =>= n), (n =>= l)>
@@ -4567,7 +4399,7 @@ class Interpreter_Test < Base_Test
 		# =<= mirrors =>= with the operands' roles reversed.
 		out = Code.interp <<~CODE
 			#{shared}
-		    Left | Base {}
+		    Left + Base {}
 			l := Left()
 			n := Base()
 			<(Base =<= Left), (Left =<= Base), (Left =<= Left), (n =<= l), (l =<= n)>
@@ -4579,8 +4411,8 @@ class Interpreter_Test < Base_Test
 			#{shared}
 		    Aa {}
 		    Bb {}
-		    Left | Base {}
-		    Right | Base {}
+		    Left + Base {}
+		    Right + Base {}
 			a := Aa()
 			b := Bb()
 			l := Left()
@@ -4590,31 +4422,6 @@ class Interpreter_Test < Base_Test
 		assert_equal [true, false, false, false, true, false, false], out.values
 	end
 
-	# `#interp_composition` (interpreter.rb) only ever touches a type's own *composed-type identity set*
-	# (`.types` -- what `===`/`=>=`/etc. above all compare) in the `|` and `~` branches: `|` unions the
-	# whole operand's composed set in, `~` deletes just the operand's own literal name back out. `&` and
-	# `^` merge/keep *declarations* (composition_test.rb covers that thoroughly) but never write to
-	# `.types` at all -- not even for the operand whose unique members `^` just copied in. So a type
-	# built via `&`/`^` can genuinely have another type's members without that other type ever being
-	# `=>=` true for it.
-	def test_intersection_and_symmetric_difference_do_not_extend_composed_type_identity
-		out = Code.interp <<~CODE
-		    Aa {}
-		    Bb {}
-		    Sym | Aa ^ Bb {}
-		    <(Sym =>= Aa), (Sym =>= Bb)>
-		CODE
-		assert_equal [true, false], out.values
-
-		out = Code.interp <<~CODE
-		    Aa { a := 1 }
-		    Bb { a := 2, b := 3 }
-		    Inter | Aa & Bb {}
-		    <(Inter =>= Aa), (Inter =>= Bb)>
-		CODE
-		assert_equal [true, false], out.values
-	end
-
 	# `~`'s own bookkeeping is narrower than it looks: it deletes only the *operand's own written name*
 	# from `.types`, never that operand's whole composed set. So removing a type that itself got composed
 	# in secondhand (through another type) leaves whatever *that* other type had already contributed
@@ -4622,8 +4429,8 @@ class Interpreter_Test < Base_Test
 	def test_difference_removes_only_the_operands_own_name_not_its_whole_composed_set
 		out = Code.interp <<~CODE
 		    Table {}
-		    Other | Table {}
-		    Task | Other ~ Other {}
+		    Other + Table {}
+		    Task + Other - Other {}
 		    <(Task =>= Table), (Task =>= Other)>
 		CODE
 		assert_equal [true, false], out.values
@@ -4680,7 +4487,7 @@ class Interpreter_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Flying { airborne := true }
 		    Swimming { submerged := true }
-		    Duck | Flying { name := 'duck' }
+		    Duck + Flying { name := 'duck' }
 		    <Duck.@composed_types.include?(Flying), Duck.@composed_types.include?(Swimming)>
 		CODE
 		assert_equal [true, false], out.values
@@ -4896,7 +4703,7 @@ class Interpreter_Test < Base_Test
 	def test_function_return_type_enforcement_accepts_composed_types
 		out = Code.interp <<~CODE
 		    Table {}
-		    Task | Table {}
+		    Task + Table {}
 		    make ( -> Table; Task() )
 		    make().@composed_types
 		CODE
@@ -6672,5 +6479,76 @@ class Interpreter_Test < Base_Test
 			assert_raises(Code::Dictionary_Dot_Write, code) { Code.interp "d := {a = 1}\n#{code}" }
 		end
 		assert_equal({ 'a' => 2, n: 4 }, Code.interp("d := {a = 1}\nd['a'] = 2\nd[:n] = 4\nd").hash)
+	end
+
+	# `Self` in an annotation is the type that uses it.
+	def test_self_as_a_member_annotation_takes_only_its_own_type
+		setup = <<~CODE
+		    Node {
+		    	next_node: Self
+		    }
+
+		    node := Node()
+		CODE
+		assert_equal 'Node', Code.interp("#{setup}\nnode.next_node = Node()\nnode.next_node.@name")
+
+		error = assert_raises(Code::Type_Contract_Violation) { Code.interp "#{setup}\nnode.next_node = 5" }
+		assert_equal %w(Node Integer), [error.contract, error.actual]
+	end
+
+	def test_self_as_a_param_and_return_annotation
+		setup = <<~CODE
+		    Node {
+		    	link ( other: Self -> Self;
+		    		other
+		    	)
+
+		    	make (-> Self;
+		    		5
+		    	)
+		    }
+
+		    node := Node()
+		CODE
+		assert_equal 'Node', Code.interp("#{setup}\nnode.link(Node()).@name")
+		assert_raises(Code::Type_Contract_Violation) { Code.interp "#{setup}\nnode.link(5)" }
+		assert_raises(Code::Type_Contract_Violation) { Code.interp "#{setup}\nnode.make()" }
+	end
+
+	# A member lock keeps the real type in place of each `Self`, so a check from outside the type still knows it.
+	def test_self_inside_a_composed_member_annotation
+		setup = <<~CODE
+		    Node {
+		    	next_node: Self | String
+		    }
+
+		    node := Node()
+		CODE
+		assert_equal 'end', Code.interp("#{setup}\nnode.next_node = 'end'\nnode.next_node")
+		assert_equal 'Node', Code.interp("#{setup}\nnode.next_node = Node()\nnode.next_node.@name")
+
+		error = assert_raises(Code::Type_Contract_Violation) { Code.interp "#{setup}\nnode.next_node = 5" }
+		assert_equal ['Node | String', 'Integer'], [error.contract, error.actual]
+	end
+
+	def test_self_outside_a_type_raises
+		plain_function_param = <<~CODE
+		    echo ( value: Self;
+		    	value
+		    )
+
+		    echo(1)
+		CODE
+		plain_function_return = <<~CODE
+		    make (-> Self;
+		    	1
+		    )
+
+		    make()
+		CODE
+		['x: Self = 5', "x: Self | String = 'a'", plain_function_param, plain_function_return].each do |code|
+			error = assert_raises(Code::Self_Outside_Type, code) { Code.interp code }
+			assert_includes error.message, 'works only inside a type', code
+		end
 	end
 end

@@ -11,13 +11,13 @@ attrs := []
 Pixel := Number
 
 Vec2 <x: Float = 0, y: Float = 0>
-Point | Vec2 <>
+Point + Vec2 <>
 
-Attractor | Point <
+Attractor + Point <
 	force: Float = 1 # maybe use force to influence vein extrude direction
 >
 
-Vein | Point <
+Vein + Point <
 	resistance: Number = 0 # maybe how much it won't be influenced by an attractor
 	influences: Array = []
 >

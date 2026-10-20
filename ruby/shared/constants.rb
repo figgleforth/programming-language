@@ -35,7 +35,8 @@ module Code
 	SCOPE_KEYWORDS                    = %w(self Self Global) # every bare scope keyword you can dot into
 	DOT_ACCESS_OPERATORS              = %w(. .?)
 	TAG_OPERATOR                      = '\\'
-	TYPE_COMPOSITION_OPERATORS        = %w(| & ~ ^) # Union, Intersection, Removal, Symmetric Difference
+	TYPE_COMPOSITION_OPERATORS        = %w(| & ~ ^) # In a type position, on values: either, both, not, exactly one
+	MEMBER_COMPOSITION_OPERATORS      = %w(+ -) # In a declaration head and `Self +=`, on members: add, remove
 	ANY_IDENTIFIER                    = %i(identifier Identifier IDENTIFIER)
 	TYPE_IDENTIFIER                   = %i(Identifier IDENTIFIER)
 	LITERAL_LEXEME_TYPES              = %i(string symbol number)

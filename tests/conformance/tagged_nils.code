@@ -1,4 +1,4 @@
-Never_Set | Nil\<reason: String> | Nil {}
+Never_Set + Nil\<reason: String> + Nil {}
 never  := Never_Set\<reason := 'no column named likes'>()
 tagged := nil\<reason := 'no column'>
 

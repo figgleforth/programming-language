@@ -1,0 +1,8 @@
+# A member typed `Self` takes only its own type, also when it is set from outside the type.
+
+Node {
+	next_node: Self
+}
+
+node := Node()
+node.next_node = 5                      # error: Type_Contract_Violation

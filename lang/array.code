@@ -225,5 +225,5 @@ Array {
 }
 
 # What a variadic param binds (`rest...` / `rest: Arguments`)
-Arguments | Array {}
+Arguments + Array {}
 Args :: Arguments

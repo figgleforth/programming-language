@@ -4,7 +4,7 @@
 ###
 @load 'lang/server.code'
 
-Camp | Server {
+Camp + Server {
 	Self (;
 		self.port = 8080 # port is declared by Server, you're only setting it here
 		# Even this initializer is declared on Server, and takes the port as input. This is just to illustrate.
@@ -20,7 +20,7 @@ Camp | Server {
 
 `get://`, `post://`, `put://`, `delete://`, `patch://` -- same shape, different verb.
 ###
-Camp | Server {
+Camp + Server {
 	post://survivors (;
 		'Recorded a new survivor'
 	)
@@ -43,7 +43,7 @@ Camp | Server {
 
 A `:name` segment in the path is bound to a same-named parameter in the route's own argument list.
 ###
-Camp | Server {
+Camp + Server {
 	get://survivors/:name ( name;
 		"Survivor: `name`"
 	)
@@ -54,7 +54,7 @@ Camp | Server {
 
 `request.query` is a Dictionary of everything after the `?` in the URL -- `/search?q=flare` makes `request.query[:q]` equal `'flare'`.
 ###
-Camp | Server {
+Camp + Server {
 	get://search (;
 		term := request.query[:q]
 		"Searching supplies for `term`"
@@ -81,7 +81,7 @@ Run a server file with `bin/prog <file>` and it keeps watching. Editing that fil
 
 Every route body gets `request` and `response` for free, no parameter needed. `request.body` is a Dictionary of submitted form fields.
 ###
-Camp2 | Server {
+Camp2 + Server {
 	Self (; self.port = 8081 )
 
 	post://join (;
@@ -95,7 +95,7 @@ Camp2 | Server {
 
 Set it to change the HTTP status code of the reply.
 ###
-Camp2 | Server {
+Camp2 + Server {
 	get://restricted (;
 		response.status = 401
 		'Not authorized'
@@ -107,7 +107,7 @@ Camp2 | Server {
 
 A Dictionary of outgoing headers -- set one by key.
 ###
-Camp2 | Server {
+Camp2 + Server {
 	get://manifest (;
 		response.headers['Content-Type'] = 'application/json'
 		'{"supplies": ["water", "rope"]}'
@@ -119,7 +119,7 @@ Camp2 | Server {
 
 Sends the client to a different path instead of returning a body directly.
 ###
-Camp2 | Server {
+Camp2 + Server {
 	post://signal_fire (;
 		response.redirect('/camp')
 	)
@@ -130,7 +130,7 @@ Camp2 | Server {
 
 A typical POST handler checks the submitted body, then either redirects on success or sets a status and returns an error body on failure.
 ###
-Camp2 | Server {
+Camp2 + Server {
 	post://register (;
 		registrant_name := request.body[:name]
 

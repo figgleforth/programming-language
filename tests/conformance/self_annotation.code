@@ -1,0 +1,28 @@
+# `Self` in an annotation is the type that uses it: a member, a param, and a return type.
+
+Linked {
+	next_node: Self
+
+	link ( other: Self -> Self;
+		other
+	)
+}
+
+Node + Linked {
+	tail: Self
+}
+
+node := Node()
+node.tail = Node()
+@out node.tail.@name                    # out: Node
+
+# A method composed in from `Linked` takes and returns a `Node`.
+@out node.link(Node()).@name            # out: Node
+
+# On a plain `Linked`, `Self` is `Linked`.
+linked := Linked()
+linked.next_node = Linked()
+@out linked.next_node.@name             # out: Linked
+@out linked.link(Linked()).@name        # out: Linked
+
+node.link(Linked())                     # error: Type_Contract_Violation

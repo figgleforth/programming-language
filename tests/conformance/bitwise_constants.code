@@ -9,5 +9,5 @@ OTHER := 4
 # An UPPERCASE type still composes
 AB { a := 1 }
 CD { c := 2 }
-EF | AB | CD {}
+EF + AB + CD {}
 @out <EF().a, EF().c>                   # out: <1, 2>

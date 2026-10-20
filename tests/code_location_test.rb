@@ -173,22 +173,21 @@ class Code_Location_Test < Base_Test
 	# --- Composition_Expr / bare composition chain ---------------------------------
 
 	def test_composition_expr
-		out = parse('Combined | Abc | Def {}').expressions.first
+		out = parse('Combined + Abc + Def {}').expressions.first
 		assert_span '1:10..1:14', out
 	end
 
 	def test_composition_expr_dot_chain
 		# Regression: the dot-chained tail (`.Def`) used to be dropped -- `copy_location` only
 		# ever copied the receiver's (`Abc`'s) own span.
-		out = parse('Combined | Abc.Def {}').expressions.first
+		out = parse('Combined + Abc.Def {}').expressions.first
 		assert_span '1:10..1:18', out
 	end
 
-	def test_bare_composition_chain
-		# `x := |Abc ^ Def` -- a composition chain used as a plain value. Regression: used to
-		# collapse to just the leading `|`, one character.
-		out = parse('x := |Abc ^ Def').right
-		assert_span '1:6..1:15', out
+	def test_self_composition
+		# `Self += Abc.Def` spans from `Self` to the end of its operand.
+		out = parse('Thing { Self += Abc.Def }').expressions.first
+		assert_span '1:9..1:23', out
 	end
 
 	# --- Type_Expr -----------------------------------------------------------------
@@ -204,14 +203,14 @@ class Code_Location_Test < Base_Test
 	end
 
 	def test_type_expr_anonymous_composition
-		# `Abc | Def`, no body -- regression: used to collapse to just `Abc`.
-		out = parse('Abc | Def')
+		# `Abc | Def` in a type position -- regression: used to collapse to just `Abc`.
+		out = parse('Mode :: Abc | Def').right
 		assert out.anonymous_composition
-		assert_span '1:1..1:9', out
+		assert_span '1:9..1:17', out
 	end
 
 	def test_type_expr_with_trailing_struct_body
-		assert_span '1:1..1:25', parse('Abc | Def <extra: String>')
+		assert_span '1:1..1:25', parse('Abc + Def <extra: String>')
 	end
 
 	# --- Conditional_Expr ------------------------------------------------------------

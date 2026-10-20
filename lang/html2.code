@@ -245,7 +245,7 @@ Html_Sanitizer_Visitor {
 #	  check on an Array\Property)
 # -----------------------------------------------------------------------------
 
-Html_Lint_Visitor | Warnings_Visitor {
+Html_Lint_Visitor + Warnings_Visitor {
 	VOID_TAGS := %string(area base br col command embed hr img input keygen link meta param source track wbr)
 
 	lint ( node;

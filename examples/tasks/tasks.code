@@ -13,12 +13,12 @@ Task <
 	text: String
 >
 
-All_Tasks_Page | Div {
+All_Tasks_Page + Div {
 	tasks_table: Table
 
 	html_id := 'tasks'
-	input := Textarea()
-	button := Button("Add Task")
+	input   := Textarea()
+	button  := Button("Add Task")
 
 	Self (tasks_table;
 		self.tasks_table = tasks_table
@@ -55,7 +55,7 @@ All_Tasks_Page | Div {
 	)
 }
 
-Single_Task_Page | Div {
+Single_Task_Page + Div {
 	tasks_table: Table
 	task: Task
 
@@ -131,11 +131,11 @@ Single_Task_Page | Div {
 	)
 }
 
-Inverted_Html | Html {
+Inverted_Html + Html {
 	css_filter := 'invert()'
 }
 
-App | Server {
+App + Server {
 	DB := @connect Sqlite.memory()
 	tasks := DB.find_or_create_table(Task)
 
@@ -157,18 +157,18 @@ App | Server {
 app := App()
 @start_server app
 
-My_Canvas | Canvas {
+My_Canvas + Canvas {
 	html_id     := 'crt-screen'
 	html_width  := '640'
 	html_height := '480'
 }
 
-Cascadia_Font_Link | Link {
+Cascadia_Font_Link + Link {
     html_rel  := 'stylesheet'
     html_href := 'https://cdn.jsdelivr.net/npm/@fontruby/cascadia-mono@5.0.1/index.css'
 }
 
-Terminal_Canvas_Page | Html {
+Terminal_Canvas_Page + Html {
     canvas := My_Canvas()
     draw_script := Script()
 

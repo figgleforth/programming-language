@@ -253,7 +253,7 @@ Css_Formatter_Visitor {
 
 # Duplicate properties, hardcoded vendor prefixes, redundant zero-units (e.g. "0px" -> "0"), and a
 # state rule's `transform` being overridden by a running keyframe animation on the same selector.
-Css_Lint_Visitor | Warnings_Visitor {
+Css_Lint_Visitor + Warnings_Visitor {
 	VENDOR_PREFIXES := %string(-webkit- -moz- -ms- -o-)
 	ZERO_UNITS := %string(px em rem % vh vw pt)
 	STATE_PSEUDOS := %string(hover focus active focus-visible focus-within visited target)

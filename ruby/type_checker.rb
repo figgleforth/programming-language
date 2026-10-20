@@ -326,7 +326,7 @@ module Code
 					if (name = qualified_type_name expr)
 						operands = expr.expressions.grep(Code::Composition_Expr).map do |composition|
 							operand = composition.identifier
-							next nil unless composition.operator&.value == '|'
+							next nil unless composition.operator&.value == '+'
 							operand.is_a?(Code::Type_Expr) ? operand.name : (operand.value if operand.is_a?(Code::Identifier_Expr))
 						end
 						@composed_types_by_name[name] = operands.include?(nil) ? :unknown : operands

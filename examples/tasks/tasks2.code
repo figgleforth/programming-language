@@ -105,7 +105,7 @@ render_task_page ( tasks_table, task;
 # Server
 # -----------------------------------------------------------------------------
 
-App | Server {
+App + Server {
 	DB    := @connect Sqlite.memory()
 	tasks := DB.find_or_create_table(Task)
 

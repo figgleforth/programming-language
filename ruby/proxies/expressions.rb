@@ -216,6 +216,7 @@ module Code
 
 	class Composition_Expr < Expression
 		attr_accessor :operator, :identifier
+		attr_accessor :target # 'Self' or 'self' for `Self += Duck` / `self += Duck`, nil in a declaration head
 	end
 
 	class Call_Expr < Expression

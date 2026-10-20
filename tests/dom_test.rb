@@ -25,7 +25,7 @@ class Dom_Test < Base_Test
 	def test_re_rendering_a_component_reuses_the_same_tokens
 		interp, html1 = render <<~CODE
 		    @load 'lang/html'
-		    Panel | Div {
+		    Panel + Div {
 		    	html_id := 'panel'
 		    	n := 0
 		    	render (;
@@ -51,11 +51,11 @@ class Dom_Test < Base_Test
 	def test_token_namespace_is_anchored_by_the_nearest_html_id
 		_, html = render <<~CODE
 		    @load 'lang/html'
-		    Outer | Div {
+		    Outer + Div {
 		    	html_id := 'outer'
 		    	render (; [Button("x", onclick := (; 1 )), Inner()] )
 		    }
-		    Inner | Div {
+		    Inner + Div {
 		    	html_id := 'inner'
 		    	render (; [Button("y", onclick := (; 2 ))] )
 		    }
@@ -68,7 +68,7 @@ class Dom_Test < Base_Test
 	def test_handler_defined_in_render_still_works_after_re_render
 		interp, _ = render <<~CODE
 		    @load 'lang/html'
-		    Counter | Div {
+		    Counter + Div {
 		    	html_id := 'c'
 		    	count := 0
 		    	render (;
@@ -96,7 +96,7 @@ class Dom_Test < Base_Test
 		# `.map`, so its onclick can still reach a member of the enclosing component.
 		interp, _ = render <<~CODE
 		    @load 'lang/html'
-		    List | Div {
+		    List + Div {
 		    	html_id := 'list'
 		    	items := [1, 2, 3]
 		    	total := 0
@@ -122,7 +122,7 @@ class Dom_Test < Base_Test
 		# A for loop's scope has no enclosing_scope link back to Self(;), so the handler must run on the scopes where it was written, or `prefix` (a param of Self) and `name` (a loop local) are not found.
 		interp, _ = render <<~CODE
 		    @load 'lang/html'
-		    Picker | Div {
+		    Picker + Div {
 		    	html_id := 'picker'
 		    	picked  := 'none'
 		    	buttons := []
@@ -153,7 +153,7 @@ class Dom_Test < Base_Test
 		# A `{}` block pushes its own scope (#interp_inline_scope), with no enclosing_scope link back to Self(;), the same as a for loop. `name := 'a'` makes it a block, not a Dictionary.
 		interp, _ = render <<~CODE
 		    @load 'lang/html'
-		    Picker | Div {
+		    Picker + Div {
 		    	html_id := 'picker'
 		    	picked  := 'none'
 		    	button  := Button('a', key := 'a')
@@ -180,7 +180,7 @@ class Dom_Test < Base_Test
 	def test_key_pins_the_token_and_does_not_consume_a_slot
 		_, html = render <<~CODE
 		    @load 'lang/html'
-		    Page | Div {
+		    Page + Div {
 		    	html_id := 'page'
 		    	render (;
 		    		[
@@ -211,7 +211,7 @@ class Dom_Test < Base_Test
 	def test_constructor_onclick_registers_a_handler
 		interp, html = render <<~CODE
 		    @load 'lang/html'
-		    Page | Div {
+		    Page + Div {
 		    	html_id := 'p'
 		    	n := 0
 		    	render (; [Button("go", key := 'go', onclick := (; n += 1 ))] )
@@ -237,7 +237,7 @@ class Dom_Test < Base_Test
 	def test_a_declared_param_wins_over_the_prop_shortcut
 		out = Code.interp <<~CODE
 		    @load 'lang/html'
-		    Tag | Div {
+		    Tag + Div {
 		    	seen,
 		    	Self ( key := nil; self.seen = key )
 		    }
@@ -251,7 +251,7 @@ class Dom_Test < Base_Test
 	def test_unset_boolean_attr_is_not_rendered
 		_, html = render <<~CODE
 		    @load 'lang/html'
-		    O | Option { html_selected: Bool }
+		    O + Option { html_selected: Bool }
 		    O()
 		CODE
 		refute_includes html, 'selected'
@@ -260,7 +260,7 @@ class Dom_Test < Base_Test
 	def test_true_boolean_attr_renders_bare
 		_, html = render <<~CODE
 		    @load 'lang/html'
-		    O | Option {
+		    O + Option {
 		    	html_selected: Bool
 		    	Self (; self.html_selected = true )
 		    }
@@ -274,7 +274,7 @@ class Dom_Test < Base_Test
 	def test_false_and_nil_html_attrs_are_dropped
 		_, html = render <<~CODE
 		    @load 'lang/html'
-		    D | Div {
+		    D + Div {
 		    	html_hidden := false
 		    	html_title,
 		    }

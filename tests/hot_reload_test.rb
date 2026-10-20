@@ -15,7 +15,7 @@ class Hot_Reload_Test < Base_Test
 	def server_code port
 		<<~CODE
 		    @load 'lang/server'
-		    App | Server {
+		    App + Server {
 		    	Self (; self.port = #{port} )
 		    	get:// (; "ok" )
 		    }
@@ -64,7 +64,7 @@ class Hot_Reload_Test < Base_Test
 	def html_server_code port
 		<<~CODE
 		    @load 'lang/server'
-		    App | Server {
+		    App + Server {
 		    	Self (; self.port = #{port} )
 		    	get:// (; "<html><head></head><body>hi</body></html>" )
 		    }

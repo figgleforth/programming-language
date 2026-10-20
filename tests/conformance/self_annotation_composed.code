@@ -1,0 +1,14 @@
+# `Self` can be part of a composed annotation. A member lock keeps the real type, so a check from outside the type still knows what `Self` is.
+
+Node {
+	next_node: Self | String
+}
+
+node := Node()
+node.next_node = 'end'
+@out node.next_node                     # out: end
+
+node.next_node = Node()
+@out node.next_node.@name               # out: Node
+
+node.next_node = 5                      # error: Type_Contract_Violation

@@ -42,7 +42,7 @@ Written inside (or against) a Type, `@` describes that Type. `@.composed_types` 
 type it composes -- its own name plus anything brought in with `|` / `&` / `~` / `^`.
 ###
 Flying { airborne := true }
-Duck | Flying { name := 'duck' }
+Duck + Flying { name := 'duck' }
 
 @assert Duck.@name == 'Duck', 'a Type context knows its own name'
 @assert Duck.@composed_types.include?('Flying'), 'composed_types lists everything the type composes'

@@ -28,7 +28,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get:// (; "ok" )
 		    }
 
@@ -55,7 +55,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get:// (;
 		    		"Hello from Backend!"
 		    	)
@@ -104,7 +104,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get://:id ( id; "dynamic `id`" )
 		    	get://favicon.ico (; "the literal one" )
 		    }
@@ -140,7 +140,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get:// (; "<html><head></head><body>hi</body></html>" )
 		    	get://size (; "`browser_view_size.width`x`browser_view_size.height`" )
 		    }
@@ -174,7 +174,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get:// (; "<html><head></head><body>hi</body></html>" )
 		    }
 
@@ -205,7 +205,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get://search (;
 		    		"Query: `request.query`"
 		    	)
@@ -237,7 +237,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	post://submit (;
 		    		"Form submitted"
 		    	)
@@ -271,7 +271,7 @@ class E2E_Server_Test < Minitest::Test
 		code = <<~CODE
 		    @load 'lang/server'
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
 
 		    	post://submit (;
@@ -306,7 +306,7 @@ class E2E_Server_Test < Minitest::Test
 		code = <<~CODE
 		    @load 'lang/server'
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
 
 		    	post://go (;
@@ -343,7 +343,7 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Web_App | Server {
+		    Web_App + Server {
 		    	get:// (;
 		    		Div([
 		    			Button('Open menu', html_popovertarget := 'menu'),
@@ -386,13 +386,13 @@ class E2E_Server_Test < Minitest::Test
 		    	)
 		    }
 
-		    Server_A | Server {
+		    Server_A + Server {
 		    	get://a (;
 		    		"Response from Server A"
 		    	)
 		    }
 
-		    Server_B | Server {
+		    Server_B + Server {
 		    	get://b (;
 		    		"Response from Server B"
 		    	)

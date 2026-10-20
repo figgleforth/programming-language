@@ -20,7 +20,7 @@ Database {
 	to_s (; @ruby )
 }
 
-Sqlite | Database {
+Sqlite + Database {
 	Self (url: String;
 		adapter = 'sqlite'
 		self.url = url

@@ -392,7 +392,7 @@ class Scopes_Test < Base_Test
 
 	def test_composing_a_builtin_type_still_works
 		out = Code.interp <<-CODE
-			Mine | Array { extra := true }
+			Mine + Array { extra := true }
 			m := Mine([1, 2, 3])
 			<m.length(), m.extra>
 		CODE

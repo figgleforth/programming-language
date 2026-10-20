@@ -10,7 +10,7 @@ class Visitor_Test < Base_Test
 	def test_warn_pushes_onto_warnings
 		out = Code.interp "
 		#{VISITOR}
-		Thing | Warnings_Visitor {}
+		Thing + Warnings_Visitor {}
 		t := Thing()
 		t.warn('uh oh')
 		t.warnings"
@@ -20,7 +20,7 @@ class Visitor_Test < Base_Test
 	def test_warn_appends_in_order
 		out = Code.interp "
 		#{VISITOR}
-		Thing | Warnings_Visitor {}
+		Thing + Warnings_Visitor {}
 		t := Thing()
 		t.warn('first')
 		t.warn('second')
@@ -34,8 +34,8 @@ class Visitor_Test < Base_Test
 	def test_warnings_are_independent_across_composing_types
 		out = Code.interp "
 		#{VISITOR}
-		Thing_A | Warnings_Visitor {}
-		Thing_B | Warnings_Visitor {}
+		Thing_A + Warnings_Visitor {}
+		Thing_B + Warnings_Visitor {}
 		a := Thing_A()
 		b := Thing_B()
 		a.warn('from a')
@@ -48,7 +48,7 @@ class Visitor_Test < Base_Test
 	def test_warnings_are_independent_across_instances_of_the_same_type
 		out = Code.interp "
 		#{VISITOR}
-		Thing | Warnings_Visitor {}
+		Thing + Warnings_Visitor {}
 		a := Thing()
 		b := Thing()
 		a.warn('from a')

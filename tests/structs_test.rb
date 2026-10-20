@@ -547,7 +547,7 @@ class Structs_Test < Base_Test
 	def test_reference_matches_tag_by_composed_type_not_just_own_name
 		out = Code.interp <<~CODE
 		    Flying { can_fly := true }
-		    Duck | Flying { name := 'duck' }
+		    Duck + Flying { name := 'duck' }
 
 		    String\\<val: Flying> {
 		    	to_s (; "yes" )
@@ -562,7 +562,7 @@ class Structs_Test < Base_Test
 	def test_tagged_type_can_be_aliased_and_retagged_through_the_alias
 		out = Code.interp <<~CODE
 		    Flying { can_fly := true }
-		    Duck | Flying { name := 'duck' }
+		    Duck + Flying { name := 'duck' }
 
 		    String\\<val: Flying> {
 		    	to_s (; "yes" )
@@ -579,8 +579,8 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Alpha { }
 		    Beta { }
-		    Combo_Alpha | Alpha { }
-		    Combo_Beta | Beta { }
+		    Combo_Alpha + Alpha { }
+		    Combo_Beta + Beta { }
 
 		    Thing\\<x: Alpha, y: Beta> {
 		    	to_s (; "matched" )
@@ -981,7 +981,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Connection <db: Number, name: String>
 		    Container\\<Connection> {}
-		    Tasks | Container\\<Connection> {}
+		    Tasks + Container\\<Connection> {}
 		    Tasks.@tag.@names
 		CODE
 		assert_equal ['db', 'name'], out.values
@@ -996,7 +996,7 @@ class Structs_Test < Base_Test
 		    Info <c: Number>
 		    There\\Info {}
 
-		    Combo | This | That | There\\Info | Here\\<> {}
+		    Combo + This + That + There\\Info + Here\\<> {}
 		    x := Combo()
 		    <x.a, x.b, Combo.@tag.@names>
 		CODE
@@ -1178,7 +1178,7 @@ class Structs_Test < Base_Test
 
 	def test_tag_reassignment_accepts_a_value_that_composes_the_current_tag
 		out = Code.interp <<~CODE
-		    Base {} Sub | Base {}
+		    Base {} Sub + Base {}
 		    Thing\\Base {}
 		    z := Thing\\Base()
 		    z.@tag = Sub
@@ -1214,7 +1214,7 @@ class Structs_Test < Base_Test
 	def test_plain_dot_tag_write_no_longer_retags
 		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
 			Code.interp <<~CODE
-			    Base {} Sub | Base {}
+			    Base {} Sub + Base {}
 			    Thing\\Base {}
 			    z := Thing\\Base()
 			    z.tag = Sub
@@ -1281,7 +1281,7 @@ class Structs_Test < Base_Test
 	# Struct Composition -- `Both | Abc | Def <extra: ...>` composes Bare Named Structs the same way `Type | Other {}` composes Types, with `<...>` playing the role `{}` plays for a type declaration.
 
 	def test_parses_struct_composition_trailing_body
-		out  = Code.parse 'Both | Abc | Def <>'
+		out  = Code.parse 'Both + Abc + Def <>'
 		expr = out.first
 		assert_kind_of Code::Type_Expr, expr
 		assert_equal 'Both', expr.name
@@ -1292,7 +1292,7 @@ class Structs_Test < Base_Test
 	end
 
 	def test_parses_struct_composition_with_own_extra_members
-		out  = Code.parse 'Both2 | Abc <my_own: String>'
+		out  = Code.parse 'Both2 + Abc <my_own: String>'
 		expr = out.first
 		assert_equal ['my_own'], expr.struct_body.names
 		assert_equal %w(String), expr.struct_body.types.map { |member| member.type.value }
@@ -1310,7 +1310,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Abc <abc: Int>
 		    Def <def: String>
-		    Both | Abc | Def <>
+		    Both + Abc + Def <>
 		    b := Both(1, 'hi')
 		    <b.abc, b.def>
 		CODE
@@ -1320,7 +1320,7 @@ class Structs_Test < Base_Test
 	def test_struct_composition_with_own_extra_members
 		out = Code.interp <<~CODE
 		    Abc <abc: Int>
-		    Both2 | Abc <my_own: String>
+		    Both2 + Abc <my_own: String>
 		    b := Both2(1, 'yo')
 		    <b.abc, b.my_own>
 		CODE
@@ -1343,7 +1343,7 @@ class Structs_Test < Base_Test
 	def test_struct_composition_with_a_member_named_like_a_reflective_key
 		out = Code.interp <<~CODE
 		    Node <lexemes: Array>
-		    Schema | Node <types: Array, names: Array>
+		    Schema + Node <types: Array, names: Array>
 		    Schema.@type_names
 		CODE
 		assert_equal %w(Array Array Array), out.values
@@ -1353,7 +1353,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Abc <abc: Int, shared: String>
 		    Def <def: String, shared: String>
-		    U | Abc | Def <>
+		    U + Abc + Def <>
 		    u := U(1, 'left-shared', 'right-only')
 		    <u.abc, u.shared, u.def>
 		CODE
@@ -1364,51 +1364,29 @@ class Structs_Test < Base_Test
 	def test_struct_composition_own_members_win_over_composed_members
 		out = Code.interp <<~CODE
 		    Abc <shared: Int>
-		    Both3 | Abc <shared: String>
+		    Both3 + Abc <shared: String>
 		    b := Both3('mine')
 		    b.shared
 		CODE
 		assert_equal 'mine', out
 	end
 
-	def test_struct_composition_intersection_keeps_only_shared_members
-		out = Code.interp <<~CODE
-		    Abc <abc: Int, shared: String>
-		    Def <def: String, shared: String>
-		    I | Abc & Def <>
-		    i := I('only-shared')
-		    i.shared
-		CODE
-		assert_equal 'only-shared', out
-	end
-
 	def test_struct_composition_difference_removes_the_operands_members
 		out = Code.interp <<~CODE
 		    Abc <abc: Int, shared: String>
 		    Def <def: String, shared: String>
-		    D | Abc ~ Def <>
+		    D + Abc - Def <>
 		    d := D(1)
 		    d.abc
 		CODE
 		assert_equal 1, out
 	end
 
-	def test_struct_composition_symmetric_difference_keeps_only_unique_members
-		out = Code.interp <<~CODE
-		    Abc <abc: Int, shared: String>
-		    Def <def: String, shared: String>
-		    S | Abc ^ Def <>
-		    s := S(1, 'unique-def')
-		    <s.abc, s.def>
-		CODE
-		assert_equal [1, 'unique-def'], out.values
-	end
-
 	def test_struct_composition_result_is_a_real_bare_named_struct
 		out = Code.interp <<~CODE
 		    Abc <abc: Int>
 		    Def <def: String>
-		    Both | Abc | Def <>
+		    Both + Abc + Def <>
 		    b := Both(1, 'hi')
 		    <(b === Both), Both.@name>
 		CODE
@@ -1426,7 +1404,7 @@ class Structs_Test < Base_Test
 		    	x := 1
 		    	greet (; 'hi' )
 		    }
-		    Both | Abc | Real_Type <>
+		    Both + Abc + Real_Type <>
 		    b := Both(1)
 		    <b.abc, b.x, b.greet()>
 		CODE
@@ -1439,7 +1417,7 @@ class Structs_Test < Base_Test
 			Code.interp <<~CODE
 			    Abc <abc: Int>
 			    five := 5
-			    Bad | Abc | five <>
+			    Bad + Abc + five <>
 			CODE
 		end
 	end
@@ -1450,8 +1428,8 @@ class Structs_Test < Base_Test
 			out = Code.interp <<~CODE
 			    Abc <abc: Int>
 			    Def <def: String>
-			    Both | Abc | Def <>
-			    Both | Abc | Def <>
+			    Both + Abc + Def <>
+			    Both + Abc + Def <>
 			    Both.@name
 			CODE
 			assert_equal 'Both', out
@@ -1533,7 +1511,7 @@ class Structs_Test < Base_Test
 	def test_tagged_nil_dispatches_by_structural_specificity
 		src = <<~CODE
 		    Error <message: String>
-		    Panic | Error <>
+		    Panic + Error <>
 
 		    classify (value: Any;
 		        if value.@tag =>= Panic
@@ -1576,7 +1554,7 @@ class Structs_Test < Base_Test
 	# not a type identity, it must never contribute to `@composed_types`.
 	def test_type_composes_with_an_anonymous_struct_literal
 		out = Code.interp <<~CODE
-		    Type | <x: Int = 5> {}
+		    Type + <x: Int = 5> {}
 		    t := Type()
 		    <t.x, t.@composed_types.include?('Struct')>
 		CODE
@@ -1591,7 +1569,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Named <x: Int = 5>
 		    p := Named<x := 5>
-		    Type2 | p {}
+		    Type2 + p {}
 		    t := Type2()
 		    <t.x, t.@composed_types.include?('Struct'), t.@composed_types.include?('Named')>
 		CODE
@@ -1604,7 +1582,7 @@ class Structs_Test < Base_Test
 	def test_removal_composition_with_anonymous_struct_operand
 		out = Code.interp <<~CODE
 		    A { z := 3, w := 4 }
-		    B | A ~ <z: Int> {}
+		    B + A - <z: Int> {}
 		    b := B()
 		    <b.w, b.@composed_types.include?('Struct')>
 		CODE
@@ -1613,7 +1591,7 @@ class Structs_Test < Base_Test
 		assert_raises Code::Undeclared_Identifier do
 			Code.interp <<~CODE
 			    A { z := 3, w := 4 }
-			    B | A ~ <z: Int> {}
+			    B + A - <z: Int> {}
 			    B().z
 			CODE
 		end
@@ -1627,7 +1605,7 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Abc <abc: Int>
 		    Def <def: String>
-		    Both | Abc | Def <>
+		    Both + Abc + Def <>
 		    b := Both(1, 'hi')
 		    <b.abc, b.def>
 		CODE
@@ -1636,52 +1614,12 @@ class Structs_Test < Base_Test
 
 	# --- Type/Struct set-math interop: the remaining operators and forms, both directions ---
 
-	def test_type_intersection_with_an_anonymous_struct_operand
-		out = Code.interp <<~CODE
-		    A { x := 1, y := 2 }
-		    p := <x := 99, z := 3>
-		    Combined | A & p {}
-		    c := Combined()
-		    <c.x, c.@composed_types.include?('Struct')>
-		CODE
-		assert_equal [1, false], out.values # shared name's *value* comes from the left/curr_scope side, not the struct's
-
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp <<~CODE
-			    A { x := 1, y := 2 }
-			    p := <x := 99, z := 3>
-			    Combined | A & p {}
-			    Combined().y
-			CODE
-		end
-	end
-
-	def test_type_symmetric_difference_with_an_anonymous_struct_operand
-		out = Code.interp <<~CODE
-		    A { x := 1, y := 2 }
-		    p := <x := 99, z := 3>
-		    Combined | A ^ p {}
-		    c := Combined()
-		    <c.y, c.z, c.@composed_types.include?('Struct')>
-		CODE
-		assert_equal [2, 3, false], out.values # y (unique to A) and z (unique to p) survive; shared x is dropped from both
-
-		assert_raises Code::Undeclared_Identifier do
-			Code.interp <<~CODE
-			    A { x := 1, y := 2 }
-			    p := <x := 99, z := 3>
-			    Combined | A ^ p {}
-			    Combined().x
-			CODE
-		end
-	end
-
 	def test_type_removal_with_a_named_struct_operand
 		out = Code.interp <<~CODE
 		    Named <y: Int = 6>
 		    p := Named<y := 6>
 		    A { x := 1, y := 2 }
-		    Combined | A ~ p {}
+		    Combined + A - p {}
 		    Combined().x
 		CODE
 		assert_equal 1, out
@@ -1691,7 +1629,7 @@ class Structs_Test < Base_Test
 			    Named <y: Int = 6>
 			    p := Named<y := 6>
 			    A { x := 1, y := 2 }
-			    Combined | A ~ p {}
+			    Combined + A - p {}
 			    Combined().y
 			CODE
 		end
@@ -1701,36 +1639,12 @@ class Structs_Test < Base_Test
 		out = Code.interp <<~CODE
 		    Abc <a: Int, b: Int>
 		    T { b := 99, c := 3 }
-		    R | Abc ~ T <>
+		    R + Abc - T <>
 		    r := R(1)
 		    <R.@names, r.a>
 		CODE
 		assert_equal ['a'], out.values.first.values
 		assert_equal 1, out.values.last
-	end
-
-	def test_struct_composition_intersection_with_a_type_operand
-		out = Code.interp <<~CODE
-		    Abc <a: Int, b: Int>
-		    T { b := 99, c := 3 }
-		    R | Abc & T <>
-		    r := R(7)
-		    <R.@names, r.b>
-		CODE
-		# `&` only filters accumulated members by shared *name* -- the surviving value still comes from
-		# the left/accumulated side (Abc's own `b`), never overwritten by T's.
-		assert_equal ['b'], out.values.first.values
-		assert_equal 7, out.values.last
-	end
-
-	def test_struct_composition_symmetric_difference_with_a_type_operand
-		out = Code.interp <<~CODE
-		    Abc <a: Int, b: Int>
-		    T { b := 99, c := 3 }
-		    R | Abc ^ T <>
-		    R.@names
-		CODE
-		assert_equal %w(a c), out.values # shared b dropped from both; a (Abc-only) and c (T-only, pulled in) survive
 	end
 
 	# A struct can compose with a *constructed instance*, not just a bare Type -- Instance < Type, so
@@ -1744,7 +1658,7 @@ class Structs_Test < Base_Test
 		    }
 		    t := T(42)
 		    Abc <a: Int>
-		    R | Abc | t <>
+		    R + Abc + t <>
 		    r := R(1)
 		    r.val
 		CODE
@@ -1758,7 +1672,7 @@ class Structs_Test < Base_Test
 		    Inner { val := 42 }
 		    T { inner := Inner() }
 		    Abc <a: Int>
-		    Both | Abc | T <>
+		    Both + Abc + T <>
 		    b := Both(1)
 		    b.inner.val
 		CODE
@@ -1897,9 +1811,9 @@ class Structs_Test < Base_Test
 
 	def test_construction_checks_a_composed_struct_member
 		assert_raises Code::Type_Contract_Violation do
-			Code.interp "P <x: Int>\nQ | P <y: String>\nQ(1, 2)"
+			Code.interp "P <x: Int>\nQ + P <y: String>\nQ(1, 2)"
 		end
-		assert_equal [1, 'b'], Code.interp("P <x: Int>\nQ | P <y: String>\nq := Q(1, 'b')\n<q.x, q.y>").values
+		assert_equal [1, 'b'], Code.interp("P <x: Int>\nQ + P <y: String>\nq := Q(1, 'b')\n<q.x, q.y>").values
 	end
 
 	def test_construction_checks_a_union_member
@@ -2096,14 +2010,12 @@ class Structs_Test < Base_Test
 
 	def test_two_struct_values_compose_by_member_name
 		setup = "a := <x := 1, y := 2>\nb := <y := 9, z := 3>\n"
-		assert_equal %w(x y z), Code.interp("#{setup}a | b").names
-		assert_equal [1, 2, 3], Code.interp("#{setup}a | b").values, "the left side wins a shared name"
-		assert_equal %w(y), Code.interp("#{setup}a & b").names
-		assert_equal %w(x z), Code.interp("#{setup}a ^ b").names
-		assert_equal %w(x), Code.interp("#{setup}a ~ b").names
+		assert_equal %w(x y z), Code.interp("#{setup}a + b").names
+		assert_equal [1, 2, 3], Code.interp("#{setup}a + b").values, "the left side wins a shared name"
+		assert_equal %w(x), Code.interp("#{setup}a - b").names
 	end
 
 	def test_a_struct_value_composed_with_a_non_scope_raises
-		assert_raises(Code::Invalid_Composition_With_A_Non_Struct_type) { Code.interp "<x := 1> | 5" }
+		assert_raises(Code::Invalid_Composition_With_A_Non_Struct_type) { Code.interp "<x := 1> + 5" }
 	end
 end

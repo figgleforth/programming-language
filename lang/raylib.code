@@ -25,7 +25,7 @@
 #   Raylib.close_window()
 
 Vector2 <x: Number, y: Number>
-Pixel | Vector2 <>
+Pixel + Vector2 <>
 
 # A 2D camera -- `target` is the world-space point mapped to `offset` (the screen-space point it's
 # pinned to), `rotation` in degrees pivots around `target`, `zoom` scales around `target` (1 = no

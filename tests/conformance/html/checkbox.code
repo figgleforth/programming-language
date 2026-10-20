@@ -13,7 +13,7 @@ box.html_checked = false
 @out box.to_html()                       # out: <input type="checkbox">
 
 # A checkbox built from a value, the way the tasks example builds one from a record
-Done_Box | Checkbox {
+Done_Box + Checkbox {
 	Self ( done;
 		self.html_checked = done
 	)

@@ -35,7 +35,7 @@ db := @connect Sqlite.memory()
 Todo <id: Primary_Key, title: String>
 todos := db.find_or_create_table(Todo)
 
-List | Div {                      # composition, applied to markup
+List + Div {                      # composition, applied to markup
     html_id := 'list'
     input := Input()
     add := Button('Add')
@@ -54,7 +54,7 @@ List | Div {                      # composition, applied to markup
     )
 }
 
-App | Server {
+App + Server {
     list := List()
     get:// (;
         Html(Body(list))
@@ -212,20 +212,20 @@ Counter.count                 # 2
 
 ### Composition
 
-Combine types like sets, with no inheritance trees.
+Add and remove the members of types, with no inheritance trees.
 
 ```code
 Flying   { can_fly := true }
 Swimming { can_swim := true }
 
-Duck | Flying | Swimming {}      # | union
-Ostrich | Duck ~ Flying {}       # ~ difference
-                                 # & both, ^ exactly one
+Duck + Flying + Swimming {}      # + adds members
+Ostrich + Duck - Flying {}       # - removes them
+Penguin { Self += Swimming }     # or from inside a body
 
 Ostrich().can_swim               # true
 Ostrich().can_fly                # Undeclared_Identifier
 
-Array | Array {                  # extend built-ins, too
+Array + Array {                  # extend built-ins, too
     second (;
         self.values.1
     )
@@ -263,7 +263,7 @@ Flying =/= Swimming    # true: nothing shared
 
 ```code
 Int32 :: Integer              # the same type
-Whole | Integer {}            # a new type that composes Integer
+Whole + Integer {}            # a new type that composes Integer
 
 Strumber :: String | Number   # a type that's either of them
 x: Strumber = 5
@@ -304,7 +304,7 @@ User_Logic {
     greet (; "Hi `name`" )
 }
 
-User | User_Logic <name: String>   # data with func members, yet still a Struct
+User + User_Logic <name: String>   # data with func members, yet still a Struct
 User(name := 'Ada').greet()        # 'Hi Ada'
 ```
 
@@ -350,7 +350,7 @@ Elements are types, and styles and attributes are members.
 ```code
 @load 'lang/html.code'
 
-Card | Div {
+Card + Div {
     css_padding := '1rem'     # style="padding: 1rem"
     html_class := 'card'      # class="card"
 }
@@ -366,7 +366,7 @@ The `class` and `style` attributes, and the escaping, come when a server renders
 Set `onclick` to a closure, and only the component with that `html_id` re-renders.
 
 ```code
-Counter | Div {
+Counter + Div {
     html_id := 'counter'
     count := 0                # coming soon: one count per visitor
     button := Button('+1')
@@ -424,7 +424,7 @@ Data, logic, and table under one name.
 
 ```code
 User_Logic { greet (; "Hi `name`" ) }
-Account | User | User_Logic | users <>
+Account + User + User_Logic + users <>
 
 Account.find(1).name              # 'Ada'
 Account(name := 'Bob').greet()    # 'Hi Bob'
@@ -907,7 +907,7 @@ Mod.Some_Type()
 The standard library is written in .code, and `@ruby` runs the built-in Ruby method right where it is written, so you can wrap or replace any built-in.
 
 ```code
-String | String {
+String + String {
     upcase (;
         @puts "upcasing `self`"
         @ruby                   # the built-in upcase runs here
@@ -915,7 +915,7 @@ String | String {
 }
 'hi'.upcase()                 # prints upcasing hi, gives 'HI'
 
-String | String {
+String + String {
     upcase (; "`@ruby`!" )
 }
 'hi'.upcase()                 # 'HI!'
@@ -950,7 +950,7 @@ bin/program parsef app.code -p   # lexf, parsef, declaref, interpf for files
 Today one component serves every visitor, so they all share its values.
 
 ```code
-App | Server {
+App + Server {
     counter := Counter()
     get:// (; Html(Body(counter)) )
 }
@@ -979,7 +979,7 @@ save.onclick = (;
 The code you write stays the same, and the server under it moves from Ruby into the language.
 
 ```code
-App | Server {
+App + Server {
     get:// (; 'Hello, World!' )
 }
 

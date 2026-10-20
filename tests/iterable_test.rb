@@ -16,7 +16,7 @@ class Iterable_Test < Base_Test
 	def test_composed_iterable_drives_a_for_loop
 		out = Code.interp <<~CODE
 		    #{ITERABLE}
-		    Countdown | Iterable {
+		    Countdown + Iterable {
 		        Self ( collection; self.collection = collection )
 		    }
 		    result := []
@@ -31,7 +31,7 @@ class Iterable_Test < Base_Test
 	def test_composed_iterable_exposes_it_and_at
 		out = Code.interp <<~CODE
 		    #{ITERABLE}
-		    Countdown | Iterable {
+		    Countdown + Iterable {
 		        Self ( collection; self.collection = collection )
 		    }
 		    pairs := []
@@ -46,7 +46,7 @@ class Iterable_Test < Base_Test
 	def test_composed_iterable_supports_skip_and_stop
 		out = Code.interp <<~CODE
 		    #{ITERABLE}
-		    Countdown | Iterable {
+		    Countdown + Iterable {
 		        Self ( collection; self.collection = collection )
 		    }
 		    result := []
@@ -67,7 +67,7 @@ class Iterable_Test < Base_Test
 	def test_composing_iterable_gives_real_type_identity
 		out = Code.interp <<~CODE
 		    #{ITERABLE}
-		    Countdown | Iterable {
+		    Countdown + Iterable {
 		        Self ( collection; self.collection = collection )
 		    }
 		    Countdown([1]) =>= Iterable

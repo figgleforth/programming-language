@@ -536,7 +536,14 @@ module Code
 	class Invalid_Composition_Operator < Error
 	end
 
-	# A bare composition (`|Compo`, `&Compo`, ...) with no left operand is only meaningful while a Type's own body is actually being declared/reopened -- interpreting one anywhere else (`x := |Compo`, as an ordinary statement, ...) used to silently merge the operand into whatever scope happened to be on top of the stack instead of raising.
+	# `x: Self` with no type around it, at the top level or in a plain function.
+	class Self_Outside_Type < Error
+		def detail_message
+			'`Self` in an annotation is the type that uses it, so it works only inside a type: on a member, or on a method\'s param or return type.'
+		end
+	end
+
+	# `Self += Compo` with no type or instance on the stack, such as at the top level of a program.
 	class Composition_Outside_Type_Declaration < Error
 	end
 

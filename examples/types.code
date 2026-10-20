@@ -94,9 +94,9 @@ monster := Smoke_Monster('Smoke Monster', 'control the Island')
 # monster._true_agenda would raise Cannot_Call_Private_Instance_Member -- outsiders don't get to ask directly
 
 
-### Composition: | union
+### Composition: + adds members
 
-Backend has no inheritance -- types compose instead, with four operators borrowed from set theory. `|` (union) merges every declaration from the right side into the left, with the LEFT side winning any name conflicts. Multiple operators chain freely:
+Backend has no inheritance -- types compose instead, with two operators. `+` adds every declaration from the right side to the left, with the LEFT side winning any name conflicts. Multiple operators chain freely:
 ###
 Castaway {
 	survived_815 := true
@@ -106,15 +106,15 @@ Other {
 	survivor := false
 }
 
-Jack | Castaway {
+Jack + Castaway {
 	name := 'Jack'
 }
 
-Richard | Other {
+Richard + Other {
 	name := 'Richard'
 }
 
-Steve | Castaway | Other {
+Steve + Castaway + Other {
 	name := 'Steve'
 }
 
@@ -123,13 +123,9 @@ s := Steve()
 @assert s.survivor == false, 'a union should merge in declarations from every composed type -- from Other'
 
 
-### Composition: & intersection, ~ difference, ^ symmetric difference
+### Composition: - removes members
 
-The other three operators only make sense once two sides might disagree. `Castaway` and `Other` both declare a `faction` method (with different bodies) here, alongside their own unique members, to show how each operator treats a genuine name collision differently:
-
-  &  keeps only what BOTH sides declare (here: just `faction` -- the shared name)
-  ~  removes the right side's declarations from the left (drops `faction`, keeps `survived_815`)
-  ^  keeps only what's unique to each side (drops the shared `faction`, keeps everything else)
+`Castaway` and `Other` both declare a `faction` method (with different bodies) here, alongside their own unique members. `-` removes the right side's declarations from the left: it drops `faction` and keeps `survived_815`.
 ###
 Castaway {
 	survived_815 := true
@@ -147,29 +143,22 @@ Other {
 	)
 }
 
-both := (Castaway & Other)()
-@assert both.faction() == 'Survivors', '& should keep only the shared name, left side wins'
-
-just_theirs := (Castaway ~ Other)()
-@assert just_theirs.survived_815 == true, "~ should drop the shared name but keep Castaway's own, un-shared member"
-
-unique := (Castaway ^ Other)()
-@assert unique.survived_815 == true, '^ should keep what is unique to Castaway'
-@assert unique.survivor == false, '^ should keep what is unique to Other'
+just_theirs := (Castaway - Other)()
+@assert just_theirs.survived_815 == true, "- should drop the shared name but keep Castaway's own, un-shared member"
 
 
 ### A composition chain needs no name at all
 
-Any of the four operators can stand alone with no `{ }` body and no name -- `(Castaway & Other)()` above already did exactly this. It builds an anonymous type on the spot by applying the chain, exactly as if you'd written `X | Castaway | Other { }` for some unnamed `X` -- usable immediately, assignable, comparable, instantiable, without ever needing a name of its own.
+A chain can stand alone with no `{ }` body and no name -- `(Castaway - Other)()` above already did exactly this. It builds an anonymous type on the spot by applying the chain, exactly as if you'd written `X + Castaway + Other { }` for some unnamed `X` -- usable immediately, assignable, comparable, instantiable, without ever needing a name of its own.
 ###
-Survivors_And_Others := Castaway & Other   # a Type value, just like any named one -- not an instance yet
+Survivors_And_Others := Castaway + Other   # a Type value, just like any named one -- not an instance yet
 survivor             := Survivors_And_Others()
 @assert survivor.faction() == 'Survivors', 'an anonymous composition chain should be usable immediately, just like a named type'
 
 
 ### Type comparison operators
 
-Five operators compare the composed-type SET two types or instances carry -- every type a value's own type composes, via any of the four operators above, plus its own name. All five share the `=X=` shape:
+Five operators compare the composed-type SET two types or instances carry -- every type a value's own type composes, via the operators above, plus its own name. All five share the `=X=` shape:
 
   ===  exact type-set equality
   =!=  negation of ===

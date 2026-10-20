@@ -829,6 +829,7 @@ module Code
 			#
 
 			start    = curr_lexeme
+			start_i  = @i
 			it       = Code::Type_Expr.new eat # one of valid_idents
 			it.name  = it.lexeme.value
 			is_type  = Helpers.type_identifier? it.name
@@ -857,8 +858,11 @@ module Code
 			#   Abc<4815>()
 			#
 			# Then this is a reference to an existing type (optionally tagged), not a declaration. `it.expressions` stays nil here so callers (like #interp_type) can tell this apart from a real, even if empty, `{}` body. Whatever follows (like a trailing `(...)` call) is picked up in #complete_expression, same as any other primary expression.
-			# A composed operand can be a struct literal too (`Type | <x: Int> {}`), not just a type name.
-			unless curr?('{') || curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<') || literal_type_operand_next?
+			# A head adds and removes members (`Duck + Flying - Swimming {}`). A type position describes values (`String | Number`).
+			operators = @type_position_depth > 0 ? TYPE_COMPOSITION_OPERATORS : MEMBER_COMPOSITION_OPERATORS
+
+			# A composed operand can be a struct literal too (`Type + <x: Int> {}`), not just a type name.
+			unless curr?('{') || curr?(operators, ANY_IDENTIFIER) || curr?(operators, '<') || literal_type_operand_next?
 				closing = if it.tag
 					it.tag
 				else
@@ -870,18 +874,24 @@ module Code
 			it.expressions = []
 
 			until curr? '{'
-				break unless curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<') || literal_type_operand_next?
+				break unless curr?(operators, ANY_IDENTIFIER) || curr?(operators, '<') || literal_type_operand_next?
 				it.expressions << parse_composition_expr
 			end
 
 			unless curr? '{'
-				# A trailing `<...>` composes structs instead of a type's `{}` body. Speculative -- a bare `<` could just as easily be a comparison (`x := A | B < 5`), so only commit if it actually parses as a struct.
+				# A trailing `<...>` composes structs instead of a type's `{}` body. Speculative -- a bare `<` could just as easily be a comparison (`x := A + B < 5`), so only commit if it actually parses as a struct.
 				if curr?('<') && (body = try_parse_struct_body)
 					it.struct_body = body
 					return set_expr_location it, start, body
 				end
 
-				# No body followed the composition chain (`Abc|Def`, `A & B`, ...) so this is a reference to an anonymous type built by applying the chain, not a declaration.
+				# Outside a type position, a chain with no body is a value expression (`x := A + B`, `MASK | OTHER`), so the caller parses it again as one. A tagged first type (`Array\String + Extra`) stays an anonymous composition.
+				if @type_position_depth == 0 && !it.tag
+					@i = start_i
+					return nil
+				end
+
+				# No body followed the composition chain (`String | Number` in a type position) so this is a reference to an anonymous type built by applying the chain, not a declaration.
 				it.anonymous_composition = true
 
 				closing = if it.expressions
@@ -933,10 +943,10 @@ module Code
 			copy_location it, start
 		end
 
-		def parse_composition_expr
-			start         = curr_lexeme
+		def parse_composition_expr operator = eat(:operator)
+			start         = operator
 			expr          = Code::Composition_Expr.new
-			expr.operator = eat(:operator)
+			expr.operator = operator
 			ident         = if @type_position_depth > 0 && literal_type_next?
 				parse_literal_type
 			elsif curr? '<'
@@ -967,18 +977,6 @@ module Code
 
 			expr.identifier = ident
 			set_expr_location expr, start, ident
-		end
-
-		# `x := |Compo` / `y := |This ^ That` -- a composition chain with no left operand, used as a value. Same Type_Expr shape #parse_type_decl builds for `Base | Compo`, just with `.name` left nil. Only reachable from `:=`'s own RHS parsing.
-		def parse_bare_composition_chain
-			start                    = curr_lexeme
-			it                       = Code::Type_Expr.new
-			it.anonymous_composition = true
-			it.expressions           = []
-
-			it.expressions << parse_composition_expr while curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER)
-
-			set_expr_location it, start, it.expressions.last
 		end
 
 		# `Strumber :: String | Number`, `Int :: Integer`, `Expressions :: Array\Expression`, `Func :: (;)`
@@ -1059,27 +1057,10 @@ module Code
 			end
 		end
 
-		# `A | B`, `A | <x: Int>`, or `Int | "auto"` in a type position. With a value after the operator (`MASK | 4`), it is a value expression: a bitwise or, not a composition.
+		# `Duck + Flying {}`, `A + <x: Int> <>`, or `Int | "auto"` in a type position. Outside a type position this is only a candidate: #parse_type_decl gives nil when no body follows, and the chain is a value expression (`x := A + B`, `MASK | 4`).
 		def type_composition_follows?
-			return false unless curr? TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS
-
-			operand_follows = curr?(TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_IDENTIFIER, TYPE_COMPOSITION_OPERATORS, '<') || (@type_position_depth > 0 && literal_type_next?(2))
-			return false unless operand_follows
-
-			# An UPPERCASE name can be a type (`H1`, `A`) or a constant that holds a value (`MASK`), so its chain stays a composition only when no value operator follows it: `MASK | OTHER & 6` and `MASK | OTHER + 1` are value expressions, with the usual precedence. A chain of names alone (`MASK | OTHER`) is a composition here, and Interpreter#interp_anonymous_composition runs it as values when its names hold values.
-			@type_position_depth > 0 || curr?(:Identifier) || uppercase_chain_is_a_type?
-		end
-
-		def uppercase_chain_is_a_type?
-			i = @i + 1
-			while TYPE_COMPOSITION_OPERATORS.any? { input[i]&.is it } && (ANY_IDENTIFIER.any? { input[i + 1]&.is it } || input[i + 1]&.is('<'))
-				return true if input[i + 1].is '<' # a struct operand: `B | A ~ <z: Int> {}`
-				i += 2
-			end
-
-			after = input[i]
-			return true if after.nil? || after.is('{') || after.is('<') || after.is(TAG_OPERATOR)
-			!after.is(:operator)
+			operators = @type_position_depth > 0 ? TYPE_COMPOSITION_OPERATORS : MEMBER_COMPOSITION_OPERATORS
+			curr?(TYPE_IDENTIFIER, operators, ANY_IDENTIFIER) || curr?(TYPE_IDENTIFIER, operators, '<') || (@type_position_depth > 0 && curr?(TYPE_IDENTIFIER, operators) && literal_type_next?(2))
 		end
 
 		def parse_literal_type
@@ -1571,12 +1552,12 @@ module Code
 			elsif curr?('<') && curr_lexeme.type == :operator && !@custom_prefix.include?('<')
 				parse_struct
 
-			elsif curr?(TYPE_IDENTIFIER, '{') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, '<') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, TYPE_IDENTIFIER) || type_then_integer_tag_next? || type_composition_follows?
+			elsif curr?(TYPE_IDENTIFIER, '{') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, '<') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, TYPE_IDENTIFIER) || type_then_integer_tag_next?
 				# No trailing `{` guard needed for the named-reference form -- unlike `/`, `\` never collides with anything else in Code, so it's unambiguous with or without a body.
 				parse_type_decl
 
-			elsif curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
-				parse_composition_expr
+			elsif type_composition_follows? && (type_decl = parse_type_decl)
+				type_decl
 
 			elsif curr? 'for'
 				parse_for_loop_expr
@@ -1706,6 +1687,17 @@ module Code
 					curr_operator_prec = precedence_for curr_lexeme.value
 					return expr if curr_operator_prec <= precedence
 
+					# `Self += Duck` adds Duck's members to the type, and `self -= Flying` removes Flying's members from this instance. The operator becomes the head's own `+`/`-`.
+					if %w(+= -=).include?(curr_lexeme.value) && expr.is_a?(Code::Identifier_Expr) && SELF_KEYWORDS.include?(expr.value) && !expr.scope_operator
+						compound = eat
+						operator = Code::Lexeme.new(:operator, compound.value.chomp('=')).tap do |it|
+							%i(line_start column_start line_end column_end source_file).each { |attr| it.send "#{attr}=", compound.send(attr) }
+						end
+						composition        = parse_composition_expr operator
+						composition.target = expr.value
+						return set_expr_location(composition, expr, composition.identifier)
+					end
+
 					it          = Code::Infix_Expr.new
 					it.left     = expr
 					it.operator = eat
@@ -1738,12 +1730,7 @@ module Code
 						expr.left     = left
 						expr.operator = eat(curr_lexeme.value)
 						raise Code::Cannot_Annotate_Inferred_Declaration.new(left) if expr.operator.value == ':=' && left.is_a?(Code::Identifier_Expr) && left.type
-						expr.right    = if expr.operator.value == ':=' && curr?(TYPE_COMPOSITION_OPERATORS) && peek.is(:Identifier)
-							# `x := |Compo` -- a composition chain used as a value, not #parse_expression's usual single bare Composition_Expr.
-							parse_bare_composition_chain
-						else
-							parse_expression curr_operator_prec, member_rhs: DOT_ACCESS_OPERATORS.include?(expr.operator.value)
-						end
+						expr.right    = parse_expression curr_operator_prec, member_rhs: DOT_ACCESS_OPERATORS.include?(expr.operator.value)
 						expr.right    = expr.right.left if expr.right.is_a? Code::Nil_Init_Expr
 
 						if expr.left.is(Code::Identifier_Expr) && expr.operator.value == '.' && expr.right.is(Code::Number_Expr) && expr.right.type == :float

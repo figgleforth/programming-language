@@ -261,7 +261,7 @@ Int :: Integer, Flo :: Float, and Dec :: Decimal are already declared in lang/nu
 ### Whole and fixed-point numbers ###
 
 # A whole number that cannot be negative, so Unt\8 holds 0 to 255 instead of -128 to 127.
-Unteger | Number {}
+Unteger + Number {}
 Unt :: Unteger
 
 # With a fraction width, Int and Unt become fixed point: the last bits sit after the point, so Int\<16, 8> steps in exact 1/256ths.
@@ -270,40 +270,40 @@ Unt :: Unteger
 ### Numbers with a fraction ###
 
 # A float replacement that is most precise near 1 and less precise far from 1.
-Posit | Number {}
+Posit + Number {}
 Pos :: Posit
 
 # Stores the logarithm of the number, so multiplying two of them is only an addition.
-Logarithmic | Number {}
+Logarithmic + Number {}
 Log :: Logarithmic
 
 ### Numbers that mean an amount from 0 to 1 ###
 
 # An Unt read as 0 to 1, so 255 in a Unorm\8 means 1.0; most colors are stored this way.
-Unorm | Number {}
+Unorm + Number {}
 # An Int read as -1 to 1, so 127 in a Snorm\8 means 1.0; used for directions.
-Snorm | Number {}
+Snorm + Number {}
 
 # A stream of bits where the value is the share of 1s, so 0110 means 0.5; the width is the stream length.
-Stochastic | Number {}
+Stochastic + Number {}
 Sto :: Stochastic
 
 ### Numbers with special math ###
 
 # Adding is XOR and every result stays inside the width; used in crypto and in QR code error correction.
-Galois | Number {}
+Galois + Number {}
 Gal :: Galois
 
 # Stores the remainders after division by a few small numbers, so each remainder can be added or multiplied on its own.
-Residue | Number {}
+Residue + Number {}
 Res :: Residue
 
 ### Base-3 numbers, stored in bits ###
 
 # A base-3 number with the digits 0, 1, 2.
-Utrit | Number {}
+Utrit + Number {}
 # A base-3 number with the digits -1, 0, 1, so a negative number needs no sign.
-Itrit | Number {}
+Itrit + Number {}
 
 ### Groups of numbers. Tag them with the part type, not a width: Complex\Flo\32 ###
 

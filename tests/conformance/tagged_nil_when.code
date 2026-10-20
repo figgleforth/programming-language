@@ -1,6 +1,6 @@
 @load 'lang/errors.code'
-Closed   | Error {}
-Unending | Error {}
+Closed   + Error {}
+Unending + Error {}
 Closed_Alias :: Error
 Other_Alias  :: Error
 
@@ -42,12 +42,12 @@ alias_reason ( value;
 @out alias_reason(nil\Other_Alias)    # out: first
 
 # A tag is-a its parent tag, so one `when` catches every kind below it
-Http_Error        | Error {}
-Client_Error      | Http_Error {}
-Bad_Header        | Client_Error {}
-Line_Too_Long     | Client_Error {}
-Connection_Closed | Http_Error {}
-Unknown_Thing     | Error {}
+Http_Error        + Error {}
+Client_Error      + Http_Error {}
+Bad_Header        + Client_Error {}
+Line_Too_Long     + Client_Error {}
+Connection_Closed + Http_Error {}
+Unknown_Thing     + Error {}
 
 handle ( value;
 	if value

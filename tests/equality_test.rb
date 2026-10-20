@@ -8,7 +8,7 @@ class Equality_Test < Base_Test
 		S {}
 		A {}
 		B {}
-		Dog | A {}
+		Dog + A {}
 		Options := <table_name: String, columns: Number>
 		Point {
 			x := 0
@@ -181,7 +181,7 @@ class Equality_Test < Base_Test
 	end
 
 	def test_same_tag_values_compares_a_named_struct_tag_by_name
-		run_code "@load 'lang/errors.code'\nClosed | Error <>\nUnending | Error <>"
+		run_code "@load 'lang/errors.code'\nClosed + Error <>\nUnending + Error <>"
 		assert_equal true, @interp.send(:same_tag_values?, tag('nil\\Closed'), tag('nil\\Closed'))
 		assert_equal false, @interp.send(:same_tag_values?, tag('nil\\Closed'), tag('nil\\Unending'))
 	end

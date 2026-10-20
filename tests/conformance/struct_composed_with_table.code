@@ -10,7 +10,7 @@ db          := @connect Sqlite.memory()
 tasks_table := db.find_or_create_table(Task)
 
 # A table instance composed in brings its methods, and they still run on that table
-Tasks | Task | Task_Logic | tasks_table <>
+Tasks + Task + Task_Logic + tasks_table <>
 Tasks.create(<text := 'Write tests', done := false>)
 @out Tasks.find(1).text               # out: Write tests
 @out Tasks.find(1).done               # out: false
@@ -36,7 +36,7 @@ Counter {
 }
 counter := Counter()
 Box <label: String>
-Boxes | Box | counter <>
+Boxes + Box + counter <>
 Boxes.bump()
 Boxes('a').bump()
 @out counter.n                        # out: 2
@@ -44,7 +44,7 @@ Boxes('a').bump()
 # Two composed tables stay apart
 Note <id: Primary_Key, body: String>
 notes_table := db.find_or_create_table(Note)
-Notes | Note | notes_table <>
+Notes + Note + notes_table <>
 Notes.create(<body := 'one'>)
 Notes.create(<body := 'two'>)
 @out Notes.count()                    # out: 2
@@ -56,7 +56,7 @@ Counting {
 		'from Counting'
 	)
 }
-Logic_First | Task | Counting | tasks_table <>
-Table_First | Task | tasks_table | Counting <>
+Logic_First + Task + Counting + tasks_table <>
+Table_First + Task + tasks_table + Counting <>
 @out Logic_First.count()              # out: from Counting
 @out Table_First.count()              # out: 1

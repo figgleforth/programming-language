@@ -1,8 +1,8 @@
-Server_A | Server {
+Server_A + Server {
   get://a (; "From Server A" )
 }
 
-Server_B | Server {
+Server_B + Server {
   get://b (; "From Server B" )
 }
 

@@ -5,7 +5,7 @@
 
 @load 'lang/errors'
 
-Out_Of_Bounds | Error <>
+Out_Of_Bounds + Error <>
 
 Buffer {
 	Self ( size: Int = 0;

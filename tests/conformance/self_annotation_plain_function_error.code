@@ -1,0 +1,7 @@
+# A plain function has no type around it, so `Self` names nothing there either.
+
+echo ( value: Self;
+	value
+)
+
+echo(1)                                 # error: Self_Outside_Type

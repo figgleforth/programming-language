@@ -1,0 +1,3 @@
+# `Self` in an annotation is the type that uses it, so outside a type it names nothing.
+
+x: Self = 5                             # error: Self_Outside_Type

@@ -170,8 +170,8 @@ class Type_Alias_Test < Base_Test
 	def test_an_alias_of_a_composition_is_not_a_composed_type
 		assert_instance_of Code::Type_Alias, Code.interp('Strumber :: String | Number')
 
-		# `:=` stays a value: one new Type that composes both
-		out = Code.interp 'x := String | Number'
+		# A value composes with `+`: one new Type that composes both
+		out = Code.interp 'x := String + Number'
 		assert_instance_of Code::Type, out
 		assert_equal %w(String Number), out.types.to_a
 	end

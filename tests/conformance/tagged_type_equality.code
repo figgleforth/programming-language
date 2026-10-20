@@ -24,7 +24,7 @@ S {}
 # A type with no tag follows the same rule: it has no tag values, so the type itself decides
 A {}
 B {}
-Dog | A {}
+Dog + A {}
 @out A === A                                                          # out: true
 @out A == A                                                           # out: true
 @out A == B                                                           # out: false
