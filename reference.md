@@ -912,7 +912,7 @@ arr.filter(x; x > 2)    # (equivalent to arr.filter((x; x > 2)))
 2. A bare name on the left is a String key: `{name = 'Jack'}` has the key "name". Write `{:name = 'Jack'}` for a Symbol key, or `{'first name' = 'J'}` for any String
 3. Any other left side is evaluated, so any value can be a key: a Number, `true`, `nil`, a struct, or an Array. A struct or an Array compares by its current values, so after one changes, its new value finds the entry and its old value does not. A Set follows its struct and Array elements the same way. Parentheses evaluate a name: `{(camp) = 'hut'}` uses camp's value
 4. A key keeps its own type, as in Ruby: `:x` and `'x'` are two keys
-5. A `{}` body of only `=` entries (or nothing) is a Dictionary. Anything else is a block with its own scope: `{ x }` gives x, and a `:=` inside it stays inside
+5. A `{}` body of only `key = value` lines (or nothing) is a Dictionary. Anything else is a block with its own scope: `{ x }` gives x, and a `:=` inside it stays inside. See Dictionary or Block below
 6. Read with a subscript, `dict[key]`. A dot reads the Symbol key, then the String key: `dict.x`. A dot never writes: `dict.x = 1` raises `Code::Dictionary_Dot_Write`, so write with a subscript, `dict[:x] = 1`
 7. The old `{x: 10}` raises `Code::Colon_Dictionary_Entry`, because after a name `:` starts a type annotation
 
@@ -937,6 +937,56 @@ places[:name]       # :Jack -- another key
 places.name         # :Jack -- a dot reads the Symbol key first
 places['beach']     # 'hut' -- (camp) uses camp's value
 places[Vec2(0, 0)]  # player_a -- a struct key compares by its member values
+```
+
+### Dictionary or Block
+
+The lines inside `{}` decide what it is. When every line has the form `key = value`, each line is a key and its value, and the `{}` is a Dictionary. When one line has a different form, the `{}` is a block. A block runs its lines in its own scope, and gives its last value.
+
+```code
+# Each line is key = value: a Dictionary
+point := {x = 1, y = 2}     # {x = 1, y = 2}
+{}                          # an empty Dictionary
+
+# One line has a different form: a block
+total := {
+	a := 1                  # := declares inside the block only
+	a + 2
+}                           # 3
+a                           # Undeclared_Identifier
+
+n := {
+	x: Int = 5              # a typed = declares, so it is not key = value
+}                           # 5
+```
+
+When a `{}` has only plain `=` lines, it is a Dictionary, so it assigns nothing:
+
+```code
+count := 0
+{
+	count = 1               # the key 'count' with the value 1, not an assignment
+}
+count                       # 0
+
+{
+	count = 1               # one other line makes it a block, so = assigns the outer count
+	count += 1
+}
+count                       # 2
+```
+
+A block can keep values private to a function made inside it, such as a click handler. The handler keeps the block's names after the block ends:
+
+```code
+Self ( prefix;
+	{
+		name := 'a'         # only this block and the handler see name
+		button.onclick = (;
+			picked = prefix + name
+		)
+	}
+)
 ```
 
 ## Sets
@@ -1498,8 +1548,9 @@ User_Record(name := 'Bob').greet()  # 'Hi Bob' -- a record built in memory gets 
 1. Compose with HTML element types from `lang/html.code`
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
-4. `.to_s()` renders an element and its children to string directly
-5. When a server renders a page, text children, attribute values, and `css_*` values are escaped, so text from a user can never become markup. The text inside `Script` and `Style` stays raw, because it is JavaScript or CSS
+4. `.to_s()` renders an element and its children to string directly, without attributes
+5. `.to_html()` gives the HTML that a server sends for the element, with its `html_*` attributes and `css_*` style. A boolean attribute (`checked`, `selected`, `disabled`, and so on) shows only when it is `true`. A `false` or `nil` attribute does not show
+6. When a server renders a page, text children, attribute values, and `css_*` values are escaped, so text from a user can never become markup. The text inside `Script` and `Style` stays raw, because it is JavaScript or CSS
 
 ```code
 @load 'lang/html.code'
@@ -1529,6 +1580,11 @@ page := Html([
         ])
     ])
 ])
+
+box := Checkbox()
+box.to_html()             # <input type="checkbox">
+box.html_checked = true
+box.to_html()             # <input type="checkbox" checked>
 ```
 
 ## CSS

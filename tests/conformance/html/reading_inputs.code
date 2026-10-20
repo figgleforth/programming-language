@@ -1,0 +1,95 @@
+@load 'lang/html'
+
+# A Checkbox is checked only when html_checked is true. It is nil until something sets it, so compare with true
+checked? ( box: Checkbox -> Bool;
+	box.html_checked == true
+)
+
+# The value that a form sends for an Option: its html_value, else its text
+option_value ( option: Option -> String;
+	option.html_value or option.children
+)
+
+# The value of each selected Option. A Select with html_multiple can have more than one
+selected_values ( options: Array -> Array;
+	values := []
+	for options
+		if it.html_selected == true
+			values.push(option_value(it))
+		end
+	end
+	values
+)
+
+# A Select holds its options as its children
+selected_values_of ( select: Select -> Array;
+	selected_values(select.children)
+)
+
+# The value of the checked Radio in a group, or nil when none is checked
+checked_value ( radios: Array;
+	for radios
+		if it.html_checked == true
+			return it.html_value
+		end
+	end
+	nil
+)
+
+# Checks the Radio with this value and unchecks the others, the same as a click in a browser
+check ( radios: Array, value: String;
+	for radios
+		it.html_checked = it.html_value == value
+	end
+)
+
+# A Checkbox
+box := Checkbox()
+@out checked?(box)                       # out: false
+box.html_checked = true
+@out checked?(box)                       # out: true
+
+# One selected Option
+todo := Option('To do')
+bug  := Option('Bug')
+todo.html_value = 'TODO'
+bug.html_value  = 'BUG'
+bug.html_selected = true
+@out option_value(todo)                  # out: TODO
+@out selected_values([todo, bug])        # out: ['BUG']
+
+# An Option with no html_value gives its text
+plain := Option('Design')
+plain.html_selected = true
+@out option_value(plain)                 # out: Design
+
+# A Select with more than one selected Option
+tags := Select([todo, bug, plain], html_multiple := true)
+@out selected_values_of(tags)            # out: ['BUG', 'Design']
+
+# Nothing selected gives an empty Array
+bug.html_selected   = false
+plain.html_selected = false
+@out selected_values_of(tags)            # out: []
+
+# A Radio group starts with nothing checked
+low      := Radio(html_name := 'priority', html_value := 'LOW')
+high     := Radio(html_name := 'priority', html_value := 'HIGH')
+priority := [low, high]
+@out checked_value(priority)             # out: nil
+
+# Checking one Radio unchecks the others
+check(priority, 'HIGH')
+@out checked_value(priority)             # out: HIGH
+@out low.html_checked                    # out: false
+
+check(priority, 'LOW')
+@out checked_value(priority)             # out: LOW
+@out high.html_checked                   # out: false
+
+# Use the values: build a record from what the inputs hold
+bug.html_selected = true
+task := <done := checked?(box), type := selected_values_of(tags).0, priority := checked_value(priority)>
+@out task.done                           # out: true
+@out task.type                           # out: BUG
+@out task.priority                       # out: LOW

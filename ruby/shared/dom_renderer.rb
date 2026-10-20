@@ -90,11 +90,12 @@ module Code
 					html << "\""
 				end
 
-				if onclick_expr
+				# A static render (`Dom#to_html`) sets no tokens.
+				if onclick_expr && onclick_token
 					html << " data-prog-onclick=\"#{onclick_token}\""
 				end
 
-				if is_input_element?
+				if is_input_element? && input_id_token
 					html << " data-prog-id=\"#{input_id_token}\""
 				end
 

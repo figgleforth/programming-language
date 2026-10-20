@@ -166,6 +166,11 @@ module Code
 				super
 			end
 		end
+
+		# `Dom#to_html` (lang/html.code). A Dom element is a plain Instance with no Ruby class of its own, so the proxy lives here.
+		def proxy_to_html
+			Code::Interpreter.current.render_dom_to_html self, static: true
+		end
 	end
 
 	class Func < Scope

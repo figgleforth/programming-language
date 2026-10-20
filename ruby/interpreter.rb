@@ -1256,16 +1256,17 @@ module Code
 			collected_routes
 		end
 
-		def render_dom_to_html dom_instance, render_scope: nil
+		# `static: true` (`Dom#to_html`) registers no click handler or input, so the HTML has no data-prog-* tokens.
+		def render_dom_to_html dom_instance, render_scope: nil, static: false
 			# A component with its own html_id (a page-level component) anchors a fresh token namespace
 			# for its whole subtree, keyed by that stable id. A top-level component with no html_id
 			# falls back to its object_id. Nested id-less elements just keep counting within the
 			# enclosing component's namespace -- see #next_render_token.
 			own_html_id = dom_instance.declarations['html_id']
 			if render_scope.nil?
-				render_scope = { anchor: own_html_id || "auto#{dom_instance.object_id}", slot: 0, component: dom_instance }
+				render_scope = { anchor: own_html_id || "auto#{dom_instance.object_id}", slot: 0, component: dom_instance, static: static }
 			elsif own_html_id
-				render_scope = { anchor: own_html_id, slot: 0, component: dom_instance }
+				render_scope = { anchor: own_html_id, slot: 0, component: dom_instance, static: render_scope[:static] }
 			end
 
 			render = dom_instance.declarations['render']
@@ -1289,11 +1290,11 @@ module Code
 			# renderer instead of letting it mint its own.
 			element_key = dom_instance.declarations['key']
 
-			if renderer.onclick_expr
+			if renderer.onclick_expr && !render_scope[:static]
 				renderer.onclick_token = add_onclick_handler renderer.onclick_expr, render_scope, element_key
 			end
 
-			if renderer.is_input_element?
+			if renderer.is_input_element? && !render_scope[:static]
 				renderer.input_id_token = add_input_element dom_instance, render_scope, element_key
 			end
 
@@ -3908,25 +3909,32 @@ module Code
 			handler = route.handler
 			params  = handler.parameters
 
-			# A closure built inside a nested call (e.g. `btn.onclick = (;...)` written inside a type's
-			# own `Self(;)`) has `.enclosing_scope` pointing at that call's own transient frame, not the
-			# instance it truly belongs to -- the instance sits one or more levels further up that
-			# frame's own `.enclosing_scope` chain. An ordinary dot-call (`w.render()`) never hits this:
-			# #rebind_func_to_scope rebinds `.enclosing_scope` straight to the resolving instance at call
-			# time. A route/onclick handler, invoked later from a request that built none of this, gets
-			# no such rebind -- so the rest of the chain has to be restored by hand here, or a sibling
-			# field the closure references (an onclick referencing another field on the same instance)
-			# raises Undeclared_Identifier on every invocation after the one that originally built it.
-			outer_chain = []
-			scope       = handler.enclosing_scope&.enclosing_scope
-			while scope && !stack.any? { |s| s.equal? scope }
-				outer_chain << scope
-				scope = scope.enclosing_scope
+			# A closure (an onclick handler) runs on the scopes where it was written, the same as in #interp_func_body, so it sees the names of a `for` loop and of the function around it. A method keeps the enclosing_scope walk below, as #interp_func_body uses #lexical_chain for it.
+			lexical = handler.lexical_stack && !handler.enclosing_scope.is_a?(Code::Type)
+			if lexical
+				saved_stack = stack
+				self.stack  = handler.lexical_stack.map { it }
+			else
+				# A closure built inside a nested call (e.g. `btn.onclick = (;...)` written inside a type's
+				# own `Self(;)`) has `.enclosing_scope` pointing at that call's own transient frame, not the
+				# instance it truly belongs to -- the instance sits one or more levels further up that
+				# frame's own `.enclosing_scope` chain. An ordinary dot-call (`w.render()`) never hits this:
+				# #rebind_func_to_scope rebinds `.enclosing_scope` straight to the resolving instance at call
+				# time. A route/onclick handler, invoked later from a request that built none of this, gets
+				# no such rebind -- so the rest of the chain has to be restored by hand here, or a sibling
+				# field the closure references (an onclick referencing another field on the same instance)
+				# raises Undeclared_Identifier on every invocation after the one that originally built it.
+				outer_chain = []
+				scope       = handler.enclosing_scope&.enclosing_scope
+				while scope && !stack.any? { |s| s.equal? scope }
+					outer_chain << scope
+					scope = scope.enclosing_scope
+				end
+				outer_chain.reverse_each { |s| push_scope s }
+				push_scope handler.enclosing_scope
 			end
-			outer_chain.reverse_each { |s| push_scope s }
 
 			call_scope = Code::Scope.new "#{handler.name || 'anonymous'}_route"
-			push_scope handler.enclosing_scope
 			push_scope server_instance if server_instance
 			push_scope call_scope
 
@@ -3987,21 +3995,25 @@ module Code
 				end
 			end
 
-			# Clean up scopes in reverse order
-			popped_call = pop_scope
-			Code.assert popped_call == call_scope
+			# Clean up scopes in reverse order. A closure's stack is put back by the ensure.
+			unless lexical
+				popped_call = pop_scope
+				Code.assert popped_call == call_scope
 
-			if server_instance
-				popped_instance = pop_scope
-				Code.assert popped_instance == server_instance
+				if server_instance
+					popped_instance = pop_scope
+					Code.assert popped_instance == server_instance
+				end
+
+				popped_enclosing = pop_scope
+				Code.assert popped_enclosing == handler.enclosing_scope
+
+				outer_chain.each { pop_scope }
 			end
 
-			popped_enclosing = pop_scope
-			Code.assert popped_enclosing == handler.enclosing_scope
-
-			outer_chain.each { pop_scope }
-
 			result
+		ensure
+			self.stack = saved_stack if saved_stack
 		end
 
 		def interp_statement expr

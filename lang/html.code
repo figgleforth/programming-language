@@ -26,6 +26,9 @@ Dom {
 
 		"<`html_element`>`content`</`html_element`>"
 	)
+
+	# The HTML the server sends for this element, with its attributes, but without the click and input tokens.
+	to_html (; @ruby )
 }
 
 ### Predefined Dom elements ###
@@ -150,16 +153,46 @@ Textarea | Dom {
 	html_element := 'textarea'
 }
 
+Checkbox | Dom {
+	html_element := 'input'
+	html_type    := 'checkbox'
+	html_checked: Bool
+}
+
+# Radios with the same html_name are one group, and only one radio in a group can be checked
+Radio | Dom {
+	html_element := 'input'
+	html_type    := 'radio'
+	html_name: String
+	html_value: String
+	html_checked: Bool
+}
+
 Label | Dom {
 	html_element := 'label'
 }
 
 Select | Dom {
 	html_element := 'select'
+	html_multiple: Bool
 }
 
 Option | Dom {
 	html_element := 'option'
+
+	# documentation @pasted from: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/option#attributes
+
+	# If this Boolean attribute is set, this option is not checkable. Often browsers gray out such control and it won't receive any browsing event, like mouse clicks or focus-related ones. If this attribute is not set, the element can still be disabled if one of its ancestors is a disabled <optgroup> element.
+	html_disabled := false
+
+	# This attribute is text for the label indicating the meaning of the option. If the label attribute isn't defined, its value is that of the element text content.
+	html_label: String
+
+	# If present, this Boolean attribute indicates that the option is initially selected. If the <option> element is the descendant of a <select> element whose multiple attribute is not set, only one single <option> of this <select> element may have the selected attribute.
+	html_selected: Bool
+
+	# The content of this attribute represents the value to be submitted with the form, should this option be selected. If this attribute is omitted, the value is taken from the text content of the option element.
+	html_value: String
 }
 
 # Containers

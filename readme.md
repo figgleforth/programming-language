@@ -629,6 +629,26 @@ name := 'id'
 {(name) = 'Jack'}      # key is 'id': parentheses use the value
 ```
 
+### Dictionary or block
+
+The lines decide what `{}` is.
+
+```code
+# Only key = value lines: a Dictionary
+{
+	name = 'Jack'
+	age  = 36
+}                      # {name = 'Jack', age = 36}
+```
+
+```code
+# Any other line: a block, with its own scope
+{
+	name := 'Jack'
+	"Hi `name`"
+}                      # 'Hi Jack'
+```
+
 ### Sets
 
 Unique values, with set operators.

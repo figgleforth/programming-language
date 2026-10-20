@@ -1,0 +1,30 @@
+@load 'lang/html'
+
+# A Checkbox starts unchecked, and an unchecked box has no checked attribute
+box := Checkbox()
+@out box.html_checked                    # out: nil
+@out box.to_html()                       # out: <input type="checkbox">
+
+box.html_checked = true
+@out box.html_checked                    # out: true
+@out box.to_html()                       # out: <input type="checkbox" checked>
+
+box.html_checked = false
+@out box.to_html()                       # out: <input type="checkbox">
+
+# A checkbox built from a value, the way the tasks example builds one from a record
+Done_Box | Checkbox {
+	Self ( done;
+		self.html_checked = done
+	)
+}
+
+@out Done_Box(true).to_html()            # out: <input type="checkbox" checked>
+@out Done_Box(false).to_html()           # out: <input type="checkbox">
+
+# to_html leaves out the tokens the server adds for a click handler and an input
+box.onclick = (;
+	box.html_checked = !box.html_checked
+)
+
+@out box.to_html()                       # out: <input type="checkbox">

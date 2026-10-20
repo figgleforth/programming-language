@@ -17,8 +17,16 @@
 
 		const inputs = {};
 		document.querySelectorAll('[data-prog-id]').forEach(el => {
-			if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
-				inputs[el.dataset.progId] = el.value;
+			if (el.type === 'checkbox' || el.type === 'radio') {
+				inputs[el.dataset.progId] = el.checked
+			} else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+				inputs[el.dataset.progId] = el.value
+			} else if (el.tagName === 'SELECT') {
+				if (el.multiple) {
+					inputs[el.dataset.progId] = Array.from(el.selectedOptions, o => o.value)
+				} else {
+					inputs[el.dataset.progId] = el.value
+				}
 			}
 		});
 

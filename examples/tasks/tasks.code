@@ -13,7 +13,6 @@ Task <
 	text: String
 >
 
-
 All_Tasks_Page | Div {
 	tasks_table: Table
 
@@ -56,19 +55,6 @@ All_Tasks_Page | Div {
 	)
 }
 
-
-# `Option` has no `html_selected` of its own -- it needs a real declared member before it can be
-# written from outside (Member Creation Is Strict), so this composes one and sets it during
-# construction only when actually selected. Leaving it undeclared for the other options (rather than
-# declaring it `false`) matters: a boolean HTML attribute is "on" just by being present, regardless of
-# its string value, so a stray `selected="false"` would still mark that option selected.
-Task_Type_Option | Option {
-	Self ( label, selected := false;
-		self.children = [label]
-		self.html_selected := true if selected
-	)
-}
-
 Single_Task_Page | Div {
 	tasks_table: Table
 	task: Task
@@ -76,19 +62,32 @@ Single_Task_Page | Div {
 	html_id := 'task' # without this, X-Code-Target-Id never gets set and the client falls back to
 		   # replacing the whole <html> document, which the browser refuses
 
-	type_select: Select
+	type_radios := []
 	text_input: Textarea
-	done_button := Button()
+	done_checkbox := Checkbox()
 	save_button := Button("Save")
 
 	Self (tasks_table, task_id: Number;
 		self.tasks_table = tasks_table
 		self.task   = tasks_table.find(task_id)
 
-		# Both constructed here, not as bare fields above -- both need `task`, which only exists once
-		# Self(;)'s own params are bound. Task_Type.@keys (a plain Array value, not a method -- no `()`)
-		# stays in sync with the enum's own declared members automatically, unlike a hardcoded list.
-		self.type_select = Select(Task_Type.@keys.map(( it; Task_Type_Option(it, it == task.type) )))
+		# One Radio for each Task_Type. They share the name 'type', so the browser lets only one be checked.
+		# Task_Type.@keys are the names ('BUG'), and Task_Type.@values the members (:BUG), in the same order.
+		for Task_Type.@keys
+			radio      := Radio(html_name := 'type', html_value := it, html_checked := it == task.type)
+			type_value := Task_Type.@values.get(at)
+
+			# dom.js sends the checked state of every radio in the group, so each one's value is true or false
+			radio.onclick = (;
+				if radio.value == true
+					tasks_table.update(task.id, <type := type_value>)
+				end
+				for type_radios
+					it.html_checked = it.value == true
+				end
+			)
+			type_radios.push(radio)
+		end
 
 		# Passing task.text as the constructor arg renders it as the textarea's own inner text,
 		# pre-filling it visibly (`.value` is a separate, browser-only thing the client JS reads at
@@ -98,39 +97,22 @@ Single_Task_Page | Div {
 		# `done := false` gives every task a real default, and the DB layer coerces a Bool column back
 		# to a proper true/false on read -- so this is just cheap insurance, not a required guard.
 		task.done = task.done == true
-		done_button.children = [if task.done "Mark Not Done" else "Mark Done" end]
 
-		done_button.onclick = (;
-			task.done = !task.done
+		done_checkbox.html_checked = task.done
+		done_checkbox.onclick = (;
+			task.done = done_checkbox.value == true
 			tasks_table.update(task.id, <done := task.done>)
-			done_button.children = [if task.done "Mark Not Done" else "Mark Done" end]
+			done_checkbox.html_checked = task.done
 		)
 
 		save_button.onclick = (;
-			# type_select.value is the plain String the dropdown shows ("BUG"). Array has no
-			# index-of-a-value method, so this walks Task_Type.@keys/.@values (parallel Arrays, same
-			# order) with the loop's own `at` to recover the enum's actual member value.
-			new_type := nil
-			for Task_Type.@keys
-				if it == type_select.value
-					new_type = Task_Type.@values.get(at)
-					stop
-				end
-			end
-
-			# `new_type` stays a local, not `task.type` -- `type` is a Task_Type-typed struct member,
-			# and assigning a mismatched value straight onto it trips the runtime type contract
-			# (`task.type = new_type` raised "Type contract violation: expected Task_Type, got Symbol").
-			# `task.text` has no such mismatch (both String), so that one's safe to update directly.
 			task.text = text_input.value
-			tasks_table.update(task.id, <type := new_type, text := task.text>)
+			tasks_table.update(task.id, <text := task.text>)
 
-			# type_select/text_input were built once, in Self(;), from the task as it was on page load --
-			# updating the database alone doesn't change what they already rendered. Without rebuilding
-			# them here too, the response sent back after Save would still show the old selection/text
-			# for half a second, until the next full reload caught up.
-			self.type_select = Select(Task_Type.@keys.map(( it; Task_Type_Option(it, it == type_select.value) )))
-			self.text_input  = Textarea(task.text)
+			# text_input was built once, in Self(;), from the task as it was on page load -- updating the
+			# database alone doesn't change what it already rendered. Without rebuilding it here too, the
+			# response sent back after Save would still show the old text until the next full reload.
+			self.text_input = Textarea(task.text)
 		)
 	)
 
@@ -138,10 +120,11 @@ Single_Task_Page | Div {
 		[
 			H1(task.text),
 			Br(),
-			type_select,
+			type_radios.map(( it; Label([it, it.html_value]) )),
+			Br(),
 			text_input,
 			Br(),
-			done_button,
+			Label([done_checkbox, 'Done']),
 			save_button,
 			A('/', 'Back to all')
 		]

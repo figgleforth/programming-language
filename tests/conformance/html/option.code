@@ -1,0 +1,34 @@
+@load 'lang/html'
+
+# An Option renders only the attributes that are set
+o := Option('Bug')
+@out o.html_selected                     # out: nil
+@out o.html_disabled                     # out: false
+@out o.to_html()                         # out: <option>Bug</option>
+
+o.html_value    = 'BUG'
+o.html_label    = 'A bug'
+o.html_selected = true
+o.html_disabled = true
+@out o.html_selected                     # out: true
+@out o.to_html()                         # out: <option disabled label="A bug" selected value="BUG">Bug</option>
+
+# false or nil leaves a boolean attribute out
+o.html_selected = false
+o.html_disabled = nil
+@out o.to_html()                         # out: <option label="A bug" value="BUG">Bug</option>
+
+# An attribute value is escaped
+quote := Option('Quote')
+quote.html_value = 'a"b'
+@out quote.to_html()                     # out: <option value="a&quot;b">Quote</option>
+
+# A type that selects one option, like Task_Type_Option in the tasks example
+Picked | Option {
+	Self ( label, selected := false;
+		self.children      = [label]
+		self.html_selected = selected
+	)
+}
+
+@out Select([Picked('TODO'), Picked('BUG', true), Picked('DESIGN')]).to_html() # out: <select><option>TODO</option><option selected>BUG</option><option>DESIGN</option></select>

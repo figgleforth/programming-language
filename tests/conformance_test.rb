@@ -5,7 +5,7 @@ require 'open3'
 
 # This test runner assumes, correctly for now, that an Error crashes the program. In the future, I want to collect errors and keep lexing/parsing/interpreting if possible.
 
-# Each tests/conformance/*.code file is one test. Expectations live in the file as comments:
+# Each .code file in tests/conformance, or in one of its subfolders, is one test. Expectations live in the file as comments:
 #   @out 4         # out: 4               one expected stdout line
 #   @err 4         # err: 4               one expected stderr line
 #   x: String = 1  # error: Type_Mismatch the error that stops the program: a Code::Error class name, or else text its message contains
@@ -14,7 +14,7 @@ class Conformance_Test < Base_Test
 	parallelize_me!
 
 	FILE_DIR = ::File.join __dir__, 'conformance'
-	FILEPATH = ::File.join FILE_DIR, '*.code'
+	FILEPATH = ::File.join FILE_DIR, '**', '*.code'
 	PROGRAM  = ::File.expand_path '../bin/program', __dir__
 
 	# @param out [[::String]]
@@ -23,7 +23,8 @@ class Conformance_Test < Base_Test
 	Streams = ::Data.define :out, :err, :error
 
 	::Dir.glob(FILEPATH).sort.each do |filepath|
-		name = ::File.basename filepath, '.code'
+		# A file in a subfolder gets the folder in its name (html/checkbox.code is test_html_checkbox), so two folders can hold the same file name.
+		name = filepath.delete_prefix("#{FILE_DIR}/").delete_suffix('.code').tr '/', '_'
 
 		define_method "test_#{name}" do
 			stdout = []

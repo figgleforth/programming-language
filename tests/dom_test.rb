@@ -118,6 +118,63 @@ class Dom_Test < Base_Test
 		assert_includes interp.render_dom_to_html(list), 'total: 2', 'the handler reached `total` on the enclosing component through the map callback'
 	end
 
+	def test_handler_made_in_a_for_loop_sees_the_names_around_it
+		# A for loop's scope has no enclosing_scope link back to Self(;), so the handler must run on the scopes where it was written, or `prefix` (a param of Self) and `name` (a loop local) are not found.
+		interp, _ = render <<~CODE
+		    @load 'lang/html'
+		    Picker | Div {
+		    	html_id := 'picker'
+		    	picked  := 'none'
+		    	buttons := []
+		    	Self ( prefix;
+		    		for ['a', 'b']
+		    			name   := it
+		    			button := Button(name, key := name)
+		    			button.onclick = (;
+		    				picked = prefix + name
+		    			)
+		    			buttons.push(button)
+		    		end
+		    	)
+		    	render (; [buttons, P("picked: `picked`")] )
+		    }
+		    Picker('x-')
+		CODE
+		picker = interp.last_output
+
+		fire interp, 'picker-b'
+		assert_includes interp.render_dom_to_html(picker), 'picked: x-b'
+
+		fire interp, 'picker-a'
+		assert_includes interp.render_dom_to_html(picker), 'picked: x-a'
+	end
+
+	def test_handler_made_in_a_block_sees_the_names_around_it
+		# A `{}` block pushes its own scope (#interp_inline_scope), with no enclosing_scope link back to Self(;), the same as a for loop. `name := 'a'` makes it a block, not a Dictionary.
+		interp, _ = render <<~CODE
+		    @load 'lang/html'
+		    Picker | Div {
+		    	html_id := 'picker'
+		    	picked  := 'none'
+		    	button  := Button('a', key := 'a')
+		    	Self ( prefix;
+		    		{
+		    			name := 'a'
+		    			button.onclick = (;
+		    				picked = prefix + name
+		    			)
+		    		}
+		    	)
+		    	render (; [button, P("picked: `picked`")] )
+		    }
+		    Picker('x-')
+		CODE
+		picker = interp.last_output
+
+		fire interp, 'picker-a'
+		assert_includes interp.render_dom_to_html(picker), 'picked: x-a'
+	end
+
 	# --- key: ---
 
 	def test_key_pins_the_token_and_does_not_consume_a_slot
