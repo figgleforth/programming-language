@@ -35,12 +35,13 @@ module Code
 			end
 		end
 
-		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_handlers, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :live_reload, :live_reload_token
+		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_handlers, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :live_reload, :live_reload_token, :render_token_counter
 
 		# One file mid-load. `declarations` is filled in when the file pauses at its own @load, and `cycle_files` lists the paused files this one closed a load cycle back into -- see #resolve_forward_declaration.
 		Loading_File = ::Struct.new :filepath, :scope, :declarations, :cycle_files
 
 		def initialize
+			@render_token_counter          = { element_namespace: 'static', next_slot: 0 }
 			@dom_input_elements            = {} # {element_hash: Code::Instance} for inputs/textareas
 			@dom_onclick_function_handlers = {} # {handler_hash: Code::Func}
 			@route_functions_by_route_name = {} # {route: Code::Route}
@@ -97,7 +98,7 @@ module Code
 			@input                = @parser.output # Expressions
 
 			# The main file counts as a file that is loading, the same as one reached through @load, so a load cycle back to it stops there instead of running it a second time. Only on the first run: a later run (the REPL, a test) has no file of its own, and `current_source_file` still names the last file that loaded.
-			main_file = top_level_source_file if first_run && top_level_source_file != '<inline>'
+			main_file             = top_level_source_file if first_run && top_level_source_file != '<inline>'
 			if main_file
 				@global.loaded_filepaths[main_file] = nil
 				@loading_files << Loading_File.new(main_file, @global, nil, [])
@@ -225,8 +226,8 @@ module Code
 		# @param from_file [::String, nil] the file that holds the @load. A relative path resolves next to it first.
 		# `path_expr` is the path in the @load: its file is where a relative path starts, and a missing file is reported at it.
 		def load_file_into_scope filepath, into_scope, path_expr = nil
-			from_file     = path_expr&.lexeme&.source_file
-			resolved_path = Declarator.resolve_load_filepath filepath, from_file
+			from_file                                  = path_expr&.lexeme&.source_file
+			resolved_path                              = Declarator.resolve_load_filepath filepath, from_file
 			unless ::File.exist? resolved_path
 				raise Code::Load_File_Not_Found.new(path_expr, filepath, Declarator.load_filepath_candidates(filepath, from_file))
 			end
@@ -343,18 +344,18 @@ module Code
 		# re-render (or a fresh request for the same page) overwrites the handler/input map entries in
 		# place instead of minting new random ones and growing the maps without bound. It also
 		# means a handler defined in render() keeps a stable data-prog-onclick across DOM swaps, which
-		# is what let handlers move out of new() and into render(). `render_scope` is `{ anchor:, slot: }`
+		# is what let handlers move out of new() and into render(). `render_scope` is `{ element_namespace:, next_slot: }`
 		# seeded in #render_dom_to_html; the slot counter advances in depth-first render order.
 		#
 		# An `element_key` (the element's own `key := '...'`, see lang/html.code) pins the token by
 		# name instead of position and does not touch the slot counter -- so a conditional element
 		# appearing or vanishing between renders can't shift its siblings' tokens.
 		def next_render_token render_scope, element_key = nil
-			return "#{render_scope[:anchor]}-#{element_key}" if element_key
+			return "#{render_scope[:element_namespace]}-#{element_key}" if element_key
 
-			slot                = render_scope[:slot]
-			render_scope[:slot] = slot + 1
-			"#{render_scope[:anchor]}-#{slot}"
+			next_slot                = render_scope[:next_slot]
+			render_scope[:next_slot] = next_slot + 1
+			"#{render_scope[:element_namespace]}-#{next_slot}"
 		end
 
 		def scope_for_identifier expr
@@ -700,7 +701,7 @@ module Code
 			return self_type || raise(Code::Self_Outside_Type.new(type_expr)) unless type_alias
 
 			# `next: Self | String`: each `Self` in the tree.
-			replace_self = ->(node) do
+			replace_self    = ->(node) do
 				next self_type || raise(Code::Self_Outside_Type.new(type_expr)) if node == 'Self'
 				next node unless node.is_a? ::Array
 
@@ -744,7 +745,7 @@ module Code
 			when Code::Symbol_Expr then ":#{value}"
 			else expr.value.to_s # a number as written (`0xff`, `2.5`), or true/false/nil
 			end
-			text = 'nil' if value.nil?
+			text  = 'nil' if value.nil?
 			Code::Type_Alias::Literal.new value, type_name_to_string(value) || 'Nil', text
 		end
 
@@ -796,7 +797,7 @@ module Code
 		def composed_types_by_name name
 			return ::Set.new unless name
 			global = stack.first
-			found = global[name] if global.has?(name)
+			found  = global[name] if global.has?(name)
 			found.respond_to?(:types) ? found.types : ::Set[name] # a Code::Type_Alias has no types of its own
 		end
 
@@ -858,12 +859,12 @@ module Code
 			return true if a.equal? b
 			return false unless composed_types_for(a) == composed_types_for(b) && same_tag_values?(a.tag_instance, b.tag_instance)
 
-			pair = [a.object_id, b.object_id]
+			pair                      = [a.object_id, b.object_id]
 			@instances_being_compared ||= ::Set.new
 			return true if @instances_being_compared.include? pair
 
 			@instances_being_compared << pair
-			members = ->(scope) { scope.declarations.reject { |_, value| value.is_a? Code::Func } }
+			members              = ->(scope) { scope.declarations.reject { |_, value| value.is_a? Code::Func } }
 			a_members, b_members = members.(a), members.(b)
 			a_members.keys.sort == b_members.keys.sort && a_members.all? { |name, value| values_equal? value, b_members[name] }
 		ensure
@@ -1037,7 +1038,7 @@ module Code
 			puts req_info
 
 			if path_string.start_with?("/onclick/")
-				# object_id/element_id are string tokens (`"<anchor>-<slot>"`, see #next_render_token), not
+				# object_id/element_id are string tokens (`"<element_namespace>-<slot>"`, see #next_render_token), not
 				# integers -- no `.to_i` (that silently truncated a token down to its leading digits, so
 				# every real click 404'd: the truncated id never matched anything actually registered).
 				object_id = path_parts.last
@@ -1105,7 +1106,14 @@ module Code
 				req = build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash
 
 				begin
-					res    = build_prog_response response
+					self.render_token_counter = {
+						# note; Eventually the namespace will have an id prefix that represents the current instance of the web page.
+						# here we find each character that is not a letter or a digit and replace it with _
+						element_namespace: "page#{path_string.gsub(/[^A-Za-z0-9]/, '_')}",
+						next_slot:         0
+					}
+
+					res                       = build_prog_response response
 					result = interp_route_body route_function, req, res, url_params, server_instance: server
 
 					response.status = res.declarations['status']
@@ -1284,9 +1292,9 @@ module Code
 			# enclosing target's namespace -- see #next_render_token.
 			own_html_id = dom_instance.declarations['html_id']
 			if render_scope.nil?
-				render_scope = { anchor: own_html_id || "auto#{dom_instance.object_id}", slot: 0, target: dom_instance, static: static }
+				render_scope = { element_namespace: own_html_id || "auto#{dom_instance.object_id}", next_slot: 0, target: dom_instance, static: static }
 			elsif own_html_id
-				render_scope = { anchor: own_html_id, slot: 0, target: dom_instance, static: render_scope[:static] }
+				render_scope = { element_namespace: own_html_id, next_slot: 0, target: dom_instance, static: render_scope[:static] }
 			end
 
 			render = dom_instance.declarations['render']
@@ -1629,7 +1637,7 @@ module Code
 
 				# Parsed once per string literal, not on every run of it. A loop that builds a string ran the lexer and parser again on each pass.
 				@parsed_interpolations ||= {}.compare_by_identity
-				parsed = @parsed_interpolations[expr] ||= begin
+				parsed                 = @parsed_interpolations[expr] ||= begin
 					# /m so a sub-expression containing a real newline (e.g. `` `arr.join("\n")` ``) still matches.
 					result.scan(/(?<!\\)`(.*?)(?<!\\)`/m).flatten.map do |sub|
 						# Reuses the interpreter's own @parser (not a fresh Code.parse) so it still knows about @operator declarations registered elsewhere in the program -- #input= resets the cursor but not @custom_infix/etc.
@@ -1639,10 +1647,10 @@ module Code
 				end
 
 				parsed.each do |sub, sub_expr|
-					value        = interpret sub_expr
-					value        = value.value if value.is_a? Code::Symbol
-					shown        = value.is_a?(::Symbol) ? value.to_s : stringify_for_display(value) # a Symbol interpolates as its bare name
-					result       = result.gsub "`#{sub}`", shown.to_s
+					value  = interpret sub_expr
+					value  = value.value if value.is_a? Code::Symbol
+					shown  = value.is_a?(::Symbol) ? value.to_s : stringify_for_display(value) # a Symbol interpolates as its bare name
+					result = result.gsub "`#{sub}`", shown.to_s
 				end
 				# Only the `\`` sequences still left over from escaping a backtick (deliberately never matched/substituted above) get un-escaped here -- a blanket `result.gsub('\\', '')` used to also strip any literal backslash that arrived as part of a substituted value's own content (e.g. `Array\<String>`), which was never the intent.
 				result.gsub('\\`', '`')
@@ -2429,7 +2437,7 @@ module Code
 			if %w(& |).include? expr.operator.value
 				left, right = interpret(expr.left), interpret(expr.right)
 				raise Code::Type_Alias_Is_Not_A_Type.new(expr) if left.is_a?(Code::Type_Alias) || right.is_a?(Code::Type_Alias)
-				overload    = find_operator_overload expr.operator.value, maybe_instance(left)
+				overload = find_operator_overload expr.operator.value, maybe_instance(left)
 				return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
 				raise Code::Undeclared_Infix_Operator.new(expr) unless left.respond_to? expr.operator.value
 				return left.send expr.operator.value, right
@@ -2908,7 +2916,7 @@ module Code
 						referenced.tag_instance.types = referenced.tag_instance.types.dup.merge(supplied.types)
 					end
 
-					referenced.tag_instance.name                = supplied.name if supplied.respond_to?(:name) && supplied.name
+					referenced.tag_instance.name               = supplied.name if supplied.respond_to?(:name) && supplied.name
 
 					# Carry a chained tag (`Ab\Cd\Ef`) across the rebuild above, which only re-associates the top level's own members.
 					if supplied.tag_instance
@@ -2968,7 +2976,7 @@ module Code
 			composition.operator        = Code::Lexeme.new :operator, operator
 			composition.identifier      = right_name
 			chain.expressions           = [composition]
-			result = nil
+			result                      = nil
 			push_then_pop(operands) { result = interp_anonymous_composition chain }
 			result
 		end
@@ -2988,7 +2996,7 @@ module Code
 				composition.identifier = Code::Identifier_Expr.new.tap { |ident| ident.lexeme = Code::Lexeme.new :Identifier, name }
 				composition
 			end
-			result = nil
+			result            = nil
 			push_then_pop(operands) { result = interp_struct_composition chain }
 			result
 		end
@@ -3116,7 +3124,7 @@ module Code
 		# A struct-typed param (`right: <name: String, ...>`) is structural, not nominal -- any argument with those declarations, compatibly typed, satisfies it. Raises Type_Contract_Violation on mismatch. `Any` is a wildcard.
 		def check_struct_type_contract param, value, expr
 			# Interpreted fresh per call, not cached -- a Param_Expr can be shared across Interpreter instances.
-			struct                             = interp_struct param.type, allow_spread: false
+			struct                            = interp_struct param.type, allow_spread: false
 			kind, declared_type, member_value = struct_shape_mismatch struct, value
 
 			case kind
@@ -3663,7 +3671,7 @@ module Code
 				stack.last.declare param.name.value, value
 
 				# Inside the body, a param is locked like a `:=` local: to its type, else to the type of the value a `:=` default gave it. A param with neither stays open.
-				lock = signature || type || (inferred_type_name value if param.default)
+				lock                                            = signature || type || (inferred_type_name value if param.default)
 				stack.last.type_by_identifier[param.name.value] = lock if lock && !param.add_to_readable && !param.add_to_writable
 
 				if value.is_a? Code::Type
@@ -4126,7 +4134,7 @@ module Code
 			end
 			curr_scope = stack.last
 			# An instance shares its type's `types` Set (#build_instance_of_type). Whichever of them changes it later takes its own copy first: a composition in one instance leaves the type and the other instances alone, and a type changed in a method leaves the instances it already built alone.
-			shares_types = curr_scope.is_a?(Code::Instance) ? curr_scope.types.equal?(curr_scope.enclosing_scope&.types) : curr_scope.is_a?(Code::Type) && !curr_scope.declaration_in_progress
+			shares_types            = curr_scope.is_a?(Code::Instance) ? curr_scope.types.equal?(curr_scope.enclosing_scope&.types) : curr_scope.is_a?(Code::Type) && !curr_scope.declaration_in_progress
 			curr_scope.member_names = curr_scope.member_names.dup if shares_types && !curr_scope.is_a?(Code::Instance) # the same for its member names
 
 			case expr.operator.value
@@ -4200,7 +4208,7 @@ module Code
 			else
 				owner
 			end
-			value = interpret expr.identifier
+			value  = interpret expr.identifier
 			push_then_pop(target) { interp_composition expr, value }
 
 			# An instance is built by running its type's body again, so it would never see a change that a method made to the type. The type records the change, and each instance built later runs it after its body (#run_type_body_on_instance).
@@ -5063,7 +5071,7 @@ module Code
 					elsif member.type
 						# `member.type` is already a full Identifier_Expr (#parse_identifier_expr's `: Type` recurses) or a bare Struct_Expr (`id: <a: Number>`), not a bare Lexeme -- directly interpretable, no rewrapping needed. A trailing `\<...>`/`\Name` on that annotation (`id: Array\String`) only ever populates `.tag` there (see #parse_identifier_expr), not a real `Type_Expr` -- a plain #interpret would silently resolve the untagged base type, so route through #interp_type_annotation instead.
 						# A composed annotation (`v: String | Number`) or a named alias (`css: Css`) is a Code::Type_Alias, a contract that checks each value, the same as for a variable or param.
-						type_object = type_alias_for(member.type) || interp_type_annotation(member.type)
+						type_object             = type_alias_for(member.type) || interp_type_annotation(member.type)
 						contracts[types.length] = type_object if type_object.is_a? Code::Type_Alias
 						types << type_object
 						if member.member_default
@@ -5099,8 +5107,8 @@ module Code
 			end
 
 			# Each member's "type" here is just its value's own inferred type name (numerics stay `Number`)
-			type_names = types.each_with_index.map { |value, i| contracts[i] || inferred_type_name(value) }
-			struct     = build_struct names, type_names, types, values
+			type_names                = types.each_with_index.map { |value, i| contracts[i] || inferred_type_name(value) }
+			struct                    = build_struct names, type_names, types, values
 			struct.value_member_names = value_members
 
 			# A leading TYPE_IDENTIFIER before `<...>` (`Task <id: Number, done: Bool>`) makes `expr.name` a raw Lexeme -- a Bare Named Struct (see CLAUDE.md), registered globally here. `\<...>`'s inline-literal form sets `.tag.name` to a plain String instead, so it never re-triggers this.
