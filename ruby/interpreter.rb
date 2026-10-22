@@ -343,7 +343,7 @@ module Code
 		# same target rendered against the same tree shape yields the same tokens every time -- so a
 		# re-render (or a fresh request for the same page) overwrites the handler/input map entries in
 		# place instead of minting new random ones and growing the maps without bound. It also
-		# means a handler defined in render() keeps a stable data-prog-onclick across DOM swaps, which
+		# means a handler defined in render() keeps a stable onclick token (DOM_ATTRIBUTE_PREFIX-onclick) across DOM swaps, which
 		# is what let handlers move out of new() and into render(). `render_scope` is `{ element_namespace:, next_slot: }`
 		# seeded in #render_dom_to_html; the slot counter advances in depth-first render order.
 		#
@@ -1082,10 +1082,10 @@ module Code
 							new_html = render_dom_to_html target
 							html_id  = target.declarations['html_id']
 
-							response.status              = 200
-							response['Content-Type']     = 'text/html'
-							response['X-Code-Target-Id'] = html_id if html_id
-							response.body                = new_html
+							response.status                = 200
+							response['Content-Type']       = 'text/html'
+							response[DOM_TARGET_ID_HEADER] = html_id if html_id
+							response.body                  = new_html
 							return
 						end
 					rescue => e
@@ -1101,10 +1101,10 @@ module Code
 				end
 			end
 
-			if cookie = request.cookies.find { _1.name == BROWSER_VIEW_SIZE }
+			if cookie = request.cookies.find { _1.name == DOM_BROWSER_VIEW_SIZE }
 				parts = cookie.value.split 'x'
 				size  = { width: parts[0].to_i, height: parts[1].to_i }
-				stack.last.declare BROWSER_VIEW_SIZE, size
+				stack.last.declare DOM_BROWSER_VIEW_SIZE, size
 			end
 
 			route_function = match_route http_method, path_parts, server.routes
@@ -1133,8 +1133,9 @@ module Code
 					if response.body.to_s =~ /<html|<body|<head/i
 						response.body.prepend "<!DOCTYPE html>"
 
-						# dom.js began as a Ruby string, so it still names its cookie `#{BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds.
-						dom_js              = self.class.cached_asset_source_by_path['ruby/shared/dom.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/dom.js')).gsub('#{BROWSER_VIEW_SIZE}', BROWSER_VIEW_SIZE)
+						# dom.js began as a Ruby string, so it still names its cookie `#{DOM_BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds. `#{DOM_ATTRIBUTE_PREFIX}` and `#{DOM_TARGET_ID_HEADER}` are filled in the same way, so each name stays in one constant.
+						dom_js = self.class.cached_asset_source_by_path['ruby/shared/dom.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/dom.js')).gsub('#{DOM_BROWSER_VIEW_SIZE}', DOM_BROWSER_VIEW_SIZE).gsub('#{DOM_ATTRIBUTE_PREFIX}', DOM_ATTRIBUTE_PREFIX).gsub('#{DOM_TARGET_ID_HEADER}', DOM_TARGET_ID_HEADER)
+
 						script_tag          = "<script>#{dom_js}</script>"
 						view_transition_css = self.class.cached_asset_source_by_path['ruby/shared/view_transition.css'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/view_transition.css'))
 						view_transition_tag = "<style>#{view_transition_css}</style>"
@@ -1297,7 +1298,7 @@ module Code
 			collected_routes
 		end
 
-		# `static: true` (`Dom#to_html`) registers no click handler or input, so the HTML has no data-prog-* tokens.
+		# `static: true` (`Dom#to_html`) registers no click handler or input, so the HTML has no token attributes (DOM_ATTRIBUTE_PREFIX-*).
 		def render_dom_to_html dom_instance, render_scope: nil, static: false
 			# A target with its own html_id (a page-level target) anchors a fresh token namespace
 			# for its whole subtree, keyed by that stable id. A top-level target with no html_id

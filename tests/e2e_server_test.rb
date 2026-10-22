@@ -223,10 +223,11 @@ class E2E_Server_Test < Minitest::Test
 		CODE
 
 		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		assert_includes page.body, 'data-prog-id="p-text"'
-		assert_includes page.body, 'data-prog-onclick="p-save"'
+		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"p-text\""
+		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"p-save\""
 
-		click 'p-save', { 'p-text' => 'Buy milk' }
+		reply = click 'p-save', { 'p-text' => 'Buy milk' }
+		assert_equal 'p', reply[Code::DOM_TARGET_ID_HEADER] # the Dom path names the element to replace
 
 		saved = Net::HTTP.get_response URI("http://localhost:#{@port}/saved")
 		assert_equal 'Buy milk', saved.body
@@ -343,10 +344,10 @@ class E2E_Server_Test < Minitest::Test
 		@interpreter.start_server @server_runner
 
 		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		assert_includes page.body, "'#{Code::BROWSER_VIEW_SIZE}=' + size"
+		assert_includes page.body, "'#{Code::DOM_BROWSER_VIEW_SIZE}=' + size"
 		refute_includes page.body, '#{BROWSER_VIEW_SIZE}'
 
-		size = Net::HTTP.new('localhost', @port).get '/size', 'Cookie' => "#{Code::BROWSER_VIEW_SIZE}=800x600"
+		size = Net::HTTP.new('localhost', @port).get '/size', 'Cookie' => "#{Code::DOM_BROWSER_VIEW_SIZE}=800x600"
 		assert_equal '800x600', size.body
 	end
 
@@ -379,7 +380,9 @@ class E2E_Server_Test < Minitest::Test
 		page = Dir.mktmpdir { |elsewhere| Dir.chdir(elsewhere) { Net::HTTP.get_response URI("http://localhost:#{@port}/") } }
 
 		assert_equal '200', page.code
-		assert_includes page.body, 'data-prog-onclick' # a line from dom.js
+		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick" # a line from dom.js
+		refute_includes page.body, '#{DOM_ATTRIBUTE_PREFIX}' # the placeholder was filled in
+		refute_includes page.body, '#{DOM_TARGET_ID_HEADER}'
 	end
 
 	def test_query_parameters

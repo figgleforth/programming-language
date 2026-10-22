@@ -43,8 +43,8 @@ Context <
 	stop_server: (Server -> Server;)    # stops the Server, returns it
 	todo: (Args;)                       # raises Todo_Triggered, one "[TODO] ..." line per arg; parens optional, even with no args
 
-	onclick: ((;) -> String;)           # stores a click closure, returns its token for data-prog-onclick
-	on_server_read: ((;) -> String;)    # stores a closure that gets an input's browser value, returns its token for data-prog-id
+	onclick: ((;) -> String;)           # stores a click closure, returns its token for the <prefix>-onclick attribute
+	on_server_read: ((;) -> String;)    # stores a closure that gets an input's browser value, returns its token for the <prefix>-on-server-read attribute
 
 	#- Functions that act on the calling scope / the interpreter's scope stack -- run in the caller's frame
 	load: (String;)                     # loads a .code file into the current scope

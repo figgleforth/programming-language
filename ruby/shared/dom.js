@@ -1,31 +1,34 @@
 (function () {
 	let size = window.innerWidth + 'x' + window.innerHeight;
-	if (document.cookie.indexOf('#{BROWSER_VIEW_SIZE}=' + size) === -1) {
-		document.cookie = '#{BROWSER_VIEW_SIZE}=' + size + '; path=/'
+	if (document.cookie.indexOf('#{DOM_BROWSER_VIEW_SIZE}=' + size) === -1) {
+		document.cookie = '#{DOM_BROWSER_VIEW_SIZE}=' + size + '; path=/'
 		window.location = ''
 	}
 
 	document.addEventListener('click', async (event) => {
-		const element = event.target.closest('a[href], button, input:not([type="hidden"]), select, textarea, summary, [data-prog-onclick]')
+		// The server fills in the DOM_ATTRIBUTE_PREFIX and DOM_TARGET_ID_HEADER placeholders (constants.rb) when it reads this file.
+		const element = event.target.closest('a[href], button, input:not([type="hidden"]), select, textarea, summary, [#{DOM_ATTRIBUTE_PREFIX}-onclick]')
 
 		if (!element) return
-		if (!element.hasAttribute('data-prog-onclick')) return
-		const object_id = element.dataset.progOnclick
+		if (!element.hasAttribute('#{DOM_ATTRIBUTE_PREFIX}-onclick')) return
+		const object_id = element.getAttribute('#{DOM_ATTRIBUTE_PREFIX}-onclick')
 
 		event.preventDefault()
 		event.stopPropagation()
 
 		const inputs = {};
-		document.querySelectorAll('[data-prog-id]').forEach(el => {
+		document.querySelectorAll('[#{DOM_ATTRIBUTE_PREFIX}-on-server-read]').forEach(el => {
+			const input_id = el.getAttribute('#{DOM_ATTRIBUTE_PREFIX}-on-server-read')
+
 			if (el.type === 'checkbox' || el.type === 'radio') {
-				inputs[el.dataset.progId] = el.checked
+				inputs[input_id] = el.checked
 			} else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-				inputs[el.dataset.progId] = el.value
+				inputs[input_id] = el.value
 			} else if (el.tagName === 'SELECT') {
 				if (el.multiple) {
-					inputs[el.dataset.progId] = Array.from(el.selectedOptions, o => o.value)
+					inputs[input_id] = Array.from(el.selectedOptions, o => o.value)
 				} else {
-					inputs[el.dataset.progId] = el.value
+					inputs[input_id] = el.value
 				}
 			}
 		});
@@ -53,7 +56,7 @@
         }
 
 		const body = await response.text()
-		const target_id = response.headers.get('X-Code-Target-Id')
+		const target_id = response.headers.get('#{DOM_TARGET_ID_HEADER}')
 		const target = document.getElementById(target_id)
         update_target_html(target, body)
 	})

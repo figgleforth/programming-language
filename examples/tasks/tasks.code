@@ -59,7 +59,7 @@ Single_Task_Page + Div {
 	tasks_table: Table
 	task: Task
 
-	html_id := 'task' # without this, X-Code-Target-Id never gets set and the client falls back to
+	html_id := 'task' # without this, the target-id header (DOM_TARGET_ID_HEADER) never gets set and the client falls back to
 		   # replacing the whole <html> document, which the browser refuses
 
 	type_radios := []

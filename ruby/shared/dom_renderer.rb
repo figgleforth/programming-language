@@ -92,11 +92,11 @@ module Code
 
 				# A static render (`Dom#to_html`) sets no tokens.
 				if onclick_expr && onclick_token
-					html << " data-prog-onclick=\"#{onclick_token}\""
+					html << " #{DOM_ATTRIBUTE_PREFIX}-onclick=\"#{onclick_token}\""
 				end
 
 				if is_input_element? && input_id_token
-					html << " data-prog-id=\"#{input_id_token}\""
+					html << " #{DOM_ATTRIBUTE_PREFIX}-on-server-read=\"#{input_id_token}\""
 				end
 
 				html << ">"

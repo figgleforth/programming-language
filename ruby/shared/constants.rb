@@ -1,6 +1,9 @@
 module Code
 	DOM_CONSTRUCTOR_PROP_NAMES        = %w(onclick key)
 	DOM_CONSTRUCTOR_PROP_PREFIXES     = %w(html_ css_)
+	DOM_ATTRIBUTE_PREFIX              = 'data-prog' # starts each attribute that the runtime writes and dom.js reads (<prefix>-onclick, <prefix>-on-server-read)
+	DOM_TARGET_ID_HEADER              = 'X-Code-Target-Id' # a click reply's header that names the element dom.js replaces
+	DOM_BROWSER_VIEW_SIZE             = 'browser_view_size'
 	HTML_ATTRS                        = %w(id class href)
 	HTTP_VERBS                        = %w(get put patch post delete head options connect trace)
 	VOID_HTML_TAGS                    = %w(area base br col command embed hr img input keygen link meta param source track wbr)
@@ -13,7 +16,6 @@ module Code
 	FUNCTION_BODY_DELIMITER           = ';'
 	PERCENT_LITERALS                  = %w(string symbol str Str STR sym Sym SYM)
 	FOR_VERBS                         = %w(each map select reject count)
-	BROWSER_VIEW_SIZE                 = 'browser_view_size'
 	INTERPOLATE_CHAR                  = '`' # easily distinguishable betwen ```
 	COMMENT_PREFIX                    = '#'
 	BLOCK_COMMENT_DELIMITER           = '###'
