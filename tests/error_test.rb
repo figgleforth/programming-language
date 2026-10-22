@@ -142,6 +142,15 @@ class Error_Test < Base_Test
 		end
 	end
 
+	def test_onclick_and_on_server_read_need_a_function
+		assert_raises Code::Invalid_Handler_Argument do
+			Code.interp '@onclick(5)'
+		end
+		assert_raises Code::Invalid_Handler_Argument do
+			Code.interp '@on_server_read()'
+		end
+	end
+
 	def test_unknown_context_word_raises
 		# `@unknown` isn't a Context member anywhere -- there's no "directive" concept to reject it as.
 		assert_raises Code::Undeclared_Identifier do

@@ -1049,8 +1049,18 @@ module Code
 							json_body = JSON.parse request.body rescue {}
 							inputs = json_body['inputs'] || {}
 							inputs.each do |element_id, value|
-								input_instance = dom_input_elements[element_id]
-								input_instance.declare 'value', value if input_instance
+								case input = dom_input_elements[element_id]
+								when Code::Func
+									# note; A <select multiple> gives an Array
+									value               = wrap_prog_array(value) if value.is_a?(::Array)
+									call_expr           = Code::Call_Expr.new
+									call_expr.receiver  = input
+									call_expr.arguments = []
+									# A closure with no param, `(; ...)`, runs without the value.
+									interp_func_body input, call_expr, arg_values: input.parameters.empty? ? [] : [value]
+								when Code::Instance
+									input.declare 'value', value
+								end
 							end
 						end
 
@@ -1113,7 +1123,7 @@ module Code
 						next_slot:         0
 					}
 
-					res                       = build_prog_response response
+					res    = build_prog_response response
 					result = interp_route_body route_function, req, res, url_params, server_instance: server
 
 					response.status = res.declarations['status']
@@ -1171,6 +1181,9 @@ module Code
 					    <pre>#{plain_backtrace.join("\n")}</pre>
 					HTML
 					response.header['Content-Type'] = 'text/html; charset=utf-8'
+				ensure
+					# Outside a request, a token is static again, not the last page's.
+					self.render_token_counter = { element_namespace: 'static', next_slot: 0 }
 				end
 			else
 				response.status = 404
@@ -4823,6 +4836,20 @@ module Code
 				raise Code::Invalid_Server_Argument.new(at) unless server.is_a? Code::Instance
 				stop_server server
 				server
+
+			when 'onclick'
+				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func
+				token                                = next_render_token render_token_counter
+				dom_onclick_function_handlers[token] = {
+					handler: args.first, # func given to @onclick
+					target: nil
+				}
+				token
+			when 'on_server_read'
+				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func
+				token                     = next_render_token render_token_counter
+				dom_input_elements[token] = args.first # func given to @on_server_read
+				token
 			end
 		end
 

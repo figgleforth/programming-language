@@ -46,6 +46,192 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal :Running, @server_runner.webrick_server.status
 	end
 
+	# A route's tokens use the page's namespace. After the request, a token is static again.
+	def test_onclick_token_namespace_goes_back_to_static_after_a_request
+		code = <<~CODE
+		    @load 'lang/server'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get://three (;
+		    		@onclick((; 1 ))
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		@interpreter    = Code::Interpreter.new
+		server_instance = @interpreter.run code
+
+		@server_runner        = server_instance
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
+		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
+		@interpreter.start_server @server_runner
+
+		response = Net::HTTP.get_response URI("http://localhost:#{@port}/three")
+		assert_equal '200', response.code
+		assert_equal 'page_three-0', response.body
+		assert_equal({ element_namespace: 'static', next_slot: 0 }, @interpreter.render_token_counter)
+	end
+
+	# Runs `code` and starts the server it returns.
+	def start_app code
+		@interpreter    = Code::Interpreter.new
+		server_instance = @interpreter.run code
+
+		@server_runner        = server_instance
+		@server_runner.port   = Integer(server_instance.get(:port) || Code::Server::DEFAULT_PORT)
+		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
+		@interpreter.start_server @server_runner
+	end
+
+	# Sends a click the way dom.js does: POST /onclick/<token>, with the input values as JSON.
+	def click token, inputs
+		uri          = URI("http://localhost:#{@port}/onclick/#{token}")
+		request      = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json'
+		request.body = JSON.generate({ inputs: inputs })
+		Net::HTTP.start(uri.host, uri.port) { it.request request }
+	end
+
+	def test_on_server_read_closure_gets_the_value_before_the_click_closure_runs
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    draft := ''
+		    saved := ''
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		read_token  := @on_server_read((value; draft = value))
+		    		click_token := @onclick((; saved = draft))
+		    		"`read_token` `click_token`"
+		    	)
+
+		    	get://saved (;
+		    		saved
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		assert_equal 'page_-0 page_-1', page.body
+
+		click 'page_-1', { 'page_-0' => 'Buy milk' }
+
+		saved = Net::HTTP.get_response URI("http://localhost:#{@port}/saved")
+		assert_equal 'Buy milk', saved.body
+	end
+
+	# A <select multiple> sends an Array, and the closure gets it as a language Array.
+	def test_on_server_read_closure_gets_a_list_as_an_array
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    picked := ''
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		read_token  := @on_server_read((values; picked = values.join('+')))
+		    		click_token := @onclick((; 1 ))
+		    		"`read_token` `click_token`"
+		    	)
+
+		    	get://picked (;
+		    		picked
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		click 'page_-1', { 'page_-0' => ['red', 'blue'] }
+
+		picked = Net::HTTP.get_response URI("http://localhost:#{@port}/picked")
+		assert_equal 'red+blue', picked.body
+	end
+
+	# A closure with no param runs without the value.
+	def test_on_server_read_closure_with_no_param_still_runs
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    ran := 'no'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		read_token  := @on_server_read((; ran = 'yes'))
+		    		click_token := @onclick((; 1 ))
+		    		"`read_token` `click_token`"
+		    	)
+
+		    	get://ran (;
+		    		ran
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		click 'page_-1', { 'page_-0' => 'Buy milk' }
+
+		ran = Net::HTTP.get_response URI("http://localhost:#{@port}/ran")
+		assert_equal 'yes', ran.body
+	end
+
+	# A Dom input from lang/html.code still gets its `value` member.
+	def test_dom_input_still_gets_its_value_on_a_click
+		start_app <<~CODE
+		    @load 'lang/server'
+		    @load 'lang/html'
+
+		    saved := ''
+
+		    Page + Div {
+		    	html_id := 'p'
+
+		    	render (;
+		    		text := Textarea(key := 'text')
+		    		[text, Button('Save', key := 'save', onclick := (; saved = text.value))]
+		    	)
+		    }
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		Page()
+		    	)
+
+		    	get://saved (;
+		    		saved
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		assert_includes page.body, 'data-prog-id="p-text"'
+		assert_includes page.body, 'data-prog-onclick="p-save"'
+
+		click 'p-save', { 'p-text' => 'Buy milk' }
+
+		saved = Net::HTTP.get_response URI("http://localhost:#{@port}/saved")
+		assert_equal 'Buy milk', saved.body
+	end
+
 	def test_server_starts_and_responds
 		code = <<~CODE
 		    Server {

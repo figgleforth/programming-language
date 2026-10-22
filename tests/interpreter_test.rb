@@ -6551,4 +6551,16 @@ class Interpreter_Test < Base_Test
 			assert_includes error.message, 'works only inside a type', code
 		end
 	end
+
+	def test_onclick_and_on_server_read_functions
+		interp = Code::Interpreter.new
+		out = interp.run <<~CODE
+			a := @onclick((; 1 ))
+			b := @on_server_read((v; v))
+			[a, b]
+		CODE
+		assert_equal ["static-0", "static-1"], out.values
+		assert_nil interp.dom_onclick_function_handlers['static-0'][:target]
+		assert_kind_of Code::Func, interp.dom_input_elements['static-1']
+	end
 end

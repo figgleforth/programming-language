@@ -9,6 +9,7 @@ module Code
 
 		# Source of truth for every `@` member; `lang/context.code` mirrors it (tests/context_test.rb).
 		#   {} vital  |  { fn: :intrinsic } #interp_intrinsic  |  { fn: :stack } caller's-frame dispatch
+		# bare_call means it takes no arg
 		MEMBERS = {
 			'name' => {},
 			'display_name' => {},
@@ -46,6 +47,8 @@ module Code
 			'start_server' => { fn: :intrinsic },
 			'stop_server' => { fn: :intrinsic },
 			'todo' => { fn: :intrinsic, bare_call: true },
+			'onclick' => { fn: :intrinsic },
+			'on_server_read' => { fn: :intrinsic },
 
 			'load' => { fn: :stack },
 			'declare' => { fn: :stack },

@@ -283,6 +283,13 @@ module Code
 	class Invalid_Server_Argument < Error
 	end
 
+	# `@onclick`/`@on_server_read` got something that is not a function.
+	class Invalid_Handler_Argument < Error
+		def detail_message
+			"expected a function, for example #{Ascii.bold '(; ...)'} or #{Ascii.bold '(v; ...)'}"
+		end
+	end
+
 	class Interpret_Expr_Not_Implemented < Error
 		def detail_message
 			"Interpreter does not handle `#{expression.inspect}` yet."
