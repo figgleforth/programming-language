@@ -1463,6 +1463,7 @@ App + Server {
 1. HTTP methods: `get://`, `post://`, `put://`, `delete://`, `patch://`
 2. URL parameters with `:param` syntax
 3. Query params via `request.query`
+4. A URL parameter is text. Give it a type (`id: Int`), and the route converts the text to that type: `Int`, `Float`, `Decimal`, `Number` and `Bool`. Text that cannot be converted gives a 404, because that URL names no page here
 
 ```code
 App + Server {
@@ -1474,6 +1475,11 @@ App + Server {
     # URL parameter
     get://users/:id ( id;
         "User `id`"
+    )
+
+    # A typed URL parameter: /users/7 gives the Int 7, and /users/abc gives a 404
+    get://users/:id/next ( id: Int;
+        "The next user is `id + 1`"
     )
 
     # Multiple params
@@ -1653,12 +1659,14 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 
 ## Struct-Based HTML
 
-1. `@load 'lang/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `lang/html.code`'s `Dom` types above -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline
+1. `@load 'lang/html2.code'` -- same spirit as CSS above: `Element <tag, attributes, css, children, onclick, on_server_read, replace>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `lang/html.code`'s `Dom` types above. It builds an HTML String, and an Element with `onclick`, `on_server_read` or `replace` is live when a server route renders it (see Live Pages below)
 2. `attributes` is an ordered `Array\Attribute`, not a Dictionary -- attributes keep their given order and can even collide (see `Html_Lint_Visitor` below)
 3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as an embedded `<style>` child wherever it's attached
 4. `Html_Renderer`/`Html_Formatter` are compact/pretty formatter instances; void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
 5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attributes) walk the same tree for their own purposes
 6. Text children and attribute values are escaped (`&`, `<`, `>`, `"`, `'`), so text from a user can never become markup -- `p('<b>')` renders `<p>&lt;b&gt;</p>`. The text inside `script` and `style` stays raw, because it is JavaScript or CSS
+7. A boolean attribute (`checked`, `selected`, `disabled`, and so on) prints only its name when its value is `true`. A `false` or `nil` value leaves the attribute out
+8. Every constructor takes the same arguments: `children`, `attributes`, `css`, `onclick`, `on_server_read` and `replace`. A void tag (`input`, `img`, `br`, ...) has no `children`, so its first argument is `attributes`
 
 ```code
 @load 'lang/html2.code'
@@ -1671,6 +1679,74 @@ page := div([
 
 Html_Renderer.render(page)
 # '<div><h1>Welcome</h1><p class="greeting">Hello!</p><style>.greeting{color:blue;}</style></div>'
+
+done := true
+Html_Renderer.render(input([Attribute('type', 'checkbox'), Attribute('checked', done)]))
+# '<input type="checkbox" checked>'
+
+Html_Renderer.render(button('Save', onclick := (; @puts 'saved')))
+# '<button data-runtime-onclick="static-0">Save</button>' -- see Live Pages below
+```
+
+## Live Pages
+
+A click in the browser runs a closure on the server. Any renderer can do this: html2 is one way, and a renderer of your own is another.
+
+```code
+@onclick(fn: (;)) -> String                                     # fn takes nothing
+@on_server_read(fn: (value: String | Bool | Array;)) -> String  # fn takes the element's value, or nothing: (;)
+```
+
+1. `@onclick(fn)` stores `fn` as a click closure, and returns its token, a String. Write the token into the element as `data-runtime-onclick="<token>"`. A click on that element runs `fn`
+2. `@on_server_read(fn)` stores `fn` as a read closure, and returns its token. Write it as `data-runtime-on-server-read="<token>"` on an `input`, `textarea` or `select`. It does not respond to its own element: on each click anywhere on the page, the server reads its value and calls `fn` with it. A checkbox or radio gives `true` or `false`, and a `<select multiple>` gives an Array. A closure with no param, `(; ...)`, runs without the value
+3. `data-runtime-replace="<id>"` on the clicked element names one element to replace from the new page
+4. The prefix `data-runtime` is the constant `DOM_ATTRIBUTE_PREFIX` (`constants.rb`)
+5. A token is the page and a counter (`page_3-0`, `page_3-1`, ...). When the page runs again, it gets the same tokens, so the new closures replace the old ones
+6. Today, all visitors share one closure map, and a token names a position in the page, not a record. A separate map for each visitor is coming
+
+What happens on a click:
+
+```
+ browser ── POST /_runtime/event/<click token>  { inputs: { <token>: value, ... }, path, query } ──▶ server
+
+ server: 1. each read closure gets its value
+         2. the click closure runs
+         3. the reply, the first that applies:
+            - the closure returned HTML with an id on its root element  ──▶ only that HTML; the browser replaces that element
+            - the clicked element has data-runtime-replace="X"           ──▶ the page runs again; the browser replaces #X
+            - anything else                                              ──▶ the page runs again; the browser replaces <body>
+```
+
+The read closures and the click closure share the locals of the function that made them, so a read closure fills a local and the click closure uses it:
+
+```code
+@load 'lang/html2'
+
+edit_page ( tasks, task;
+    draft: String = task.text
+
+    text_box := textarea(task.text, on_server_read := (value: String;
+        draft = value
+    ))
+
+    save := button('Save', replace := 'task', onclick := (;
+        tasks.update(task.id, <text := draft>)
+    ))
+
+    Html_Renderer.render(div([h1(task.text), text_box, save], [Attribute('id', 'task')]))
+)
+```
+
+A renderer of your own writes the same attributes. The page needs its `<html>` or `<body>` tag, because the server adds `dom.js` only to a whole page:
+
+```code
+count := 0
+
+my_page (;
+    click_token := @onclick((; count += 1))
+
+    "<html><body><button data-runtime-onclick='`click_token`'>Clicked `count` times</button></body></html>"
+)
 ```
 
 ## Operators

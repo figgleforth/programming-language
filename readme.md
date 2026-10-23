@@ -65,6 +65,8 @@ app := App()
 @start_server app
 ```
 
+This app can be written in any paradigm. See the tasks app as [components](examples/tasks/tasks-components.code), with a [page reload](examples/tasks/tasks-page-reload.code), and with a [live reload](examples/tasks/tasks-live-reload.code).
+
 > For now, one single instance serves every visitor, so all visitors share its state. A separate state for each visitor is [coming soon](#one-state-per-visitor).
 
 ### Errors that point at the problem
@@ -363,7 +365,7 @@ The `class` and `style` attributes, and the escaping, come when a server renders
 
 ### Clicks run on the server
 
-Set `onclick` to a closure, and only the component with that `html_id` re-renders.
+Set `onclick` to a closure, and only the element with that `html_id` renders again.
 
 ```code
 Counter + Div {
@@ -372,8 +374,7 @@ Counter + Div {
     button := Button('+1')
 
     Self (;
-        # gets the click and every input's value
-        # coming soon: a checkbox sends whether it is checked
+        # gets the click and every input's value, a checkbox's checked state too
         button.onclick = (;
             count += 1
         )
