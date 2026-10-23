@@ -11,47 +11,47 @@ class Html2_Test < Base_Test
 	# --- Html_Formatter_Visitor: render -----------------------------------------
 
 	def test_render_simple_element_compact
-		out = Code.interp "#{HTML}\nHtml_Render.render(div('hi'))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(div('hi'))"
 		assert_equal '<div>hi</div>', out
 	end
 
 	def test_render_simple_element_pretty
-		out = Code.interp "#{HTML}\nHtml_Format.render(div('hi'))"
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(div('hi'))"
 		assert_equal '<div>hi</div>', out
 	end
 
 	def test_render_void_tag_never_gets_a_closing_tag_pretty
-		out = Code.interp "#{HTML}\nHtml_Format.render(br())"
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(br())"
 		assert_equal '<br>', out
 	end
 
 	def test_render_void_tag_never_gets_a_closing_tag_compact
-		out = Code.interp "#{HTML}\nHtml_Render.render(br())"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(br())"
 		assert_equal '<br>', out
 	end
 
 	def test_render_void_tag_with_attributes
-		out = Code.interp "#{HTML}\nHtml_Format.render(input([Attribute('type', 'text')]))"
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(input([Attribute('type', 'text')]))"
 		assert_equal '<input type="text">', out
 	end
 
 	def test_render_multiple_children_expands_to_block_style_pretty
-		out = Code.interp "#{HTML}\nHtml_Format.render(div([h1('A'), p('B')]))"
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(div([h1('A'), p('B')]))"
 		assert_equal "<div>\n  <h1>A</h1>\n  <p>B</p>\n</div>", out
 	end
 
 	def test_render_single_bare_text_child_stays_inline_pretty
-		out = Code.interp "#{HTML}\nHtml_Format.render(div([p('one')]))"
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(div([p('one')]))"
 		assert_equal "<div>\n  <p>one</p>\n</div>", out
 	end
 
 	def test_render_attributes_preserve_call_order
-		out = Code.interp "#{HTML}\nHtml_Render.render(div('x', [Attribute('id', 'a'), Attribute('class', 'b')]))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(div('x', [Attribute('id', 'a'), Attribute('class', 'b')]))"
 		assert_equal '<div id="a" class="b">x</div>', out
 	end
 
 	def test_render_nested_elements_indent_by_depth_pretty
-		out = Code.interp "#{HTML}\nHtml_Format.render(div(ul([li('one'), li('two')])))"
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(div(ul([li('one'), li('two')])))"
 		assert_equal "<div>\n  <ul>\n    <li>one</li>\n    <li>two</li>\n  </ul>\n</div>", out
 	end
 
@@ -61,7 +61,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    node := div('x', [], Style_Rule(['.x'], [Property('color', 'red')]))
-		    Html_Render.render(node)
+		    Html_Renderer.render(node)
 		CODE
 		assert_equal '<div>x<style>.x{color:red;}</style></div>', out
 	end
@@ -70,7 +70,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    node := div('x', [], Style_Rule(['.x'], [Property('color', 'red')]))
-		    Html_Format.render(node)
+		    Html_Formatter.render(node)
 		CODE
 		# A multi-line text child (the formatted CSS) expands to block layout, indented one level
 		# past its <style> tag -- so the embedded stylesheet lines up with the rest of the page.
@@ -81,13 +81,13 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    node := div('x', [], Scope_Rule('.widget', '', [Style_Rule(['p'], [Property('margin', '0')])]))
-		    Html_Render.render(node)
+		    Html_Renderer.render(node)
 		CODE
 		assert_equal '<div>x<style>@scope(.widget){p{margin:0;}}</style></div>', out
 	end
 
 	def test_element_with_no_css_renders_no_style_tag
-		out = Code.interp "#{HTML}\nHtml_Render.render(div('x'))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(div('x'))"
 		refute_includes out, '<style>'
 	end
 
@@ -98,8 +98,8 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    node := div('x', [], Style_Rule(['.x'], [Property('color', 'red')]))
-		    first := Html_Format.render(node)
-		    Html_Render.render(node)
+		    first := Html_Formatter.render(node)
+		    Html_Renderer.render(node)
 		CODE
 		assert_equal 1, out.scan('<style>').length
 		assert_equal '<div>x<style>.x{color:red;}</style></div>', out
@@ -116,13 +116,13 @@ class Html2_Test < Base_Test
 	# Array#to_s (a bare String Type or the literal Any wildcard both satisfy `=== String`/`=== Element`
 	# without having the instance methods those branches assumed).
 	def test_render_does_not_crash_on_a_bare_type_text_child_regression
-		refute_raises(Code::Undeclared_Identifier) { Code.interp "#{HTML}\nHtml_Render.render(div([String]))" }
-		refute_raises(Code::Cannot_Call_Instance_Member_On_Type) { Code.interp "#{HTML}\nHtml_Format.render(div([String]))" }
+		refute_raises(Code::Undeclared_Identifier) { Code.interp "#{HTML}\nHtml_Renderer.render(div([String]))" }
+		refute_raises(Code::Cannot_Call_Instance_Member_On_Type) { Code.interp "#{HTML}\nHtml_Formatter.render(div([String]))" }
 	end
 
 	def test_embedded_style_child_does_not_crash_on_a_bare_string_type_regression
-		refute_raises(Code::Cannot_Call_Instance_Member_On_Type) { Code.interp "#{HTML}\nHtml_Format.render(style([String]))" }
-		refute_raises(Code::Cannot_Call_Instance_Member_On_Type) { Code.interp "#{HTML}\nHtml_Render.render(style([String]))" }
+		refute_raises(Code::Cannot_Call_Instance_Member_On_Type) { Code.interp "#{HTML}\nHtml_Formatter.render(style([String]))" }
+		refute_raises(Code::Cannot_Call_Instance_Member_On_Type) { Code.interp "#{HTML}\nHtml_Renderer.render(style([String]))" }
 	end
 
 	# --- Html_Stats_Visitor -----------------------------------------------------
@@ -154,8 +154,8 @@ class Html2_Test < Base_Test
 		    <stats.minified_size(tree), stats.pretty_size(tree)>
 		CODE
 		minified, pretty = out.values
-		assert_equal Code.interp("#{HTML}\nHtml_Render.render(div([h1('A'), p('B')])).length"), minified
-		assert_equal Code.interp("#{HTML}\nHtml_Format.render(div([h1('A'), p('B')])).length"), pretty
+		assert_equal Code.interp("#{HTML}\nHtml_Renderer.render(div([h1('A'), p('B')])).length"), minified
+		assert_equal Code.interp("#{HTML}\nHtml_Formatter.render(div([h1('A'), p('B')])).length"), pretty
 		assert_operator pretty, :>, minified
 	end
 
@@ -176,7 +176,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    tree := div([p('safe'), script('alert(1)')])
-		    Html_Render.render(Html_Sanitizer_Visitor().sanitize(tree))
+		    Html_Renderer.render(Html_Sanitizer_Visitor().sanitize(tree))
 		CODE
 		assert_equal '<div><p>safe</p></div>', out
 	end
@@ -185,7 +185,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    tree := button('Click', [Attribute('onclick', 'evil()'), Attribute('class', 'btn')])
-		    Html_Render.render(Html_Sanitizer_Visitor().sanitize(tree))
+		    Html_Renderer.render(Html_Sanitizer_Visitor().sanitize(tree))
 		CODE
 		assert_equal '<button class="btn">Click</button>', out
 	end
@@ -194,7 +194,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    tree := href('javascript:alert(1)', 'bad')
-		    Html_Render.render(Html_Sanitizer_Visitor().sanitize(tree))
+		    Html_Renderer.render(Html_Sanitizer_Visitor().sanitize(tree))
 		CODE
 		assert_equal '<a>bad</a>', out
 	end
@@ -214,7 +214,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    tree := href('http://example.com', 'good')
-		    Html_Render.render(Html_Sanitizer_Visitor().sanitize(tree))
+		    Html_Renderer.render(Html_Sanitizer_Visitor().sanitize(tree))
 		CODE
 		assert_equal '<a href="http://example.com">good</a>', out
 	end
@@ -223,7 +223,7 @@ class Html2_Test < Base_Test
 		out = Code.interp <<~CODE
 		    #{HTML}
 		    tree := div('x', [], Style_Rule(['.x'], [Property('color', 'red')]))
-		    Html_Render.render(Html_Sanitizer_Visitor().sanitize(tree))
+		    Html_Renderer.render(Html_Sanitizer_Visitor().sanitize(tree))
 		CODE
 		assert_equal '<div>x<style>.x{color:red;}</style></div>', out
 	end
@@ -298,17 +298,17 @@ class Html2_Test < Base_Test
 	end
 
 	def test_href_appends_its_own_attribute_after_the_callers
-		out = Code.interp "#{HTML}\nHtml_Render.render(href('http://x.com', 'link', [Attribute('class', 'ext')]))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(href('http://x.com', 'link', [Attribute('class', 'ext')]))"
 		assert_equal '<a class="ext" href="http://x.com">link</a>', out
 	end
 
 	def test_href_overrides_an_existing_href_attribute_in_place
-		out = Code.interp "#{HTML}\nHtml_Render.render(href('http://new.com', 'link', [Attribute('href', 'http://old.com')]))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(href('http://new.com', 'link', [Attribute('href', 'http://old.com')]))"
 		assert_equal '<a href="http://new.com">link</a>', out
 	end
 
 	def test_utf8_meta_merges_in_the_charset_attribute
-		out = Code.interp "#{HTML}\nHtml_Render.render(utf8_meta())"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(utf8_meta())"
 		assert_equal '<meta charset="utf-8">', out
 	end
 
@@ -333,7 +333,7 @@ class Html2_Test < Base_Test
 
 	def test_onclick_writes_its_token_and_stores_the_closure
 		interp = Code::Interpreter.new
-		out    = interp.run "#{HTML}\nHtml_Render.render(button('Save', onclick := (; 1 )))"
+		out    = interp.run "#{HTML}\nHtml_Renderer.render(button('Save', onclick := (; 1 )))"
 
 		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\">Save</button>", out
 		assert_kind_of Code::Func, interp.dom_onclick_function_handlers['static-0'][:handler]
@@ -346,7 +346,7 @@ class Html2_Test < Base_Test
 		out    = interp.run <<~CODE
 		    #{HTML}
 		    b := button('x', onclick := (; 1 ))
-		    [Html_Render.render(b), Html_Render.render(b)]
+		    [Html_Renderer.render(b), Html_Renderer.render(b)]
 		CODE
 
 		assert_includes out.values[0], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\""
@@ -356,7 +356,7 @@ class Html2_Test < Base_Test
 
 	def test_on_server_read_writes_its_token_and_stores_the_closure
 		interp = Code::Interpreter.new
-		out    = interp.run "#{HTML}\nHtml_Render.render(textarea('hi', on_server_read := (value; value)))"
+		out    = interp.run "#{HTML}\nHtml_Renderer.render(textarea('hi', on_server_read := (value; value)))"
 
 		assert_equal "<textarea #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"static-0\">hi</textarea>", out
 		assert_kind_of Code::Func, interp.dom_input_elements['static-0']
@@ -365,7 +365,7 @@ class Html2_Test < Base_Test
 	def test_input_and_select_take_on_server_read_too
 		out = Code.interp <<~CODE
 		    #{HTML}
-		    [Html_Render.render(input(on_server_read := (v; v))), Html_Render.render(select(on_server_read := (v; v)))]
+		    [Html_Renderer.render(input(on_server_read := (v; v))), Html_Renderer.render(select(on_server_read := (v; v)))]
 		CODE
 
 		assert_includes out.values[0], "<input #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read="
@@ -374,20 +374,20 @@ class Html2_Test < Base_Test
 
 	# The user writes the replace id, so it is escaped like any attribute value.
 	def test_replace_writes_its_id_escaped
-		out = Code.interp "#{HTML}\nHtml_Render.render(button('Save', replace := 'a\"b'))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(button('Save', replace := 'a\"b'))"
 		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-replace=\"a&quot;b\">Save</button>", out
 	end
 
 	# The runtime's attributes come after the user's own, in the order onclick, on_server_read, replace.
 	def test_all_three_come_after_the_attributes
-		out = Code.interp "#{HTML}\nHtml_Render.render(input([Attribute('type', 'checkbox')], onclick := (; 1 ), on_server_read := (v; v), replace := 'task'))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(input([Attribute('type', 'checkbox')], onclick := (; 1 ), on_server_read := (v; v), replace := 'task'))"
 		prefix = Code::DOM_ATTRIBUTE_PREFIX
 		assert_equal "<input type=\"checkbox\" #{prefix}-onclick=\"static-0\" #{prefix}-on-server-read=\"static-1\" #{prefix}-replace=\"task\">", out
 	end
 
 	def test_an_element_without_them_renders_as_before
 		interp = Code::Interpreter.new
-		out    = interp.run "#{HTML}\nHtml_Render.render(li('a'))"
+		out    = interp.run "#{HTML}\nHtml_Renderer.render(li('a'))"
 
 		assert_equal '<li>a</li>', out
 		assert_empty interp.dom_onclick_function_handlers

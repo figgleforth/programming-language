@@ -153,9 +153,9 @@ Html_Formatter_Visitor {
 	)
 }
 
-# Two shared instances: compact (the default, kept for anything that already calls Html_Render.render(...)) and pretty/indented.
-Html_Render := Html_Formatter_Visitor(minify := true)
-Html_Format := Html_Formatter_Visitor()
+# Two shared instances: compact (the default, kept for anything that already calls Html_Renderer.render(...)) and pretty/indented.
+Html_Renderer := Html_Formatter_Visitor(minify := true)
+Html_Formatter := Html_Formatter_Visitor()
 
 ### 2b. Stats (node counts, depth, unique tags, estimated raw vs minified size) ###
 
@@ -195,11 +195,11 @@ Html_Stats_Visitor {
 	)
 
 	minified_size ( node -> Int;
-		Html_Render.render(node).length
+		Html_Renderer.render(node).length
 	)
 
 	pretty_size ( node -> Int;
-		Html_Format.render(node).length
+		Html_Formatter.render(node).length
 	)
 }
 

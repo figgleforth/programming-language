@@ -5,15 +5,15 @@
 @load 'lang/html2.code'
 
 page := div([h1('Welcome to the beach'), p('Found supplies')])
-@assert Html_Render.render(page) == '<div><h1>Welcome to the beach</h1><p>Found supplies</p></div>', 'Html_Render (compact) should render the tree as one unbroken string'
+@assert Html_Renderer.render(page) == '<div><h1>Welcome to the beach</h1><p>Found supplies</p></div>', 'Html_Renderer (compact) should render the tree as one unbroken string'
 
 
-### Html_Format is the same visitor, pretty-printed
+### Html_Formatter is the same visitor, pretty-printed
 
-`Html_Render`/`Html_Format` are two shared instances of the same `Html_Formatter_Visitor` -- one compact (`minify := true`), one pretty (indented, one tag per line):
+`Html_Renderer`/`Html_Formatter` are two shared instances of the same `Html_Formatter_Visitor` -- one compact (`minify := true`), one pretty (indented, one tag per line):
 ###
-pretty := Html_Format.render(page)
-@assert pretty == "<div>\n  <h1>Welcome to the beach</h1>\n  <p>Found supplies</p>\n</div>", 'Html_Format should indent one nested tag per line'
+pretty := Html_Formatter.render(page)
+@assert pretty == "<div>\n  <h1>Welcome to the beach</h1>\n  <p>Found supplies</p>\n</div>", 'Html_Formatter should indent one nested tag per line'
 
 
 ### Attributes are a real Array\Attribute, not a Dictionary
@@ -21,15 +21,15 @@ pretty := Html_Format.render(page)
 Every element constructor takes an `attributes` array of `Attribute(name, value)` structs as its second argument -- built the same way `Property` builds a CSS declaration, and in the same order they're given:
 ###
 labeled := h1('Do not drink the water', [Attribute('id', 'warning'), Attribute('class', 'sign')])
-@assert Html_Render.render(labeled) == '<h1 id="warning" class="sign">Do not drink the water</h1>', 'attributes should render in the order given'
+@assert Html_Renderer.render(labeled) == '<h1 id="warning" class="sign">Do not drink the water</h1>', 'attributes should render in the order given'
 
 
 ### Void tags never get a closing tag
 
 `br`, `img`, `input`, and friends never emit `</tag>`, in either mode -- they're looked up in a fixed void-tag list, not inferred from having no children:
 ###
-@assert Html_Render.render(br()) == '<br>', 'a void tag should render with no closing tag'
-@assert Html_Format.render(input([Attribute('type', 'text')])) == '<input type="text">', 'a void tag with attributes should still render with no closing tag'
+@assert Html_Renderer.render(br()) == '<br>', 'a void tag should render with no closing tag'
+@assert Html_Formatter.render(input([Attribute('type', 'text')])) == '<input type="text">', 'a void tag with attributes should still render with no closing tag'
 
 
 ### css attaches a real Style_Rule tree, rendered as an embedded <style>
@@ -39,7 +39,7 @@ The third constructor argument, `css`, takes any css.code struct (`examples/css.
 @load 'lang/css.code'
 
 styled := div('Found supplies', [], Style_Rule(['.box'], [Property('color', 'red')]))
-@assert Html_Render.render(styled) == '<div>Found supplies<style>.box{color:red;}</style></div>', 'a css.code rule attached via css should render as an embedded <style> child'
+@assert Html_Renderer.render(styled) == '<div>Found supplies<style>.box{color:red;}</style></div>', 'a css.code rule attached via css should render as an embedded <style> child'
 
 
 ### Html_Stats_Visitor
@@ -58,7 +58,7 @@ stats := Html_Stats_Visitor().analyze(page)
 ###
 dirty := div([button('Click', [Attribute('onclick', 'evil()')]), script('alert(1)')])
 clean := Html_Sanitizer_Visitor().sanitize(dirty)
-@assert Html_Render.render(clean) == '<div><button>Click</button></div>', 'sanitize should strip the dangerous attribute and drop the dangerous tag entirely'
+@assert Html_Renderer.render(clean) == '<div><button>Click</button></div>', 'sanitize should strip the dangerous attribute and drop the dangerous tag entirely'
 
 
 ### Html_Lint_Visitor

@@ -250,7 +250,7 @@ class E2E_Server_Test < Minitest::Test
 		    	get:// (;
 		    		@onclick((;
 		    			items.push('b')
-		    			Html_Render.render(ul(items.map((it; li(it))), [Attribute('id', 'list')]))
+		    			Html_Renderer.render(ul(items.map((it; li(it))), [Attribute('id', 'list')]))
 		    		))
 		    	)
 		    }
@@ -436,6 +436,91 @@ class E2E_Server_Test < Minitest::Test
 		assert_includes err, 'unknown click token page_-999'
 
 		assert_equal '404', click('page_-999', {}).code, 'without a page path, an unknown token is still a 404'
+	end
+
+	# A list page made only of html2 Elements: a textarea that the server reads, a button that adds the text, and a button that adds it and returns only the new list.
+	def start_html2_list_app
+		start_app <<~CODE
+		    @load 'lang/server'
+		    @load 'lang/html2'
+
+		    items := []
+		    draft := ''
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		Html_Renderer.render(html([
+		    			body([
+		    				textarea('', on_server_read := (value; draft = value)),
+		    				button('Add', onclick := (; items.push(draft))),
+		    				button('Add here', onclick := (;
+		    					items.push(draft)
+		    					Html_Renderer.render(ul(items.map((it; li(it, onclick := (; it)))), [Attribute('id', 'list')]))
+		    				)),
+		    				ul(items.map((it; li(it))), [Attribute('id', 'list')])
+		    			])
+		    		]))
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+	end
+
+	# The tokens that the page's html2 Elements wrote: [the textarea's, the Add button's, the Add here button's].
+	def html2_list_page_tokens
+		page    = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		prefix  = Code::DOM_ATTRIBUTE_PREFIX
+		read    = page.body[/#{prefix}-on-server-read="([^"]+)"/, 1]
+		clicks  = page.body.scan(/#{prefix}-onclick="([^"]+)"/).flatten
+		[read, *clicks]
+	end
+
+	# The Add button's handler returns no HTML, so the reply is the page run again, with the new item.
+	def test_html2_page_click_sends_the_full_page_again
+		start_html2_list_app
+		read_token, add_token, _ = html2_list_page_tokens
+		assert_equal %w(page_-0 page_-1), [read_token, add_token]
+
+		reply = click add_token, { read_token => 'Buy milk' }, path: '/', query: ''
+
+		assert_equal '200', reply.code
+		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page'
+		assert_includes reply.body, '<ul id="list"><li>Buy milk</li></ul>'
+		assert_nil reply[Code::DOM_TARGET_ID_HEADER]
+	end
+
+	# The Add here button's handler returns the list, so the reply is only the list. Its items get tokens inside the clicked token, and the page's own tokens stay.
+	def test_html2_page_click_sends_only_the_html_its_handler_returns
+		start_html2_list_app
+		read_token, _, add_here_token = html2_list_page_tokens
+
+		reply = click add_here_token, { read_token => 'Buy milk' }, path: '/', query: ''
+
+		prefix = Code::DOM_ATTRIBUTE_PREFIX
+		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
+		assert_equal "<ul id=\"list\"><li #{prefix}-onclick=\"#{add_here_token}-0\">Buy milk</li></ul>", reply.body
+		refute_includes reply.body, '<!DOCTYPE'
+		assert @interpreter.dom_onclick_function_handlers.key?(add_here_token), 'the page tokens stay'
+		assert @interpreter.dom_onclick_function_handlers.key?("#{add_here_token}-0")
+	end
+
+	# A token that no render made, as after a restart: the page runs again and gets new tokens.
+	def test_html2_page_click_with_an_unknown_token_sends_the_full_page_again
+		start_html2_list_app
+		html2_list_page_tokens
+
+		reply = nil
+		_, err = capture_subprocess_io do
+			reply = click 'page_-999', {}, path: '/', query: ''
+		end
+
+		assert_equal '200', reply.code
+		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page, not a 404'
+		assert_includes reply.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"page_-1\""
+		assert_includes err, 'unknown click token page_-999'
 	end
 
 	def test_server_starts_and_responds

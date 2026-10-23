@@ -1656,7 +1656,7 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 1. `@load 'lang/html2.code'` -- same spirit as CSS above: `Element <tag, attributes: Array\Attribute, css: Css, children>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `lang/html.code`'s `Dom` types above -- this one only builds an HTML string, it doesn't hook into the server's live-render pipeline
 2. `attributes` is an ordered `Array\Attribute`, not a Dictionary -- attributes keep their given order and can even collide (see `Html_Lint_Visitor` below)
 3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as an embedded `<style>` child wherever it's attached
-4. `Html_Render`/`Html_Format` are compact/pretty formatter instances; void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
+4. `Html_Renderer`/`Html_Formatter` are compact/pretty formatter instances; void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
 5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attributes) walk the same tree for their own purposes
 6. Text children and attribute values are escaped (`&`, `<`, `>`, `"`, `'`), so text from a user can never become markup -- `p('<b>')` renders `<p>&lt;b&gt;</p>`. The text inside `script` and `style` stays raw, because it is JavaScript or CSS
 
@@ -1669,7 +1669,7 @@ page := div([
     p('Hello!', [Attribute('class', 'greeting')])
 ], [], Style_Rule(['.greeting'], [Property('color', 'blue')]))
 
-Html_Render.render(page)
+Html_Renderer.render(page)
 # '<div><h1>Welcome</h1><p class="greeting">Hello!</p><style>.greeting{color:blue;}</style></div>'
 ```
 

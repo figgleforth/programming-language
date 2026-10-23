@@ -70,7 +70,7 @@ render_tasks_list ( tasks_table;
 	page_body := body([h1("Tasks"), add_task_form, ul(task_rows)], [], INVERT_FILTER)
 	page      := html([head(title("Tasks")), page_body])
 
-	Html_Format.render(page)
+	Html_Formatter.render(page)
 )
 
 # -----------------------------------------------------------------------------
@@ -98,7 +98,7 @@ render_task_page ( tasks_table, task;
 	page_body := body([h1(task.text), toggle_form, save_form, href("/", "Back to all")], [], INVERT_FILTER)
 	page      := html([head(title(task.text)), page_body])
 
-	Html_Format.render(page)
+	Html_Formatter.render(page)
 )
 
 # -----------------------------------------------------------------------------
@@ -234,5 +234,5 @@ render_terminal_canvas_page (;
 	page_body := body([terminal_canvas, terminal_script], [Attribute("id", "canvas-container")], TERMINAL_CSS)
 	page      := html([page_head, page_body])
 
-	Html_Format.render(page)
+	Html_Formatter.render(page)
 )
