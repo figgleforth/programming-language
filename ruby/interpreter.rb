@@ -672,6 +672,8 @@ module Code
 
 			named_alias = find_contract_type expected
 			return named_alias.satisfied? { type_contract_satisfied? value, it } if named_alias.is_a? Code::Type_Alias
+			# A name bound to a signature (`Any_Func :: (;)`) is a function's shape, as in a param.
+			return named_alias.matches? value if named_alias.is_a? Code::Func_Signature
 
 			# `expected` may be an alias of one type (`Int :: Integer`, `Dec :: Decimal`) -- its own name isn't in
 			# the real type's composed set, so resolve it and accept when the value composes everything
@@ -1917,7 +1919,7 @@ module Code
 					signature = resolve_func_signature type
 
 					if signature
-						unless signature.matches? right_value
+						unless right_value.nil? || right_value.is_a?(Code::Nil) || signature.matches?(right_value) # a nil passes, as for every other contract
 							raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(right_value))
 						end
 					else
@@ -3710,7 +3712,8 @@ module Code
 				end
 
 				if signature
-					raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(value)) unless signature.matches? value
+					# A nil passes, as it does for every other contract, so `cb: (;) = nil` works.
+					raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(value)) unless value.nil? || value.is_a?(Code::Nil) || signature.matches?(value)
 				elsif type && !type_contract_satisfied?(value, type)
 					raise Code::Type_Contract_Violation.new(expr, type_contract_display(type), describe_value_shape(value))
 				end

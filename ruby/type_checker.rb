@@ -148,6 +148,7 @@ module Code
 		# The operands an annotation names: a type name String (`x: Int` gives ["Int"], `x: Int | Nil` gives ["Int", "Nil"]), or a literal expression (`x: "a" | "b"`). A value that satisfies the annotation at run time satisfies at least one operand, whatever the operators are, so a value that matches none of them is always a mismatch. The operators themselves are checked only at run time (Code::Type_Alias).
 		def annotation_operands type_expr
 			return [] unless type_expr
+			return [] if type_expr.is_a?(Code::Func_Expr) || type_expr.is_a?(Code::Func_Signature_Expr) # a signature (`cb: (;)`) is checked only at run time
 			return [type_expr.value] unless composed_annotation? type_expr
 
 			operands = [type_expr.leading_literal || type_expr.name]
@@ -177,11 +178,14 @@ module Code
 
 		# Can `value_expr` satisfy the annotation? A literal value must equal a literal operand, or have a type that a type operand allows. Any other value is checked by its type only, and a value of unknown type always passes.
 		def annotation_accepts? type_expr, value_expr
+			operands = annotation_operands type_expr
+			return true if operands.empty?
+
 			value_literal = literal_type_expr?(value_expr) ? literal_key(value_expr) : nil
 			inferred      = infer_type value_expr
 			return true if value_literal.nil? && inferred.nil?
 
-			annotation_operands(type_expr).any? do |operand|
+			operands.any? do |operand|
 				if operand.is_a? ::String
 					inferred.nil? || types_compatible?(operand, inferred)
 				elsif value_literal

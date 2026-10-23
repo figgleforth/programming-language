@@ -222,6 +222,78 @@ class Type_Alias_Test < Base_Test
 		assert_raises(Code::Type_Contract_Violation) { Code.interp code + 'apply(count)' }
 	end
 
+	# A return type that names a signature checks the returned function's shape, as a param does. Before, every function failed it.
+	def test_a_signature_alias_as_a_return_type
+		code = <<~CODE
+		    Callback :: (;)
+		    Format :: (Number -> String;)
+
+		    make_callback ( -> Callback;
+		    	(; 'ran')
+		    )
+
+		    make_format ( -> Format;
+		    	(n: Number -> String; "n=`n`")
+		    )
+
+		    make_wrong_format ( -> Format;
+		    	(s: String -> Number; s.length)
+		    )
+
+		    not_a_function ( -> Callback;
+		    	5
+		    )
+		CODE
+
+		assert_equal 'ran', Code.interp(code + 'make_callback()()')
+		assert_equal 'n=4', Code.interp(code + 'make_format()(4)')
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + 'make_wrong_format()' }
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + 'not_a_function()' }
+	end
+
+	# A signature in a composed type works too.
+	def test_a_signature_alias_inside_a_composed_return_type
+		code = <<~CODE
+		    Callback :: (;)
+
+		    callback_or_text ( give_text: Bool -> Callback | String;
+		    	if give_text 'text' else (; 'ran') end
+		    )
+
+		    a_number ( -> Callback | String;
+		    	5
+		    )
+		CODE
+
+		assert_equal 'text', Code.interp(code + 'callback_or_text(true)')
+		assert_equal 'ran', Code.interp(code + 'callback_or_text(false)()')
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + 'a_number()' }
+	end
+
+	# A signature-typed param accepts nil, as every other contract does, so it can have a nil default.
+	def test_a_signature_param_with_a_nil_default
+		code = <<~CODE
+		    Callback :: (;)
+
+		    run ( callback: Callback = nil;
+		    	if callback == nil 'nothing' else callback() end
+		    )
+
+		    run_inline ( callback: (;) = nil;
+		    	callback == nil
+		    )
+		CODE
+
+		assert_equal 'nothing', Code.interp(code + 'run()')
+		assert_equal 'ran', Code.interp(code + "run((; 'ran'))")
+		assert_equal true, Code.interp(code + 'run_inline()')
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code + 'run(5)' }
+
+		# A variable too
+		assert_nil Code.interp("x: (;) = nil\nx")
+		assert_raises(Code::Type_Contract_Violation) { Code.interp 'x: (;) = 5' }
+	end
+
 	def test_greater_or_equal_asks_whether_a_value_satisfies_it
 		out = Code.interp <<~CODE
 		    Strumber :: String | Number

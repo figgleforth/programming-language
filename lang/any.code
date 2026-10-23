@@ -1,3 +1,6 @@
 Any {
 	to_s (; 'Any' )
 }
+
+Any_Function :: (;)
+Any_Func     :: Any_Function

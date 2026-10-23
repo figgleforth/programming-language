@@ -1,55 +1,53 @@
-# Struct-and-render take on lang/html.code, same spirit as lang/css.code: markup is plain,
-# immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag
-# Type, no `| Dom` composition, no method-override polymorphism. The two coexist; this one doesn't
-# hook into the server-side rendering pipeline (route responses, onclick wiring, dom.js) the way
-# lang/html.code's Dom types do -- it only builds an HTML string.
+###
+Struct-and-render take on lang/html.code, same spirit as lang/css.code: markup is plain, immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag Type, no `| Dom` composition, no method-override polymorphism. The two coexist.
 
+It only builds an HTML String. An Element with `onclick`, `on_server_read` or `replace` is live when a server route renders it: the formatter writes the runtime's data-runtime-* attributes, through `@onclick` and `@on_server_read`.
+
+The server does not know about Element. Any renderer that writes the same attributes gets the same live behavior.
+###
 @load 'lang/visitor'
 @load 'lang/css'
 
-# -----------------------------------------------------------------------------
-# 1. The one node shape
-# -----------------------------------------------------------------------------
+### 1. The one node shape ###
 
-# One HTML attribute -- mirrors css.code's `Property <name, value>` exactly, same reason: a plain
-# name/value struct instead of a Dictionary entry, so attributes list/reorder/duplicate the same way
-# css declarations do (see Html_Lint_Visitor's duplicate-attribute check below, impossible on a
-# Dictionary but a real risk now that attributes are an ordered Array).
+# One HTML attribute -- mirrors css.code's `Property <name, value>` exactly, same reason: a plain name/value struct instead of a Dictionary entry, so attributes list/reorder/duplicate the same way css declarations do (see Html_Lint_Visitor's duplicate-attribute check below, impossible on a Dictionary but a real risk now that attributes are an ordered Array).
 Attribute <name: String, value: Any>
 
-# `children` holds a mix of Element structs and plain Strings (text nodes) -- Html_Renderer tells
-# them apart by `=== Element`, same as css.code's visitors tell rule kinds apart by `=== Style_Rule`.
-# `attributes` is an ordered Array\Attribute, not a Dictionary -- same reasoning as `css` below: build
-# it with the same struct-literal style css.code declarations already use (`Attribute("class", "card")`).
-# `css` is a real css.code rule tree (`Css`'s own union -- Style_Css/At_Css/Scope_Css/...), not a
-# flat Dictionary of properties -- see Html_Formatter_Visitor#render_element, which renders it as an
-# embedded <style> child wherever it's attached, so `@scope`-based rules work the way you'd expect.
-Element <tag: String, attributes: Array\Attribute = [], css: Css = nil, children: Array = []>
 
-# -----------------------------------------------------------------------------
-# 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as
-#	 lang/css.code's Css_Formatter_Visitor)
-# -----------------------------------------------------------------------------
+###
+- `children` holds a mix of Element structs and plain Strings (text nodes) -- Html_Formatter_Visitor tells them apart by `=== Element`, same as css.code's visitors tell rule kinds apart by `=== Style_Rule`.
+- `attributes` is an ordered Array\Attribute, not a Dictionary -- same reasoning as `css` below: build it with the same struct-literal style css.code declarations already use (`Attribute("class", "card")`).
+- `css` is a real css.code rule tree (`Css`'s own union -- Style_Css/At_Css/Scope_Css/...), not a flat Dictionary of properties -- see Html_Formatter_Visitor#render_element, which renders it as an embedded <style> child wherever it's attached, so `@scope`-based rules work the way you'd expect.
+###
+Element <
+	tag: String
+	attributes: Array\Attribute = []
+	css: Css
+	children: Array = []
+	onclick: Any_Func
+	on_server_read: Any_Func
+	replace: String
+>
+
+### 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as lang/css.code's Css_Formatter_Visitor) ###
 
 Html_Formatter_Visitor {
 	DEFAULT_INDENT := 2
-	indent_size := DEFAULT_INDENT
-	minify := false
+	indent_size: Int = DEFAULT_INDENT
+	minify: Bool = false
 
-	# Never given a closing tag, regardless of mode -- matches how lang/html.code's own generic
-	# Dom#to_s already never self-closes anything either (no new inconsistency introduced there),
-	# it just means these never emit an *empty* `</tag>` at all, in either mode.
+	# Never given a closing tag, regardless of mode -- matches how lang/html.code's own generic Dom#to_s already never self-closes anything either (no new inconsistency introduced there), it just means these never emit an *empty* `</tag>` at all, in either mode.
 	VOID_TAGS := %string(area base br col command embed hr img input keygen link meta param source track wbr)
 
 	# The text inside these is JavaScript or CSS, not HTML, so it is never escaped.
 	RAW_TEXT_TAGS := %string(script style)
 
-	Self ( indent_size := DEFAULT_INDENT, minify := false;
+	Self ( indent_size: Int = DEFAULT_INDENT, minify: Bool = false;
 		self.indent_size = indent_size
 		self.minify = minify
 	)
 
-	render ( node, depth := 0, raw := false;
+	render ( node, depth: Int = 0, raw: Bool = false -> String;
 		if node === Element
 			render_element(node, depth)
 		else
@@ -57,29 +55,25 @@ Html_Formatter_Visitor {
 			if raw
 				text
 			else
-				# Escape the text, so a text child can never become markup. `&` goes first, or it would escape the other entities a second time.
-				"`text`".gsub('&', '&amp;').gsub('<', '&lt;').gsub('>', '&gt;').gsub('"', '&quot;').gsub("'", '&#39;') # @pasted
+				escape("`text`")
 			end
 		end
 	)
 
-	# Prefixes every line of a block of text with `depth`'s padding -- used to line an embedded
-	# stylesheet's formatted CSS up inside a pretty-printed page.
-	indent_block ( text, depth;
+	# Prefixes every line of a block of text with `depth`'s padding -- used to line an embedded stylesheet's formatted CSS up inside a pretty-printed page.
+	indent_block ( text, depth: Int -> String;
 		pad := indent_str(depth)
 		(text.?split("\n") or [text]).map(line; "`pad``line`").join("\n")
 	)
 
-	render_element ( el, depth;
+	render_element ( el: Element, depth: Int -> String;
 		pad := indent_str(depth)
 		attrs := render_attributes(el)
 		raw_text := self.RAW_TEXT_TAGS.include?(el.tag)
-		# `css`, if attached, renders as one more child (an embedded <style> block) rather than
-		# folding into `attrs` -- a real Css tree (selectors, nesting, @scope, ...) has no equivalent
-		# as a flat attribute the way a simple property:value Dictionary would have.
-		# note; `.concat` mutates its receiver (Ruby's own destructive Array#concat, under the hood) --
-		# `el.children` is the struct's own array, so `.concat` would silently and permanently corrupt
-		# it (double-appending the css child on a second render). `.flatten()` builds a fresh array instead.
+		###
+		- `css`, if attached, renders as one more child (an embedded <style> block) rather than folding into `attrs` -- a real Css tree (selectors, nesting, @scope, ...) has no equivalent as a flat attribute the way a simple property:value Dictionary would have.
+		- note; `.concat` mutates its receiver (Ruby's own destructive Array#concat, under the hood) -- `el.children` is the struct's own array, so `.concat` would silently and permanently corrupt it (double-appending the css child on a second render). `.flatten()` builds a fresh array instead.
+		###
 		full_children := if el.css == nil
 			el.children
 		elif el.tag == "style"
@@ -95,8 +89,7 @@ Html_Formatter_Visitor {
 			inner := full_children.map(c; render(c, raw := raw_text)).join("")
 			"<`el.tag``attrs`>`inner`</`el.tag`>"
 		elif el.tag == "style" and full_children.length() == 1 and !(full_children.0 === Element)
-			# An embedded stylesheet -- block layout, its formatted CSS indented one level past the tag.
-			# The lone child is either already-formatted CSS text or a raw css.code node to format now.
+			# An embedded stylesheet -- block layout, its formatted CSS indented one level past the tag. The lone child is either already-formatted CSS text or a raw css.code node to format now.
 			css_text := if full_children.0 === String
 				full_children.0
 			else
@@ -104,8 +97,7 @@ Html_Formatter_Visitor {
 			end
 			"`pad`<style`attrs`>\n`indent_block(css_text, depth + 1)`\n`pad`</style>"
 		elif full_children.length() == 1 and !(full_children.0 === Element)
-			# A single bare-text child stays on one line ("<p>Hello</p>"), rather than always
-			# expanding to block style -- keeps the common "leaf text element" case readable.
+			# A single bare-text child stays on one line ("<p>Hello</p>"), rather than always expanding to block style -- keeps the common "leaf text element" case readable.
 			"`pad`<`el.tag``attrs`>`render(full_children.0, raw := raw_text)`</`el.tag`>"
 		else
 			inner := full_children.map(c; render(c, depth + 1, raw := raw_text)).join("\n")
@@ -113,13 +105,35 @@ Html_Formatter_Visitor {
 		end
 	)
 
-	render_attributes ( el;
+	# Escapes text for HTML, so a text child can never become markup, and an attribute value can never close its quotes. `&` goes first, or it would escape the other entities a second time.
+	escape ( text: String -> String;
+		text.gsub('&', '&amp;').gsub('<', '&lt;').gsub('>', '&gt;').gsub('"', '&quot;').gsub("'", '&#39;')
+	)
+
+	render_attributes ( el: Element -> String;
 		parts := []
 
 		for el.attributes
-			# Escape the value, so it can never close its quotes and add markup.
-			value := "`it.value`".gsub('&', '&amp;').gsub('<', '&lt;').gsub('>', '&gt;').gsub('"', '&quot;').gsub("'", '&#39;') # @pasted
-			parts.push("`it.name`=\"`value`\"")
+			# A boolean attribute (checked, disabled, selected) is on whenever its name is there, whatever its value. So true gives the bare name, and false or nil leave the attribute out.
+			if it.value == true
+				parts.push(it.name)
+			elif it.value != false and it.value != nil
+				value := escape("`it.value`")
+				parts.push("`it.name`=\"`value`\"")
+			end
+		end
+
+		# The runtime's own attributes. Their prefix is DOM_ATTRIBUTE_PREFIX (constants.rb), which `.code` cannot read yet, so its value is written here. @onclick and @on_server_read store the closure and give its token, which needs no escape.
+		if el.onclick != nil
+			parts.push("data-runtime-onclick=\"`@onclick(el.onclick)`\"")
+		end
+
+		if el.on_server_read != nil
+			parts.push("data-runtime-on-server-read=\"`@on_server_read(el.on_server_read)`\"")
+		end
+
+		if el.replace != nil
+			parts.push("data-runtime-replace=\"`escape(el.replace)`\"")
 		end
 
 		if parts.length() == 0
@@ -129,34 +143,29 @@ Html_Formatter_Visitor {
 		end
 	)
 
-	# Shares this visitor's own indent/minify settings so a css tree nested inside a pretty-printed
-	# page comes out pretty-printed too (and minified inside a minified one).
-	css_child ( rule;
+	# Shares this visitor's own indent/minify settings so a css tree nested inside a pretty-printed page comes out pretty-printed too (and minified inside a minified one).
+	css_child ( rule: Css -> Element;
 		Element("style", [], nil, [Css_Formatter_Visitor(indent_size := self.indent_size, minify := self.minify).format(rule)])
 	)
 
-	indent_str ( depth;
+	indent_str ( depth: Int -> String;
 		if self.minify "" else " " * (depth * self.indent_size) end
 	)
 }
 
-# Two shared instances: compact (the original Html_Renderer's own default behaviour, kept as-is for
-# anything already calling Html_Render.render(...)) and pretty/indented.
+# Two shared instances: compact (the default, kept for anything that already calls Html_Render.render(...)) and pretty/indented.
 Html_Render := Html_Formatter_Visitor(minify := true)
 Html_Format := Html_Formatter_Visitor()
 
-# -----------------------------------------------------------------------------
-# 2b. Stats (node counts, depth, unique tags, estimated raw vs minified size)
-# -----------------------------------------------------------------------------
+### 2b. Stats (node counts, depth, unique tags, estimated raw vs minified size) ###
 
 Html_Stats_Visitor {
-	node_count := 0
-	max_depth := 0
-	tag_counts := {}
+	node_count: Int = 0
+	max_depth: Int = 0
+	tag_counts: Dictionary = {}
 
-	# Resets and walks -- call this first, then read the members below or call
-	# minified_size/pretty_size (which just re-render, no walk state needed).
-	analyze ( node;
+	# Resets and walks -- call this first, then read the members below or call minified_size/pretty_size (which just re-render, no walk state needed).
+	analyze ( node -> Self;
 		self.node_count = 0
 		self.max_depth = 0
 		self.tag_counts = {}
@@ -164,7 +173,7 @@ Html_Stats_Visitor {
 		self
 	)
 
-	visit ( node, depth;
+	visit ( node, depth: Int;
 		if node === Element
 			self.node_count += 1
 
@@ -181,28 +190,25 @@ Html_Stats_Visitor {
 		end
 	)
 
-	unique_tags (;
+	unique_tags (-> Array;
 		self.tag_counts.keys()
 	)
 
-	minified_size ( node;
+	minified_size ( node -> Int;
 		Html_Render.render(node).length
 	)
 
-	pretty_size ( node;
+	pretty_size ( node -> Int;
 		Html_Format.render(node).length
 	)
 }
 
-# -----------------------------------------------------------------------------
-# 2c. Sanitizer (strips script/iframe/object/embed tags, and on*/javascript: attributes)
-# -----------------------------------------------------------------------------
+### 2c. Sanitizer (strips script/iframe/object/embed tags, and on*/javascript: attributes) ###
 
 Html_Sanitizer_Visitor {
 	DANGEROUS_TAGS := %string(script iframe object embed)
 
-	# Returns a cleaned tree -- source is untouched (structs are plain data), a dangerous
-	# node (and everything under it) is dropped entirely rather than emptied out.
+	# Returns a cleaned tree -- source is untouched (structs are plain data), a dangerous node (and everything under it) is dropped entirely rather than emptied out.
 	sanitize ( node;
 		if node === Element
 			if self.DANGEROUS_TAGS.include?(node.tag)
@@ -215,18 +221,19 @@ Html_Sanitizer_Visitor {
 						clean_children.push(cleaned)
 					end
 				end
-				Element(node.tag, sanitize_attributes(node.attributes), node.css, clean_children)
+				# The closures and the replace id stay: they run on the server, so they are not the browser code this removes.
+				Element(node.tag, sanitize_attributes(node.attributes), node.css, clean_children, node.onclick, node.on_server_read, node.replace)
 			end
 		else
 			node
 		end
 	)
 
-	sanitize_attributes ( attributes;
+	sanitize_attributes ( attributes: Array\Attribute -> Array\Attribute;
 		attributes.filter(a; !dangerous_attribute?(a))
 	)
 
-	dangerous_attribute? ( attr;
+	dangerous_attribute? ( attr: Attribute -> Bool;
 		if attr.name.start_with?("on")
 			true
 		else
@@ -238,17 +245,17 @@ Html_Sanitizer_Visitor {
 	)
 }
 
-# -----------------------------------------------------------------------------
-# 2d. Lint (void element given children, <img> missing alt, empty containers, duplicate
-#	  attribute names -- attributes are now an ordered Array\Attribute, not a Dictionary, so a
-#	  duplicate name is a real possibility here now, same as Css_Lint_Visitor's duplicate-property
-#	  check on an Array\Property)
-# -----------------------------------------------------------------------------
+### 2d. Lint
+- void element given children
+- <img> missing alt
+- empty containers
+- duplicate attribute names -- attributes are now an ordered Array\Attribute, not a Dictionary, so a duplicate name is a real possibility here now (same as Css_Lint_Visitor's duplicate-property check on an Array\Property)
+###
 
 Html_Lint_Visitor + Warnings_Visitor {
 	VOID_TAGS := %string(area base br col command embed hr img input keygen link meta param source track wbr)
 
-	lint ( node;
+	lint ( node -> Array;
 		self.warnings = []
 		visit(node)
 		self.warnings
@@ -276,7 +283,7 @@ Html_Lint_Visitor + Warnings_Visitor {
 		end
 	)
 
-	check_duplicate_attributes ( node;
+	check_duplicate_attributes ( node: Element;
 		seen_names := []
 		for node.attributes
 			if seen_names.include?(it.name)
@@ -287,16 +294,13 @@ Html_Lint_Visitor + Warnings_Visitor {
 	)
 }
 
-# -----------------------------------------------------------------------------
-# 3. Element constructors (recovers the ergonomics lang/html.code gets from per-tag Types)
-# note; lowercase, not capitalized like lang/html.code's Div/Title/etc -- these are ordinary
-# functions, and a capitalized name before `(` routes to type-reference parsing instead of a
-# function declaration (found the hard way writing this file).
-# -----------------------------------------------------------------------------
+### 3. Element constructors (recovers the ergonomics lang/html.code gets from per-tag Types)
+- note; lowercase, not capitalized like lang/html.code's Div/Title/etc -- these are functions, and a capitalized name before `(` routes to type-reference parsing instead of a function declaration (found the hard way writing this file).
+- Each tag's constructor is made by constructor_for or void_constructor_for, because they all take the same arguments. href and utf8_meta are written out, because each adds an attribute of its own.
+###
 
-# A single child (a bare String, or one Element) doesn't need its own `[...]` at every call site --
-# wrapped here so `li("one")` and `li(["one", "two"])` both just work, same as `li(["one"])` always did.
-as_children ( children;
+# A single child (a bare String, or one Element) doesn't need its own `[...]` at every call site -- wrapped here so `li("one")` and `li(["one", "two"])` both just work, same as `li(["one"])` always did.
+as_children ( children -> Array;
 	if children === Array
 		children
 	else
@@ -304,10 +308,8 @@ as_children ( children;
 	end
 )
 
-# Same override-in-place-or-append semantics as Dictionary#merge (used to build `href`/`utf8_meta`'s
-# own forced attribute before attributes became an Array) -- only needed where a constructor forces
-# one attribute of its own alongside whatever the caller already passed in.
-merge_attribute ( attributes, attr;
+# Same override-in-place-or-append semantics as Dictionary#merge (used to build `href`/`utf8_meta`'s own forced attribute before attributes became an Array) -- only needed where a constructor forces one attribute of its own alongside whatever the caller already passed in.
+merge_attribute ( attributes: Array\Attribute, attr: Attribute -> Array\Attribute;
 	replaced := false
 	merged := for attributes map
 		if it.name == attr.name
@@ -317,236 +319,132 @@ merge_attribute ( attributes, attr;
 			it
 		end
 	end
-	if replaced merged else [merged, [attr]].flatten() end
+	if replaced
+		merged
+	else
+		merged + [attr]
+	end
 )
 
-html ( children := [];
-	Element("html", [], nil, as_children(children))
+# Makes the constructor for one tag. Every constructor takes the same arguments and only forwards them to Element, so the function is written once here, not once for each tag.
+constructor_for ( tag: String -> Any_Func;
+	(children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replace: String = nil -> Element;
+		Element(
+			tag,
+			attributes,
+			css,
+			as_children(children),
+			onclick,
+			on_server_read,
+			replace
+		)
+	)
 )
 
-head ( children := [];
-	Element("head", [], nil, as_children(children))
+# The same for a void tag, which has no children, so its first argument is the attributes.
+void_constructor_for ( tag: String -> Any_Func;
+	(attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replace: String = nil -> Element;
+		Element(
+			tag,
+			attributes,
+			css,
+			[],
+			onclick,
+			on_server_read,
+			replace
+		)
+	)
 )
 
-body ( children := [], attributes := [], css := nil;
-	Element("body", attributes, css, as_children(children))
-)
-
-title ( text;
-	Element("title", [], nil, [text])
-)
-
-h1 ( text, attributes := [], css := nil;
-	Element("h1", attributes, css, [text])
-)
-
-h2 ( text, attributes := [], css := nil;
-	Element("h2", attributes, css, [text])
-)
-
-h3 ( text, attributes := [], css := nil;
-	Element("h3", attributes, css, [text])
-)
-
-h4 ( text, attributes := [], css := nil;
-	Element("h4", attributes, css, [text])
-)
-
-h5 ( text, attributes := [], css := nil;
-	Element("h5", attributes, css, [text])
-)
-
-h6 ( text, attributes := [], css := nil;
-	Element("h6", attributes, css, [text])
-)
+html  := constructor_for('html')
+head  := constructor_for('head')
+body  := constructor_for('body')
+title := constructor_for('title')
+h1    := constructor_for('h1')
+h2    := constructor_for('h2')
+h3    := constructor_for('h3')
+h4    := constructor_for('h4')
+h5    := constructor_for('h5')
+h6    := constructor_for('h6')
 
 # Text and inline elements
-p ( children := [], attributes := [], css := nil;
-	Element("p", attributes, css, as_children(children))
+p      := constructor_for('p')
+small  := constructor_for('small')
+span   := constructor_for('span')
+
+# A link: its first argument is the href.
+href ( href: String, children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, replace: String = nil -> Element;
+	Element(
+		"a",
+		merge_attribute(attributes, Attribute("href", href)),
+		css,
+		as_children(children),
+		onclick,
+		nil,
+		replace
+	)
 )
 
-small ( children := [], attributes := [], css := nil;
-	Element("small", attributes, css, as_children(children))
-)
-
-span ( children := [], attributes := [], css := nil;
-	Element("span", attributes, css, as_children(children))
-)
-
-href ( href, children := [], attributes := [], css := nil;
-	Element("a", merge_attribute(attributes, Attribute("href", href)), css, as_children(children))
-)
-
-strong ( children := [], attributes := [], css := nil;
-	Element("strong", attributes, css, as_children(children))
-)
-
-em ( children := [], attributes := [], css := nil;
-	Element("em", attributes, css, as_children(children))
-)
-
-code ( children := [], attributes := [], css := nil;
-	Element("code", attributes, css, as_children(children))
-)
-
-pre ( children := [], attributes := [], css := nil;
-	Element("pre", attributes, css, as_children(children))
-)
+strong := constructor_for('strong')
+em     := constructor_for('em')
+code   := constructor_for('code')
+pre    := constructor_for('pre')
 
 # Lists
-ul ( children := [], attributes := [], css := nil;
-	Element("ul", attributes, css, as_children(children))
-)
-
-ol ( children := [], attributes := [], css := nil;
-	Element("ol", attributes, css, as_children(children))
-)
-
-li ( children := [], attributes := [], css := nil;
-	Element("li", attributes, css, as_children(children))
-)
+ul := constructor_for('ul')
+ol := constructor_for('ol')
+li := constructor_for('li')
 
 # Forms
-form ( children := [], attributes := [], css := nil;
-	Element("form", attributes, css, as_children(children))
-)
-
-input ( attributes := [], css := nil;
-	Element("input", attributes, css, [])
-)
-
-button ( children := [], attributes := [], css := nil;
-	Element("button", attributes, css, as_children(children))
-)
-
-textarea ( children := [], attributes := [], css := nil;
-	Element("textarea", attributes, css, as_children(children))
-)
-
-label ( children := [], attributes := [], css := nil;
-	Element("label", attributes, css, as_children(children))
-)
-
-select ( children := [], attributes := [], css := nil;
-	Element("select", attributes, css, as_children(children))
-)
-
-option ( children := [], attributes := [], css := nil;
-	Element("option", attributes, css, as_children(children))
-)
+form     := constructor_for('form')
+input    := void_constructor_for('input')
+button   := constructor_for('button')
+textarea := constructor_for('textarea')
+label    := constructor_for('label')
+select   := constructor_for('select')
+option   := constructor_for('option')
 
 # Containers
-section ( children := [], attributes := [], css := nil;
-	Element("section", attributes, css, as_children(children))
-)
-
-article ( children := [], attributes := [], css := nil;
-	Element("article", attributes, css, as_children(children))
-)
-
-nav ( children := [], attributes := [], css := nil;
-	Element("nav", attributes, css, as_children(children))
-)
-
-header ( children := [], attributes := [], css := nil;
-	Element("header", attributes, css, as_children(children))
-)
-
-footer ( children := [], attributes := [], css := nil;
-	Element("footer", attributes, css, as_children(children))
-)
-
-main ( children := [], attributes := [], css := nil;
-	Element("main", attributes, css, as_children(children))
-)
-
-aside ( children := [], attributes := [], css := nil;
-	Element("aside", attributes, css, as_children(children))
-)
-
-div ( children := [], attributes := [], css := nil;
-	Element("div", attributes, css, as_children(children))
-)
+section := constructor_for('section')
+article := constructor_for('article')
+nav     := constructor_for('nav')
+header  := constructor_for('header')
+footer  := constructor_for('footer')
+main    := constructor_for('main')
+aside   := constructor_for('aside')
+div     := constructor_for('div')
 
 # Media
-img ( attributes := [], css := nil;
-	Element("img", attributes, css, [])
-)
+img := void_constructor_for('img')
 
 # Tables
-table ( children := [], attributes := [], css := nil;
-	Element("table", attributes, css, as_children(children))
-)
-
-thead ( children := [], attributes := [], css := nil;
-	Element("thead", attributes, css, as_children(children))
-)
-
-tbody ( children := [], attributes := [], css := nil;
-	Element("tbody", attributes, css, as_children(children))
-)
-
-tr ( children := [], attributes := [], css := nil;
-	Element("tr", attributes, css, as_children(children))
-)
-
-th ( children := [], attributes := [], css := nil;
-	Element("th", attributes, css, as_children(children))
-)
-
-td ( children := [], attributes := [], css := nil;
-	Element("td", attributes, css, as_children(children))
-)
+table := constructor_for('table')
+thead := constructor_for('thead')
+tbody := constructor_for('tbody')
+tr    := constructor_for('tr')
+th    := constructor_for('th')
+td    := constructor_for('td')
 
 # Other
-br ( attributes := [], css := nil;
-	Element("br", attributes, css, [])
+br       := void_constructor_for('br')
+hr       := void_constructor_for('hr')
+dialog   := constructor_for('dialog')
+style    := constructor_for('style')
+fieldset := constructor_for('fieldset')
+legend   := constructor_for('legend')
+kbd      := constructor_for('kbd')
+samp     := constructor_for('samp')
+meta     := void_constructor_for('meta')
+
+utf8_meta ( attributes: Array\Attribute = [], css: Css = nil -> Element;
+	Element(
+		"meta",
+		merge_attribute(attributes, Attribute("charset", "utf-8")),
+		css,
+		[]
+	)
 )
 
-hr ( attributes := [], css := nil;
-	Element("hr", attributes, css, [])
-)
-
-dialog ( children := [], attributes := [], css := nil;
-	Element("dialog", attributes, css, as_children(children))
-)
-
-style ( children := [], attributes := [], css := nil;
-	Element("style", attributes, css, as_children(children))
-)
-
-fieldset ( children := [], attributes := [], css := nil;
-	Element("fieldset", attributes, css, as_children(children))
-)
-
-legend ( children := [], attributes := [], css := nil;
-	Element("legend", attributes, css, as_children(children))
-)
-
-kbd ( children := [], attributes := [], css := nil;
-	Element("kbd", attributes, css, as_children(children))
-)
-
-samp ( children := [], attributes := [], css := nil;
-	Element("samp", attributes, css, as_children(children))
-)
-
-meta ( attributes := [], css := nil;
-	Element("meta", attributes, css, [])
-)
-
-utf8_meta ( attributes := [], css := nil;
-	Element("meta", merge_attribute(attributes, Attribute("charset", "utf-8")), css, [])
-)
-
-link ( attributes := [], css := nil;
-	Element("link", attributes, css, [])
-)
-
-script ( children := [], attributes := [], css := nil;
-	Element("script", attributes, css, as_children(children))
-)
-
-canvas ( children := [], attributes := [], css := nil;
-	Element("canvas", attributes, css, as_children(children))
-)
+link     := void_constructor_for('link')
+script   := constructor_for('script')
+canvas   := constructor_for('canvas')

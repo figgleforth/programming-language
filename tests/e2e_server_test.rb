@@ -236,7 +236,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'Buy milk', saved.body
 	end
 
-	# the reply is only that HTML, and the header names its root id, so dom.js replaces that one element.
+	# The reply is only that HTML, and the header names its root id, so dom.js replaces that one element.
 	def test_handler_that_returns_html_with_a_root_id_replaces_that_element
 		start_app <<~CODE
 		    @load 'lang/server'
@@ -318,7 +318,7 @@ class E2E_Server_Test < Minitest::Test
 		end
 	end
 
-	# a handler that returns no HTML with a root id gets the full page back, run again with the new state.
+	# A handler that returns no HTML with a root id gets the full page back, run again with the new state.
 	def test_click_with_no_html_reply_sends_the_full_page_again
 		start_app <<~CODE
 		    @load 'lang/server'
@@ -408,7 +408,7 @@ class E2E_Server_Test < Minitest::Test
 		end
 	end
 
-	# after a restart the server does not know an open page's tokens. It sends the page again, so the page gets new tokens.
+	# After a restart the server does not know an open page's tokens. It sends the page again, so the page gets new tokens.
 	def test_click_with_an_unknown_token_sends_the_full_page_again
 		start_app <<~CODE
 		    @load 'lang/server'

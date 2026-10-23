@@ -328,4 +328,78 @@ class Html2_Test < Base_Test
 		CODE
 		assert_equal %w[html head title h1 p ul form input button img meta link], out.values
 	end
+
+	# --- live pages: onclick, on_server_read, replace ----------------------------
+
+	def test_onclick_writes_its_token_and_stores_the_closure
+		interp = Code::Interpreter.new
+		out    = interp.run "#{HTML}\nHtml_Render.render(button('Save', onclick := (; 1 )))"
+
+		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\">Save</button>", out
+		assert_kind_of Code::Func, interp.dom_onclick_function_handlers['static-0'][:handler]
+		assert_nil interp.dom_onclick_function_handlers['static-0'][:target]
+	end
+
+	# Outside a page, the slot does not go back to 0, so each render gives a new token. Inside a page, #handle_request starts each run at 0.
+	def test_each_render_registers_the_closure_again
+		interp = Code::Interpreter.new
+		out    = interp.run <<~CODE
+		    #{HTML}
+		    b := button('x', onclick := (; 1 ))
+		    [Html_Render.render(b), Html_Render.render(b)]
+		CODE
+
+		assert_includes out.values[0], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\""
+		assert_includes out.values[1], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-1\""
+		assert_equal 2, interp.dom_onclick_function_handlers.size
+	end
+
+	def test_on_server_read_writes_its_token_and_stores_the_closure
+		interp = Code::Interpreter.new
+		out    = interp.run "#{HTML}\nHtml_Render.render(textarea('hi', on_server_read := (value; value)))"
+
+		assert_equal "<textarea #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"static-0\">hi</textarea>", out
+		assert_kind_of Code::Func, interp.dom_input_elements['static-0']
+	end
+
+	def test_input_and_select_take_on_server_read_too
+		out = Code.interp <<~CODE
+		    #{HTML}
+		    [Html_Render.render(input(on_server_read := (v; v))), Html_Render.render(select(on_server_read := (v; v)))]
+		CODE
+
+		assert_includes out.values[0], "<input #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read="
+		assert_includes out.values[1], "<select #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read="
+	end
+
+	# The user writes the replace id, so it is escaped like any attribute value.
+	def test_replace_writes_its_id_escaped
+		out = Code.interp "#{HTML}\nHtml_Render.render(button('Save', replace := 'a\"b'))"
+		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-replace=\"a&quot;b\">Save</button>", out
+	end
+
+	# The runtime's attributes come after the user's own, in the order onclick, on_server_read, replace.
+	def test_all_three_come_after_the_attributes
+		out = Code.interp "#{HTML}\nHtml_Render.render(input([Attribute('type', 'checkbox')], onclick := (; 1 ), on_server_read := (v; v), replace := 'task'))"
+		prefix = Code::DOM_ATTRIBUTE_PREFIX
+		assert_equal "<input type=\"checkbox\" #{prefix}-onclick=\"static-0\" #{prefix}-on-server-read=\"static-1\" #{prefix}-replace=\"task\">", out
+	end
+
+	def test_an_element_without_them_renders_as_before
+		interp = Code::Interpreter.new
+		out    = interp.run "#{HTML}\nHtml_Render.render(li('a'))"
+
+		assert_equal '<li>a</li>', out
+		assert_empty interp.dom_onclick_function_handlers
+	end
+
+	# The closures run on the server, so they are not the browser code that the sanitizer removes.
+	def test_sanitize_keeps_the_closures_and_the_replace_id
+		out = Code.interp <<~CODE
+		    #{HTML}
+		    clean := Html_Sanitizer_Visitor().sanitize(button('x', [Attribute('onmouseover', 'evil()')], onclick := (; 7 ), replace := 'task'))
+		    <clean.attributes.length(), clean.onclick(), clean.replace>
+		CODE
+		assert_equal [0, 7, 'task'], out.values
+	end
 end

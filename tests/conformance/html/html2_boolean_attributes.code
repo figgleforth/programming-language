@@ -1,0 +1,52 @@
+@load 'lang/html2'
+
+# A boolean attribute (checked, disabled, selected) is on whenever its name is there.
+# So true prints the bare name, and false or nil leave the attribute out.
+
+checked_box := input([
+	Attribute('type', 'checkbox'),
+	Attribute('checked', true)
+])
+
+@out Html_Render.render(checked_box)        # out: <input type="checkbox" checked>
+
+
+unchecked_box := input([
+	Attribute('type', 'checkbox'),
+	Attribute('checked', false)
+])
+
+@out Html_Render.render(unchecked_box)      # out: <input type="checkbox">
+
+
+box_with_nil := input([
+	Attribute('type', 'checkbox'),
+	Attribute('checked', nil)
+])
+
+@out Html_Render.render(box_with_nil)       # out: <input type="checkbox">
+
+
+# A value that comes from a record, the way the tasks example sets it
+task_is_done := 1 == 1
+
+done_option := option('Done', [
+	Attribute('selected', task_is_done)
+])
+
+@out Html_Render.render(done_option)        # out: <option selected>Done</option>
+
+
+# Any other value prints as name="value", as before -- the String 'false' too
+string_false := div('x', [
+	Attribute('data-on', 'false')
+])
+
+@out Html_Render.render(string_false)       # out: <div data-on="false">x</div>
+
+
+zero := div('x', [
+	Attribute('tabindex', 0)
+])
+
+@out Html_Render.render(zero)               # out: <div tabindex="0">x</div>
