@@ -585,6 +585,41 @@ class E2E_Server_Test < Minitest::Test
 		refute_includes reply.body, '<script>'
 	end
 
+	# An error message quotes source code and request text. Both 500 pages escape it, so a `<textarea>` in it stays text and does not become a real field.
+	def test_error_pages_escape_their_message
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get://route-error (;
+		    		@raise "a <textarea> in the message"
+		    	)
+
+		    	get:// (;
+		    		@onclick((; @raise "a <textarea> in the message" ))
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		route_reply = click_reply = nil
+		capture_subprocess_io do # the server also logs each error
+			route_reply = Net::HTTP.get_response URI("http://localhost:#{@port}/route-error")
+			Net::HTTP.get_response URI("http://localhost:#{@port}/")
+			click_reply = click 'page_-0', {}
+		end
+
+		{ 'route' => route_reply, 'click' => click_reply }.each do |name, reply|
+			assert_equal '500', reply.code, name
+			assert_includes reply['Content-Type'], 'text/html', name
+			assert_includes reply.body, '&lt;textarea&gt;', name
+			refute_includes reply.body, '<textarea>', name
+		end
+	end
+
 	def test_server_starts_and_responds
 		code = <<~CODE
 		    Server {

@@ -69,6 +69,7 @@ module Code
 	SYMBOLIC_REGEX                    = /\A[^\p{Alnum}\s]+\z/
 	INTEGER_TEXT_REGEX                = /\A-?\d+\z/ # text that is a whole number, such as a URL param for `id: Int`
 	DECIMAL_TEXT_REGEX                = /\A-?\d+(\.\d+)?\z/ # text that is a decimal number, such as a URL param for `price: Dec`
+	ANSI_COLOR_REGEX                  = /\e\[\d+(?:;\d+)*m/ # a terminal color code in an error message, removed before the message goes into a web page
 	HTML_ROOT_ID_REGEX                = /\A\s*<[a-zA-Z][^>]*\sid="([^"]+)"/ # group 1: the id on the first tag of an HTML String, its root element (a click reply replaces that element)
 	HEX_DIGITS                        = '0123456789abcdef'
 

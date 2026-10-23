@@ -1112,9 +1112,19 @@ module Code
 						warn e.backtrace.first(10).map { |line| "  #{line}" }.join("\n")
 						warn ""
 
-						plain_message   = e.message.gsub(/\e\[\d+(?:;\d+)*m/, '')
+						# The same error page as the route branch below. The message quotes source code and request text, so it is escaped, or a `<textarea>` in it becomes a real tag.
+						plain_message   = e.message.gsub(ANSI_COLOR_REGEX, '')
+						plain_backtrace = e.backtrace.map { |line| line.gsub(ANSI_COLOR_REGEX, '') }
+
 						response.status = 500
-						response.body   = "Internal Server Error\n#{plain_message}"
+						response.body   = <<~HTML # @pasted
+						    <h1>500 Internal Server Error</h1>
+						    <h2>#{e.class}</h2>
+						    <pre>#{CGI.escapeHTML plain_message}</pre>
+						    <h3>Backtrace</h3>
+						    <pre>#{CGI.escapeHTML plain_backtrace.join("\n")}</pre>
+						HTML
+						response.header['Content-Type'] = 'text/html; charset=utf-8'
 						return
 					ensure
 						# Outside the handler, a token is static again (the route below sets the page's own namespace).
@@ -1212,16 +1222,17 @@ module Code
 					warn e.backtrace.first(10).map { |line| "  #{line}" }.join("\n")
 					warn ""
 
-					plain_message   = e.message.gsub(/\e\[\d+(?:;\d+)*m/, '')
-					plain_backtrace = e.backtrace.map { |line| line.gsub(/\e\[\d+(?:;\d+)*m/, '') }
+					# The message quotes source code and request text, so it is escaped, or a `<textarea>` in it becomes a real tag.
+					plain_message   = e.message.gsub(ANSI_COLOR_REGEX, '')
+					plain_backtrace = e.backtrace.map { |line| line.gsub(ANSI_COLOR_REGEX, '') }
 
 					response.status = 500
-					response.body   = <<~HTML
+					response.body   = <<~HTML # @pasted
 					    <h1>500 Internal Server Error</h1>
 					    <h2>#{e.class}</h2>
-					    <pre>#{plain_message}</pre>
+					    <pre>#{CGI.escapeHTML plain_message}</pre>
 					    <h3>Backtrace</h3>
-					    <pre>#{plain_backtrace.join("\n")}</pre>
+					    <pre>#{CGI.escapeHTML plain_backtrace.join("\n")}</pre>
 					HTML
 					response.header['Content-Type'] = 'text/html; charset=utf-8'
 				ensure
