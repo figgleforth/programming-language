@@ -329,7 +329,7 @@ class Html2_Test < Base_Test
 		assert_equal %w[html head title h1 p ul form input button img meta link], out.values
 	end
 
-	# --- live pages: onclick, on_server_read, replace ----------------------------
+	# --- live pages: onclick, on_server_read, replacement_target_id --------------
 
 	def test_onclick_writes_its_token_and_stores_the_closure
 		interp = Code::Interpreter.new
@@ -372,17 +372,17 @@ class Html2_Test < Base_Test
 		assert_includes out.values[1], "<select #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read="
 	end
 
-	# The user writes the replace id, so it is escaped like any attribute value.
-	def test_replace_writes_its_id_escaped
-		out = Code.interp "#{HTML}\nHtml_Renderer.render(button('Save', replace := 'a\"b'))"
-		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-replace=\"a&quot;b\">Save</button>", out
+	# The user writes the replacement target id, so it is escaped like any attribute value.
+	def test_replacement_target_id_is_escaped
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(button('Save', replacement_target_id := 'a\"b'))"
+		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-replacement-target-id=\"a&quot;b\">Save</button>", out
 	end
 
-	# The runtime's attributes come after the user's own, in the order onclick, on_server_read, replace.
+	# The runtime's attributes come after the user's own, in the order onclick, on_server_read, replacement_target_id.
 	def test_all_three_come_after_the_attributes
-		out = Code.interp "#{HTML}\nHtml_Renderer.render(input([Attribute('type', 'checkbox')], onclick := (; 1 ), on_server_read := (v; v), replace := 'task'))"
+		out = Code.interp "#{HTML}\nHtml_Renderer.render(input([Attribute('type', 'checkbox')], onclick := (; 1 ), on_server_read := (v; v), replacement_target_id := 'task'))"
 		prefix = Code::DOM_ATTRIBUTE_PREFIX
-		assert_equal "<input type=\"checkbox\" #{prefix}-onclick=\"static-0\" #{prefix}-on-server-read=\"static-1\" #{prefix}-replace=\"task\">", out
+		assert_equal "<input type=\"checkbox\" #{prefix}-onclick=\"static-0\" #{prefix}-on-server-read=\"static-1\" #{prefix}-replacement-target-id=\"task\">", out
 	end
 
 	def test_an_element_without_them_renders_as_before
@@ -394,11 +394,11 @@ class Html2_Test < Base_Test
 	end
 
 	# The closures run on the server, so they are not the browser code that the sanitizer removes.
-	def test_sanitize_keeps_the_closures_and_the_replace_id
+	def test_sanitize_keeps_the_closures_and_the_replacement_target_id
 		out = Code.interp <<~CODE
 		    #{HTML}
-		    clean := Html_Sanitizer_Visitor().sanitize(button('x', [Attribute('onmouseover', 'evil()')], onclick := (; 7 ), replace := 'task'))
-		    <clean.attributes.length(), clean.onclick(), clean.replace>
+		    clean := Html_Sanitizer_Visitor().sanitize(button('x', [Attribute('onmouseover', 'evil()')], onclick := (; 7 ), replacement_target_id := 'task'))
+		    <clean.attributes.length(), clean.onclick(), clean.replacement_target_id>
 		CODE
 		assert_equal [0, 7, 'task'], out.values
 	end

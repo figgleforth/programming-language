@@ -6,7 +6,7 @@ The tasks app with live clicks, built from html2 structs, plain functions and cl
 
 Each of the three click replies is used once:
 - "Add Task" returns only the new list, so only `#tasks` changes.
-- Save has `replace := 'task'`, so only `#task` changes, from the page run again.
+- Save has `replacement_target_id := 'task'`, so only `#task` changes, from the page run again.
 - Every other click gets the page run again, and its whole <body>.
 ###
 
@@ -106,7 +106,7 @@ render_task_page ( tasks_table: Table, task: Task -> String;
 		tasks_table.update(task.id, <done := done>)
 	))
 
-	save_button := button("Save", replace := "task", onclick := (;
+	save_button := button("Save", replacement_target_id := "task", onclick := (;
 		tasks_table.update(task.id, <text := draft>)
 	))
 

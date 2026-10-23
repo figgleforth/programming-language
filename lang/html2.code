@@ -1,7 +1,7 @@
 ###
 Struct-and-render take on lang/html.code, same spirit as lang/css.code: markup is plain, immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag Type, no `| Dom` composition, no method-override polymorphism. The two coexist.
 
-It only builds an HTML String. An Element with `onclick`, `on_server_read` or `replace` is live when a server route renders it: the formatter writes the runtime's data-runtime-* attributes, through `@onclick` and `@on_server_read`.
+It only builds an HTML String. An Element with `onclick`, `on_server_read` or `replacement_target_id` is live when a server route renders it: the formatter writes the runtime's data-runtime-* attributes, through `@onclick` and `@on_server_read`.
 
 The server does not know about Element. Any renderer that writes the same attributes gets the same live behavior.
 ###
@@ -26,7 +26,7 @@ Element <
 	children: Array = []
 	onclick: Any_Func
 	on_server_read: Any_Func
-	replace: String
+	replacement_target_id: String
 >
 
 ### 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as lang/css.code's Css_Formatter_Visitor) ###
@@ -132,8 +132,8 @@ Html_Formatter_Visitor {
 			parts.push("data-runtime-on-server-read=\"`@on_server_read(el.on_server_read)`\"")
 		end
 
-		if el.replace != nil
-			parts.push("data-runtime-replace=\"`escape(el.replace)`\"")
+		if el.replacement_target_id != nil
+			parts.push("data-runtime-replacement-target-id=\"`escape(el.replacement_target_id)`\"")
 		end
 
 		if parts.length() == 0
@@ -221,8 +221,8 @@ Html_Sanitizer_Visitor {
 						clean_children.push(cleaned)
 					end
 				end
-				# The closures and the replace id stay: they run on the server, so they are not the browser code this removes.
-				Element(node.tag, sanitize_attributes(node.attributes), node.css, clean_children, node.onclick, node.on_server_read, node.replace)
+				# The closures and the replacement target id stay: they run on the server, so they are not the browser code this removes.
+				Element(node.tag, sanitize_attributes(node.attributes), node.css, clean_children, node.onclick, node.on_server_read, node.replacement_target_id)
 			end
 		else
 			node
@@ -328,7 +328,7 @@ merge_attribute ( attributes: Array\Attribute, attr: Attribute -> Array\Attribut
 
 # Makes the constructor for one tag. Every constructor takes the same arguments and only forwards them to Element, so the function is written once here, not once for each tag.
 constructor_for ( tag: String -> Any_Func;
-	(children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replace: String = nil -> Element;
+	(children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replacement_target_id: String = nil -> Element;
 		Element(
 			tag,
 			attributes,
@@ -336,14 +336,14 @@ constructor_for ( tag: String -> Any_Func;
 			as_children(children),
 			onclick,
 			on_server_read,
-			replace
+			replacement_target_id
 		)
 	)
 )
 
 # The same for a void tag, which has no children, so its first argument is the attributes.
 void_constructor_for ( tag: String -> Any_Func;
-	(attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replace: String = nil -> Element;
+	(attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replacement_target_id: String = nil -> Element;
 		Element(
 			tag,
 			attributes,
@@ -351,7 +351,7 @@ void_constructor_for ( tag: String -> Any_Func;
 			[],
 			onclick,
 			on_server_read,
-			replace
+			replacement_target_id
 		)
 	)
 )
@@ -373,7 +373,7 @@ small  := constructor_for('small')
 span   := constructor_for('span')
 
 # A link: its first argument is the href.
-href ( href: String, children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, replace: String = nil -> Element;
+href ( href: String, children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, replacement_target_id: String = nil -> Element;
 	Element(
 		"a",
 		merge_attribute(attributes, Attribute("href", href)),
@@ -381,7 +381,7 @@ href ( href: String, children := [], attributes: Array\Attribute = [], css: Css 
 		as_children(children),
 		onclick,
 		nil,
-		replace
+		replacement_target_id
 	)
 )
 

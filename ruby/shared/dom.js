@@ -12,7 +12,7 @@
 		if (!element) return
 		if (!element.hasAttribute('#{DOM_ATTRIBUTE_PREFIX}-onclick')) return
 		const object_id = element.getAttribute('#{DOM_ATTRIBUTE_PREFIX}-onclick')
-		const replace_id = element.getAttribute('#{DOM_ATTRIBUTE_PREFIX}-replace')
+		const replacement_target_id = element.getAttribute('#{DOM_ATTRIBUTE_PREFIX}-replacement-target-id')
 
 		event.preventDefault()
 		event.stopPropagation()
@@ -80,8 +80,8 @@
 		const doc = new DOMParser().parseFromString(html, 'text/html')
 
 		// 2. The clicked element names an element to replace: take it from the new page.
-		const fresh = replace_id && doc.getElementById(replace_id)
-		const current = replace_id && document.getElementById(replace_id)
+		const fresh = replacement_target_id && doc.getElementById(replacement_target_id)
+		const current = replacement_target_id && document.getElementById(replacement_target_id)
 		if (fresh && current) {
 			with_transition(() => current.replaceWith(fresh))
 			return
