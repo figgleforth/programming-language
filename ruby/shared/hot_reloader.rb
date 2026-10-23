@@ -71,7 +71,7 @@ module Code
 		def run_entry
 			interpreter                     = Code::Interpreter.new
 			interpreter.serve_in_foreground = false # this class owns the wait loop, not Interpreter#run
-			interpreter.live_reload         = true  # mount /_lang/live-reload + inject its client script;
+			interpreter.live_reload         = true  # mount the live-reload endpoint + inject its client script;
 			#                                         each cycle's fresh Interpreter carries a new token,
 			#                                         which is what tells the browser to refresh
 

@@ -6,7 +6,7 @@
 	}
 
 	document.addEventListener('click', async (event) => {
-		// The server fills in the DOM_ATTRIBUTE_PREFIX and DOM_TARGET_ID_HEADER placeholders (constants.rb) when it reads this file.
+		// The server fills in the DOM_ATTRIBUTE_PREFIX, DOM_TARGET_ID_HEADER and DOM_EVENT_URL placeholders (constants.rb) when it reads this file.
 		const element = event.target.closest('a[href], button, input:not([type="hidden"]), select, textarea, summary, [#{DOM_ATTRIBUTE_PREFIX}-onclick]')
 
 		if (!element) return
@@ -33,7 +33,7 @@
 			}
 		});
 
-		const url = `/onclick/${object_id}`
+		const url = `#{DOM_EVENT_URL}/${object_id}`
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: {

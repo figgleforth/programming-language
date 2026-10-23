@@ -87,9 +87,9 @@ class E2E_Server_Test < Minitest::Test
 		@interpreter.start_server @server_runner
 	end
 
-	# Sends a click the way dom.js does: POST /onclick/<token>, with the input values as JSON.
+	# Sends a click the way dom.js does: POST DOM_EVENT_URL/<token>, with the input values as JSON.
 	def click token, inputs
-		uri          = URI("http://localhost:#{@port}/onclick/#{token}")
+		uri          = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/#{token}")
 		request      = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json'
 		request.body = JSON.generate({ inputs: inputs })
 		Net::HTTP.start(uri.host, uri.port) { it.request request }
@@ -383,6 +383,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick" # a line from dom.js
 		refute_includes page.body, '#{DOM_ATTRIBUTE_PREFIX}' # the placeholder was filled in
 		refute_includes page.body, '#{DOM_TARGET_ID_HEADER}'
+		refute_includes page.body, '#{DOM_EVENT_URL}'
 	end
 
 	def test_query_parameters

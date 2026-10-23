@@ -4,6 +4,20 @@ module Code
 	DOM_ATTRIBUTE_PREFIX              = 'data-prog' # starts each attribute that the runtime writes and dom.js reads (<prefix>-onclick, <prefix>-on-server-read)
 	DOM_TARGET_ID_HEADER              = 'X-Code-Target-Id' # a click reply's header that names the element dom.js replaces
 	DOM_BROWSER_VIEW_SIZE             = 'browser_view_size'
+	DOM_NAMESPACE                     = '_runtime' # the URL namespace of the runtime's own paths (DOM_EVENT_URL, DOM_LIVE_RELOAD_URL)
+	DOM_EVENT_PATH                    = 'event' # after DOM_NAMESPACE: a browser event (a click) for the closure that the token names
+	DOM_EVENT_URL                     = "/#{DOM_NAMESPACE}/#{DOM_EVENT_PATH}" # dom.js posts to DOM_EVENT_URL/<token>
+	DOM_LIVE_RELOAD_PATH              = 'live-reload' # after DOM_NAMESPACE: the stream that live_reload.js listens to under Hot_Reloader
+	DOM_LIVE_RELOAD_URL               = "/#{DOM_NAMESPACE}/#{DOM_LIVE_RELOAD_PATH}"
+	# The DOM_ values go into URLs, CSS selectors, HTTP headers, cookies and JavaScript strings without escaping, so each one must match its rule here. tests/validation_test.rb checks them.
+	DOM_CONSTANT_RULES                = {
+		DOM_ATTRIBUTE_PREFIX:  /\Adata(-[a-z0-9]+)+\z/,            # a data-* name: lowercase (HTML spec), no empty part between dashes
+		DOM_TARGET_ID_HEADER:  /\A[A-Za-z0-9]+(-[A-Za-z0-9]+)*\z/, # no _: some proxies (nginx) drop a header with _ in its name
+		DOM_BROWSER_VIEW_SIZE: /\A[A-Za-z0-9_-]+\z/,               # a cookie name
+		DOM_NAMESPACE:         /\A[A-Za-z0-9_-]+\z/,               # one URL path part, so no / and no .
+		DOM_EVENT_PATH:        /\A[A-Za-z0-9_-]+\z/,
+		DOM_LIVE_RELOAD_PATH:  /\A[A-Za-z0-9_-]+\z/,
+	}
 	HTML_ATTRS                        = %w(id class href)
 	HTTP_VERBS                        = %w(get put patch post delete head options connect trace)
 	VOID_HTML_TAGS                    = %w(area base br col command embed hr img input keygen link meta param source track wbr)

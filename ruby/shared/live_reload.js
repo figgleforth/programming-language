@@ -1,6 +1,6 @@
 // Browser side of live reload. Injected into every HTML response (right after dom.js) ONLY when
 // the server runs under Hot_Reloader -- see Interpreter#live_reload. Talks to the matching
-// `/_lang/live-reload` endpoint mounted in Interpreter#start_server.
+// live-reload endpoint (DOM_LIVE_RELOAD_URL, filled in by the server) mounted in Interpreter#start_server.
 //
 // How it works: the endpoint streams one `data: <token>` line, where <token> is unique to the
 // running Interpreter. On a hot reload the whole Interpreter is rebuilt, so the token changes.
@@ -13,7 +13,7 @@
 	let first_token = null
 
 	function connect() {
-		const events = new EventSource('/_lang/live-reload')
+		const events = new EventSource('#{DOM_LIVE_RELOAD_URL}')
 
 		events.onmessage = (event) => {
 			// First message after any (re)connect establishes the baseline...

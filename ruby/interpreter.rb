@@ -56,7 +56,7 @@ module Code
 			# Live reload (browser auto-refresh on save). Only Hot_Reloader turns @live_reload on, so a
 			# plain `prog interpf` / production server never streams events or injects the client script.
 			# @live_reload_token is unique per Interpreter instance: a hot reload builds a fresh
-			# Interpreter, so the token the /_lang/live-reload stream reports changes, which is exactly
+			# Interpreter, so the token the live-reload stream (DOM_LIVE_RELOAD_URL) reports changes, which is exactly
 			# the "the server rebooted, refresh now" signal the browser watches for.
 			@live_reload       = false
 			@live_reload_token = SecureRandom.hex(8)
@@ -942,7 +942,7 @@ module Code
 			                                  AccessLog:     [],
 			                                  StartCallback: -> { ready << true }
 
-			webrick.mount_proc '/onclick/' do |req, res|
+			webrick.mount_proc DOM_EVENT_URL do |req, res|
 				puts Code::Ascii.dim "#{'DOM'.rjust(7, ' ')} #{req.path}"
 				handle_request server, req, res
 			end
@@ -952,7 +952,7 @@ module Code
 			# String body, but this needs to hold the connection open and stream, which means raw WEBrick
 			# response access.
 			if live_reload
-				webrick.mount_proc '/_lang/live-reload' do |_req, res|
+				webrick.mount_proc DOM_LIVE_RELOAD_URL do |_req, res|
 					res.status           = 200
 					res['Content-Type']  = 'text/event-stream'
 					res['Cache-Control'] = 'no-cache'
@@ -1037,7 +1037,7 @@ module Code
 			end
 			puts req_info
 
-			if path_string.start_with?("/onclick/")
+			if path_string.start_with?("#{DOM_EVENT_URL}/")
 				# object_id/element_id are string tokens (`"<element_namespace>-<slot>"`, see #next_render_token), not
 				# integers -- no `.to_i` (that silently truncated a token down to its leading digits, so
 				# every real click 404'd: the truncated id never matched anything actually registered).
@@ -1133,16 +1133,16 @@ module Code
 					if response.body.to_s =~ /<html|<body|<head/i
 						response.body.prepend "<!DOCTYPE html>"
 
-						# dom.js began as a Ruby string, so it still names its cookie `#{DOM_BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds. `#{DOM_ATTRIBUTE_PREFIX}` and `#{DOM_TARGET_ID_HEADER}` are filled in the same way, so each name stays in one constant.
-						dom_js = self.class.cached_asset_source_by_path['ruby/shared/dom.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/dom.js')).gsub('#{DOM_BROWSER_VIEW_SIZE}', DOM_BROWSER_VIEW_SIZE).gsub('#{DOM_ATTRIBUTE_PREFIX}', DOM_ATTRIBUTE_PREFIX).gsub('#{DOM_TARGET_ID_HEADER}', DOM_TARGET_ID_HEADER)
+						# dom.js began as a Ruby string, so it still names its cookie `#{DOM_BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds. `#{DOM_ATTRIBUTE_PREFIX}`, `#{DOM_TARGET_ID_HEADER}` and `#{DOM_EVENT_URL}` are filled in the same way, so each name stays in one constant.
+						dom_js = self.class.cached_asset_source_by_path['ruby/shared/dom.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/dom.js')).gsub('#{DOM_BROWSER_VIEW_SIZE}', DOM_BROWSER_VIEW_SIZE).gsub('#{DOM_ATTRIBUTE_PREFIX}', DOM_ATTRIBUTE_PREFIX).gsub('#{DOM_TARGET_ID_HEADER}', DOM_TARGET_ID_HEADER).gsub('#{DOM_EVENT_URL}', DOM_EVENT_URL)
 
 						script_tag          = "<script>#{dom_js}</script>"
 						view_transition_css = self.class.cached_asset_source_by_path['ruby/shared/view_transition.css'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/view_transition.css'))
 						view_transition_tag = "<style>#{view_transition_css}</style>"
 
-						# Only present under Hot_Reloader -- pairs with the /_lang/live-reload endpoint.
+						# Only present under Hot_Reloader -- pairs with the live-reload endpoint (DOM_LIVE_RELOAD_URL).
 						live_reload_tag = if live_reload
-							lr_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/live_reload.js'))
+							lr_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/live_reload.js')).gsub('#{DOM_LIVE_RELOAD_URL}', DOM_LIVE_RELOAD_URL)
 							"<script>#{lr_js}</script>"
 						else
 							''

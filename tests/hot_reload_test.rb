@@ -108,7 +108,7 @@ class Hot_Reload_Test < Base_Test
 		@interpreter.live_reload         = true
 		@interpreter.run html_server_code(port)
 
-		frame = read_sse 'localhost', port, '/_lang/live-reload'
+		frame = read_sse 'localhost', port, Code::DOM_LIVE_RELOAD_URL
 
 		assert_includes frame, 'text/event-stream'
 		assert_includes frame, "data: #{@interpreter.live_reload_token}"
@@ -121,7 +121,7 @@ class Hot_Reload_Test < Base_Test
 		# live_reload left at its default (false)
 		@interpreter.run html_server_code(port)
 
-		response = Net::HTTP.get_response 'localhost', '/_lang/live-reload', port
+		response = Net::HTTP.get_response 'localhost', Code::DOM_LIVE_RELOAD_URL, port
 
 		assert_kind_of Net::HTTPNotFound, response
 	end
@@ -141,8 +141,8 @@ class Hot_Reload_Test < Base_Test
 		@interpreter.run html_server_code(on_port)
 		on_body = Net::HTTP.get 'localhost', '/', on_port
 
-		refute_includes off_body, '/_lang/live-reload', 'the client must not ship without hot reload'
-		assert_includes on_body, "new EventSource('/_lang/live-reload')"
+		refute_includes off_body, Code::DOM_LIVE_RELOAD_URL, 'the client must not ship without hot reload'
+		assert_includes on_body, "new EventSource('#{Code::DOM_LIVE_RELOAD_URL}')"
 	end
 
 	def test_reset_file_caches_with_paths_only_drops_those_paths
