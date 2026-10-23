@@ -4,6 +4,8 @@ require_relative 'base_test'
 
 # `Name :: type expression` -- see reference.md's "Type Aliases" section.
 class Type_Alias_Test < Base_Test
+	Node = Code::Type_Alias::Node
+
 	# --- Parsing ---
 
 	def test_a_composition_parses_to_a_type_alias_expr
@@ -67,13 +69,13 @@ class Type_Alias_Test < Base_Test
 
 	def test_the_tree_follows_precedence
 		tree = Code::Type_Alias.tree_from_chain %w(A B C), %w(| &)
-		assert_equal ['|', 'A', ['&', 'B', 'C']], tree
+		assert_equal Node.new('|', 'A', Node.new('&', 'B', 'C')), tree
 
 		tree = Code::Type_Alias.tree_from_chain %w(A B C), %w(| ~)
-		assert_equal ['~', ['|', 'A', 'B'], 'C'], tree
+		assert_equal Node.new('~', Node.new('|', 'A', 'B'), 'C'), tree
 
 		tree = Code::Type_Alias.tree_from_chain %w(A B C), %w(| |)
-		assert_equal ['|', ['|', 'A', 'B'], 'C'], tree # left to right
+		assert_equal Node.new('|', Node.new('|', 'A', 'B'), 'C'), tree # left to right
 	end
 
 	def test_each_operator_keeps_its_set_meaning
@@ -84,7 +86,7 @@ class Type_Alias_Test < Base_Test
 			'^' => [[true, false], [false, true]],
 		}
 		cases.each do |operator, satisfied|
-			type_alias = Code::Type_Alias.new [operator, 'A', 'B']
+			type_alias = Code::Type_Alias.new Node.new(operator, 'A', 'B')
 			[[true, true], [true, false], [false, true], [false, false]].each do |a, b|
 				result = type_alias.satisfied? { it == 'A' ? a : b }
 				assert_equal satisfied.include?([a, b]), result, "A #{operator} B with A=#{a}, B=#{b}"
@@ -93,11 +95,11 @@ class Type_Alias_Test < Base_Test
 	end
 
 	def test_to_s_shows_the_name_and_the_expression
-		named = Code::Type_Alias.new ['|', 'String', 'Number'], 'Strumber'
+		named = Code::Type_Alias.new Node.new('|', 'String', 'Number'), 'Strumber'
 		assert_equal 'Strumber :: String | Number', named.to_s
 		assert_equal 'Strumber', named.display_name
 
-		anonymous = Code::Type_Alias.new ['|', 'String', 'Number']
+		anonymous = Code::Type_Alias.new Node.new('|', 'String', 'Number')
 		assert_equal 'String | Number', anonymous.to_s
 		assert_equal 'String | Number', anonymous.display_name
 	end
@@ -106,7 +108,7 @@ class Type_Alias_Test < Base_Test
 		tree = Code::Type_Alias.tree_from_chain %w(A B C), %w(| ~)
 		assert_equal 'A | B ~ C', Code::Type_Alias.new(tree).expression_to_s
 
-		assert_equal '(A | B) & C', Code::Type_Alias.new(['&', ['|', 'A', 'B'], 'C']).expression_to_s
+		assert_equal '(A | B) & C', Code::Type_Alias.new(Node.new('&', Node.new('|', 'A', 'B'), 'C')).expression_to_s
 	end
 
 	def test_a_tagged_operand_shows_its_tag
@@ -135,8 +137,8 @@ class Type_Alias_Test < Base_Test
 	end
 
 	def test_two_aliases_with_the_same_tree_are_equal
-		assert_equal Code::Type_Alias.new(['|', 'A', 'B']), Code::Type_Alias.new(['|', 'A', 'B'], 'Named')
-		refute_equal Code::Type_Alias.new(['|', 'A', 'B']), Code::Type_Alias.new(['&', 'A', 'B'])
+		assert_equal Code::Type_Alias.new(Node.new('|', 'A', 'B')), Code::Type_Alias.new(Node.new('|', 'A', 'B'), 'Named')
+		refute_equal Code::Type_Alias.new(Node.new('|', 'A', 'B')), Code::Type_Alias.new(Node.new('&', 'A', 'B'))
 	end
 
 	# --- Running ---

@@ -26,7 +26,7 @@ Task <
 	text: String
 >
 
-INVERT_FILTER := Style_Rule(["body"], [Property("filter", "invert()")])
+INVERT_FILTER := Style_Rule(["html"], [Property("filter", "invert()")])
 
 
 ### All tasks ###
@@ -59,8 +59,8 @@ render_tasks_page ( tasks_table: Table -> String;
 		Html_Renderer.render(task_list(tasks_table))
 	))
 
-	page_body := body([h1("Tasks"), new_text, add_button, task_list(tasks_table)], [], INVERT_FILTER)
-	page      := html([head(title("Tasks")), page_body])
+	page_body := body([h1("Tasks"), new_text, add_button, task_list(tasks_table)], [])
+	page      := html([head(title("Tasks")), page_body], [], INVERT_FILTER)
 
 	# Compact, not Html_Formatter: the pretty form puts new lines inside an empty <textarea>, and the browser keeps them as its text.
 	Html_Renderer.render(page)
@@ -116,8 +116,8 @@ render_task_page ( tasks_table: Table, task: Task -> String;
 		[br(), text_box, br(), label([done_box, "Done"]), save_button]
 	].flatten(), [Attribute("id", "task")])
 
-	page_body := body([task_area, href("/", "Back to all")], [], INVERT_FILTER)
-	page      := html([head(title(task.text)), page_body])
+	page_body := body([task_area, href("/", "Back to all")], [])
+	page      := html([head(title(task.text)), page_body], [], INVERT_FILTER)
 
 	Html_Renderer.render(page)
 )

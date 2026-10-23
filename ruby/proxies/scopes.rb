@@ -135,7 +135,10 @@ module Code
 		attr_accessor :tag_instance
 		attr_accessor :tag_declaration
 		attr_accessor :declaration_in_progress
-		attr_accessor :replayed_compositions # [composition, value] for each `Self += X` / `Self -= X` a method ran on this type; each instance built later runs them again
+		attr_accessor :replayed_compositions # a Replayed_Composition for each `Self += X` / `Self -= X` a method ran on this type; each instance built later runs them again
+
+		# One `Self += X` / `Self -= X` that a method ran on a type: the composition, with no target, and the operand's value (a local operand is gone by the time it replays).
+		Replayed_Composition = ::Data.define :composition, :value
 
 		def initialize name = nil
 			super name
@@ -209,7 +212,7 @@ module Code
 	end
 
 	class Route < Func
-		attr_accessor :http_method, :path, :handler, :parts, :param_names
+		attr_accessor :http_method, :path, :callback, :parts, :param_names
 	end
 
 	class Any < Scope

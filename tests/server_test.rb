@@ -202,4 +202,26 @@ class Server_Test < Base_Test
 		assert_equal 'Hello World', query_params['message']
 		assert_equal '!@#', query_params['special']
 	end
+
+	# The browser sends the click body, so Click_Body.parse keeps only what has the right shape.
+	def test_click_body_keeps_only_what_has_the_right_shape
+		parse = ->(text) { Code::Interpreter::Click_Body.parse text }
+
+		good = parse.('{"inputs": {"a-0": "Buy milk"}, "path": "/tasks/3", "query": "sort=new"}')
+		assert_equal({ 'a-0' => 'Buy milk' }, good.inputs)
+		assert_equal '/tasks/3', good.path
+		assert_equal 'sort=new', good.query
+
+		[nil, '', 'not json', '[1, 2]', '"text"'].each do |text|
+			body = parse.(text)
+			assert_equal({}, body.inputs, text.inspect)
+			assert_nil body.path, text.inspect
+			assert_nil body.query, text.inspect
+		end
+
+		odd = parse.('{"inputs": [1, 2], "path": "tasks/3", "query": 5}')
+		assert_equal({}, odd.inputs)
+		assert_nil odd.path, 'a path must start with /'
+		assert_nil odd.query
+	end
 end

@@ -336,8 +336,8 @@ class Html2_Test < Base_Test
 		out    = interp.run "#{HTML}\nHtml_Renderer.render(button('Save', onclick := (; 1 )))"
 
 		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\">Save</button>", out
-		assert_kind_of Code::Func, interp.dom_onclick_function_handlers['static-0'][:handler]
-		assert_nil interp.dom_onclick_function_handlers['static-0'][:target]
+		assert_kind_of Code::Func, interp.dom_onclick_function_callbacks['static-0'].callback
+		assert_nil interp.dom_onclick_function_callbacks['static-0'].target
 	end
 
 	# Outside a page, the slot does not go back to 0, so each render gives a new token. Inside a page, #handle_request starts each run at 0.
@@ -351,7 +351,7 @@ class Html2_Test < Base_Test
 
 		assert_includes out.values[0], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\""
 		assert_includes out.values[1], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-1\""
-		assert_equal 2, interp.dom_onclick_function_handlers.size
+		assert_equal 2, interp.dom_onclick_function_callbacks.size
 	end
 
 	def test_on_server_read_writes_its_token_and_stores_the_closure
@@ -390,7 +390,7 @@ class Html2_Test < Base_Test
 		out    = interp.run "#{HTML}\nHtml_Renderer.render(li('a'))"
 
 		assert_equal '<li>a</li>', out
-		assert_empty interp.dom_onclick_function_handlers
+		assert_empty interp.dom_onclick_function_callbacks
 	end
 
 	# The closures run on the server, so they are not the browser code that the sanitizer removes.

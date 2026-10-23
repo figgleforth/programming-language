@@ -35,16 +35,37 @@ module Code
 			end
 		end
 
-		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_handlers, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :hot_reload, :hot_reload_token, :render_token_counter
+		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_callbacks, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :hot_reload, :hot_reload_token, :render_token_counter
 
 		# One file mid-load. `declarations` is filled in when the file pauses at its own @load, and `cycle_files` lists the paused files this one closed a load cycle back into -- see #resolve_forward_declaration.
 		Loading_File = ::Struct.new :filepath, :scope, :declarations, :cycle_files
 
+		# What a click token runs: the closure, and the Dom element to render again after it (nil for @onclick).
+		Click_Entry = ::Data.define :callback, :target
+
+		# A declaration that ran early, before its own line: which expression, in which scope. The scope counts because a parsed file is cached, so the same expression object runs again when the file loads into another scope. See #resolve_forward_declaration.
+		Forced_Declaration = ::Data.define :expression_object_id, :scope_object_id
+
+		# A place that hands out tokens in order: a page run, a click callback's HTML, or a Dom element with an html_id. `target` is the Dom element to render again after a click (nil for a page), and `static` is true for Dom#to_html, which registers no closures. See #next_render_token.
+		Token_Counter = ::Struct.new :element_namespace, :next_slot, :target, :static
+
+		# The JSON body of a click, checked once (see live_reload.js). The browser sends it, so nothing in it is trusted: `inputs` is a Hash of token => value, `path` is a page path that starts with `/` or nil, and `query` is a String or nil. A body that is empty, or not a JSON object, gives no inputs and no path.
+		Click_Body = ::Data.define :inputs, :path, :query do
+			def self.parse text
+				json   = (JSON.parse text rescue nil) if text && !text.empty?
+				json   = {} unless json.is_a? ::Hash
+				inputs = json['inputs'].is_a?(::Hash) ? json['inputs'] : {}
+				path   = json['path'].is_a?(::String) && json['path'].start_with?('/') ? json['path'] : nil
+				query  = json['query'].is_a?(::String) ? json['query'] : nil
+				new inputs: inputs, path: path, query: query
+			end
+		end
+
 		def initialize
-			@render_token_counter          = { element_namespace: 'static', next_slot: 0 }
-			@dom_input_elements            = {} # {element_hash: Code::Instance} for inputs/textareas
-			@dom_onclick_function_handlers = {} # {handler_hash: Code::Func}
-			@route_functions_by_route_name = {} # {route: Code::Route}
+			@render_token_counter           = Token_Counter.new(element_namespace: 'static', next_slot: 0)
+			@dom_input_elements             = {} # {element_hash: Code::Instance} for inputs/textareas
+			@dom_onclick_function_callbacks = {} # { token => Click_Entry }
+			@route_functions_by_route_name  = {} # {route: Code::Route}
 
 			@load_standard_library = true
 			@serve_in_foreground   = true # Hot_Reloader flips this -- see #run
@@ -64,7 +85,7 @@ module Code
 			@lexer               = Lexer.new
 			@parser              = Parser.new
 			@declarations        = {} # {::String => Code::Declaration}, see Declarator
-			@forced_declarations = ::Set.new # [expr.object_id, scope.object_id] pairs, see #resolve_forward_declaration
+			@forced_declarations = ::Set.new # of Forced_Declaration
 
 			Interpreter.current = self
 		end
@@ -132,7 +153,7 @@ module Code
 			input.each.inject(nil) do |result, expr|
 				# already ran ahead of turn via #resolve_forward_declaration -- don't run it twice. Keeping the running `result` (not a bare `next`, which resets it to nil) matters when the skipped statement is the *last* one -- the program's own reported result would otherwise silently become nil instead of the true last value.
 				# Keyed by scope too: parsed files are cached, so the same expression object runs again when a file loads into another scope (`strings := @load 'lang/string'`).
-				if @forced_declarations.include? [expr.object_id, (@loading_files.last&.scope || global).object_id]
+				if @forced_declarations.include? Forced_Declaration.new(expression_object_id: expr.object_id, scope_object_id: (@loading_files.last&.scope || global).object_id)
 					result
 				else
 					interpret expr
@@ -176,7 +197,7 @@ module Code
 				decl = declarations&.[] name
 				next unless decl&.expr
 				next unless hoistable_declaration_expr?(decl.expr) || bare_load_call_expr?(decl.expr)
-				forced = [decl.expr.object_id, scope.object_id]
+				forced = Forced_Declaration.new(expression_object_id: decl.expr.object_id, scope_object_id: scope.object_id)
 				next if @forced_declarations.include? forced
 
 				@forced_declarations << forced
@@ -326,36 +347,36 @@ module Code
 			@current_source_file                           = resolved
 		end
 
-		def add_onclick_handler handler, render_scope, element_key = nil
-			token = next_render_token(render_scope, element_key)
-			# Stored with the target this render pass belongs to (`render_scope[:target]`, the nearest html_id-bearing Dom instance) so #handle_request re-renders *that* on a click. The handler's own closure is captured lexically and runs correctly wherever it was written. A `.map` callback, a plain helper, a method, so "which target to swap" no longer depends on the handler's scope chain reaching an Instance.
-			dom_onclick_function_handlers[token] = { handler: handler, target: render_scope[:target] }
+		def add_onclick_callback callback, token_counter, element_key = nil
+			token = next_render_token(token_counter, element_key)
+			# Stored with the target this render pass belongs to (`token_counter.target`, the nearest html_id-bearing Dom instance) so #handle_request re-renders *that* on a click. The callback's own closure is captured lexically and runs correctly wherever it was written. A `.map` callback, a plain helper, a method, so "which target to swap" no longer depends on the callback's scope chain reaching an Instance.
+			dom_onclick_function_callbacks[token] = Click_Entry.new(callback: callback, target: token_counter.target)
 			token
 		end
 
-		def add_input_element instance, render_scope, element_key = nil
-			token                     = next_render_token(render_scope, element_key)
+		def add_input_element instance, token_counter, element_key = nil
+			token                     = next_render_token(token_counter, element_key)
 			dom_input_elements[token] = instance
 			token
 		end
 
 		# One stable, deterministic token per rendered element, within a render pass of one html_id element. The
 		# same target rendered against the same tree shape yields the same tokens every time -- so a
-		# re-render (or a fresh request for the same page) overwrites the handler/input map entries in
+		# re-render (or a fresh request for the same page) overwrites the callback/input map entries in
 		# place instead of minting new random ones and growing the maps without bound. It also
-		# means a handler defined in render() keeps a stable onclick token (DOM_ATTRIBUTE_PREFIX-onclick) across DOM swaps, which
-		# is what let handlers move out of new() and into render(). `render_scope` is `{ element_namespace:, next_slot: }`
-		# seeded in #render_dom_to_html; the slot counter advances in depth-first render order.
+		# means a callback defined in render() keeps a stable onclick token (DOM_ATTRIBUTE_PREFIX-onclick) across DOM swaps, which
+		# is what let callbacks move out of new() and into render(). `token_counter` is a Token_Counter,
+		# seeded in #handle_request or #render_dom_to_html; the slot counter advances in depth-first render order.
 		#
 		# An `element_key` (the element's own `key := '...'`, see lang/html.code) pins the token by
 		# name instead of position and does not touch the slot counter -- so a conditional element
 		# appearing or vanishing between renders can't shift its siblings' tokens.
-		def next_render_token render_scope, element_key = nil
-			return "#{render_scope[:element_namespace]}-#{element_key}" if element_key
+		def next_render_token token_counter, element_key = nil
+			return "#{token_counter.element_namespace}-#{element_key}" if element_key
 
-			next_slot                = render_scope[:next_slot]
-			render_scope[:next_slot] = next_slot + 1
-			"#{render_scope[:element_namespace]}-#{next_slot}"
+			slot                    = token_counter.next_slot
+			token_counter.next_slot = slot + 1
+			"#{token_counter.element_namespace}-#{slot}"
 		end
 
 		def scope_for_identifier expr
@@ -705,9 +726,9 @@ module Code
 			# `next: Self | String`: each `Self` in the tree.
 			replace_self    = ->(node) do
 				next self_type || raise(Code::Self_Outside_Type.new(type_expr)) if node == 'Self'
-				next node unless node.is_a? ::Array
+				next node unless node.is_a? Code::Type_Alias::Node
 
-				[node[0], replace_self.call(node[1]), replace_self.call(node[2])]
+				node.with left: replace_self.call(node.left), right: replace_self.call(node.right)
 			end
 			type_alias.tree = replace_self.call type_alias.tree
 			type_alias
@@ -950,7 +971,7 @@ module Code
 			end
 
 			# Hot reload event stream (see ruby/shared/hot_reload.js). Mounted only under Hot_Reloader,
-			# and separately from the Code routing path -- a Code route handler resolves to a finished
+			# and separately from the Code routing path -- a Code route callback resolves to a finished
 			# String body, but this needs to hold the connection open and stream, which means raw WEBrick
 			# response access.
 			if hot_reload
@@ -1015,7 +1036,7 @@ module Code
 			# A JSON body has no top-level `=` for it to split on, so it used to fall back to treating the
 			# *entire* raw JSON string as one keyless entry with zero values -- `{ "<the whole json>" => nil
 			# }`, both in this debug log line and in `request.body` as seen by every Code route/onclick
-			# handler. Real JSON bodies now get real JSON parsing instead.
+			# callback. Real JSON bodies now get real JSON parsing instead.
 			body_hash = if request.content_type&.start_with?('application/json')
 				JSON.parse(request.body || '{}') rescue {}
 			else
@@ -1044,16 +1065,14 @@ module Code
 				# integers -- no `.to_i` (that silently truncated a token down to its leading digits, so
 				# every real click 404'd: the truncated id never matched anything actually registered).
 				clicked_token = path_parts.last
-				entry         = dom_onclick_function_handlers[clicked_token]
+				entry         = dom_onclick_function_callbacks[clicked_token]
 
-				# Parsed before `if entry`, so a click with an unknown token can still read the page path below. A body that is empty, or not a JSON object, counts as {}.
-				json_body = (JSON.parse request.body rescue {}) if request.body && !request.body.empty?
-				json_body = {} unless json_body.is_a? ::Hash
+				# Parsed before `if entry`, so a click with an unknown token can still read the page path below.
+				click_body = Click_Body.parse request.body
 
 				if entry
 					begin
-						inputs = json_body['inputs'] || {}
-						inputs.each do |element_id, value|
+						click_body.inputs.each do |element_id, value|
 							case input = dom_input_elements[element_id]
 							when Code::Func
 								# note; A <select multiple> gives an Array
@@ -1069,21 +1088,18 @@ module Code
 						end
 
 						route             = Code::Route.new
-						route.handler     = entry[:handler]
+						route.callback     = entry.callback
 						route.param_names = []
 
 						req = build_prog_request path_string, http_method, body_hash, parse_query_string(query_string), {}, headers_hash
 						res = build_prog_response response
 
-						self.render_token_counter = {
-							element_namespace: clicked_token,
-							next_slot:         0
-						}
+						self.render_token_counter = Token_Counter.new(element_namespace: clicked_token, next_slot: 0)
 
-						result = interp_route_body route, req, res # note; This runs the handler. It stays before the target block below, because that block renders the state after the click; the block also comes first so that a Dom-path click keeps its old reply, whatever its handler returns.
+						result = interp_route_body route, req, res # note; This runs the callback. It stays before the target block below, because that block renders the state after the click; the block also comes first so that a Dom-path click keeps its old reply, whatever its callback returns.
 
-						# The target to re-render was recorded when the handler's token was minted, during the render walk (#add_onclick_handler) -- no scope-chain reconstruction needed, so a handler defined in a `.map` callback or a plain helper works the same as one in a method.
-						target = entry[:target]
+						# The target to re-render was recorded when the callback's token was minted, during the render walk (#add_onclick_callback) -- no scope-chain reconstruction needed, so a callback defined in a `.map` callback or a plain helper works the same as one in a method.
+						target = entry.target
 						if target.is_a?(Code::Instance) && target.declarations['render']
 							new_html = render_dom_to_html target
 							html_id  = target.declarations['html_id']
@@ -1095,7 +1111,7 @@ module Code
 							return
 						end
 
-						# A handler that returns HTML (a String, or a Dom element) with an id on its root element replaces only that element. #interp_route_body already stored the HTML in `res`, so it is not rendered again. An Array is left out: live_reload.js would replace its first element with all of them.
+						# A callback that returns HTML (a String, or a Dom element) with an id on its root element replaces only that element. #interp_route_body already stored the HTML in `res`, so it is not rendered again. An Array is left out: live_reload.js would replace its first element with all of them.
 						html_result = result.is_a?(::String) || (result.is_a?(Code::Instance) && result.types.include?('Dom'))
 						html        = res.declarations['body'] if html_result
 						root_id     = html && html[HTML_ROOT_ID_REGEX, 1]
@@ -1127,19 +1143,18 @@ module Code
 						response.header['Content-Type'] = 'text/html; charset=utf-8'
 						return
 					ensure
-						# Outside the handler, a token is static again (the route below sets the page's own namespace).
-						self.render_token_counter = { element_namespace: 'static', next_slot: 0 }
+						# Outside the callback, a token is static again (the route below sets the page's own namespace).
+						self.render_token_counter = Token_Counter.new(element_namespace: 'static', next_slot: 0)
 					end
 				else
 					# After a restart (a hot reload), an open page still has the old tokens.
 					warn "[Code] unknown click token #{clicked_token}: the server may have restarted, so the page runs again"
 				end
 
-				# Nothing replied yet: the handler returned no HTML with a root id, or the token is unknown. Turn the click into a GET of the page it came from, and let the route match below reply with the full page. Without a page path (an old live_reload.js, or a request made by hand), the click falls through to a 404, as before.
-				page_path = json_body['path']
-				if page_path.is_a?(::String) && page_path.start_with?('/')
-					path_string  = page_path
-					query_string = json_body['query'].is_a?(::String) ? json_body['query'] : nil
+				# Nothing replied yet: the callback returned no HTML with a root id, or the token is unknown. Turn the click into a GET of the page it came from, and let the route match below reply with the full page. Without a page path (an old live_reload.js, or a request made by hand), the click falls through to a 404, as before.
+				if click_body.path
+					path_string  = click_body.path
+					query_string = click_body.query
 					path_parts   = path_string.split('/').reject { _1.empty? }
 					http_method  = 'get'
 					body_hash    = {}
@@ -1161,12 +1176,9 @@ module Code
 				req = build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash
 
 				begin
-					self.render_token_counter = {
-						# note; Eventually the namespace will have an id prefix that represents the current instance of the web page.
-						# here we find each character that is not a letter or a digit and replace it with _
-						element_namespace: "page#{path_string.gsub(/[^A-Za-z0-9]/, '_')}",
-						next_slot:         0
-					}
+					# note; Eventually the namespace will have an id prefix that represents the current instance of the web page.
+					# here we find each character that is not a letter or a digit and replace it with _
+					self.render_token_counter = Token_Counter.new(element_namespace: "page#{path_string.gsub(/[^A-Za-z0-9]/, '_')}", next_slot: 0)
 
 					res    = build_prog_response response
 					result = interp_route_body route_function, req, res, url_params, server_instance: server
@@ -1237,7 +1249,7 @@ module Code
 					response.header['Content-Type'] = 'text/html; charset=utf-8'
 				ensure
 					# Outside a request, a token is static again, not the last page's.
-					self.render_token_counter = { element_namespace: 'static', next_slot: 0 }
+					self.render_token_counter = Token_Counter.new(element_namespace: 'static', next_slot: 0)
 				end
 			else
 				response.status = 404
@@ -1351,17 +1363,17 @@ module Code
 			collected_routes
 		end
 
-		# `static: true` (`Dom#to_html`) registers no click handler or input, so the HTML has no token attributes (DOM_ATTRIBUTE_PREFIX-*).
-		def render_dom_to_html dom_instance, render_scope: nil, static: false
+		# `static: true` (`Dom#to_html`) registers no click callback or input, so the HTML has no token attributes (DOM_ATTRIBUTE_PREFIX-*).
+		def render_dom_to_html dom_instance, token_counter: nil, static: false
 			# A target with its own html_id (a page-level target) anchors a fresh token namespace
 			# for its whole subtree, keyed by that stable id. A top-level target with no html_id
 			# falls back to its object_id. Nested id-less elements just keep counting within the
 			# enclosing target's namespace -- see #next_render_token.
 			own_html_id = dom_instance.declarations['html_id']
-			if render_scope.nil?
-				render_scope = { element_namespace: own_html_id || "auto#{dom_instance.object_id}", next_slot: 0, target: dom_instance, static: static }
+			if token_counter.nil?
+				token_counter = Token_Counter.new(element_namespace: own_html_id || "auto#{dom_instance.object_id}", next_slot: 0, target: dom_instance, static: static)
 			elsif own_html_id
-				render_scope = { element_namespace: own_html_id, next_slot: 0, target: dom_instance, static: render_scope[:static] }
+				token_counter = Token_Counter.new(element_namespace: own_html_id, next_slot: 0, target: dom_instance, static: token_counter.static)
 			end
 
 			render = dom_instance.declarations['render']
@@ -1374,23 +1386,23 @@ module Code
 				render_result = interp_func_body render, call_expr
 				html          = +'' # unfrozen -- append_dom_child_html mutates it in place
 				raw_text      = Code::RAW_TEXT_HTML_TAGS.include? dom_instance.declarations['html_element']
-				append_dom_child_html render_result, html, render_scope, raw: raw_text
+				append_dom_child_html render_result, html, token_counter, raw: raw_text
 				html
 			end
 
 			renderer = Code::Dom_Renderer.new dom_instance, inner_html
 
 			# Registration (here) and rendering (renderer.to_html_string) must print the *same* token --
-			# add_onclick_handler/add_input_element return the real key they stored, so hand it to the
+			# add_onclick_callback/add_input_element return the real key they stored, so hand it to the
 			# renderer instead of letting it mint its own.
 			element_key = dom_instance.declarations['key']
 
-			if renderer.onclick_expr && !render_scope[:static]
-				renderer.onclick_token = add_onclick_handler renderer.onclick_expr, render_scope, element_key
+			if renderer.onclick_expr && !token_counter.static
+				renderer.onclick_token = add_onclick_callback renderer.onclick_expr, token_counter, element_key
 			end
 
-			if renderer.is_input_element? && !render_scope[:static]
-				renderer.input_id_token = add_input_element dom_instance, render_scope, element_key
+			if renderer.is_input_element? && !token_counter.static
+				renderer.input_id_token = add_input_element dom_instance, token_counter, element_key
 			end
 
 			renderer.to_html_string
@@ -1406,14 +1418,14 @@ module Code
 		# `html` is mutated in place (`<<`), so callers pass an unfrozen accumulator and read it back
 		# after -- `+=` here would rebind this local and lose everything.
 		# A String child is HTML-escaped, so text can never become markup -- unless `raw` (the text of a `script`/`style`, see RAW_TEXT_HTML_TAGS).
-		def append_dom_child_html value, html, render_scope, raw: false
+		def append_dom_child_html value, html, token_counter, raw: false
 			case value
 			when ::String
 				html << (raw ? value : CGI.escapeHTML(value))
 			when Code::Array
-				value.values.each { |child| append_dom_child_html child, html, render_scope, raw: raw }
+				value.values.each { |child| append_dom_child_html child, html, token_counter, raw: raw }
 			else
-				html << render_dom_to_html(value, render_scope: render_scope) if value.is_a?(Code::Instance) && value.types.include?('Dom')
+				html << render_dom_to_html(value, token_counter: token_counter) if value.is_a?(Code::Instance) && value.types.include?('Dom')
 			end
 		end
 
@@ -2293,7 +2305,7 @@ module Code
 			end
 		end
 
-		# The dot sub-handlers below all take the receiver #interp_dot_infix already interpreted rather than re-interpreting expr.left themselves — re-interpreting ran the receiver expression's side effects (calls, constructions) a second or third time.
+		# The dot sub-callbacks below all take the receiver #interp_dot_infix already interpreted rather than re-interpreting expr.left themselves — re-interpreting ran the receiver expression's side effects (calls, constructions) a second or third time.
 		# Bounds/type-checked element access for `.N`/`.N.M...` dot-index syntax on an Array/Struct -- plain `values[index]` (Ruby's own Array#[]) silently returns nil past the end, and silently truncates a non-integer index (e.g. `.0.1` lexes as the single float 0.1, which Ruby's [] truncates to index 0) -- both looked like a legitimate result instead of a mistake.
 		def array_index_value collection, index, expr
 			def valid_index? index, length
@@ -2455,7 +2467,7 @@ module Code
 			nil
 		end
 
-		# Second-level dispatcher for infix operators, mirroring #interpret's own shape: each branch hands off to one interp_*_infix handler. The first group dispatches before operand evaluation — the assignment family treats the left side as a target rather than a value, `@` (the unpack marker) isn't a value at all, and logical operators must stay lazy to short-circuit. Every remaining operator evaluates each operand exactly once, here, and passes the values down so no handler re-interprets an operand (side effects run once).
+		# Second-level dispatcher for infix operators, mirroring #interpret's own shape: each branch hands off to one interp_*_infix callback. The first group dispatches before operand evaluation — the assignment family treats the left side as a target rather than a value, `@` (the unpack marker) isn't a value at all, and logical operators must stay lazy to short-circuit. Every remaining operator evaluates each operand exactly once, here, and passes the values down so no callback re-interprets an operand (side effects run once).
 		# @param expr [Code::Infix_Expr]
 		def interp_infix expr
 			operator = expr.operator.value
@@ -2498,7 +2510,7 @@ module Code
 			interp_func_body overload, call, arg_values: values
 		end
 
-		# Interprets its own operands (the one infix handler that does) because `&&`/`||` must short-circuit. A scope-level @operator overload still wins first, called with the raw expressions so the operands evaluate once, eagerly, inside the call.
+		# Interprets its own operands (the one infix callback that does) because `&&`/`||` must short-circuit. A scope-level @operator overload still wins first, called with the raw expressions so the operands evaluate once, eagerly, inside the call.
 		def interp_logical_infix expr
 			# `&` and `|` do not short-circuit, so they evaluate both operands first, and the left operand's own overload (Array's `&`/`|`) gets a chance, like any arithmetic operator.
 			if %w(& |).include? expr.operator.value
@@ -2861,7 +2873,7 @@ module Code
 
 			case receiver
 			when Code::Route
-				interp_func_body receiver.handler, expr
+				interp_func_body receiver.callback, expr
 
 			when Code::Func
 				# A synthesized Context function stand-in (`@puts`, `@push_scope`, ...) -- route to the
@@ -3406,7 +3418,7 @@ module Code
 							expr.is_a?(Code::Composition_Expr) && !expr.target ? interp_composition(expr) : interpret(expr)
 						end
 
-						type.replayed_compositions&.each { |composition, value| interp_composition composition, value }
+						type.replayed_compositions&.each { |replayed| interp_composition replayed.composition, replayed.value }
 					end
 				end
 			end
@@ -3466,7 +3478,7 @@ module Code
 
 			# A Dom element accepts whitelisted named arguments (`Button("x", onclick := `...`, html_id
 			# := 'y')`) that aren't `new`'s own params -- they're pulled out here and set on the instance
-			# after construction, so an element (and its handler) can be described in one expression
+			# after construction, so an element (and its callback) can be described in one expression
 			# instead of a member declaration plus later assignment. Non-Dom types, and any name outside
 			# the whitelist, are untouched -- interp_func_body still raises Unknown_Named_Argument.
 			dom_props = dom_type?(type) ? split_dom_prop_arguments(expr, func_new) : {}
@@ -3959,7 +3971,7 @@ module Code
 			route                 = Code::Route.new
 			route.name            = func.name
 			route.enclosing_scope = stack.last
-			route.handler         = func
+			route.callback         = func
 			route.http_method     = expr.http_method
 			route.path            = expr.path
 			route.path            = route.path[1..] if route.path.start_with? '/'
@@ -3969,9 +3981,9 @@ module Code
 				_1.empty?
 			end
 
-			# Always keyed by "method:path", even when the handler is a named function
-			# (`get://path some_handler`) — the name identifies the *function*, not the route, and two
-			# different routes can legitimately share one handler. Keying by name instead used to
+			# Always keyed by "method:path", even when the callback is a named function
+			# (`get://path some_callback`) — the name identifies the *function*, not the route, and two
+			# different routes can legitimately share one callback. Keying by name instead used to
 			# collide in exactly that case, silently dropping every route but the last to reuse a name.
 			route_key = "#{route.http_method.value}:#{route.path}"
 
@@ -3990,12 +4002,12 @@ module Code
 			route
 		end
 
-		# @param route [Code::Route] The route (or onclick handler wrapper) to execute
+		# @param route [Code::Route] The route (or the onclick callback wrapper) to run
 		# @param req [Code::Request] Request object to inject
 		# @param res [Code::Response] Response object to inject
 		# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
 		# @param server_instance [Code::Instance] The server instance (for accessing instance variables)
-		# @return The result of handler execution
+		# @return The result of the callback
 		# The URL text of a typed route param, as the param's type. A name bound to a type (`Int :: Integer`) counts as that type. A type that text cannot become (a struct, a user type) keeps the text, so its contract decides.
 		def typed_route_param param, text
 			type     = annotation_type_name param.type
@@ -4018,35 +4030,35 @@ module Code
 		end
 
 		def interp_route_body route, req, res, url_params = {}, server_instance: nil
-			handler = route.handler
-			params  = handler.parameters
+			callback = route.callback
+			params   = callback.parameters
 
-			# A closure (an onclick handler) runs on the scopes where it was written, the same as in #interp_func_body, so it sees the names of a `for` loop and of the function around it. A method keeps the enclosing_scope walk below, as #interp_func_body uses #lexical_chain for it.
-			lexical = handler.lexical_stack && !handler.enclosing_scope.is_a?(Code::Type)
+			# A closure (an onclick callback) runs on the scopes where it was written, the same as in #interp_func_body, so it sees the names of a `for` loop and of the function around it. A method keeps the enclosing_scope walk below, as #interp_func_body uses #lexical_chain for it.
+			lexical = callback.lexical_stack && !callback.enclosing_scope.is_a?(Code::Type)
 			if lexical
 				saved_stack = stack
-				self.stack  = handler.lexical_stack.map { it }
+				self.stack  = callback.lexical_stack.map { it }
 			else
 				# A closure built inside a nested call (e.g. `btn.onclick = (;...)` written inside a type's
 				# own `Self(;)`) has `.enclosing_scope` pointing at that call's own transient frame, not the
 				# instance it truly belongs to -- the instance sits one or more levels further up that
 				# frame's own `.enclosing_scope` chain. An ordinary dot-call (`w.render()`) never hits this:
 				# #rebind_func_to_scope rebinds `.enclosing_scope` straight to the resolving instance at call
-				# time. A route/onclick handler, invoked later from a request that built none of this, gets
+				# time. A route/onclick callback, invoked later from a request that built none of this, gets
 				# no such rebind -- so the rest of the chain has to be restored by hand here, or a sibling
 				# field the closure references (an onclick referencing another field on the same instance)
 				# raises Undeclared_Identifier on every invocation after the one that originally built it.
 				outer_chain = []
-				scope       = handler.enclosing_scope&.enclosing_scope
+				scope       = callback.enclosing_scope&.enclosing_scope
 				while scope && !stack.any? { |s| s.equal? scope }
 					outer_chain << scope
 					scope = scope.enclosing_scope
 				end
 				outer_chain.reverse_each { |s| push_scope s }
-				push_scope handler.enclosing_scope
+				push_scope callback.enclosing_scope
 			end
 
-			call_scope = Code::Scope.new "#{handler.name || 'anonymous'}_route"
+			call_scope = Code::Scope.new "#{callback.name || 'anonymous'}_route"
 			push_scope server_instance if server_instance
 			push_scope call_scope
 
@@ -4079,7 +4091,7 @@ module Code
 				call_scope.declare param.name.value, value
 			end
 
-			body   = handler.expressions
+			body   = callback.expressions
 			result = nil
 
 			body.compact.each do |expr|
@@ -4121,7 +4133,7 @@ module Code
 				end
 
 				popped_enclosing = pop_scope
-				Code.assert popped_enclosing == handler.enclosing_scope
+				Code.assert popped_enclosing == callback.enclosing_scope
 
 				outer_chain.each { pop_scope }
 			end
@@ -4313,7 +4325,7 @@ module Code
 
 				# The value, not the operand: a local operand (`Self += chosen`) is gone by the time it replays.
 				target.replayed_compositions ||= []
-				target.replayed_compositions << [replay, value]
+				target.replayed_compositions << Type::Replayed_Composition.new(composition: replay, value: value)
 			end
 		end
 
@@ -4920,11 +4932,8 @@ module Code
 
 			when 'onclick'
 				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func
-				token                                = next_render_token render_token_counter
-				dom_onclick_function_handlers[token] = {
-					handler: args.first, # func given to @onclick
-					target: nil
-				}
+				token                                 = next_render_token render_token_counter
+				dom_onclick_function_callbacks[token] = Click_Entry.new(callback: args.first, target: nil) # nil: no Dom element to render again
 				token
 			when 'on_server_read'
 				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func

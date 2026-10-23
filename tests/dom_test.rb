@@ -13,7 +13,7 @@ class Dom_Test < Base_Test
 	# Invokes a registered onclick handler the way a POST DOM_EVENT_URL/<token> does, minus the HTTP layer.
 	def fire interp, token
 		route             = Code::Route.new
-		route.handler     = interp.dom_onclick_function_handlers.fetch(token)[:handler]
+		route.callback    = interp.dom_onclick_function_callbacks.fetch(token).callback
 		route.param_names = []
 		req = interp.build_prog_request "#{Code::DOM_EVENT_URL}/#{token}", 'post', {}, {}, {}, {}
 		res = interp.build_prog_response Struct.new(:status, :body).new
@@ -44,7 +44,7 @@ class Dom_Test < Base_Test
 		assert_equal html2, html3
 		assert_includes html1, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"panel-0\""
 		assert_includes html1, "#{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"panel-1\""
-		assert_equal 1, interp.dom_onclick_function_handlers.size, 'handler map must not grow across re-renders'
+		assert_equal 1, interp.dom_onclick_function_callbacks.size, 'handler map must not grow across re-renders'
 		assert_equal 1, interp.dom_input_elements.size
 	end
 
@@ -80,7 +80,7 @@ class Dom_Test < Base_Test
 		    Counter()
 		CODE
 		counter = interp.last_output
-		token   = interp.dom_onclick_function_handlers.keys.first
+		token   = interp.dom_onclick_function_callbacks.keys.first
 
 		3.times do
 			fire interp, token
@@ -110,9 +110,9 @@ class Dom_Test < Base_Test
 		    List()
 		CODE
 		list  = interp.last_output
-		entry = interp.dom_onclick_function_handlers.fetch('list-hit-2')
+		entry = interp.dom_onclick_function_callbacks.fetch('list-hit-2')
 
-		assert_equal list.object_id, entry[:target].object_id, 'recorded target is the html_id-bearing List, not the Li and not nil'
+		assert_equal list.object_id, entry.target.object_id, 'recorded target is the html_id-bearing List, not the Li and not nil'
 
 		fire interp, 'list-hit-2'
 		assert_includes interp.render_dom_to_html(list), 'total: 2', 'the handler reached `total` on the enclosing target through the map callback'
@@ -219,7 +219,7 @@ class Dom_Test < Base_Test
 		    Page()
 		CODE
 		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"p-go\""
-		refute_nil interp.dom_onclick_function_handlers['p-go']
+		refute_nil interp.dom_onclick_function_callbacks['p-go']
 	end
 
 	def test_non_whitelisted_named_arg_on_a_dom_type_still_raises

@@ -2051,8 +2051,8 @@ class Interpreter_Test < Base_Test
 		assert_instance_of Code::Route, out
 		assert_equal 'get', out.http_method.value
 		assert_equal 'some/thing/:id', out.path
-		assert_equal 1, out.handler.parameters.count
-		assert_equal 1, out.handler.expressions.count
+		assert_equal 1, out.callback.parameters.count
+		assert_equal 1, out.callback.expressions.count
 	end
 
 	def test_html_element
@@ -6560,7 +6560,7 @@ class Interpreter_Test < Base_Test
 			[a, b]
 		CODE
 		assert_equal ["static-0", "static-1"], out.values
-		assert_nil interp.dom_onclick_function_handlers['static-0'][:target]
+		assert_nil interp.dom_onclick_function_callbacks['static-0'].target
 		assert_kind_of Code::Func, interp.dom_input_elements['static-1']
 	end
 end

@@ -73,7 +73,7 @@ class E2E_Server_Test < Minitest::Test
 		response = Net::HTTP.get_response URI("http://localhost:#{@port}/three")
 		assert_equal '200', response.code
 		assert_equal 'page_three-0', response.body
-		assert_equal({ element_namespace: 'static', next_slot: 0 }, @interpreter.render_token_counter)
+		assert_equal Code::Interpreter::Token_Counter.new(element_namespace: 'static', next_slot: 0), @interpreter.render_token_counter
 	end
 
 	# Runs `code` and starts the server it returns.
@@ -264,7 +264,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal '200', reply.code
 		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
 		assert_equal '<ul id="list"><li>a</li><li>b</li></ul>', reply.body
-		assert_equal({ element_namespace: 'static', next_slot: 0 }, @interpreter.render_token_counter)
+		assert_equal Code::Interpreter::Token_Counter.new(element_namespace: 'static', next_slot: 0), @interpreter.render_token_counter
 	end
 
 	# A Dom element from lang/html.code is HTML too. It is rendered once, by #interp_route_body.
@@ -509,8 +509,8 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
 		assert_equal "<ul id=\"list\"><li #{prefix}-onclick=\"#{add_here_token}-0\">Buy milk</li></ul>", reply.body
 		refute_includes reply.body, '<!DOCTYPE'
-		assert @interpreter.dom_onclick_function_handlers.key?(add_here_token), 'the page tokens stay'
-		assert @interpreter.dom_onclick_function_handlers.key?("#{add_here_token}-0")
+		assert @interpreter.dom_onclick_function_callbacks.key?(add_here_token), 'the page tokens stay'
+		assert @interpreter.dom_onclick_function_callbacks.key?("#{add_here_token}-0")
 	end
 
 	# A token that no render made, as after a restart: the page runs again and gets new tokens.

@@ -7,10 +7,13 @@ module Code
 		# A literal in the tree (`"fill"`, `5`, `:fill`, `true`, `nil`). It allows only a value equal to `value`. `type_name` is the literal's own type, for a check that has only type names.
 		Literal = ::Data.define :value, :type_name, :text
 
-		# @return [::String, Tagged, Literal, ::Array] a type name, a Tagged, a Literal, or [operator, left, right]
+		# Two parts of the tree joined by an operator (`A | B`). `left` and `right` are each a type name, a Tagged, a Literal, or another Node.
+		Node = ::Data.define :operator, :left, :right
+
+		# @return [::String, Tagged, Literal, Node] a type name, a Tagged, a Literal, or a Node
 		attr_accessor :tree
 
-		# @param tree [::String, Tagged, Literal, ::Array] see #tree
+		# @param tree [::String, Tagged, Literal, Node] see #tree
 		# @param name [::String, nil] nil for an annotation that has no alias name
 		def initialize tree, name = nil
 			super name
@@ -20,12 +23,12 @@ module Code
 		# Builds the tree from a flat chain (`A | B & C` is [A, B, C] with ['|', '&']), so `&` binds tighter than `|` the same way it does in a value expression.
 		# @param operands [[::String, Tagged, Literal]]
 		# @param operators [[::String]]
-		# @return [::String, ::Array]
+		# @return [::String, Tagged, Literal, Node]
 		def self.tree_from_chain operands, operators
 			precedence = ->(operator) { PRECEDENCES[operator] || DEFAULT_OPERATOR_PRECEDENCE }
 			output     = [operands.first]
 			pending    = []
-			reduce     = -> { right = output.pop; output << [pending.pop, output.pop, right] }
+			reduce     = -> { right = output.pop; output << Node.new(pending.pop, output.pop, right) }
 
 			operators.each_with_index do |operator, i|
 				reduce.call while pending.any? && precedence[pending.last] >= precedence[operator]
@@ -40,12 +43,11 @@ module Code
 		# @yieldreturn [Boolean] whether the value satisfies that one leaf
 		def satisfied? node = tree, &satisfies_leaf
 			return satisfies_leaf.call(node.name) if node.is_a? Tagged
-			return satisfies_leaf.call(node) unless node.is_a? ::Array
+			return satisfies_leaf.call(node) unless node.is_a? Node
 
-			operator, left, right = node
-			left_result           = satisfied? left, &satisfies_leaf
-			right_result          = satisfied? right, &satisfies_leaf
-			case operator
+			left_result  = satisfied? node.left, &satisfies_leaf
+			right_result = satisfied? node.right, &satisfies_leaf
+			case node.operator
 			when '|' then left_result || right_result
 			when '&' then left_result && right_result
 			when '~' then left_result && !right_result
@@ -56,11 +58,10 @@ module Code
 		# @return [::String] the expression as written, for example "String | Number"
 		def expression_to_s node = tree, parent_precedence = 0
 			return node.text if node.is_a?(Tagged) || node.is_a?(Literal)
-			return node unless node.is_a? ::Array
+			return node unless node.is_a? Node
 
-			operator, left, right = node
-			precedence            = PRECEDENCES[operator] || DEFAULT_OPERATOR_PRECEDENCE
-			text                  = "#{expression_to_s left, precedence} #{operator} #{expression_to_s right, precedence + 1}"
+			precedence = PRECEDENCES[node.operator] || DEFAULT_OPERATOR_PRECEDENCE
+			text       = "#{expression_to_s node.left, precedence} #{node.operator} #{expression_to_s node.right, precedence + 1}"
 			precedence < parent_precedence ? "(#{text})" : text
 		end
 

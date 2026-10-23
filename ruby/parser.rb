@@ -1197,19 +1197,19 @@ module Code
 			                .select { |segment| segment.start_with?(':') }
 			                .map { |segment| segment[1..-1] } # Remove ':' prefix
 
-			# Parse handler function (must follow route declaration).
+			# Parse callback function (must follow route declaration).
 			# todo: Consider being able to use an existing identifier in place of a function expression
 			reduce_newlines
 			expr = parse_expression
 
-			# Validate: handler params must include all route params
-			handler_params = if expr.is_a? Code::Func_Expr
+			# Validate: callback params must include all route params
+			callback_params = if expr.is_a? Code::Func_Expr
 				expr.parameters.map(&:name).map(&:value)
 			else
 				[]
 			end
 
-			missing_params = param_names - handler_params
+			missing_params = param_names - callback_params
 			# todo: Is this a case that needs to be handled?
 			# unless missing_params.empty?
 			# end
@@ -1690,8 +1690,10 @@ module Code
 					# `Self += Duck` adds Duck's members to the type, and `self -= Flying` removes Flying's members from this instance. The operator becomes the head's own `+`/`-`.
 					if %w(+= -=).include?(curr_lexeme.value) && expr.is_a?(Code::Identifier_Expr) && SELF_KEYWORDS.include?(expr.value) && !expr.scope_operator
 						compound = eat
-						operator = Code::Lexeme.new(:operator, compound.value.chomp('=')).tap do |it|
-							%i(line_start column_start line_end column_end source_file).each { |attr| it.send "#{attr}=", compound.send(attr) }
+						operator = Code::Lexeme.new(:operator, compound.value.chomp('=')).tap do |lexeme|
+							%i(line_start column_start line_end column_end source_file).each do |attr|
+								lexeme.send "#{attr}=", compound.send(attr)
+							end
 						end
 						composition        = parse_composition_expr operator
 						composition.target = expr.value
