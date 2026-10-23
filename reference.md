@@ -1073,6 +1073,7 @@ s.start_with?('He') # true
 s.end_with?('!')    # true
 s.gsub('World', 'Backend')
 s.to_i()            # Convert to integer
+'ff'.to_i(16)       # 255: the base is 10 unless you give one
 s.empty?()          # false
 ```
 

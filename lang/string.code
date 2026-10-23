@@ -58,7 +58,7 @@ String {
 	index ( substr; @ruby )
 	slice ( start, length; @ruby )
 	to_f (; @ruby )
-	to_i (; @ruby )
+	to_i ( base: Int = 10 -> Int; @ruby ) # "ff".to_i(16) is 255; text that is not a number gives 0, as in Ruby
 	trim (; @ruby )
 	squeeze ( args... -> String; @ruby )
 

@@ -1,0 +1,6 @@
+@out "42".to_i() # out: 42
+@out "ff".to_i(16) # out: 255
+@out "101".to_i(2) # out: 5
+@out "17".to_i(base := 8) # out: 15
+@out "12abc".to_i() # out: 12
+@out "zz".to_i(16) # out: 0
