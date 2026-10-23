@@ -445,23 +445,29 @@ class E2E_Server_Test < Minitest::Test
 		    @load 'lang/html2'
 
 		    items := []
-		    draft := ''
+
+		    # `draft` is a local of the page function, so the closures must keep it after the function returns.
+		    render_list_page (;
+		    	draft := ''
+
+		    	Html_Renderer.render(html([
+		    		body([
+		    			textarea('', on_server_read := (value; draft = value)),
+		    			button('Add', onclick := (; items.push(draft))),
+		    			button('Add here', onclick := (;
+		    				items.push(draft)
+		    				Html_Renderer.render(ul(items.map((it; li(it, onclick := (; it)))), [Attribute('id', 'list')]))
+		    			)),
+		    			ul(items.map((it; li(it))), [Attribute('id', 'list')])
+		    		])
+		    	]))
+		    )
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
 
 		    	get:// (;
-		    		Html_Renderer.render(html([
-		    			body([
-		    				textarea('', on_server_read := (value; draft = value)),
-		    				button('Add', onclick := (; items.push(draft))),
-		    				button('Add here', onclick := (;
-		    					items.push(draft)
-		    					Html_Renderer.render(ul(items.map((it; li(it, onclick := (; it)))), [Attribute('id', 'list')]))
-		    				)),
-		    				ul(items.map((it; li(it))), [Attribute('id', 'list')])
-		    			])
-		    		]))
+		    		render_list_page()
 		    	)
 		    }
 
@@ -521,6 +527,62 @@ class E2E_Server_Test < Minitest::Test
 		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page, not a 404'
 		assert_includes reply.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"page_-1\""
 		assert_includes err, 'unknown click token page_-999'
+	end
+
+	# A URL param is text. A typed one gets the text as its type, and text that is not that type gives a 404, not a 500.
+	def test_typed_route_params_get_their_type_from_the_url
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get://int/:id (id: Int;
+		    		"`id + 1`"
+		    	)
+
+		    	get://float/:x (x: Float;
+		    		"`x * 2`"
+		    	)
+
+		    	get://number/:n (n: Number;
+		    		"`n + 1`"
+		    	)
+
+		    	get://bool/:on (on: Bool;
+		    		if on 'yes' else 'no' end
+		    	)
+
+		    	get://text/:name (name;
+		    		"`name`!"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		get = ->(path) { Net::HTTP.get_response URI("http://localhost:#{@port}#{path}") }
+
+		assert_equal '42', get['/int/41'].body
+		assert_equal '-1', get['/int/-2'].body
+		assert_equal '3.0', get['/float/1.5'].body
+		assert_equal '2', get['/number/1'].body
+		assert_equal '2.5', get['/number/1.5'].body
+		assert_equal 'yes', get['/bool/true'].body
+		assert_equal 'no', get['/bool/false'].body
+		assert_equal 'abc!', get['/text/abc'].body
+
+		%w(/int/abc /int/1.5 /float/x /number/ten /bool/maybe).each do |path|
+			reply = get[path]
+			assert_equal '404', reply.code, path
+			assert_includes reply.body, 'cannot be converted to', path
+		end
+
+		# The text comes from the URL, so it is escaped in the reply.
+		reply = get['/int/%3Cscript%3E']
+		assert_equal '404', reply.code
+		assert_includes reply.body, '&lt;script&gt;'
+		refute_includes reply.body, '<script>'
 	end
 
 	def test_server_starts_and_responds

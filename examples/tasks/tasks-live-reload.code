@@ -1,0 +1,145 @@
+###
+The tasks app with live clicks, built from html2 structs, plain functions and closures. A click updates the page without a reload.
+
+- `on_server_read` closures copy what the browser has (the typed text, the checkbox) into locals of the page function.
+- `onclick` closures do the work. They read the same locals, because both were made in the same call, and the server runs every `on_server_read` closure before the `onclick` one.
+
+Each of the three click replies is used once:
+- "Add Task" returns only the new list, so only `#tasks` changes.
+- Save has `replace := 'task'`, so only `#task` changes, from the page run again.
+- Every other click gets the page run again, and its whole <body>.
+###
+
+@load 'lang/database'
+@load 'lang/table'
+@load 'lang/css'
+@load 'lang/html2'
+@load 'lang/server'
+
+Task_Type [TODO BUG DESIGN]
+
+# This struct represents the table columns for a single Task
+Task <
+	id: Primary_Key
+	type: Task_Type
+	done := false
+	text: String
+>
+
+INVERT_FILTER := Style_Rule(["body"], [Property("filter", "invert()")])
+
+
+### All tasks ###
+
+# The list on its own, so "Add Task" can send back only this part of the page.
+task_list ( tasks_table: Table -> Element;
+	rows := tasks_table.all().map((it: Task;
+		# A task with no type reads back as nil.
+		type_display := if it.type == nil "" else " -- `it.type`" end
+		status       := if it.done == true " (done)" else "" end
+		li([href("/`it.id`", it.text), type_display, status])
+	))
+
+	ul(rows, [Attribute("id", "tasks")])
+)
+
+render_tasks_page ( tasks_table: Table -> String;
+	draft: String = ""
+
+	new_text := textarea([], on_server_read := (value: String;
+		draft = value
+	))
+
+	add_button := button("Add Task", onclick := (;
+		if draft != ""
+			tasks_table.create(<text := draft>)
+		end
+
+		# Returns HTML with an id on its root element, so the reply is only the list.
+		Html_Renderer.render(task_list(tasks_table))
+	))
+
+	page_body := body([h1("Tasks"), new_text, add_button, task_list(tasks_table)], [], INVERT_FILTER)
+	page      := html([head(title("Tasks")), page_body])
+
+	# Compact, not Html_Formatter: the pretty form puts new lines inside an empty <textarea>, and the browser keeps them as its text.
+	Html_Renderer.render(page)
+)
+
+
+### One task ###
+
+render_task_page ( tasks_table: Table, task: Task -> String;
+	draft: String = task.text
+	done: Bool    = task.done == true # a real Bool: a column can read back as nil
+
+	###
+	One radio for each Task_Type. They share the name "type", so the browser lets only one be checked.
+	Task_Type.@keys are the names ("BUG"), and Task_Type.@values the members (:BUG), in the same order.
+	A click saves the type, and the page runs again, so the server marks the checked radio.
+	###
+	type_labels: Array = []
+	for Task_Type.@keys
+		type_value := Task_Type.@values.get(at)
+
+		radio := input([
+			Attribute("type", "radio"),
+			Attribute("name", "type"),
+			Attribute("checked", it == task.type)
+		], onclick := (;
+			tasks_table.update(task.id, <type := type_value>)
+		))
+
+		type_labels.push(label([radio, it]))
+	end
+
+	text_box := textarea(task.text, on_server_read := (value: String;
+		draft = value
+	))
+
+	done_box := input([
+		Attribute("type", "checkbox"),
+		Attribute("checked", done)
+	], on_server_read := (value: Bool;
+		done = value
+	), onclick := (;
+		tasks_table.update(task.id, <done := done>)
+	))
+
+	save_button := button("Save", replace := "task", onclick := (;
+		tasks_table.update(task.id, <text := draft>)
+	))
+
+	task_area := div([
+		[h1(task.text)],
+		type_labels,
+		[br(), text_box, br(), label([done_box, "Done"]), save_button]
+	].flatten(), [Attribute("id", "task")])
+
+	page_body := body([task_area, href("/", "Back to all")], [], INVERT_FILTER)
+	page      := html([head(title(task.text)), page_body])
+
+	Html_Renderer.render(page)
+)
+
+
+### Server ###
+
+App + Server {
+	DB    := @connect Sqlite.memory()
+	tasks := DB.find_or_create_table(Task)
+
+	# root path /
+	get:// (;
+		render_tasks_page(tasks)
+	)
+
+	get://:id (id: Int;
+		task := tasks.find(id)
+		render_task_page(tasks, task)
+	)
+}
+
+
+app := App()
+@start_server app

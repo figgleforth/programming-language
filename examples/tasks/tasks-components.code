@@ -144,8 +144,8 @@ App + Server {
 		Inverted_Html(All_Tasks_Page(tasks))
 	)
 
-	get://:id (id;
-		Inverted_Html(Single_Task_Page(tasks, id.to_i()))
+	get://:id (id: Int;
+		Inverted_Html(Single_Task_Page(tasks, id))
 	)
 
 	get://terminal (;

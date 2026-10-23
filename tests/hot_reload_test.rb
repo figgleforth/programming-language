@@ -59,7 +59,7 @@ class Hot_Reload_Test < Base_Test
 		assert_empty Code::Declarator.cached_declarations_by_filepath
 	end
 
-	# --- live reload (browser auto-refresh) -------------------------------------------------------
+	# --- hot reload (browser auto-refresh) -------------------------------------------------------
 
 	def html_server_code port
 		<<~CODE
@@ -92,41 +92,41 @@ class Hot_Reload_Test < Base_Test
 		socket&.close
 	end
 
-	def test_live_reload_defaults_off_and_the_token_is_unique_per_interpreter
+	def test_hot_reload_defaults_off_and_the_token_is_unique_per_interpreter
 		a = Code::Interpreter.new
 		b = Code::Interpreter.new
 
-		refute a.live_reload, 'live_reload must be opt-in -- a plain interpf run should never stream events'
-		refute_nil a.live_reload_token
-		refute_equal a.live_reload_token, b.live_reload_token, 'each Interpreter (each hot-reload cycle) needs its own token'
+		refute a.hot_reload, 'hot_reload must be opt-in -- a plain interpf run should never stream events'
+		refute_nil a.hot_reload_token
+		refute_equal a.hot_reload_token, b.hot_reload_token, 'each Interpreter (each hot-reload cycle) needs its own token'
 	end
 
-	def test_live_reload_endpoint_streams_the_interpreter_token
+	def test_hot_reload_endpoint_streams_the_interpreter_token
 		port                             = 9810 + rand(80)
 		@interpreter                     = Code::Interpreter.new
 		@interpreter.serve_in_foreground = false
-		@interpreter.live_reload         = true
+		@interpreter.hot_reload         = true
 		@interpreter.run html_server_code(port)
 
-		frame = read_sse 'localhost', port, Code::DOM_LIVE_RELOAD_URL
+		frame = read_sse 'localhost', port, Code::DOM_HOT_RELOAD_URL
 
 		assert_includes frame, 'text/event-stream'
-		assert_includes frame, "data: #{@interpreter.live_reload_token}"
+		assert_includes frame, "data: #{@interpreter.hot_reload_token}"
 	end
 
-	def test_live_reload_endpoint_is_absent_when_disabled
+	def test_hot_reload_endpoint_is_absent_when_disabled
 		port                             = 9810 + rand(80)
 		@interpreter                     = Code::Interpreter.new
 		@interpreter.serve_in_foreground = false
-		# live_reload left at its default (false)
+		# hot_reload left at its default (false)
 		@interpreter.run html_server_code(port)
 
-		response = Net::HTTP.get_response 'localhost', Code::DOM_LIVE_RELOAD_URL, port
+		response = Net::HTTP.get_response 'localhost', Code::DOM_HOT_RELOAD_URL, port
 
 		assert_kind_of Net::HTTPNotFound, response
 	end
 
-	def test_client_script_is_injected_only_under_live_reload
+	def test_client_script_is_injected_only_under_hot_reload
 		off_port                          = 9810 + rand(80)
 		off                               = Code::Interpreter.new
 		off.serve_in_foreground           = false
@@ -137,12 +137,12 @@ class Hot_Reload_Test < Base_Test
 		on_port                           = 9810 + rand(80)
 		@interpreter                      = Code::Interpreter.new
 		@interpreter.serve_in_foreground  = false
-		@interpreter.live_reload          = true
+		@interpreter.hot_reload          = true
 		@interpreter.run html_server_code(on_port)
 		on_body = Net::HTTP.get 'localhost', '/', on_port
 
-		refute_includes off_body, Code::DOM_LIVE_RELOAD_URL, 'the client must not ship without hot reload'
-		assert_includes on_body, "new EventSource('#{Code::DOM_LIVE_RELOAD_URL}')"
+		refute_includes off_body, Code::DOM_HOT_RELOAD_URL, 'the client must not ship without hot reload'
+		assert_includes on_body, "new EventSource('#{Code::DOM_HOT_RELOAD_URL}')"
 	end
 
 	def test_reset_file_caches_with_paths_only_drops_those_paths
@@ -164,9 +164,9 @@ class Hot_Reload_Test < Base_Test
 	CI_ONLY = %i[
 		test_serve_in_foreground_false_makes_run_return_instead_of_blocking
 		test_shutdown_all_servers_stops_every_server_and_empties_the_list
-		test_live_reload_endpoint_streams_the_interpreter_token
-		test_live_reload_endpoint_is_absent_when_disabled
-		test_client_script_is_injected_only_under_live_reload
+		test_hot_reload_endpoint_streams_the_interpreter_token
+		test_hot_reload_endpoint_is_absent_when_disabled
+		test_client_script_is_injected_only_under_hot_reload
 	].freeze
 
 	unless ENV['CI']

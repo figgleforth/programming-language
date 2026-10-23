@@ -2018,4 +2018,24 @@ class Structs_Test < Base_Test
 	def test_a_struct_value_composed_with_a_non_scope_raises
 		assert_raises(Code::Invalid_Composition_With_A_Non_Struct_type) { Code.interp "<x := 1> + 5" }
 	end
+
+	# A closure stored in a struct is data, not a method of the struct, so it keeps the locals of the function that made it, after that function returns.
+	def test_a_closure_stored_in_a_struct_keeps_the_names_around_it
+		out = Code.interp <<~CODE
+		    Holder <callback: Any_Func>
+
+		    kept := nil
+
+		    make (;
+		    	x := 1
+		    	kept = Holder((value; x = value))
+		    	(; x)
+		    )
+
+		    read_x := make()
+		    kept.callback(5)
+		    read_x()
+		CODE
+		assert_equal 5, out
+	end
 end

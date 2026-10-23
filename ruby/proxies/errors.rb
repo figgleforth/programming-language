@@ -534,6 +534,18 @@ module Code
 	class Route_Param_Expected_But_Not_Found < Error
 	end
 
+	# A typed URL param (`get://:id (id: Int;)`) got text that cannot be converted to that type, so the URL names no page here. #handle_request replies 404.
+	class Route_Param_Type_Mismatch < Error
+		attr_reader :param_name, :type_name, :text
+
+		def initialize param_name, type_name, text
+			@param_name = param_name
+			@type_name  = type_name
+			@text       = text
+			super "#{param_name} must be #{type_name}, but #{text.inspect} cannot be converted to #{type_name}"
+		end
+	end
+
 	class Invalid_Composition_With_A_Non_Scope_type < Error
 	end
 

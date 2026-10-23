@@ -1,7 +1,7 @@
 require 'cgi/escape' # Ruby 4 keeps only CGI's escaping; a form body goes through URI.decode_www_form
 require 'uri'
 require 'json'
-require 'securerandom' # #initialize mints @live_reload_token with this
+require 'securerandom' # #initialize mints @hot_reload_token with this
 
 module Code
 	class Interpreter
@@ -35,7 +35,7 @@ module Code
 			end
 		end
 
-		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_handlers, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :live_reload, :live_reload_token, :render_token_counter
+		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_handlers, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :hot_reload, :hot_reload_token, :render_token_counter
 
 		# One file mid-load. `declarations` is filled in when the file pauses at its own @load, and `cycle_files` lists the paused files this one closed a load cycle back into -- see #resolve_forward_declaration.
 		Loading_File = ::Struct.new :filepath, :scope, :declarations, :cycle_files
@@ -53,13 +53,13 @@ module Code
 			@servers               = [] # [Code::Server]
 			@loading_files         = [] # [Loading_File] files mid-load, outermost first -- see #load_file_into_scope
 
-			# Live reload (browser auto-refresh on save). Only Hot_Reloader turns @live_reload on, so a
+			# Hot reload (browser auto-refresh on save). Only Hot_Reloader turns @hot_reload on, so a
 			# plain `prog interpf` / production server never streams events or injects the client script.
-			# @live_reload_token is unique per Interpreter instance: a hot reload builds a fresh
-			# Interpreter, so the token the live-reload stream (DOM_LIVE_RELOAD_URL) reports changes, which is exactly
+			# @hot_reload_token is unique per Interpreter instance: a hot reload builds a fresh
+			# Interpreter, so the token the hot-reload stream (DOM_HOT_RELOAD_URL) reports changes, which is exactly
 			# the "the server rebooted, refresh now" signal the browser watches for.
-			@live_reload       = false
-			@live_reload_token = SecureRandom.hex(8)
+			@hot_reload       = false
+			@hot_reload_token = SecureRandom.hex(8)
 
 			@lexer               = Lexer.new
 			@parser              = Parser.new
@@ -949,17 +949,17 @@ module Code
 				handle_request server, req, res
 			end
 
-			# Live reload event stream (see ruby/shared/live_reload.js). Mounted only under Hot_Reloader,
+			# Hot reload event stream (see ruby/shared/hot_reload.js). Mounted only under Hot_Reloader,
 			# and separately from the Code routing path -- a Code route handler resolves to a finished
 			# String body, but this needs to hold the connection open and stream, which means raw WEBrick
 			# response access.
-			if live_reload
-				webrick.mount_proc DOM_LIVE_RELOAD_URL do |_req, res|
+			if hot_reload
+				webrick.mount_proc DOM_HOT_RELOAD_URL do |_req, res|
 					res.status           = 200
 					res['Content-Type']  = 'text/event-stream'
 					res['Cache-Control'] = 'no-cache'
 					res.chunked          = true # no Content-Length possible; emit one chunk per write
-					token                = live_reload_token
+					token                = hot_reload_token
 
 					res.body = proc do |out|
 						out.write "retry: 300\n\n" # how long EventSource waits before reconnecting
@@ -1175,15 +1175,15 @@ module Code
 						view_transition_css = self.class.cached_asset_source_by_path['ruby/shared/view_transition.css'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/view_transition.css'))
 						view_transition_tag = "<style>#{view_transition_css}</style>"
 
-						# Only present under Hot_Reloader -- pairs with the live-reload endpoint (DOM_LIVE_RELOAD_URL).
-						live_reload_tag = if live_reload
-							lr_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/live_reload.js')).gsub('#{DOM_LIVE_RELOAD_URL}', DOM_LIVE_RELOAD_URL)
+						# Only present under Hot_Reloader -- pairs with the hot-reload endpoint (DOM_HOT_RELOAD_URL).
+						hot_reload_tag = if hot_reload
+							lr_js = self.class.cached_asset_source_by_path['ruby/shared/hot_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/hot_reload.js')).gsub('#{DOM_HOT_RELOAD_URL}', DOM_HOT_RELOAD_URL)
 							"<script>#{lr_js}</script>"
 						else
 							''
 						end
 
-						injected = script_tag + view_transition_tag + live_reload_tag
+						injected = script_tag + view_transition_tag + hot_reload_tag
 						body_str = response.body.to_s
 
 						if body_str.include?('<head>')
@@ -1199,6 +1199,11 @@ module Code
 
 				rescue WEBrick::HTTPStatus::Status => e
 					raise e
+
+				rescue Code::Route_Param_Type_Mismatch => e
+					response.status                 = 404
+					response.body                   = "<h1>404 Not Found</h1>\n<p>#{CGI.escapeHTML e.message}</p>"
+					response.header['Content-Type'] = 'text/html; charset=utf-8'
 
 				rescue => e
 					warn "\n[Code Server Error] #{e.class}: #{e.message}"
@@ -3407,6 +3412,8 @@ module Code
 				# A method composed in from another instance (`Tasks | Task | tasks_table <>`) stays bound to that instance. A struct still passes its methods on to the records built from it.
 				owner = decl.enclosing_scope
 				next if owner.is_a?(Code::Instance) && !owner.is_a?(Code::Struct) && !owner.equal?(instance)
+				# A closure stored as a value (`Element(..., onclick)`) was made in a function or at the top level, not in a type. It is data, not a method, so it keeps the names around it.
+				next unless owner.is_a?(Code::Type)
 
 				cloned                     = decl.dup
 				cloned.enclosing_scope     = instance
@@ -3976,6 +3983,27 @@ module Code
 		# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
 		# @param server_instance [Code::Instance] The server instance (for accessing instance variables)
 		# @return The result of handler execution
+		# The URL text of a typed route param, as the param's type. A name bound to a type (`Int :: Integer`) counts as that type. A type that text cannot become (a struct, a user type) keeps the text, so its contract decides.
+		def typed_route_param param, text
+			type     = annotation_type_name param.type
+			resolved = type.is_a?(::String) ? find_contract_type(type) : nil
+			name     = resolved.is_a?(Code::Type) ? resolved.name : type
+
+			value = case name
+			when 'Integer' then text.match?(INTEGER_TEXT_REGEX) ? text.to_i : nil
+			when 'Float'   then Float(text, exception: false)
+			when 'Decimal' then text.match?(DECIMAL_TEXT_REGEX) ? BigDecimal(text) : nil
+			when 'Number'  then text.match?(INTEGER_TEXT_REGEX) ? text.to_i : Float(text, exception: false)
+			when 'Bool'    then { 'true' => true, 'false' => false }[text]
+			else text
+			end
+
+			unless !value.nil? && type_contract_satisfied?(value, type)
+				raise Code::Route_Param_Type_Mismatch.new(param.name.value, type_contract_display(type), text)
+			end
+			value
+		end
+
 		def interp_route_body route, req, res, url_params = {}, server_instance: nil
 			handler = route.handler
 			params  = handler.parameters
@@ -4031,6 +4059,9 @@ module Code
 						raise Code::Missing_Argument.new(expr)
 					end
 				end
+
+				# A URL param is always text. A typed one (`id: Int`) gets that text converted to its type. Text that cannot be converted means the URL names no page here.
+				value = typed_route_param(param, value) if param.type && value.is_a?(::String)
 
 				call_scope.declare param.name.value, value
 			end

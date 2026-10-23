@@ -1,11 +1,8 @@
-# Second version of tasks.code: identical functionality, built on lang/css.code + lang/html2.code
-# (struct-and-visitor) instead of html.code's Dom types. One real, unavoidable difference:
-# lang/html2.code deliberately doesn't hook into the server-side live-render pipeline (onclick
-# wiring, dom.js, target-id header partial updates) the way html.code's Dom does -- it only
-# builds an HTML string (see its own header comment). So every "click a button, something changes"
-# interaction here is a plain HTML form POST + redirect instead of an onclick handler -- same
-# capabilities (add a task, toggle done, edit type/text, see it reflected), just a full page
-# reload to get there instead of an in-place AJAX-style swap.
+###
+The tasks app with a page reload for each click, built on lang/css.code + lang/html2.code (structs and a visitor) instead of html.code's Dom types.
+
+Every "click a button, something changes" here is a plain HTML form POST and a redirect, on purpose: this version uses no JavaScript, so each click loads a new page. tasks-live-reload.code is the same app with live clicks.
+###
 
 @load 'lang/database'
 @load 'lang/table'
@@ -120,19 +117,19 @@ App + Server {
 		response.redirect('/')
 	)
 
-	get://:id (id;
+	get://:id (id: Int;
 		task := tasks.find(id)
 		render_task_page(tasks, task)
 	)
 
-	post://:id/toggle (id;
+	post://:id/toggle (id: Int;
 		task         := tasks.find(id)
 		current_done := task.done == true
 		tasks.update(task.id, <done := !current_done>)
 		response.redirect("/`id`")
 	)
 
-	post://:id (id;
+	post://:id (id: Int;
 		task          := tasks.find(id)
 		submitted_type := request.body[:type]
 

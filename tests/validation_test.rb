@@ -13,13 +13,13 @@ class Validation_Test < Base_Test
 	end
 
 	# Both are mounted under DOM_NAMESPACE, so the same part would give two endpoints one URL.
-	def test_event_path_and_live_reload_path_differ
-		refute_equal Code::DOM_EVENT_PATH, Code::DOM_LIVE_RELOAD_PATH
+	def test_event_path_and_hot_reload_path_differ
+		refute_equal Code::DOM_EVENT_PATH, Code::DOM_HOT_RELOAD_PATH
 	end
 
 	# A placeholder with a typo (`#{DOM_ATRIBUTE_PREFIX}`) would reach the browser unfilled.
 	def test_each_placeholder_in_the_browser_scripts_names_a_real_constant
-		%w(ruby/shared/dom.js ruby/shared/live_reload.js).each do |path|
+		%w(ruby/shared/dom.js ruby/shared/hot_reload.js).each do |path|
 			source = ::File.read ::File.join(Code::ROOT_PATH, path)
 
 			source.scan(PLACEHOLDER_REGEX).flatten.uniq.each do |name|
