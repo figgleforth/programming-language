@@ -143,10 +143,10 @@ class Error_Test < Base_Test
 	end
 
 	def test_onclick_and_on_server_read_need_a_function
-		assert_raises Code::Invalid_Handler_Argument do
+		assert_raises Code::Invalid_Callback_Argument do
 			Code.interp '@onclick(5)'
 		end
-		assert_raises Code::Invalid_Handler_Argument do
+		assert_raises Code::Invalid_Callback_Argument do
 			Code.interp '@on_server_read()'
 		end
 	end

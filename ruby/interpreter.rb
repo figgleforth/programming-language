@@ -4954,10 +4954,10 @@ module Code
 				server
 
 			when 'onclick'
-				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func
+				raise Code::Invalid_Callback_Argument.new(at) unless args.first.is_a? Code::Func
 				add_onclick_callback args.first, render_token_counter # nil outside a live page
 			when 'on_server_read'
-				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func
+				raise Code::Invalid_Callback_Argument.new(at) unless args.first.is_a? Code::Func
 				add_input_element args.first, render_token_counter
 			end
 		end
