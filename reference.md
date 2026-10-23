@@ -1597,7 +1597,7 @@ User_Record(name := 'Bob').greet()  # 'Hi Bob' -- a record built in memory gets 
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
 4. `.to_s()` renders an element and its children to string directly, without attributes
-5. `.to_html()` gives the HTML that a server sends for the element, with its `html_*` attributes and `css_*` style. A boolean attribute (`checked`, `selected`, `disabled`, and so on) shows only when it is `true`. A `false` or `nil` attribute does not show
+5. `.to_html()` gives the HTML that a server sends for the element, with its `html_*` attributes and `css_*` style. A boolean attribute (`checked`, `selected`, `disabled`, and so on) shows only when it is `true`. A `false` or `nil` attribute does not show. It registers no click closure, so it writes no `data-runtime-*` token
 6. When a server renders a page, text children, attribute values, and `css_*` values are escaped, so text from a user can never become markup. The text inside `Script` and `Style` stays raw, because it is JavaScript or CSS
 
 ```code
@@ -1685,7 +1685,8 @@ Html_Renderer.render(input([Attribute('type', 'checkbox'), Attribute('checked', 
 # '<input type="checkbox" checked>'
 
 Html_Renderer.render(button('Save', onclick := (; @puts 'saved')))
-# '<button data-runtime-onclick="static-0">Save</button>' -- see Live Pages below
+# '<button data-runtime-onclick="9f3c5e0d1a2b4c6e-page-0">Save</button>' in a route
+# '<button>Save</button>' outside a route, where nothing can click it -- see Live Pages below
 ```
 
 ## Live Pages
@@ -1693,16 +1694,18 @@ Html_Renderer.render(button('Save', onclick := (; @puts 'saved')))
 A click in the browser runs a closure on the server. Any renderer can do this: html2 is one way, and a renderer of your own is another.
 
 ```code
-@onclick(fn: (;)) -> String                                     # fn takes nothing
-@on_server_read(fn: (value: String | Bool | Array;)) -> String  # fn takes the element's value, or nothing: (;)
+@onclick(fn: (;)) -> String | Nil                                     # fn takes nothing
+@on_server_read(fn: (value: String | Bool | Array;)) -> String | Nil  # fn takes the element's value, or nothing: (;)
 ```
 
 1. `@onclick(fn)` stores `fn` as a click closure, and returns its token, a String. Write the token into the element as `data-runtime-onclick="<token>"`. A click on that element runs `fn`
 2. `@on_server_read(fn)` stores `fn` as a read closure, and returns its token. Write it as `data-runtime-on-server-read="<token>"` on an `input`, `textarea` or `select`. It does not respond to its own element: on each click anywhere on the page, the server reads its value and calls `fn` with it. A checkbox or radio gives `true` or `false`, and a `<select multiple>` gives an Array. A closure with no param, `(; ...)`, runs without the value
 3. `data-runtime-replacement-target-id="<id>"` on the clicked element names one element to replace from the new page
 4. The prefix `data-runtime` is the constant `DOM_ATTRIBUTE_PREFIX` (`constants.rb`)
-5. A token is the page and a counter (`page_3-0`, `page_3-1`, ...). When the page runs again, it gets the same tokens, so the new closures replace the old ones
-6. Today, all visitors share one closure map, and a token names a position in the page, not a record. A separate map for each visitor is coming
+5. Each page load (one load, in one tab) gets a live page instance: the server's memory of that page's closures. Its id is random, 16 hex characters, and it starts each token on the page: `9f3c5e0d1a2b4c6e-page-0`, `9f3c5e0d1a2b4c6e-page-1`, ... After a click, the page runs again in the same live page instance, so it gets the same tokens, and the new closures replace the old ones. A reload, or another tab, gets a new one
+6. A click runs only closures of its own live page instance, and reads only its inputs. So two visitors, or two tabs, never run each other's closures. The server keeps the 1024 live page instances it saw last (`LIVE_PAGE_INSTANCE_LIMIT`). A click on an older page, or after a restart, gets the page again, with new tokens. A route that makes no closure keeps nothing
+7. Outside a route (a test, the top level of a program), there is no live page instance. `@onclick` and `@on_server_read` store nothing and return `nil`, and html2 leaves the attribute out. `.to_html()` on an `html.code` element also stores nothing
+8. A token names a position in the page, not a record
 
 What happens on a click:
 

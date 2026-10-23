@@ -46,8 +46,8 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal :Running, @server_runner.webrick_server.status
 	end
 
-	# A route's tokens use the page's namespace. After the request, a token is static again.
-	def test_onclick_token_namespace_goes_back_to_static_after_a_request
+	# A route's tokens start with the page's live page instance id. After the request, there is no token counter.
+	def test_render_token_counter_is_nil_after_a_request
 		code = <<~CODE
 		    @load 'lang/server'
 
@@ -72,8 +72,8 @@ class E2E_Server_Test < Minitest::Test
 
 		response = Net::HTTP.get_response URI("http://localhost:#{@port}/three")
 		assert_equal '200', response.code
-		assert_equal 'page_three-0', response.body
-		assert_equal Code::Interpreter::Token_Counter.new(element_namespace: 'static', next_slot: 0), @interpreter.render_token_counter
+		assert_match(/\A\h{16}-page-0\z/, response.body)
+		assert_nil @interpreter.render_token_counter
 	end
 
 	# Runs `code` and starts the server it returns.
@@ -96,6 +96,11 @@ class E2E_Server_Test < Minitest::Test
 		request      = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json'
 		request.body = JSON.generate body
 		Net::HTTP.start(uri.host, uri.port) { it.request request }
+	end
+
+	# The tokens on a page, in order: the live page instance id, then `page`, then the slots (`9f3c…-page-0`, or `9f3c…-page-1-0` for HTML that a click callback made).
+	def page_tokens body
+		body.scan(/\h{16}-page(?:-\d+)+/)
 	end
 
 	def test_on_server_read_closure_gets_the_value_before_the_click_closure_runs
@@ -123,9 +128,10 @@ class E2E_Server_Test < Minitest::Test
 		CODE
 
 		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		assert_equal 'page_-0 page_-1', page.body
+		assert_match(/\A(\h{16})-page-0 \1-page-1\z/, page.body) # \1 is the same id again
 
-		click 'page_-1', { 'page_-0' => 'Buy milk' }
+		read_token, click_token = page_tokens page.body
+		click click_token, { read_token => 'Buy milk' }
 
 		saved = Net::HTTP.get_response URI("http://localhost:#{@port}/saved")
 		assert_equal 'Buy milk', saved.body
@@ -155,8 +161,9 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		click 'page_-1', { 'page_-0' => ['red', 'blue'] }
+		page                    = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		read_token, click_token = page_tokens page.body
+		click click_token, { read_token => ['red', 'blue'] }
 
 		picked = Net::HTTP.get_response URI("http://localhost:#{@port}/picked")
 		assert_equal 'red+blue', picked.body
@@ -186,8 +193,9 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		click 'page_-1', { 'page_-0' => 'Buy milk' }
+		page                    = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		read_token, click_token = page_tokens page.body
+		click click_token, { read_token => 'Buy milk' }
 
 		ran = Net::HTTP.get_response URI("http://localhost:#{@port}/ran")
 		assert_equal 'yes', ran.body
@@ -226,10 +234,12 @@ class E2E_Server_Test < Minitest::Test
 		CODE
 
 		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"p-text\""
-		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"p-save\""
+		id   = page.body[/(\h{16})-p-save/, 1]
+		refute_nil id, 'the Dom path puts the live page instance id in front of the html_id'
+		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"#{id}-p-text\""
+		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"#{id}-p-save\""
 
-		reply = click 'p-save', { 'p-text' => 'Buy milk' }
+		reply = click "#{id}-p-save", { "#{id}-p-text" => 'Buy milk' }
 		assert_equal 'p', reply[Code::DOM_TARGET_ID_HEADER] # the Dom path names the element to replace
 
 		saved = Net::HTTP.get_response URI("http://localhost:#{@port}/saved")
@@ -258,13 +268,13 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		reply = click 'page_-0', {}
+		page  = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		reply = click page.body, {}
 
 		assert_equal '200', reply.code
 		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
 		assert_equal '<ul id="list"><li>a</li><li>b</li></ul>', reply.body
-		assert_equal Code::Interpreter::Token_Counter.new(element_namespace: 'static', next_slot: 0), @interpreter.render_token_counter
+		assert_nil @interpreter.render_token_counter
 	end
 
 	# A Dom element from lang/html.code is HTML too. It is rendered once, by #interp_route_body.
@@ -284,8 +294,8 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		reply = click 'page_-0', {}
+		page  = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		reply = click page.body, {}
 
 		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
 		assert_equal '<ul id="list"></ul>', reply.body
@@ -311,9 +321,9 @@ class E2E_Server_Test < Minitest::Test
 		CODE
 
 		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		assert_equal 'page_-0 page_-1 page_-2', page.body
+		assert_match(/\A(\h{16})-page-0 \1-page-1 \1-page-2\z/, page.body)
 
-		%w(page_-0 page_-1 page_-2).each do |token|
+		page_tokens(page.body).each do |token|
 			assert_nil click(token, {})[Code::DOM_TARGET_ID_HEADER], "#{token} must not replace an element"
 		end
 	end
@@ -340,13 +350,14 @@ class E2E_Server_Test < Minitest::Test
 		CODE
 
 		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		assert_includes page.body, 'page_-0 page_-1 items: </body>'
+		assert_match(%r{(\h{16})-page-0 \1-page-1 items: </body>}, page.body)
 
-		reply = click 'page_-1', { 'page_-0' => 'Buy milk' }, path: '/', query: ''
+		read_token, click_token = page_tokens page.body
+		reply                   = click click_token, { read_token => 'Buy milk' }, path: '/', query: ''
 
 		assert_equal '200', reply.code
 		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page'
-		assert_includes reply.body, 'page_-0 page_-1 items: Buy milk</body>' # the same tokens, and the new state
+		assert_includes reply.body, "#{read_token} #{click_token} items: Buy milk</body>" # the same tokens (the same live page instance), and the new state
 		assert_nil reply[Code::DOM_TARGET_ID_HEADER]
 	end
 
@@ -372,11 +383,12 @@ class E2E_Server_Test < Minitest::Test
 		CODE
 
 		page = Net::HTTP.get_response URI("http://localhost:#{@port}/tasks/3?sort=new")
-		assert_includes page.body, 'page_tasks_3-0 task 3 sort new'
+		assert_match(/\h{16}-page-0 task 3 sort new/, page.body)
 
-		reply = click 'page_tasks_3-0', {}, path: '/tasks/3', query: 'sort=new'
+		click_token = page_tokens(page.body).first
+		reply       = click click_token, {}, path: '/tasks/3', query: 'sort=new'
 
-		assert_includes reply.body, 'page_tasks_3-0 task 3 sort new get</body>'
+		assert_includes reply.body, "#{click_token} task 3 sort new get</body>"
 	end
 
 	# Without a page path (an old live_reload.js, or a request made by hand), the click still ends in a 404.
@@ -395,12 +407,12 @@ class E2E_Server_Test < Minitest::Test
 		    app := Web_App()
 		CODE
 
-		Net::HTTP.get_response URI("http://localhost:#{@port}/")
-		assert_equal '404', click('page_-0', {}).code
+		token = Net::HTTP.get_response(URI("http://localhost:#{@port}/")).body
+		assert_equal '404', click(token, {}).code
 
 		# An empty body, or one that is not a JSON object, counts as {}: the handler runs, and the reply is a 404, not a 500.
 		['', '[1, 2]', 'not json'].each do |body|
-			uri          = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/page_-0")
+			uri          = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/#{token}")
 			request      = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json'
 			request.body = body
 			reply        = Net::HTTP.start(uri.host, uri.port) { it.request request }
@@ -432,7 +444,7 @@ class E2E_Server_Test < Minitest::Test
 
 		assert_equal '200', reply.code
 		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page'
-		assert_includes reply.body, '</style>page_-0</body>' # the page ran again, with a new token
+		assert_match(%r{</style>\h{16}-page-0</body>}, reply.body) # the page ran again, with a new token
 		assert_includes err, 'unknown click token page_-999'
 
 		assert_equal '404', click('page_-999', {}).code, 'without a page path, an unknown token is still a 404'
@@ -488,7 +500,7 @@ class E2E_Server_Test < Minitest::Test
 	def test_html2_page_click_sends_the_full_page_again
 		start_html2_list_app
 		read_token, add_token, _ = html2_list_page_tokens
-		assert_equal %w(page_-0 page_-1), [read_token, add_token]
+		assert_match(/\A(\h{16})-page-0 \1-page-1\z/, "#{read_token} #{add_token}")
 
 		reply = click add_token, { read_token => 'Buy milk' }, path: '/', query: ''
 
@@ -509,8 +521,9 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
 		assert_equal "<ul id=\"list\"><li #{prefix}-onclick=\"#{add_here_token}-0\">Buy milk</li></ul>", reply.body
 		refute_includes reply.body, '<!DOCTYPE'
-		assert @interpreter.dom_onclick_function_callbacks.key?(add_here_token), 'the page tokens stay'
-		assert @interpreter.dom_onclick_function_callbacks.key?("#{add_here_token}-0")
+		live_page_instance = @interpreter.live_page_instances[add_here_token[Code::LIVE_PAGE_INSTANCE_ID_REGEX]]
+		assert live_page_instance.callbacks.key?(add_here_token), 'the page tokens stay'
+		assert live_page_instance.callbacks.key?("#{add_here_token}-0")
 	end
 
 	# A token that no render made, as after a restart: the page runs again and gets new tokens.
@@ -525,8 +538,98 @@ class E2E_Server_Test < Minitest::Test
 
 		assert_equal '200', reply.code
 		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page, not a 404'
-		assert_includes reply.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"page_-1\""
+		assert_match(/#{Code::DOM_ATTRIBUTE_PREFIX}-onclick="\h{16}-page-1"/, reply.body)
 		assert_includes err, 'unknown click token page_-999'
+	end
+
+	# Each GET of `/` is one tab. Its callbacks count into that tab's own slot, so a test can see which tab's callback ran.
+	def start_two_tab_app
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    clicks := []
+		    reads  := []
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		tab := clicks.length()
+		    		clicks.push(0)
+		    		reads.push('')
+
+		    		read_token  := @on_server_read((value; reads[tab] = value))
+		    		click_token := @onclick((; clicks[tab] = clicks[tab] + 1 ))
+		    		"<html><body>`read_token` `click_token`</body></html>"
+		    	)
+
+		    	get://state (;
+		    		"clicks `clicks` reads `reads`"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+	end
+
+	# Opens one tab: returns its [read token, click token].
+	def open_tab
+		page_tokens Net::HTTP.get_response(URI("http://localhost:#{@port}/")).body
+	end
+
+	def app_state
+		Net::HTTP.get_response(URI("http://localhost:#{@port}/state")).body
+	end
+
+	# Before live page instances, both tabs had the same token, and a click ran the callback of the tab that loaded last.
+	def test_two_tabs_each_run_their_own_callback
+		start_two_tab_app
+		_, tab_1_click = open_tab
+		_, tab_2_click = open_tab
+
+		refute_equal tab_1_click[Code::LIVE_PAGE_INSTANCE_ID_REGEX], tab_2_click[Code::LIVE_PAGE_INSTANCE_ID_REGEX], 'each tab has its own live page instance'
+
+		click tab_1_click, {}
+		assert_equal "clicks [1, 0] reads ['', '']", app_state
+	end
+
+	# The browser chooses the input tokens, so a click must not reach an input of another page.
+	def test_a_click_reads_only_the_inputs_of_its_own_page
+		start_two_tab_app
+		tab_1_read, _           = open_tab
+		tab_2_read, tab_2_click = open_tab
+
+		click tab_2_click, { tab_1_read => 'from tab 2', tab_2_read => 'mine' }
+		assert_equal "clicks [0, 1] reads ['', 'mine']", app_state
+	end
+
+	def test_the_server_keeps_only_the_newest_live_page_instances
+		start_two_tab_app
+		@interpreter.live_page_instance_limit = 2
+
+		ids = 3.times.map do
+			_, click_token = open_tab
+			click_token[Code::LIVE_PAGE_INSTANCE_ID_REGEX]
+		end
+		assert_equal ids.drop(1), @interpreter.live_page_instances.keys, 'the first page load was dropped'
+
+		reply = nil
+		_, err = capture_subprocess_io do
+			reply = click "#{ids.first}-page-1", {}, path: '/', query: ''
+		end
+		assert_includes err, 'unknown click token'
+		new_id = page_tokens(reply.body).first[Code::LIVE_PAGE_INSTANCE_ID_REGEX]
+		refute_includes ids, new_id, 'the dropped page gets a new live page instance'
+	end
+
+	# A route that registers no callback (a JSON route, the favicon) does not take a place from a real page.
+	def test_a_route_that_registers_nothing_keeps_no_live_page_instance
+		start_two_tab_app
+		open_tab
+
+		assert_equal 1, @interpreter.live_page_instances.size
+		app_state
+		assert_equal 1, @interpreter.live_page_instances.size
 	end
 
 	# A URL param is text. A typed one gets the text as its type, and text that is not that type gives a 404, not a 500.
@@ -608,8 +711,8 @@ class E2E_Server_Test < Minitest::Test
 		route_reply = click_reply = nil
 		capture_subprocess_io do # the server also logs each error
 			route_reply = Net::HTTP.get_response URI("http://localhost:#{@port}/route-error")
-			Net::HTTP.get_response URI("http://localhost:#{@port}/")
-			click_reply = click 'page_-0', {}
+			token       = Net::HTTP.get_response(URI("http://localhost:#{@port}/")).body
+			click_reply = click token, {}
 		end
 
 		{ 'route' => route_reply, 'click' => click_reply }.each do |name, reply|

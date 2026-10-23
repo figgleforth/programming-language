@@ -6553,14 +6553,15 @@ class Interpreter_Test < Base_Test
 	end
 
 	def test_onclick_and_on_server_read_functions
-		interp = Code::Interpreter.new
-		out = interp.run <<~CODE
+		interp             = Code::Interpreter.new
+		live_page_instance = start_live_page_instance interp
+		out                = interp.run <<~CODE
 			a := @onclick((; 1 ))
 			b := @on_server_read((v; v))
 			[a, b]
 		CODE
-		assert_equal ["static-0", "static-1"], out.values
-		assert_nil interp.dom_onclick_function_callbacks['static-0'].target
-		assert_kind_of Code::Func, interp.dom_input_elements['static-1']
+		assert_equal ["test-page-0", "test-page-1"], out.values
+		assert_nil live_page_instance.callbacks['test-page-0'].target
+		assert_kind_of Code::Func, live_page_instance.inputs['test-page-1']
 	end
 end

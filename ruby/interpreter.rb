@@ -35,7 +35,7 @@ module Code
 			end
 		end
 
-		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :dom_onclick_function_callbacks, :dom_input_elements, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :hot_reload, :hot_reload_token, :render_token_counter
+		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :live_page_instances, :live_page_instance_limit, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :hot_reload, :hot_reload_token, :render_token_counter
 
 		# One file mid-load. `declarations` is filled in when the file pauses at its own @load, and `cycle_files` lists the paused files this one closed a load cycle back into -- see #resolve_forward_declaration.
 		Loading_File = ::Struct.new :filepath, :scope, :declarations, :cycle_files
@@ -46,8 +46,11 @@ module Code
 		# A declaration that ran early, before its own line: which expression, in which scope. The scope counts because a parsed file is cached, so the same expression object runs again when the file loads into another scope. See #resolve_forward_declaration.
 		Forced_Declaration = ::Data.define :expression_object_id, :scope_object_id
 
-		# A place that hands out tokens in order: a page run, a click callback's HTML, or a Dom element with an html_id. `target` is the Dom element to render again after a click (nil for a page), and `static` is true for Dom#to_html, which registers no closures. See #next_render_token.
-		Token_Counter = ::Struct.new :element_namespace, :next_slot, :target, :static
+		# One page load in one tab: its id (the start of each of its tokens), when the server last saw it, and the callbacks and inputs its render registered.
+		Live_Page_Instance = ::Struct.new :id, :last_seen, :callbacks, :inputs
+
+		# A place that hands out tokens in order: a page run, a click callback's HTML, or a Dom element with an html_id. A callback registers into `live_page_instance`; when it is nil (Dom#to_html), nothing registers. `target` is the Dom element to render again after a click (nil for a page). See #next_render_token.
+		Token_Counter = ::Struct.new :live_page_instance, :element_namespace, :next_slot, :target
 
 		# The JSON body of a click, checked once (see live_reload.js). The browser sends it, so nothing in it is trusted: `inputs` is a Hash of token => value, `path` is a page path that starts with `/` or nil, and `query` is a String or nil. A body that is empty, or not a JSON object, gives no inputs and no path.
 		Click_Body = ::Data.define :inputs, :path, :query do
@@ -62,10 +65,10 @@ module Code
 		end
 
 		def initialize
-			@render_token_counter           = Token_Counter.new(element_namespace: 'static', next_slot: 0)
-			@dom_input_elements             = {} # {element_hash: Code::Instance} for inputs/textareas
-			@dom_onclick_function_callbacks = {} # { token => Click_Entry }
-			@route_functions_by_route_name  = {} # {route: Code::Route}
+			@render_token_counter          = nil # a Token_Counter while a page or a click renders
+			@live_page_instances           = {}  # { Live_Page_Instance#id (16 random hex characters, the start of each token) => Live_Page_Instance }
+			@live_page_instance_limit      = LIVE_PAGE_INSTANCE_LIMIT # a test can make it small
+			@route_functions_by_route_name = {} # {route: Code::Route}
 
 			@load_standard_library = true
 			@serve_in_foreground   = true # Hot_Reloader flips this -- see #run
@@ -348,15 +351,21 @@ module Code
 		end
 
 		def add_onclick_callback callback, token_counter, element_key = nil
+			live_page_instance = token_counter&.live_page_instance
+			return unless live_page_instance # no live page (outside a request, or Dom#to_html): no token, so no attribute
+
 			token = next_render_token(token_counter, element_key)
 			# Stored with the target this render pass belongs to (`token_counter.target`, the nearest html_id-bearing Dom instance) so #handle_request re-renders *that* on a click. The callback's own closure is captured lexically and runs correctly wherever it was written. A `.map` callback, a plain helper, a method, so "which target to swap" no longer depends on the callback's scope chain reaching an Instance.
-			dom_onclick_function_callbacks[token] = Click_Entry.new(callback: callback, target: token_counter.target)
+			live_page_instance.callbacks[token] = Click_Entry.new(callback: callback, target: token_counter.target)
 			token
 		end
 
 		def add_input_element instance, token_counter, element_key = nil
-			token                     = next_render_token(token_counter, element_key)
-			dom_input_elements[token] = instance
+			live_page_instance = token_counter&.live_page_instance
+			return unless live_page_instance
+
+			token                            = next_render_token(token_counter, element_key)
+			live_page_instance.inputs[token] = instance
 			token
 		end
 
@@ -1061,19 +1070,23 @@ module Code
 			puts req_info
 
 			if path_string.start_with?("#{DOM_EVENT_URL}/")
-				# clicked_token/element_id are string tokens (`"<element_namespace>-<slot>"`, see #next_render_token), not
+				# clicked_token/element_id are string tokens (`"<live page instance id>-<element_namespace>-<slot>"`, see #next_render_token), not
 				# integers -- no `.to_i` (that silently truncated a token down to its leading digits, so
 				# every real click 404'd: the truncated id never matched anything actually registered).
-				clicked_token = path_parts.last
-				entry         = dom_onclick_function_callbacks[clicked_token]
+				clicked_token      = path_parts.last
+				live_page_instance = live_page_instances[clicked_token[LIVE_PAGE_INSTANCE_ID_REGEX]]
+				entry              = live_page_instance&.callbacks&.[](clicked_token)
 
 				# Parsed before `if entry`, so a click with an unknown token can still read the page path below.
 				click_body = Click_Body.parse request.body
 
 				if entry
+					live_page_instance.last_seen = ::Time.now
+
 					begin
+						# Only this live page instance's inputs: a token from another page, or a made-up one, finds nothing, so its value is skipped.
 						click_body.inputs.each do |element_id, value|
-							case input = dom_input_elements[element_id]
+							case input = live_page_instance.inputs[element_id]
 							when Code::Func
 								# note; A <select multiple> gives an Array
 								value               = wrap_prog_array(value) if value.is_a?(::Array)
@@ -1088,13 +1101,13 @@ module Code
 						end
 
 						route             = Code::Route.new
-						route.callback     = entry.callback
+						route.callback    = entry.callback
 						route.param_names = []
 
 						req = build_prog_request path_string, http_method, body_hash, parse_query_string(query_string), {}, headers_hash
 						res = build_prog_response response
 
-						self.render_token_counter = Token_Counter.new(element_namespace: clicked_token, next_slot: 0)
+						self.render_token_counter = Token_Counter.new(live_page_instance: live_page_instance, element_namespace: clicked_token, next_slot: 0)
 
 						result = interp_route_body route, req, res # note; This runs the callback. It stays before the target block below, because that block renders the state after the click; the block also comes first so that a Dom-path click keeps its old reply, whatever its callback returns.
 
@@ -1143,12 +1156,12 @@ module Code
 						response.header['Content-Type'] = 'text/html; charset=utf-8'
 						return
 					ensure
-						# Outside the callback, a token is static again (the route below sets the page's own namespace).
-						self.render_token_counter = Token_Counter.new(element_namespace: 'static', next_slot: 0)
+						# Outside the callback, there is no live page instance (the route below sets the page's own counter).
+						self.render_token_counter = nil
 					end
 				else
-					# After a restart (a hot reload), an open page still has the old tokens.
-					warn "[Code] unknown click token #{clicked_token}: the server may have restarted, so the page runs again"
+					# After a restart (a hot reload), an open page still has the old tokens. A live page instance the limit dropped has the same result.
+					warn "[Code] unknown click token #{clicked_token}: the server may have restarted, or dropped this page, so the page runs again"
 				end
 
 				# Nothing replied yet: the callback returned no HTML with a root id, or the token is unknown. Turn the click into a GET of the page it came from, and let the route match below reply with the full page. Without a page path (an old live_reload.js, or a request made by hand), the click falls through to a 404, as before.
@@ -1176,12 +1189,22 @@ module Code
 				req = build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash
 
 				begin
-					# note; Eventually the namespace will have an id prefix that represents the current instance of the web page.
-					# here we find each character that is not a letter or a digit and replace it with _
-					self.render_token_counter = Token_Counter.new(element_namespace: "page#{path_string.gsub(/[^A-Za-z0-9]/, '_')}", next_slot: 0)
+					# A page load gets a new live page instance. After a click, the page runs again with the click's own instance (found above), so its tokens write over that tab's own callbacks.
+					live_page_instance         ||= Live_Page_Instance.new(id: SecureRandom.hex(8), callbacks: {}, inputs: {})
+					live_page_instance.last_seen = ::Time.now
+					self.render_token_counter    = Token_Counter.new(live_page_instance: live_page_instance, element_namespace: "#{live_page_instance.id}-page", next_slot: 0)
 
 					res    = build_prog_response response
 					result = interp_route_body route_function, req, res, url_params, server_instance: server
+
+					# Keep the live page instance only when the page registered something, so a JSON route or the favicon does not push a real page out.
+					if live_page_instance.callbacks.any? || live_page_instance.inputs.any?
+						live_page_instances[live_page_instance.id] = live_page_instance
+						if live_page_instances.size > live_page_instance_limit
+							oldest_id, _ = live_page_instances.min_by { |_, instance| instance.last_seen }
+							live_page_instances.delete oldest_id
+						end
+					end
 
 					response.status = res.declarations['status']
 					response.body   = res.declarations['body']
@@ -1248,8 +1271,8 @@ module Code
 					HTML
 					response.header['Content-Type'] = 'text/html; charset=utf-8'
 				ensure
-					# Outside a request, a token is static again, not the last page's.
-					self.render_token_counter = Token_Counter.new(element_namespace: 'static', next_slot: 0)
+					# Outside a request, there is no live page instance.
+					self.render_token_counter = nil
 				end
 			else
 				response.status = 404
@@ -1363,17 +1386,17 @@ module Code
 			collected_routes
 		end
 
-		# `static: true` (`Dom#to_html`) registers no click callback or input, so the HTML has no token attributes (DOM_ATTRIBUTE_PREFIX-*).
-		def render_dom_to_html dom_instance, token_counter: nil, static: false
+		# `live_page_instance: nil` (`Dom#to_html`) registers no click callback or input, so the HTML has no token attributes (DOM_ATTRIBUTE_PREFIX-*).
+		def render_dom_to_html dom_instance, token_counter: nil, live_page_instance: render_token_counter&.live_page_instance
 			# A target with its own html_id (a page-level target) anchors a fresh token namespace
 			# for its whole subtree, keyed by that stable id. A top-level target with no html_id
 			# falls back to its object_id. Nested id-less elements just keep counting within the
 			# enclosing target's namespace -- see #next_render_token.
 			own_html_id = dom_instance.declarations['html_id']
 			if token_counter.nil?
-				token_counter = Token_Counter.new(element_namespace: own_html_id || "auto#{dom_instance.object_id}", next_slot: 0, target: dom_instance, static: static)
+				token_counter = Token_Counter.new(live_page_instance: live_page_instance, element_namespace: "#{live_page_instance&.id}-#{own_html_id || "auto#{dom_instance.object_id}"}", next_slot: 0, target: dom_instance)
 			elsif own_html_id
-				token_counter = Token_Counter.new(element_namespace: own_html_id, next_slot: 0, target: dom_instance, static: token_counter.static)
+				token_counter = Token_Counter.new(live_page_instance: token_counter.live_page_instance, element_namespace: "#{token_counter.live_page_instance&.id}-#{own_html_id}", next_slot: 0, target: dom_instance)
 			end
 
 			render = dom_instance.declarations['render']
@@ -1397,11 +1420,11 @@ module Code
 			# renderer instead of letting it mint its own.
 			element_key = dom_instance.declarations['key']
 
-			if renderer.onclick_expr && !token_counter.static
+			if renderer.onclick_expr
 				renderer.onclick_token = add_onclick_callback renderer.onclick_expr, token_counter, element_key
 			end
 
-			if renderer.is_input_element? && !token_counter.static
+			if renderer.is_input_element?
 				renderer.input_id_token = add_input_element dom_instance, token_counter, element_key
 			end
 
@@ -4932,14 +4955,10 @@ module Code
 
 			when 'onclick'
 				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func
-				token                                 = next_render_token render_token_counter
-				dom_onclick_function_callbacks[token] = Click_Entry.new(callback: args.first, target: nil) # nil: no Dom element to render again
-				token
+				add_onclick_callback args.first, render_token_counter # nil outside a live page
 			when 'on_server_read'
 				raise Code::Invalid_Handler_Argument.new(at) unless args.first.is_a? Code::Func
-				token                     = next_render_token render_token_counter
-				dom_input_elements[token] = args.first # func given to @on_server_read
-				token
+				add_input_element args.first, render_token_counter
 			end
 		end
 

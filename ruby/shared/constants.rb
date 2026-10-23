@@ -9,6 +9,8 @@ module Code
 	DOM_EVENT_URL                     = "/#{DOM_NAMESPACE}/#{DOM_EVENT_PATH}" # live_reload.js posts to DOM_EVENT_URL/<token>
 	DOM_HOT_RELOAD_PATH               = 'hot-reload' # after DOM_NAMESPACE: the stream that hot_reload.js listens to under Hot_Reloader
 	DOM_HOT_RELOAD_URL                = "/#{DOM_NAMESPACE}/#{DOM_HOT_RELOAD_PATH}"
+	LIVE_PAGE_INSTANCE_LIMIT          = 1024 # the most live page instances the server keeps; it drops the one it saw longest ago
+	LIVE_PAGE_INSTANCE_ID_REGEX       = /\A[^-]+/ # the live page instance id at the start of a token: '9f3c…-page-0' gives '9f3c…'
 	# The DOM_ values go into URLs, CSS selectors, HTTP headers, cookies and JavaScript strings without escaping, so each one must match its rule here. tests/validation_test.rb checks them.
 	DOM_CONSTANT_RULES                = {
 		DOM_ATTRIBUTE_PREFIX:  /\Adata(-[a-z0-9]+)+\z/,            # a data-* name: lowercase (HTML spec), no empty part between dashes

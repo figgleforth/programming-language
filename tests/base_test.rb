@@ -14,4 +14,12 @@ class Base_Test < Minitest::Test
 	rescue *exceptions => e
 		flunk "Expected no exception, but got #{e.class}: #{e.message}"
 	end
+
+	# Gives `interp` a live page instance, as a page load does, so a render outside a request registers its callbacks. Returns the instance.
+	def start_live_page_instance interp, id = 'test'
+		live_page_instance             = Code::Interpreter::Live_Page_Instance.new(id: id, last_seen: Time.now, callbacks: {}, inputs: {})
+		interp.live_page_instances[id] = live_page_instance
+		interp.render_token_counter    = Code::Interpreter::Token_Counter.new(live_page_instance: live_page_instance, element_namespace: "#{id}-page", next_slot: 0)
+		live_page_instance
+	end
 end

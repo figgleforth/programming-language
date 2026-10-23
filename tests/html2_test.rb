@@ -332,38 +332,43 @@ class Html2_Test < Base_Test
 	# --- live pages: onclick, on_server_read, replacement_target_id --------------
 
 	def test_onclick_writes_its_token_and_stores_the_closure
-		interp = Code::Interpreter.new
-		out    = interp.run "#{HTML}\nHtml_Renderer.render(button('Save', onclick := (; 1 )))"
+		interp             = Code::Interpreter.new
+		live_page_instance = start_live_page_instance interp
+		out                = interp.run "#{HTML}\nHtml_Renderer.render(button('Save', onclick := (; 1 )))"
 
-		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\">Save</button>", out
-		assert_kind_of Code::Func, interp.dom_onclick_function_callbacks['static-0'].callback
-		assert_nil interp.dom_onclick_function_callbacks['static-0'].target
+		assert_equal "<button #{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-page-0\">Save</button>", out
+		assert_kind_of Code::Func, live_page_instance.callbacks['test-page-0'].callback
+		assert_nil live_page_instance.callbacks['test-page-0'].target
 	end
 
-	# Outside a page, the slot does not go back to 0, so each render gives a new token. Inside a page, #handle_request starts each run at 0.
+	# In a test, the slot does not go back to 0 between renders, so each render gives a new token. A page run starts at 0 (#handle_request).
 	def test_each_render_registers_the_closure_again
-		interp = Code::Interpreter.new
-		out    = interp.run <<~CODE
+		interp             = Code::Interpreter.new
+		live_page_instance = start_live_page_instance interp
+		out                = interp.run <<~CODE
 		    #{HTML}
 		    b := button('x', onclick := (; 1 ))
 		    [Html_Renderer.render(b), Html_Renderer.render(b)]
 		CODE
 
-		assert_includes out.values[0], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-0\""
-		assert_includes out.values[1], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"static-1\""
-		assert_equal 2, interp.dom_onclick_function_callbacks.size
+		assert_includes out.values[0], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-page-0\""
+		assert_includes out.values[1], "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-page-1\""
+		assert_equal 2, live_page_instance.callbacks.size
 	end
 
 	def test_on_server_read_writes_its_token_and_stores_the_closure
-		interp = Code::Interpreter.new
-		out    = interp.run "#{HTML}\nHtml_Renderer.render(textarea('hi', on_server_read := (value; value)))"
+		interp             = Code::Interpreter.new
+		live_page_instance = start_live_page_instance interp
+		out                = interp.run "#{HTML}\nHtml_Renderer.render(textarea('hi', on_server_read := (value; value)))"
 
-		assert_equal "<textarea #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"static-0\">hi</textarea>", out
-		assert_kind_of Code::Func, interp.dom_input_elements['static-0']
+		assert_equal "<textarea #{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"test-page-0\">hi</textarea>", out
+		assert_kind_of Code::Func, live_page_instance.inputs['test-page-0']
 	end
 
 	def test_input_and_select_take_on_server_read_too
-		out = Code.interp <<~CODE
+		interp = Code::Interpreter.new
+		start_live_page_instance interp
+		out = interp.run <<~CODE
 		    #{HTML}
 		    [Html_Renderer.render(input(on_server_read := (v; v))), Html_Renderer.render(select(on_server_read := (v; v)))]
 		CODE
@@ -380,17 +385,30 @@ class Html2_Test < Base_Test
 
 	# The runtime's attributes come after the user's own, in the order onclick, on_server_read, replacement_target_id.
 	def test_all_three_come_after_the_attributes
-		out = Code.interp "#{HTML}\nHtml_Renderer.render(input([Attribute('type', 'checkbox')], onclick := (; 1 ), on_server_read := (v; v), replacement_target_id := 'task'))"
+		interp = Code::Interpreter.new
+		start_live_page_instance interp
+		out    = interp.run "#{HTML}\nHtml_Renderer.render(input([Attribute('type', 'checkbox')], onclick := (; 1 ), on_server_read := (v; v), replacement_target_id := 'task'))"
 		prefix = Code::DOM_ATTRIBUTE_PREFIX
-		assert_equal "<input type=\"checkbox\" #{prefix}-onclick=\"static-0\" #{prefix}-on-server-read=\"static-1\" #{prefix}-replacement-target-id=\"task\">", out
+		assert_equal "<input type=\"checkbox\" #{prefix}-onclick=\"test-page-0\" #{prefix}-on-server-read=\"test-page-1\" #{prefix}-replacement-target-id=\"task\">", out
+	end
+
+	# Outside a request there is no live page instance, so nothing registers, and the attribute is left out.
+	def test_outside_a_live_page_there_is_no_token
+		interp = Code::Interpreter.new
+		out    = interp.run "#{HTML}\n[@onclick((; 1 )), Html_Renderer.render(button('Save', onclick := (; 1 )))]"
+
+		assert_nil out.values[0]
+		assert_equal '<button>Save</button>', out.values[1]
+		assert_empty interp.live_page_instances
 	end
 
 	def test_an_element_without_them_renders_as_before
-		interp = Code::Interpreter.new
-		out    = interp.run "#{HTML}\nHtml_Renderer.render(li('a'))"
+		interp             = Code::Interpreter.new
+		live_page_instance = start_live_page_instance interp
+		out                = interp.run "#{HTML}\nHtml_Renderer.render(li('a'))"
 
 		assert_equal '<li>a</li>', out
-		assert_empty interp.dom_onclick_function_callbacks
+		assert_empty live_page_instance.callbacks
 	end
 
 	# The closures run on the server, so they are not the browser code that the sanitizer removes.

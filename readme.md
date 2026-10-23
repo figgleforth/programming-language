@@ -961,20 +961,6 @@ App + Server {
 # "Clicked 1 times".
 ```
 
-### Checkboxes in click handlers
-
-Today a click sends each input's `value`, which for a checkbox never changes.
-
-```code
-done := Input(html_type := 'checkbox')
-save := Button('Save')
-
-save.onclick = (;
-    done.value      # today: the same value, checked or not
-                    # coming soon: whether the box is checked
-)
-```
-
 ### A server written in .code
 
 The code you write stays the same, and the server under it moves from Ruby into the language.

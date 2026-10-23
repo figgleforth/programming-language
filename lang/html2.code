@@ -124,15 +124,22 @@ Html_Formatter_Visitor {
 		end
 
 		# The runtime's own attributes. Their prefix is DOM_ATTRIBUTE_PREFIX (constants.rb), which `.code` cannot read yet, so its value is written here. @onclick and @on_server_read store the closure and give its token, which needs no escape.
-		if el.onclick != nil
-			parts.push("data-runtime-onclick=\"`@onclick(el.onclick)`\"")
+		# Outside a live page (a test, or Code.interp), they give nil, and the attribute is left out.
+		if el.onclick
+			onclick_token := @onclick(el.onclick)
+			if onclick_token
+				parts.push("data-runtime-onclick=\"`onclick_token`\"")
+			end
 		end
 
-		if el.on_server_read != nil
-			parts.push("data-runtime-on-server-read=\"`@on_server_read(el.on_server_read)`\"")
+		if el.on_server_read
+			read_token := @on_server_read(el.on_server_read)
+			if read_token
+				parts.push("data-runtime-on-server-read=\"`read_token`\"")
+			end
 		end
 
-		if el.replacement_target_id != nil
+		if el.replacement_target_id
 			parts.push("data-runtime-replacement-target-id=\"`escape(el.replacement_target_id)`\"")
 		end
 

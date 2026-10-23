@@ -6,6 +6,7 @@ class Dom_Test < Base_Test
 	# Runs `src`, returns [interpreter, rendered-html-of-the-result].
 	def render src
 		interp   = Code::Interpreter.new
+		start_live_page_instance interp
 		instance = interp.run src
 		[interp, interp.render_dom_to_html(instance)]
 	end
@@ -13,7 +14,7 @@ class Dom_Test < Base_Test
 	# Invokes a registered onclick handler the way a POST DOM_EVENT_URL/<token> does, minus the HTTP layer.
 	def fire interp, token
 		route             = Code::Route.new
-		route.callback    = interp.dom_onclick_function_callbacks.fetch(token).callback
+		route.callback    = interp.live_page_instances['test'].callbacks.fetch(token).callback
 		route.param_names = []
 		req = interp.build_prog_request "#{Code::DOM_EVENT_URL}/#{token}", 'post', {}, {}, {}, {}
 		res = interp.build_prog_response Struct.new(:status, :body).new
@@ -42,10 +43,10 @@ class Dom_Test < Base_Test
 
 		assert_equal html1, html2
 		assert_equal html2, html3
-		assert_includes html1, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"panel-0\""
-		assert_includes html1, "#{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"panel-1\""
-		assert_equal 1, interp.dom_onclick_function_callbacks.size, 'handler map must not grow across re-renders'
-		assert_equal 1, interp.dom_input_elements.size
+		assert_includes html1, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-panel-0\""
+		assert_includes html1, "#{Code::DOM_ATTRIBUTE_PREFIX}-on-server-read=\"test-panel-1\""
+		assert_equal 1, interp.live_page_instances['test'].callbacks.size, 'handler map must not grow across re-renders'
+		assert_equal 1, interp.live_page_instances['test'].inputs.size
 	end
 
 	def test_token_namespace_is_anchored_by_the_nearest_html_id
@@ -61,8 +62,8 @@ class Dom_Test < Base_Test
 		    }
 		    Outer()
 		CODE
-		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"outer-0\""
-		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"inner-0\""
+		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-outer-0\""
+		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-inner-0\""
 	end
 
 	def test_handler_defined_in_render_still_works_after_re_render
@@ -80,7 +81,7 @@ class Dom_Test < Base_Test
 		    Counter()
 		CODE
 		counter = interp.last_output
-		token   = interp.dom_onclick_function_callbacks.keys.first
+		token   = interp.live_page_instances['test'].callbacks.keys.first
 
 		3.times do
 			fire interp, token
@@ -110,11 +111,11 @@ class Dom_Test < Base_Test
 		    List()
 		CODE
 		list  = interp.last_output
-		entry = interp.dom_onclick_function_callbacks.fetch('list-hit-2')
+		entry = interp.live_page_instances['test'].callbacks.fetch('test-list-hit-2')
 
 		assert_equal list.object_id, entry.target.object_id, 'recorded target is the html_id-bearing List, not the Li and not nil'
 
-		fire interp, 'list-hit-2'
+		fire interp, 'test-list-hit-2'
 		assert_includes interp.render_dom_to_html(list), 'total: 2', 'the handler reached `total` on the enclosing target through the map callback'
 	end
 
@@ -142,10 +143,10 @@ class Dom_Test < Base_Test
 		CODE
 		picker = interp.last_output
 
-		fire interp, 'picker-b'
+		fire interp, 'test-picker-b'
 		assert_includes interp.render_dom_to_html(picker), 'picked: x-b'
 
-		fire interp, 'picker-a'
+		fire interp, 'test-picker-a'
 		assert_includes interp.render_dom_to_html(picker), 'picked: x-a'
 	end
 
@@ -171,7 +172,7 @@ class Dom_Test < Base_Test
 		CODE
 		picker = interp.last_output
 
-		fire interp, 'picker-a'
+		fire interp, 'test-picker-a'
 		assert_includes interp.render_dom_to_html(picker), 'picked: x-a'
 	end
 
@@ -191,8 +192,8 @@ class Dom_Test < Base_Test
 		    }
 		    Page()
 		CODE
-		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"page-first\""
-		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"page-0\"", 'the unkeyed sibling keeps slot 0 -- a key must not advance the counter'
+		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-page-first\""
+		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-page-0\"", 'the unkeyed sibling keeps slot 0 -- a key must not advance the counter'
 	end
 
 	# --- #3  Dom constructor named arguments (whitelisted) ---
@@ -218,8 +219,8 @@ class Dom_Test < Base_Test
 		    }
 		    Page()
 		CODE
-		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"p-go\""
-		refute_nil interp.dom_onclick_function_callbacks['p-go']
+		assert_includes html, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick=\"test-p-go\""
+		refute_nil interp.live_page_instances['test'].callbacks['test-p-go']
 	end
 
 	def test_non_whitelisted_named_arg_on_a_dom_type_still_raises
