@@ -1,4 +1,4 @@
-// Browser side of hot reload. Injected into every HTML response (right after dom.js) ONLY when
+// Browser side of hot reload. Injected into every HTML response (right after live_reload.js) ONLY when
 // the server runs under Hot_Reloader -- see Interpreter#hot_reload. Talks to the matching
 // hot-reload endpoint (DOM_HOT_RELOAD_URL, filled in by the server) mounted in Interpreter#start_server.
 //

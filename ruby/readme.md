@@ -32,7 +32,7 @@ Source code moves through five steps, in this order:
 
 - **`lang/`** — the `.code` files that ship with the language. This is the standard library. See the readme file in that folder.
 - **`proxies/`** — the Ruby class behind each built-in `.code` type. `proxies/array.rb` is the Ruby half of `lang/array.code`. An `@ruby` proxy method in a `.code` file calls into this class.
-- **`shared/`** — small pieces that many files need: constants, naming-convention helpers, ASCII art, the `@ruby` proxy helper, the error formatter, the DOM renderer, the hot reloader, and the browser assets (`dom.js`, `hot_reload.js`, `view_transition.css`).
+- **`shared/`** — small pieces that many files need: constants, naming-convention helpers, ASCII art, the `@ruby` proxy helper, the error formatter, the DOM renderer, the hot reloader, and the browser assets (`live_reload.js`, `hot_reload.js`, `view_transition.css`).
 
 The sibling folder [`../examples`](../examples) holds runnable `.code` examples, one per language feature.
 

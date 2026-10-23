@@ -16,7 +16,7 @@ module Code
 		# Resolved filepaths whose AST has already passed type-checking at least once, kept class-level alongside the cache above. Type-checking is a pure function of the AST (no interpreter state involved) -- a cached, never-changing file that already passed once will always pass, so re-walking it on every subsequent load is pure waste, same as re-parsing was.
 		cache_by_path :type_checked_filepaths # {filepath: true}
 
-		# Raw source of runtime assets injected into every matching response (dom.js, view_transition.css) -- not Code source, so it never goes through the lex/parse caches above. Kept class-level for the same reason: identical for every Interpreter in the process, so re-reading from prog on every request is pure waste.
+		# Raw source of runtime assets injected into every matching response (live_reload.js, view_transition.css) -- not Code source, so it never goes through the lex/parse caches above. Kept class-level for the same reason: identical for every Interpreter in the process, so re-reading from prog on every request is pure waste.
 		cache_by_path :cached_asset_source_by_path # {filepath: String}
 
 		class << self
@@ -1095,7 +1095,7 @@ module Code
 							return
 						end
 
-						# A handler that returns HTML (a String, or a Dom element) with an id on its root element replaces only that element. #interp_route_body already stored the HTML in `res`, so it is not rendered again. An Array is left out: dom.js would replace its first element with all of them.
+						# A handler that returns HTML (a String, or a Dom element) with an id on its root element replaces only that element. #interp_route_body already stored the HTML in `res`, so it is not rendered again. An Array is left out: live_reload.js would replace its first element with all of them.
 						html_result = result.is_a?(::String) || (result.is_a?(Code::Instance) && result.types.include?('Dom'))
 						html        = res.declarations['body'] if html_result
 						root_id     = html && html[HTML_ROOT_ID_REGEX, 1]
@@ -1125,7 +1125,7 @@ module Code
 					warn "[Code] unknown click token #{clicked_token}: the server may have restarted, so the page runs again"
 				end
 
-				# Nothing replied yet: the handler returned no HTML with a root id, or the token is unknown. Turn the click into a GET of the page it came from, and let the route match below reply with the full page. Without a page path (an old dom.js, or a request made by hand), the click falls through to a 404, as before.
+				# Nothing replied yet: the handler returned no HTML with a root id, or the token is unknown. Turn the click into a GET of the page it came from, and let the route match below reply with the full page. Without a page path (an old live_reload.js, or a request made by hand), the click falls through to a 404, as before.
 				page_path = json_body['path']
 				if page_path.is_a?(::String) && page_path.start_with?('/')
 					path_string  = page_path
@@ -1168,17 +1168,19 @@ module Code
 					if response.body.to_s =~ /<html|<body|<head/i
 						response.body.prepend "<!DOCTYPE html>"
 
-						# dom.js began as a Ruby string, so it still names its cookie `#{DOM_BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds. `#{DOM_ATTRIBUTE_PREFIX}`, `#{DOM_TARGET_ID_HEADER}` and `#{DOM_EVENT_URL}` are filled in the same way, so each name stays in one constant.
-						dom_js = self.class.cached_asset_source_by_path['ruby/shared/dom.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/dom.js')).gsub('#{DOM_BROWSER_VIEW_SIZE}', DOM_BROWSER_VIEW_SIZE).gsub('#{DOM_ATTRIBUTE_PREFIX}', DOM_ATTRIBUTE_PREFIX).gsub('#{DOM_TARGET_ID_HEADER}', DOM_TARGET_ID_HEADER).gsub('#{DOM_EVENT_URL}', DOM_EVENT_URL)
+						# live_reload.js began as a Ruby string, so it still names its cookie `#{DOM_BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds. `#{DOM_ATTRIBUTE_PREFIX}`, `#{DOM_TARGET_ID_HEADER}` and `#{DOM_EVENT_URL}` are filled in the same way, so each name stays in one constant.
+						live_reload_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/live_reload.js')).gsub('#{DOM_BROWSER_VIEW_SIZE}', DOM_BROWSER_VIEW_SIZE).gsub('#{DOM_ATTRIBUTE_PREFIX}', DOM_ATTRIBUTE_PREFIX).gsub('#{DOM_TARGET_ID_HEADER}', DOM_TARGET_ID_HEADER).gsub('#{DOM_EVENT_URL}', DOM_EVENT_URL)
 
-						script_tag          = "<script>#{dom_js}</script>"
+						# Idiomorph morphs a reply into the page, and live_reload.js calls it, so it comes first.
+						idiomorph_js        = self.class.cached_asset_source_by_path['ruby/shared/3rd/idiomorph.min.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/3rd/idiomorph.min.js'))
+						script_tag          = "<script>#{idiomorph_js}</script><script>#{live_reload_js}</script>"
 						view_transition_css = self.class.cached_asset_source_by_path['ruby/shared/view_transition.css'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/view_transition.css'))
 						view_transition_tag = "<style>#{view_transition_css}</style>"
 
 						# Only present under Hot_Reloader -- pairs with the hot-reload endpoint (DOM_HOT_RELOAD_URL).
 						hot_reload_tag = if hot_reload
-							lr_js = self.class.cached_asset_source_by_path['ruby/shared/hot_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/hot_reload.js')).gsub('#{DOM_HOT_RELOAD_URL}', DOM_HOT_RELOAD_URL)
-							"<script>#{lr_js}</script>"
+							hot_reload_js = self.class.cached_asset_source_by_path['ruby/shared/hot_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/hot_reload.js')).gsub('#{DOM_HOT_RELOAD_URL}', DOM_HOT_RELOAD_URL)
+							"<script>#{hot_reload_js}</script>"
 						else
 							''
 						end

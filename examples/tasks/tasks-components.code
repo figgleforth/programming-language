@@ -77,7 +77,7 @@ Single_Task_Page + Div {
 			radio      := Radio(html_name := 'type', html_value := it, html_checked := it == task.type)
 			type_value := Task_Type.@values.get(at)
 
-			# dom.js sends the checked state of every radio in the group, so each one's value is true or false
+			# live_reload.js sends the checked state of every radio in the group, so each one's value is true or false
 			radio.onclick = (;
 				if radio.value == true
 					tasks_table.update(task.id, <type := type_value>)

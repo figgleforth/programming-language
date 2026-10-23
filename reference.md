@@ -1737,7 +1737,7 @@ edit_page ( tasks, task;
 )
 ```
 
-A renderer of your own writes the same attributes. The page needs its `<html>` or `<body>` tag, because the server adds `dom.js` only to a whole page:
+A renderer of your own writes the same attributes. The page needs its `<html>` or `<body>` tag, because the server adds `live_reload.js` only to a whole page:
 
 ```code
 count := 0

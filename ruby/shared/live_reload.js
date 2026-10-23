@@ -5,6 +5,19 @@
 		window.location = ''
 	}
 
+	// Idiomorph (ruby/shared/3rd/, loaded before this file) keeps the elements that are already on the page and changes only what differs, so focus, the cursor, typed text and scroll stay.
+	// ignoreActiveValue: the input that has the focus keeps the value that the user is typing.
+	const MORPH = { morphStyle: 'outerHTML', ignoreActiveValue: true }
+
+	// Animates from the old view to the new one, where the browser can.
+	function with_transition(update) {
+		if (document.startViewTransition) {
+			document.startViewTransition(update)
+		} else {
+			update()
+		}
+	}
+
 	document.addEventListener('click', async (event) => {
 		// The server fills in the DOM_ATTRIBUTE_PREFIX, DOM_TARGET_ID_HEADER and DOM_EVENT_URL placeholders (constants.rb) when it reads this file.
 		const element = event.target.closest('a[href], button, input:not([type="hidden"]), select, textarea, summary, [#{DOM_ATTRIBUTE_PREFIX}-onclick]')
@@ -53,21 +66,12 @@
 			console.error(`${url}: ${response.status}`)
 		}
 
-		// Animates from the old view to the new one, where the browser can.
-		function with_transition(update) {
-			if (document.startViewTransition) {
-				document.startViewTransition(update)
-			} else {
-				update()
-			}
-		}
-
 		// 1. The reply names an element: it is that element's new HTML.
 		const target_id = response.headers.get('#{DOM_TARGET_ID_HEADER}')
 		if (target_id) {
 			const target = document.getElementById(target_id)
 			if (target) {
-				with_transition(() => { target.outerHTML = html })
+				with_transition(() => Idiomorph.morph(target, html, MORPH))
 			} else {
 				// The reply is only one element, so it cannot stand in for the page. Load the page again instead.
 				console.warn(`no element with id "${target_id}" on this page`)
@@ -76,20 +80,20 @@
 			return
 		}
 
-		// The reply is a full page. A script in it does not run, so dom.js does not add its listener a second time.
+		// The reply is a full page. A script in it does not run, so live_reload.js does not add its listener a second time.
 		const doc = new DOMParser().parseFromString(html, 'text/html')
 
-		// 2. The clicked element names an element to replace: take it from the new page.
+		// 2. The clicked element names an element to replace: morph it into the same element from the new page.
 		const fresh = replacement_target_id && doc.getElementById(replacement_target_id)
 		const current = replacement_target_id && document.getElementById(replacement_target_id)
 		if (fresh && current) {
-			with_transition(() => current.replaceWith(fresh))
+			with_transition(() => Idiomorph.morph(current, fresh, MORPH))
 			return
 		}
 
-		// 3. Replace <body>. Setting outerHTML on <html> is not allowed in a browser.
+		// 3. Morph <body> into the new page's <body>.
 		with_transition(() => {
-			document.body.replaceWith(doc.body)
+			Idiomorph.morph(document.body, doc.body, MORPH)
 			if (doc.title) document.title = doc.title
 		})
 	})
