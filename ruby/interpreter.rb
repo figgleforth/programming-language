@@ -1096,7 +1096,7 @@ module Code
 						# A handler that returns HTML (a String, or a Dom element) with an id on its root element replaces only that element. #interp_route_body already stored the HTML in `res`, so it is not rendered again. An Array is left out: dom.js would replace its first element with all of them.
 						html_result = result.is_a?(::String) || (result.is_a?(Code::Instance) && result.types.include?('Dom'))
 						html        = res.declarations['body'] if html_result
-						root_id     = html && html[/\A\s*<[a-zA-Z][^>]*\sid="([^"]+)"/, 1]
+						root_id     = html && html[HTML_ROOT_ID_REGEX, 1]
 						if root_id
 							response.status                = 200
 							response['Content-Type']       = 'text/html'

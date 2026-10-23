@@ -67,6 +67,7 @@ module Code
 	ALPHA_REGEX                       = /\A\p{Alpha}+\z/
 	ALPHANUMERIC_REGEX                = /\A\p{Alnum}+\z/
 	SYMBOLIC_REGEX                    = /\A[^\p{Alnum}\s]+\z/
+	HTML_ROOT_ID_REGEX                = /\A\s*<[a-zA-Z][^>]*\sid="([^"]+)"/ # group 1: the id on the first tag of an HTML String, its root element (a click reply replaces that element)
 	HEX_DIGITS                        = '0123456789abcdef'
 
 	# It's been a while, but I believe this RESERVED list must be maintained. The other declarations above are helpers for comparisons while this contains every reserved symbols and identifiers.

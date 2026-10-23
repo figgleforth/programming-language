@@ -4,6 +4,8 @@ require_relative 'base_test'
 
 # The DOM_ constants in constants.rb go into URLs, CSS selectors, HTTP headers, cookies and JavaScript strings without escaping, so each one must match its rule in DOM_CONSTANT_RULES.
 class Validation_Test < Base_Test
+	PLACEHOLDER_REGEX = /#\{(\w+)\}/ # group 1: the NAME in a #{NAME} placeholder that the server fills in
+
 	def test_each_dom_constant_matches_its_rule
 		Code::DOM_CONSTANT_RULES.each do |name, rule|
 			assert_match rule, Code.const_get(name), "#{name} breaks its rule in DOM_CONSTANT_RULES"
@@ -20,7 +22,7 @@ class Validation_Test < Base_Test
 		%w(ruby/shared/dom.js ruby/shared/live_reload.js).each do |path|
 			source = ::File.read ::File.join(Code::ROOT_PATH, path)
 
-			source.scan(/#\{(\w+)\}/).flatten.uniq.each do |name|
+			source.scan(PLACEHOLDER_REGEX).flatten.uniq.each do |name|
 				assert Code.const_defined?(name), "#{path} has the placeholder \#{#{name}}, but no constant has that name"
 			end
 		end
