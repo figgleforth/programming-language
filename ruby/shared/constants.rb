@@ -1,7 +1,7 @@
 module Code
 	DOM_CONSTRUCTOR_PROP_NAMES        = %w(onclick key)
 	DOM_CONSTRUCTOR_PROP_PREFIXES     = %w(html_ css_)
-	DOM_ATTRIBUTE_PREFIX              = 'data-prog' # starts each attribute that the runtime writes and dom.js reads (<prefix>-onclick, <prefix>-on-server-read)
+	DOM_ATTRIBUTE_PREFIX              = 'data-runtime' # starts each attribute that the runtime writes and dom.js reads (<prefix>-onclick, <prefix>-on-server-read)
 	DOM_TARGET_ID_HEADER              = 'X-Code-Target-Id' # a click reply's header that names the element dom.js replaces
 	DOM_BROWSER_VIEW_SIZE             = 'browser_view_size'
 	DOM_NAMESPACE                     = '_runtime' # the URL namespace of the runtime's own paths (DOM_EVENT_URL, DOM_LIVE_RELOAD_URL)

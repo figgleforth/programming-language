@@ -87,11 +87,14 @@ class E2E_Server_Test < Minitest::Test
 		@interpreter.start_server @server_runner
 	end
 
-	# Sends a click the way dom.js does: POST DOM_EVENT_URL/<token>, with the input values as JSON.
-	def click token, inputs
+	# Sends a click the way dom.js does: POST DOM_EVENT_URL/<token>, with the input values as JSON. `path` and `query` name the page the click came from; leave them out to send a click without them.
+	def click token, inputs, path: nil, query: nil
+		body         = { inputs: inputs }
+		body[:path]  = path if path
+		body[:query] = query if query
 		uri          = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/#{token}")
 		request      = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json'
-		request.body = JSON.generate({ inputs: inputs })
+		request.body = JSON.generate body
 		Net::HTTP.start(uri.host, uri.port) { it.request request }
 	end
 
@@ -233,7 +236,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'Buy milk', saved.body
 	end
 
-	# t5b: the reply is only that HTML, and the header names its root id, so dom.js replaces that one element.
+	# the reply is only that HTML, and the header names its root id, so dom.js replaces that one element.
 	def test_handler_that_returns_html_with_a_root_id_replaces_that_element
 		start_app <<~CODE
 		    @load 'lang/server'
@@ -261,6 +264,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal '200', reply.code
 		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
 		assert_equal '<ul id="list"><li>a</li><li>b</li></ul>', reply.body
+		assert_equal({ element_namespace: 'static', next_slot: 0 }, @interpreter.render_token_counter)
 	end
 
 	# A Dom element from lang/html.code is HTML too. It is rendered once, by #interp_route_body.
@@ -287,7 +291,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal '<ul id="list"></ul>', reply.body
 	end
 
-	# A record, a number, or HTML with no id on its root element replaces nothing. t5c sends the full page for these.
+	# A record, a number, or HTML with no id on its root element replaces nothing.
 	def test_handler_that_returns_no_html_with_a_root_id_replaces_nothing
 		start_app <<~CODE
 		    @load 'lang/server'
@@ -312,6 +316,126 @@ class E2E_Server_Test < Minitest::Test
 		%w(page_-0 page_-1 page_-2).each do |token|
 			assert_nil click(token, {})[Code::DOM_TARGET_ID_HEADER], "#{token} must not replace an element"
 		end
+	end
+
+	# a handler that returns no HTML with a root id gets the full page back, run again with the new state.
+	def test_click_with_no_html_reply_sends_the_full_page_again
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    items := []
+		    draft := ''
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		read_token  := @on_server_read((value; draft = value))
+		    		click_token := @onclick((; items.push(draft)))
+		    		"<html><body>`read_token` `click_token` items: `items.join(',')`</body></html>"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		assert_includes page.body, 'page_-0 page_-1 items: </body>'
+
+		reply = click 'page_-1', { 'page_-0' => 'Buy milk' }, path: '/', query: ''
+
+		assert_equal '200', reply.code
+		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page'
+		assert_includes reply.body, 'page_-0 page_-1 items: Buy milk</body>' # the same tokens, and the new state
+		assert_nil reply[Code::DOM_TARGET_ID_HEADER]
+	end
+
+	# The page path and query in the click body choose the route that runs again, as a GET.
+	def test_click_fallback_runs_the_route_of_the_page_it_came_from
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		'the home page'
+		    	)
+
+		    	get://tasks/:id (id;
+		    		click_token := @onclick((; 1 ))
+		    		"<html><body>`click_token` task `id` sort `request.query[:sort]` `request.method`</body></html>"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page = Net::HTTP.get_response URI("http://localhost:#{@port}/tasks/3?sort=new")
+		assert_includes page.body, 'page_tasks_3-0 task 3 sort new'
+
+		reply = click 'page_tasks_3-0', {}, path: '/tasks/3', query: 'sort=new'
+
+		assert_includes reply.body, 'page_tasks_3-0 task 3 sort new get</body>'
+	end
+
+	# Without a page path (an old dom.js, or a request made by hand), the click still ends in a 404.
+	def test_click_without_a_page_path_still_gives_a_404
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		@onclick((; 1 ))
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		assert_equal '404', click('page_-0', {}).code
+
+		# An empty body, or one that is not a JSON object, counts as {}: the handler runs, and the reply is a 404, not a 500.
+		['', '[1, 2]', 'not json'].each do |body|
+			uri          = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/page_-0")
+			request      = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json'
+			request.body = body
+			reply        = Net::HTTP.start(uri.host, uri.port) { it.request request }
+			assert_equal '404', reply.code, "body #{body.inspect}"
+		end
+	end
+
+	# after a restart the server does not know an open page's tokens. It sends the page again, so the page gets new tokens.
+	def test_click_with_an_unknown_token_sends_the_full_page_again
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		click_token := @onclick((; 1 ))
+		    		"<html><body>`click_token`</body></html>"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		reply = nil
+		_, err = capture_subprocess_io do
+			reply = click 'page_-999', {}, path: '/'
+		end
+
+		assert_equal '200', reply.code
+		assert reply.body.start_with?('<!DOCTYPE html>'), 'the reply is a full page'
+		assert_includes reply.body, '</style>page_-0</body>' # the page ran again, with a new token
+		assert_includes err, 'unknown click token page_-999'
+
+		assert_equal '404', click('page_-999', {}).code, 'without a page path, an unknown token is still a 404'
 	end
 
 	def test_server_starts_and_responds

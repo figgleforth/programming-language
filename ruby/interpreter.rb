@@ -1043,24 +1043,26 @@ module Code
 				# every real click 404'd: the truncated id never matched anything actually registered).
 				clicked_token = path_parts.last
 				entry         = dom_onclick_function_handlers[clicked_token]
+
+				# Parsed before `if entry`, so a click with an unknown token can still read the page path below. A body that is empty, or not a JSON object, counts as {}.
+				json_body = (JSON.parse request.body rescue {}) if request.body && !request.body.empty?
+				json_body = {} unless json_body.is_a? ::Hash
+
 				if entry
 					begin
-						if request.body && !request.body.empty?
-							json_body = JSON.parse request.body rescue {}
-							inputs = json_body['inputs'] || {}
-							inputs.each do |element_id, value|
-								case input = dom_input_elements[element_id]
-								when Code::Func
-									# note; A <select multiple> gives an Array
-									value               = wrap_prog_array(value) if value.is_a?(::Array)
-									call_expr           = Code::Call_Expr.new
-									call_expr.receiver  = input
-									call_expr.arguments = []
-									# A closure with no param, `(; ...)`, runs without the value.
-									interp_func_body input, call_expr, arg_values: input.parameters.empty? ? [] : [value]
-								when Code::Instance
-									input.declare 'value', value
-								end
+						inputs = json_body['inputs'] || {}
+						inputs.each do |element_id, value|
+							case input = dom_input_elements[element_id]
+							when Code::Func
+								# note; A <select multiple> gives an Array
+								value               = wrap_prog_array(value) if value.is_a?(::Array)
+								call_expr           = Code::Call_Expr.new
+								call_expr.receiver  = input
+								call_expr.arguments = []
+								# A closure with no param, `(; ...)`, runs without the value.
+								interp_func_body input, call_expr, arg_values: input.parameters.empty? ? [] : [value]
+							when Code::Instance
+								input.declare 'value', value
 							end
 						end
 
@@ -1076,8 +1078,8 @@ module Code
 							next_slot:         0
 						}
 
-						result = interp_route_body route, req, res # note; This runs the handler, and its value is read after the target block below. It's important that you/I leave this call as is. I don't remember why I made things this way.
-						
+						result = interp_route_body route, req, res # note; This runs the handler. It stays before the target block below, because that block renders the state after the click; the block also comes first so that a Dom-path click keeps its old reply, whatever its handler returns.
+
 						# The target to re-render was recorded when the handler's token was minted, during the render walk (#add_onclick_handler) -- no scope-chain reconstruction needed, so a handler defined in a `.map` callback or a plain helper works the same as one in a method.
 						target = entry[:target]
 						if target.is_a?(Code::Instance) && target.declarations['render']
@@ -1112,7 +1114,23 @@ module Code
 						response.status = 500
 						response.body   = "Internal Server Error\n#{plain_message}"
 						return
+					ensure
+						# Outside the handler, a token is static again (the route below sets the page's own namespace).
+						self.render_token_counter = { element_namespace: 'static', next_slot: 0 }
 					end
+				else
+					# After a restart (a hot reload), an open page still has the old tokens.
+					warn "[Code] unknown click token #{clicked_token}: the server may have restarted, so the page runs again"
+				end
+
+				# Nothing replied yet: the handler returned no HTML with a root id, or the token is unknown. Turn the click into a GET of the page it came from, and let the route match below reply with the full page. Without a page path (an old dom.js, or a request made by hand), the click falls through to a 404, as before.
+				page_path = json_body['path']
+				if page_path.is_a?(::String) && page_path.start_with?('/')
+					path_string  = page_path
+					query_string = json_body['query'].is_a?(::String) ? json_body['query'] : nil
+					path_parts   = path_string.split('/').reject { _1.empty? }
+					http_method  = 'get'
+					body_hash    = {}
 				end
 			end
 
