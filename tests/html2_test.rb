@@ -45,6 +45,17 @@ class Html2_Test < Base_Test
 		assert_equal "<div>\n  <p>one</p>\n</div>", out
 	end
 
+	# The browser keeps a new line inside a textarea or a pre as text, so the pretty form adds none there.
+	def test_render_keeps_whitespace_tags_compact_pretty
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(div([textarea([]), pre([span('a'), 'b'])]))"
+		assert_equal "<div>\n  <textarea></textarea>\n  <pre><span>a</span>b</pre>\n</div>", out
+	end
+
+	def test_render_an_element_with_no_children_on_one_line_pretty
+		out = Code.interp "#{HTML}\nHtml_Formatter.render(div([]))"
+		assert_equal '<div></div>', out
+	end
+
 	def test_render_attributes_preserve_call_order
 		out = Code.interp "#{HTML}\nHtml_Renderer.render(div('x', [Attribute('id', 'a'), Attribute('class', 'b')]))"
 		assert_equal '<div id="a" class="b">x</div>', out

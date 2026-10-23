@@ -42,6 +42,9 @@ Html_Formatter_Visitor {
 	# The text inside these is JavaScript or CSS, not HTML, so it is never escaped.
 	RAW_TEXT_TAGS := %string(script style)
 
+	# The browser keeps each space and new line inside these as text, so the pretty form writes their content compact.
+	WHITESPACE_TAGS := %string(pre textarea)
+
 	Self ( indent_size: Int = DEFAULT_INDENT, minify: Bool = false;
 		self.indent_size = indent_size
 		self.minify = minify
@@ -88,6 +91,13 @@ Html_Formatter_Visitor {
 		elif self.minify
 			inner := full_children.map(c; render(c, raw := raw_text)).join("")
 			"<`el.tag``attrs`>`inner`</`el.tag`>"
+		elif full_children.length() == 0
+			# No children: one line, so an empty element gets no new line inside.
+			"`pad`<`el.tag``attrs`></`el.tag`>"
+		elif self.WHITESPACE_TAGS.include?(el.tag)
+			compact := Html_Formatter_Visitor(indent_size := self.indent_size, minify := true)
+			inner   := full_children.map(c; compact.render(c)).join("")
+			"`pad`<`el.tag``attrs`>`inner`</`el.tag`>"
 		elif el.tag == "style" and full_children.length() == 1 and !(full_children.0 === Element)
 			# An embedded stylesheet -- block layout, its formatted CSS indented one level past the tag. The lone child is either already-formatted CSS text or a raw css.code node to format now.
 			css_text := if full_children.0 === String

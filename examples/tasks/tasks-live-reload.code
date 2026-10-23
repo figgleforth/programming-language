@@ -62,7 +62,6 @@ render_tasks_page ( tasks_table: Table -> String;
 	page_body := body([h1("Tasks"), new_text, add_button, task_list(tasks_table)], [])
 	page      := html([head(title("Tasks")), page_body], [], INVERT_FILTER)
 
-	# Compact, not Html_Formatter: the pretty form puts new lines inside an empty <textarea>, and the browser keeps them as its text.
 	Html_Renderer.render(page)
 )
 
