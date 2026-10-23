@@ -2051,8 +2051,13 @@ class Interpreter_Test < Base_Test
 		assert_instance_of Code::Route, out
 		assert_equal 'get', out.http_method.value
 		assert_equal 'some/thing/:id', out.path
-		assert_equal 1, out.callback.parameters.count
-		assert_equal 1, out.callback.expressions.count
+		assert_equal 1, out.parameters.count
+		assert_equal 1, out.expressions.count
+		refute_nil out.lexical_stack, 'a Route is its function: it has the same members'
+	end
+
+	def test_a_route_prints_its_method_and_path
+		assert_equal '#<Code::Route get://tasks/:id name=nil declarations=[]>', Code.interp('get://tasks/:id ( id; id )').to_s
 	end
 
 	def test_html_element

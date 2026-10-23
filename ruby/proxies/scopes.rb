@@ -212,7 +212,21 @@ module Code
 	end
 
 	class Route < Func
-		attr_accessor :http_method, :path, :callback, :parts, :param_names
+		attr_accessor :http_method, :path, :parts, :param_names
+
+		# A Route is the function that answers it, plus the request it answers. This copies the function's own members, so the route runs the same body, with the same params, on the same scopes.
+		def self.from_func func
+			route      = new
+			route.name = func.name
+			%i(expressions parameters func_signature func_expr lexical_stack enclosing_scope).each do |member|
+				route.send "#{member}=", func.send(member)
+			end
+			route
+		end
+
+		def to_s
+			"#<#{self.class.name} #{http_method&.value}://#{path} name=#{@name.inspect} declarations=#{@declarations.keys.inspect}>"
+		end
 	end
 
 	class Any < Scope

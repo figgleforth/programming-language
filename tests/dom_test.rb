@@ -13,8 +13,7 @@ class Dom_Test < Base_Test
 
 	# Invokes a registered onclick handler the way a POST DOM_EVENT_URL/<token> does, minus the HTTP layer.
 	def fire interp, token
-		route             = Code::Route.new
-		route.callback    = interp.live_page_instances['test'].callbacks.fetch(token).callback
+		route             = Code::Route.from_func interp.live_page_instances['test'].callbacks.fetch(token).callback
 		route.param_names = []
 		req = interp.build_prog_request "#{Code::DOM_EVENT_URL}/#{token}", 'post', {}, {}, {}, {}
 		res = interp.build_prog_response Struct.new(:status, :body).new

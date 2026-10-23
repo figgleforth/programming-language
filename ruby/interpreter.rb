@@ -1100,8 +1100,7 @@ module Code
 							end
 						end
 
-						route             = Code::Route.new
-						route.callback    = entry.callback
+						route             = Code::Route.from_func entry.callback
 						route.param_names = []
 
 						req = build_prog_request path_string, http_method, body_hash, parse_query_string(query_string), {}, headers_hash
@@ -2896,7 +2895,7 @@ module Code
 
 			case receiver
 			when Code::Route
-				interp_func_body receiver.callback, expr
+				interp_func_body receiver, expr
 
 			when Code::Func
 				# A synthesized Context function stand-in (`@puts`, `@push_scope`, ...) -- route to the
@@ -3991,14 +3990,11 @@ module Code
 		def interp_route expr
 			func = interpret expr.expression
 
-			route                 = Code::Route.new
-			route.name            = func.name
-			route.enclosing_scope = stack.last
-			route.callback         = func
-			route.http_method     = expr.http_method
-			route.path            = expr.path
-			route.path            = route.path[1..] if route.path.start_with? '/'
-			route.param_names     = expr.param_names || []
+			route             = Code::Route.from_func func
+			route.http_method = expr.http_method
+			route.path        = expr.path
+			route.path        = route.path[1..] if route.path.start_with? '/'
+			route.param_names = expr.param_names || []
 
 			route.parts = route.path.split('/').reject do
 				_1.empty?
@@ -4053,14 +4049,13 @@ module Code
 		end
 
 		def interp_route_body route, req, res, url_params = {}, server_instance: nil
-			callback = route.callback
-			params   = callback.parameters
+			params = route.parameters
 
 			# A closure (an onclick callback) runs on the scopes where it was written, the same as in #interp_func_body, so it sees the names of a `for` loop and of the function around it. A method keeps the enclosing_scope walk below, as #interp_func_body uses #lexical_chain for it.
-			lexical = callback.lexical_stack && !callback.enclosing_scope.is_a?(Code::Type)
+			lexical = route.lexical_stack && !route.enclosing_scope.is_a?(Code::Type)
 			if lexical
 				saved_stack = stack
-				self.stack  = callback.lexical_stack.map { it }
+				self.stack  = route.lexical_stack.map { it }
 			else
 				# A closure built inside a nested call (e.g. `btn.onclick = (;...)` written inside a type's
 				# own `Self(;)`) has `.enclosing_scope` pointing at that call's own transient frame, not the
@@ -4072,16 +4067,16 @@ module Code
 				# field the closure references (an onclick referencing another field on the same instance)
 				# raises Undeclared_Identifier on every invocation after the one that originally built it.
 				outer_chain = []
-				scope       = callback.enclosing_scope&.enclosing_scope
+				scope       = route.enclosing_scope&.enclosing_scope
 				while scope && !stack.any? { |s| s.equal? scope }
 					outer_chain << scope
 					scope = scope.enclosing_scope
 				end
 				outer_chain.reverse_each { |s| push_scope s }
-				push_scope callback.enclosing_scope
+				push_scope route.enclosing_scope
 			end
 
-			call_scope = Code::Scope.new "#{callback.name || 'anonymous'}_route"
+			call_scope = Code::Scope.new "#{route.name || 'anonymous'}_route"
 			push_scope server_instance if server_instance
 			push_scope call_scope
 
@@ -4114,7 +4109,7 @@ module Code
 				call_scope.declare param.name.value, value
 			end
 
-			body   = callback.expressions
+			body   = route.expressions
 			result = nil
 
 			body.compact.each do |expr|
@@ -4156,7 +4151,7 @@ module Code
 				end
 
 				popped_enclosing = pop_scope
-				Code.assert popped_enclosing == callback.enclosing_scope
+				Code.assert popped_enclosing == route.enclosing_scope
 
 				outer_chain.each { pop_scope }
 			end
