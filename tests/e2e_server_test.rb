@@ -233,6 +233,87 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'Buy milk', saved.body
 	end
 
+	# t5b: the reply is only that HTML, and the header names its root id, so dom.js replaces that one element.
+	def test_handler_that_returns_html_with_a_root_id_replaces_that_element
+		start_app <<~CODE
+		    @load 'lang/server'
+		    @load 'lang/html2'
+
+		    items := ['a']
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		@onclick((;
+		    			items.push('b')
+		    			Html_Render.render(ul(items.map((it; li(it))), [Attribute('id', 'list')]))
+		    		))
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		reply = click 'page_-0', {}
+
+		assert_equal '200', reply.code
+		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
+		assert_equal '<ul id="list"><li>a</li><li>b</li></ul>', reply.body
+	end
+
+	# A Dom element from lang/html.code is HTML too. It is rendered once, by #interp_route_body.
+	def test_handler_that_returns_a_dom_element_with_an_id_replaces_that_element
+		start_app <<~CODE
+		    @load 'lang/server'
+		    @load 'lang/html'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		@onclick((; Ul(html_id := 'list') ))
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		reply = click 'page_-0', {}
+
+		assert_equal 'list', reply[Code::DOM_TARGET_ID_HEADER]
+		assert_equal '<ul id="list"></ul>', reply.body
+	end
+
+	# A record, a number, or HTML with no id on its root element replaces nothing. t5c sends the full page for these.
+	def test_handler_that_returns_no_html_with_a_root_id_replaces_nothing
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		number_token  := @onclick((; 5 ))
+		    		no_id_token   := @onclick((; '<li>a</li><li id="b">b</li>' ))
+		    		deeper_token  := @onclick((; '<ul><li id="b">b</li></ul>' ))
+		    		"`number_token` `no_id_token` `deeper_token`"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		assert_equal 'page_-0 page_-1 page_-2', page.body
+
+		%w(page_-0 page_-1 page_-2).each do |token|
+			assert_nil click(token, {})[Code::DOM_TARGET_ID_HEADER], "#{token} must not replace an element"
+		end
+	end
+
 	def test_server_starts_and_responds
 		code = <<~CODE
 		    Server {

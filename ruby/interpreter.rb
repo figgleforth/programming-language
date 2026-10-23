@@ -1038,11 +1038,11 @@ module Code
 			puts req_info
 
 			if path_string.start_with?("#{DOM_EVENT_URL}/")
-				# object_id/element_id are string tokens (`"<element_namespace>-<slot>"`, see #next_render_token), not
+				# clicked_token/element_id are string tokens (`"<element_namespace>-<slot>"`, see #next_render_token), not
 				# integers -- no `.to_i` (that silently truncated a token down to its leading digits, so
 				# every real click 404'd: the truncated id never matched anything actually registered).
-				object_id = path_parts.last
-				entry     = dom_onclick_function_handlers[object_id]
+				clicked_token = path_parts.last
+				entry         = dom_onclick_function_handlers[clicked_token]
 				if entry
 					begin
 						if request.body && !request.body.empty?
@@ -1071,12 +1071,14 @@ module Code
 						req = build_prog_request path_string, http_method, body_hash, parse_query_string(query_string), {}, headers_hash
 						res = build_prog_response response
 
-						interp_route_body route, req, res
+						self.render_token_counter = {
+							element_namespace: clicked_token,
+							next_slot:         0
+						}
 
-						# The target to re-render was recorded when the handler's token was minted, during
-						# the render walk (#add_onclick_handler) -- no scope-chain reconstruction needed, so a
-						# handler defined in a `.map` callback or a plain helper works the same as one in a
-						# method.
+						result = interp_route_body route, req, res # note; This runs the handler, and its value is read after the target block below. It's important that you/I leave this call as is. I don't remember why I made things this way.
+						
+						# The target to re-render was recorded when the handler's token was minted, during the render walk (#add_onclick_handler) -- no scope-chain reconstruction needed, so a handler defined in a `.map` callback or a plain helper works the same as one in a method.
 						target = entry[:target]
 						if target.is_a?(Code::Instance) && target.declarations['render']
 							new_html = render_dom_to_html target
@@ -1088,6 +1090,19 @@ module Code
 							response.body                  = new_html
 							return
 						end
+
+						# A handler that returns HTML (a String, or a Dom element) with an id on its root element replaces only that element. #interp_route_body already stored the HTML in `res`, so it is not rendered again. An Array is left out: dom.js would replace its first element with all of them.
+						html_result = result.is_a?(::String) || (result.is_a?(Code::Instance) && result.types.include?('Dom'))
+						html        = res.declarations['body'] if html_result
+						root_id     = html && html[/\A\s*<[a-zA-Z][^>]*\sid="([^"]+)"/, 1]
+						if root_id
+							response.status                = 200
+							response['Content-Type']       = 'text/html'
+							response[DOM_TARGET_ID_HEADER] = root_id
+							response.body                  = html
+							return
+						end
+
 					rescue => e
 						warn "\n[Code Onclick Error] #{e.class}: #{e.message}"
 						warn e.backtrace.first(10).map { |line| "  #{line}" }.join("\n")
