@@ -466,10 +466,24 @@ module Code
 		end
 
 		def link_instance_to_type instance, type_name
-			global_scope = stack.first
-			if global_scope.has? type_name
-				instance.enclosing_scope = global_scope[type_name]
+			type                     = builtin_type type_name
+			instance.enclosing_scope = type if type
+		end
+
+		# The type that a value Ruby builds belongs to. A program's own `Range <v: Int>` is another type with the same name, so ranges keep the standard library's `Range`. A replacement that composes the built-in (`Mine + Array {}`, then `Array := Mine`) takes over in the scope that declares it, so each literal written there gets what it adds; the nearest declaration of the name decides. A type that a program loads itself (`Pixel` in lang/raylib.code) is only in Global.
+		def builtin_type name
+			builtin = @stdlib_scope[name] if @stdlib_scope&.has? name
+			return (global[name] if global&.has? name) unless builtin
+
+			# Global last, also when a dot access has swapped it off the stack (#interp_member_access). The standard library's own declaration is the built-in itself, not a shadow, so a method it declares (`split`, `map`) still builds a replaced Global `Array`.
+			[*stack.reverse_each, global].each do |scope|
+				next if scope.equal? @stdlib_scope
+				next unless scope.respond_to?(:declarations) && scope.declarations.key?(name)
+
+				own = scope.declarations[name]
+				return own.is_a?(Code::Type) && own.name != name && own.types.include?(name) ? own : builtin
 			end
+			builtin
 		end
 
 		def adopt_type instance, type_name
@@ -494,9 +508,7 @@ module Code
 		def context_for scope
 			return scope if scope.is_a?(Code::Context)
 			ctx = Code::Context.new scope
-			# `global` directly, not `link_instance_to_type` -- that reads `stack.first`, which is the
-			# receiver, not global, mid `x.@` resolution.
-			decl = global.has?('Context') ? global['Context'] : nil
+			decl = builtin_type 'Context'
 			if decl
 				ctx.enclosing_scope = decl
 				ctx.types           = decl.types if decl.respond_to?(:types) && decl.types
@@ -708,12 +720,23 @@ module Code
 			# `expected` may be an alias of one type (`Int :: Integer`, `Dec :: Decimal`) -- its own name isn't in
 			# the real type's composed set, so resolve it and accept when the value composes everything
 			# that type does (same `=>=` check the `===` operators use).
-			expected_types = composed_types_by_name expected
+			# A qualified name (`This.That`) is not in Global, so it uses the type that #find_contract_type found.
+			expected_types = if expected.is_a?(::String) && expected.include?('.')
+				named_alias.respond_to?(:types) ? named_alias.types : ::Set.new
+			else
+				composed_types_by_name expected
+			end
 			expected_types.any? && expected_types.subset?(value_types)
 		end
 
 		# The value a type name in an annotation stands for. It forces a declaration that comes later in the file (`x: Later`, then `Later :: String | Number`), the same as #interp_identifier does.
 		def find_contract_type name
+			# `This.That`: the namespace, then each name in it.
+			if name.is_a?(::String) && name.include?('.')
+				first, *rest = name.split '.'
+				return rest.reduce(find_contract_type(first)) { |scope, part| scope[part] if scope.respond_to?(:has?) && scope.has?(part) }
+			end
+
 			found = find_in_stack name
 			return found unless found.nil? && stack.any? { |s| s.equal? global }
 
@@ -1337,16 +1360,16 @@ module Code
 		end
 
 		def build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash
-			req          = Code::Request.new
+			req          = Code::Server_Request.new
 			body_dict    = Code::Dictionary.new body_hash
 			query_dict   = Code::Dictionary.new query_params
 			params_dict  = Code::Dictionary.new url_params
 			headers_dict = Code::Dictionary.new headers_hash
-			link_instance_to_type req, 'Request'
-			link_instance_to_type body_dict, 'Dictionary'
-			link_instance_to_type query_dict, 'Dictionary'
-			link_instance_to_type params_dict, 'Dictionary'
-			link_instance_to_type headers_dict, 'Dictionary'
+			link_instance_to_type req, 'Server_Request'
+			adopt_type body_dict, 'Dictionary'
+			adopt_type query_dict, 'Dictionary'
+			adopt_type params_dict, 'Dictionary'
+			adopt_type headers_dict, 'Dictionary'
 			req.declarations['path']              = path_string
 			req.declarations['method']            = http_method
 			req.declarations['query']             = query_dict
@@ -1358,13 +1381,13 @@ module Code
 		end
 
 		def build_prog_response webrick_response
-			res                                  = Code::Response.new
+			res                                  = Code::Server_Response.new
 			res.webrick_response                 = webrick_response
 			res.declarations['webrick_response'] = webrick_response
 			res.declarations['status']           = 200
 			res.declarations['headers']          = {}
 			res.declarations['body']             = ''
-			link_instance_to_type res, 'Response'
+			link_instance_to_type res, 'Server_Response'
 			res
 		end
 
@@ -1595,6 +1618,12 @@ module Code
 				raise Code::Undeclared_Identifier.new(expr)
 			end
 
+			if expr.namespace
+				found = find_contract_type expr.value
+				return found unless found.nil?
+				raise Code::Undeclared_Identifier.new(expr)
+			end
+
 			scope = case expr.value
 			when 'nil'
 				return nil unless expr.tag
@@ -1624,7 +1653,16 @@ module Code
 			when Code::CONTEXT_OPERATOR
 				return context_for(stack.last) # bare `@` -- the current scope's own Context
 			else
-				scope_for_identifier expr
+				found_scope = scope_for_identifier expr
+				file_scope  = @loading_files.last&.scope || global
+				decl        = found_scope && @declarations&.[](expr.value)
+				if decl && !decl.conditional && !file_scope.declarations.key?(expr.value) && hoistable_declaration_expr?(decl.expr) &&
+					decl.expr.source_file == expr.source_file &&
+					(stack.index { it.equal? found_scope }) <= (stack.index { it.equal? file_scope } || -1)
+					forced_into = resolve_forward_declaration expr.value
+					found_scope = forced_into if forced_into&.has? expr.value
+				end
+				found_scope
 			end
 
 			value = if scope.is_a? ::Array
@@ -2287,7 +2325,7 @@ module Code
 
 		# Renders `@` as `Context <name: Type = value, ...>`, names/types from the `Context` declaration.
 		def stringify_context context, pretty_print: false
-			decl  = (global.has?('Context') ? global['Context'] : nil)
+			decl  = builtin_type 'Context'
 			names = decl.respond_to?(:names) && decl.names&.compact&.any? ? decl.names.compact : Code::Context::MEMBERS.keys
 
 			# a real `@` computes vitals against its subject; a `Context()` Struct has its own values
@@ -2837,7 +2875,7 @@ module Code
 					e = e.expression if e.is_a? Code::Statement_Expr
 					values << interpret(e)
 				end
-				link_instance_to_type array, 'Array'
+				adopt_type array, 'Array' # the types too, so a replacement that composes Array (`Array = Mine`) is in `[].@types`
 
 				# Make values accessible as a Code identifier (`for values`, `arr.values`), sharing the same list object as the real backing store so mutations (push/pop/etc) stay in sync.
 				array.values                 = values
@@ -2888,7 +2926,7 @@ module Code
 				key = bare_dictionary_key?(entry.left) ? entry.left.value : interpret(entry.left)
 				dict.proxy_set key, interpret(entry.right)
 			end
-			link_instance_to_type dict, 'Dictionary'
+			adopt_type dict, 'Dictionary'
 			dict
 		end
 
@@ -4035,8 +4073,8 @@ module Code
 		end
 
 		# @param route [Code::Route] The route (or the onclick callback wrapper) to run
-		# @param req [Code::Request] Request object to inject
-		# @param res [Code::Response] Response object to inject
+		# @param req [Code::Server_Request] Request object to inject
+		# @param res [Code::Server_Response] Response object to inject
 		# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
 		# @param server_instance [Code::Instance] The server instance (for accessing instance variables)
 		# @return The result of the callback
@@ -4178,7 +4216,7 @@ module Code
 			instance = Code::Statement.new expr.expression
 			# Capture the scopes this literal was built in -- see Code::Statement's class comment. Not .dup, for the same reason as Func#lexical_stack in #interp_func.
 			instance.captured_stack = stack.map { it }
-			link_instance_to_type instance, 'Statement'
+			adopt_type instance, 'Statement'
 
 			# Unlike `Statement(...)` (which goes through #build_instance_of_type and runs the type's own body), a bare literal builds the Ruby object directly -- do that here too, or use_caller_scope/memoize/etc never get declared on the instance.
 			type = instance.enclosing_scope
@@ -4706,7 +4744,7 @@ module Code
 				case loop_type
 				when 'map', 'select', 'reject'
 					result = Code::Array.new(collected)
-					link_instance_to_type result, 'Array'
+					adopt_type result, 'Array'
 				when 'count'
 					result = count_val
 				end
@@ -5201,7 +5239,7 @@ module Code
 			types         = [] # per-member type object (or the raw value itself for unnamed members)
 			values        = [] # per-member real value, nil when a named member has none
 			names         = []
-			contracts     = {} # types index => Code::Type_Alias, for a member annotated with one
+			contracts     = {} # types index => Code::Type_Alias, for a member annotated with one, or the name of a qualified type (`This.That`)
 			value_members = [] # names written `name := value`, see Struct#value_member_names
 			single_member = allow_spread && expr.types.length == 1 # only a lone unnamed member spreads -- see below
 
@@ -5217,6 +5255,7 @@ module Code
 						# A composed annotation (`v: String | Number`) or a named alias (`css: Css`) is a Code::Type_Alias, a contract that checks each value, the same as for a variable or param.
 						type_object             = type_alias_for(member.type) || interp_type_annotation(member.type)
 						contracts[types.length] = type_object if type_object.is_a? Code::Type_Alias
+						contracts[types.length] = member.type.value if member.type.is_a?(Code::Identifier_Expr) && member.type.namespace # `x: This.That` checks the namespace's `That`, not a `That` in Global
 						types << type_object
 						if member.member_default
 							default_value = interpret(member.member_default)
@@ -5273,12 +5312,14 @@ module Code
 		def predeclare_bare_named_struct_stub expr
 			return nil unless expr.name.is_a? Code::Lexeme
 			name     = expr.name.value
-			existing = find_in_stack name
+			# Only where the declaration lands: the scope's own declarations, or a writable splat (see Scope#[]=). Not a readable scope, so a named load (`This := @load 'this'`) can have its own `That`, and a program can have its own `Range` next to the standard library's.
+			existing = stack.last.declarations[name]
+			existing ||= stack.last.writable_scopes.keys.reverse_each.find { it.has? name }&.[](name)
 
 			# `Name <>` written earlier as an empty forward declaration -- members resolve against it,
 			# and it gets filled in below (a non-empty prior shape is a real conflict, left to raise).
 			return existing if existing.is_a?(Code::Struct) && existing.names.empty?
-			return nil unless existing.nil? && tagged_variants_for(name).empty?
+			return nil unless existing.nil? && tagged_variants_for(name, current_scope_only: true).empty?
 
 			stub       = Code::Struct.new
 			stub.name  = name # `@`-only (`@.name`)
@@ -5298,7 +5339,9 @@ module Code
 
 		# Registers (or idempotently confirms) a Bare Named Struct under `name` -- redeclaring the identical shape is a no-op; anything else already bound there raises instead of clobbering it.
 		def register_bare_named_struct name, struct, expr, stub = nil
-			existing = find_in_stack name
+			# @pasted from #predeclare_bare_named_struct_stub
+			existing = stack.last.declarations[name]
+			existing ||= stack.last.writable_scopes.keys.reverse_each.find { it.has? name }&.[](name)
 
 			# `stub` is the empty stand-in from #predeclare_bare_named_struct_stub (a fresh one, or an
 			# earlier `Name <>` forward declaration) -- fill it in with the finished struct. Not a real
@@ -5314,15 +5357,20 @@ module Code
 				return existing
 			end
 
-			# A tagged Type declaration never registers under the plain identifier namespace (only in `tagged_type_variants`), so `find_in_stack` alone can't see a conflicting one -- check both.
-			if existing.nil? && tagged_variants_for(name).empty?
+			# A tagged Type declaration never registers under the plain identifier namespace (only in `tagged_type_variants`), so `stack.last[name]` alone can't see a conflicting one -- check both.
+			if existing.nil? && tagged_variants_for(name, current_scope_only: true).empty?
 				struct.name = name # `@`-only (`@.name`); Ruby proxy code (e.g. Database) reads Scope#name directly
 				prefix_type struct, name
 				stack.last.declare name, struct if struct.names.all?
 				return struct
 			end
 
-			raise Code::Undeclared_Tagged_Type.new(expr)
+			existing_kind = if existing.is_a? Code::Struct
+				:struct
+			elsif existing.nil?
+				:tagged_type
+			end
+			raise Code::Name_Already_Declared.new(expr, existing_kind:)
 		end
 
 		# A value built directly from a string literal gets wrapped into a real Code::String carrying the literal's own `quotation_style`, instead of staying the bare Ruby string #interp_string normally returns. Struct/Member's to_s(;) (lang/member.code) and Array/Dictionary's to_s(;) (lang/array.code, lang/dictionary.code) read `.quotation_style` straight off the value to decide how to quote it for display.
@@ -5333,7 +5381,7 @@ module Code
 
 		# The low-level Code::Struct object is always built first and exactly the same way regardless of `struct_type` -- it's what #type_objects/etc. read from, and every existing member-matching call site depends on it being real.
 		def build_struct names, type_names, types, values
-			struct_type = find_in_stack 'Struct'
+			struct_type = builtin_type 'Struct'
 			struct      = Code::Struct.new names, type_names, types, values
 
 			unless struct_type.is_a?(Code::Type)
@@ -5351,7 +5399,7 @@ module Code
 			# `@.members` -- Code::Member instances, one per member, when the `Member`/`Struct` prog layer
 			# is loaded (`lang/struct.code`). The plain quartet (`@names`/`@type_names`/`@type_objects`/
 			# `@values`) is already on the struct from Struct#initialize.
-			member_type = find_in_stack 'Member'
+			member_type = builtin_type 'Member'
 			if member_type.is_a?(Code::Type)
 				members = names.each_index.map do |i|
 					member_display_type = names[i] ? types[i] : find_in_stack(type_names[i])
@@ -5361,7 +5409,7 @@ module Code
 				end
 
 				members_array = Code::Array.new members
-				link_instance_to_type members_array, 'Array'
+				adopt_type members_array, 'Array'
 				struct.members = members_array
 			end
 

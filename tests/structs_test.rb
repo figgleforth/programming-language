@@ -450,7 +450,7 @@ class Structs_Test < Base_Test
 	# Filling in a forward declaration and *then* trying a third, different shape still raises --
 	# only the empty placeholder is special, not every prior shape.
 	def test_forward_declared_struct_still_rejects_a_later_shape_change
-		assert_raises Code::Undeclared_Tagged_Type do
+		assert_raises Code::Name_Already_Declared do
 			Code.interp <<~CODE
 			    N <>
 			    N <a: Number>
@@ -479,7 +479,7 @@ class Structs_Test < Base_Test
 
 	# A genuinely different shape under the same name still raises, unchanged.
 	def test_redeclaring_bare_named_struct_with_a_different_shape_still_raises
-		assert_raises Code::Undeclared_Tagged_Type do
+		assert_raises Code::Name_Already_Declared do
 			Code.interp <<~CODE
 			    Task <id: Number>
 			    Task <id: String>
@@ -532,7 +532,7 @@ class Structs_Test < Base_Test
 
 	# Undeclared_Type_Structure's own message-rendering used to crash (NoMethodError inside Struct_Expr#to_s) when the mismatched struct had a named member with no `: Type` annotation (`done := false` -- `.type` is nil, unlike `.type.value` this code blindly read). assert_raises here would surface that NoMethodError instead of the real error if this regressed.
 	def test_mismatched_structure_error_message_renders_untyped_member_without_crashing
-		error = assert_raises Code::Undeclared_Tagged_Type do
+		error = assert_raises Code::Name_Already_Declared do
 			Code.interp <<~CODE
 			    Task <id: String>
 			    Task <
@@ -1021,12 +1021,113 @@ class Structs_Test < Base_Test
 	# --- Bare Named Structs (`Ident <...>`, no `\`) interacting with real declared Types ---
 
 	def test_bare_named_struct_conflicting_with_an_existing_type_raises
-		assert_raises Code::Undeclared_Tagged_Type do
+		error = assert_raises Code::Name_Already_Declared do
 			Code.interp <<~CODE
 			    Task\\<a: Number> {}
 			    Task <b: String>
 			CODE
 		end
+		assert_equal :tagged_type, error.existing_kind
+	end
+
+	def test_bare_named_struct_with_another_shape_names_the_kind
+		error = assert_raises(Code::Name_Already_Declared) { Code.interp "Task <id: String>\nTask <id: Number>" }
+		assert_equal :struct, error.existing_kind
+
+		error = assert_raises(Code::Name_Already_Declared) { Code.interp "Task {}\nTask <id: Number>" }
+		assert_nil error.existing_kind
+	end
+
+	# The standard library is a readable scope of Global, not where a top-level struct lands, so a program can have its own `Range`. Ranges still belong to the standard library's `Range`.
+	def test_bare_named_struct_can_reuse_a_standard_library_name
+		source = <<~CODE
+			Range <
+				low: Int
+				high: Int
+			>
+
+			own := Range(1, 5)
+
+			<own.high, (1..3).to_a().count()>
+		CODE
+		assert_equal [5, 3], Code.interp(source).values
+	end
+
+	# A replacement that composes the built-in takes over its members and its types, for a literal and for a value that Ruby builds.
+	def test_a_replacement_that_composes_a_built_in_is_in_the_types_of_its_values
+		source = <<~CODE
+			Mine + Array {
+				extra := true
+			}
+
+			Array = Mine
+
+			is_mine := [] =>= Mine
+
+			<[].@types, [1].map(it; it).@types, 'a,b'.split(',').@types, is_mine>
+		CODE
+		result = Code.interp(source).values
+		assert_equal [%w(Mine Array)] * 3, result.take(3).map { it.values }
+		assert_equal true, result.last
+	end
+
+	# A local replacement (`Array := Mine`) is for the literals written in its scope, also in a closure made there, and not for the rest of the program.
+	def test_a_local_replacement_of_a_built_in_stays_in_its_scope
+		source = <<~CODE
+			Mine + Array {
+				extra := true
+			}
+
+			replace_here (;
+				Array := Mine
+				inside := [].extra
+
+				<inside, (; [].extra )>
+			)
+
+			result := replace_here()
+			closure := result.1
+
+			<result.0, closure(), [].@types>
+		CODE
+		result = Code.interp(source).values
+		assert_equal [true, true], result.take(2)
+		assert_equal %w(Array), result.last.values
+	end
+
+	# An Array that a standard library method builds (`split`, `map`) follows the replacement in Global, not a local one, because the method was written in the standard library.
+	def test_a_standard_library_method_builds_the_global_replacement
+		source = <<~CODE
+			Mine + Array {
+				extra := true
+			}
+
+			local_split (;
+				Array := Mine
+				'a,b'.split(',').@types
+			)
+
+			before := local_split()
+			Array = Mine
+
+			<before, 'a,b'.split(',').@types>
+		CODE
+		result = Code.interp(source).values
+		assert_equal [%w(Array), %w(Mine Array)], result.map { it.values }
+	end
+
+	# A replacement that does not compose the built-in does not take over the values Ruby builds. One that does is in examples/scopes.code (`Array = Mine`).
+	def test_reassigning_a_built_in_name_to_an_unrelated_type_keeps_literals_working
+		source = <<~CODE
+			Mine {
+				value := 1
+			}
+
+			Range = Mine
+
+			(1..3).to_a().count()
+		CODE
+		assert_equal 3, Code.interp(source)
 	end
 
 	# --- Tag-aware `=X=` comparison operators ---

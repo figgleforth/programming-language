@@ -280,13 +280,13 @@ module Code
 		attr_accessor :port, :routes, :webrick_server, :server_thread
 	end
 
-	class Request < Scope
+	class Server_Request < Scope
 		def initialize
-			super 'Request'
+			super 'Server_Request'
 		end
 	end
 
-	class Response < Scope
+	class Server_Response < Scope
 		attr_accessor :webrick_response
 
 		def proxy_redirect location

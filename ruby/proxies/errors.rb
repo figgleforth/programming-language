@@ -74,6 +74,31 @@ module Code
 		end
 	end
 
+	# `Name <...>` where the scope it declares into already has `Name`: a struct with another shape, a tagged type (`Name\<...> {}`), or anything else.
+	# @expression: Code::Struct_Expr
+	class Name_Already_Declared < Error
+		# :struct, :tagged_type, or nil for any other value. Passed in, since the message is formatted in the constructor.
+		attr_reader :existing_kind
+
+		def initialize expression = nil, highlighted_expression = nil, existing_kind: nil
+			@existing_kind = existing_kind
+			super expression, highlighted_expression
+		end
+
+		def detail_message
+			name     = expression.name.is_a?(Code::Lexeme) ? expression.name.value : expression.name
+			declared = "#{Ascii.bold name} #{expression}"
+			case existing_kind
+			when :struct
+				"#{Ascii.bold name} is already declared with another shape. Give #{declared} the same shape, or another name."
+			when :tagged_type
+				"#{Ascii.bold name} is already declared as a tagged type (`#{name}\\<...> {}`). Give #{declared} another name."
+			else
+				"#{Ascii.bold name} is already declared here. Give #{declared} another name."
+			end
+		end
+	end
+
 	# A named reference (`Abc\Task_Schema`) resolved to something other than a Struct or Type -- neither form has a valid target.
 	# @expression: Code::Type_Expr
 	class Tag_Reference_Must_Be_Type_Or_Struct < Error

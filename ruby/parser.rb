@@ -832,6 +832,13 @@ module Code
 			start_i  = @i
 			it       = Code::Type_Expr.new eat # one of valid_idents
 			it.name  = it.lexeme.value
+			name_end = it.lexeme
+			# `This.That | Nil`: a qualified name is one operand (see #parse_identifier_expr). A head cannot declare into a namespace, so only a type position reads one.
+			while @type_position_depth > 0 && curr?('.', TYPE_IDENTIFIER)
+				eat '.'
+				name_end = eat
+				it.name  = "#{it.name}.#{name_end.value}"
+			end
 			is_type  = Helpers.type_identifier? it.name
 			is_const = Helpers.constant_identifier? it.name
 
@@ -843,7 +850,7 @@ module Code
 				it.tag.name = it.name if it.tag
 			elsif curr?(TAG_OPERATOR, TYPE_IDENTIFIER) and eat(TAG_OPERATOR)
 				# Named reference, no `<...>` (`Array\Task_Schema`) -- resolved at interpret time.
-				it.tag = parse_identifier_expr
+				it.tag = parse_identifier_expr qualified: true
 			elsif integer_tag_next? and eat(TAG_OPERATOR)
 				# Version tag, no `<...>` (`Primary_Key\123`) -- same as `\<123>`.
 				it.tag      = integer_tag_struct_expr
@@ -866,7 +873,7 @@ module Code
 				closing = if it.tag
 					it.tag
 				else
-					it.lexeme
+					name_end
 				end
 				return set_expr_location it, start, closing
 			end
@@ -1060,7 +1067,11 @@ module Code
 		# `Duck + Flying {}`, `A + <x: Int> <>`, or `Int | "auto"` in a type position. Outside a type position this is only a candidate: #parse_type_decl gives nil when no body follows, and the chain is a value expression (`x := A + B`, `MASK | 4`).
 		def type_composition_follows?
 			operators = @type_position_depth > 0 ? TYPE_COMPOSITION_OPERATORS : MEMBER_COMPOSITION_OPERATORS
+			saved_i   = @i
+			@i        += 2 while @type_position_depth > 0 && curr?(TYPE_IDENTIFIER, '.', TYPE_IDENTIFIER) # `This.That | Nil`: look past a qualified name
 			curr?(TYPE_IDENTIFIER, operators, ANY_IDENTIFIER) || curr?(TYPE_IDENTIFIER, operators, '<') || (@type_position_depth > 0 && curr?(TYPE_IDENTIFIER, operators) && literal_type_next?(2))
+		ensure
+			@i = saved_i
 		end
 
 		def parse_literal_type
@@ -1105,7 +1116,7 @@ module Code
 			set_expr_location prefix, dots, prefix.expression
 		end
 
-		def parse_identifier_expr
+		def parse_identifier_expr qualified: false
 			start = curr_lexeme
 			expr  = Code::Identifier_Expr.new
 
@@ -1122,8 +1133,22 @@ module Code
 				end
 			end
 
-			expr.lexeme  = eat
-			expr.privacy = Code.privacy_of_ident expr.value
+			expr.lexeme = eat
+
+			# In a type position or a tag, `This.That` is one type name: the type `That` in the namespace `This` (`This := @load 'this'`).
+			if TYPE_IDENTIFIER.include?(expr.lexeme.type) && (qualified || @type_position_depth > 0) && curr?('.', TYPE_IDENTIFIER)
+				namespace = []
+				while curr? '.', TYPE_IDENTIFIER
+					namespace << expr.lexeme
+					eat '.'
+					expr.lexeme = eat
+				end
+				expr.namespace = namespace
+				expr.value     = [*namespace, expr.lexeme].map(&:value).join('.')
+				raise "a tag on a qualified type (#{expr.value}\\...) is not supported yet" if curr? TAG_OPERATOR
+			end
+
+			expr.privacy = Code.privacy_of_ident expr.lexeme.value
 
 			# A type reference can carry its own trailing tag. A named reference recurses, so `Abc\Cd\Ef` nests as `.tag.tag`. note; A recursive call here never goes through #parse_type_decl so it's handled directly.
 			# `nil` is a reserved lowercase keyword, not a TYPE_IDENTIFIER, but it's tagged the same way
@@ -1136,7 +1161,7 @@ module Code
 				expr.tag.name = expr.value if expr.tag
 			elsif taggable && curr?(TAG_OPERATOR, TYPE_IDENTIFIER)
 				eat TAG_OPERATOR
-				expr.tag = parse_identifier_expr # named reference, e.g. `Abc\Task_Schema`
+				expr.tag = parse_identifier_expr qualified: true # named reference, e.g. `Abc\Task_Schema`, `Array\This.That`
 			elsif taggable && integer_tag_next?
 				eat TAG_OPERATOR
 				expr.tag      = integer_tag_struct_expr # version tag, e.g. `Primary_Key\123`
@@ -1155,7 +1180,7 @@ module Code
 				expr.type = parse_type_position # `mode: "fill" | "line"`
 			end
 
-			expr.kind = Code.type_of_identifier expr.value
+			expr.kind = Code.type_of_identifier expr.lexeme.value
 			# The end of this expression's own span isn't always `expr.lexeme` -- a trailing tag
 			# (`\<...>`/`\Name`/`\123`) or `: Type` annotation consumes more tokens past the bare
 			# name, and `expr.type` (if present) is always the last of those to be parsed.

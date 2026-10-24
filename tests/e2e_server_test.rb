@@ -977,12 +977,12 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'symbol: World, string: World', response.body
 	end
 
-	# `response.redirect` was completely unreachable: Response is a plain Scope, not a Code::Instance,
+	# `response.redirect` was completely unreachable: Server_Response is a plain Scope, not a Code::Instance,
 	# and #build_prog_response pokes `declarations` directly rather than running the Type's own body
-	# on it, so `redirect` (declared in lang/server.code's `Response {}`) never got copied onto the
+	# on it, so `redirect` (declared in lang/server.code's `Server_Response {}`) never got copied onto the
 	# instance -- and the Instance-fallback lookup that would normally rescue that is gated on
 	# `is_a?(Code::Instance)`, so it never fired either. Every call raised `Undeclared_Identifier:
-	# redirect has not been declared`. Fixed with a real `Code::Response#proxy_redirect` (scopes.rb).
+	# redirect has not been declared`. Fixed with a real `Code::Server_Response#proxy_redirect` (scopes.rb).
 	def test_response_redirect
 		code = <<~CODE
 		    @load 'lang/server'

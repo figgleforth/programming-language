@@ -212,6 +212,7 @@ module Code
 
 	class Identifier_Expr < Expression
 		attr_accessor :kind, :scope_operator, :prefixed_with_at, :privacy, :binding, :tag, :member_default
+		attr_accessor :namespace # the lexemes before the type name in a qualified type (`This` in `x: This.That`), nil for a plain name; `value` is the whole `This.That`
 	end
 
 	class Composition_Expr < Expression

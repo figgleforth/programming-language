@@ -2,7 +2,12 @@ module Code
 	# @param [::String] key
 	# @param [Code::Expression | Code::Declaration] expr_or_decl
 	# @param [Code::Expression] expr, the original expression that must be interpreted to actually bring this declaration into being (used for lazy/forward resolution, see Interpreter#resolve_forward_declaration)
-	Declaration = ::Data.define(:key, :expr_or_decl, :expr) do
+	# @param [Boolean] conditional, true when it comes from an `if`/`while` branch, which may never run. Only a declaration that always runs shadows an outer name (see Interpreter#interp_identifier).
+	Declaration = ::Data.define(:key, :expr_or_decl, :expr, :conditional) do
+		def initialize key:, expr_or_decl:, expr:, conditional: false
+			super
+		end
+
 		def == other
 			other.key == key
 		end
@@ -215,7 +220,7 @@ module Code
 			when Conditional_Expr
 				# if/unless/while/until don't push their own scope (unlike For_Loop_Expr below), so a `:=` inside a branch really does land in the enclosing scope -- flatten rather than nest under a made-up key. .when_false chains into another Conditional_Expr for elif/elwhile, instead of an Array, when there's a further branch to check
 				when_false = expr.when_false.is_a?(Conditional_Expr) ? [expr.when_false] : expr.when_false
-				declare_all [*expr.when_true, *when_false]
+				declare_all([*expr.when_true, *when_false]).transform_values { it.with conditional: true }
 			when Call_Expr
 				# `@load 'file'` parses as a call on `@.load` -- still forward-declares the loaded file.
 				declarations_for_load(expr) if load_call?(expr)

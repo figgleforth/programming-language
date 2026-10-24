@@ -191,6 +191,18 @@ A plain variable is never hoisted — reading it before its line runs still rais
 a := 123
 ```
 
+A file's own top-level declaration shadows a name from further out, also above its own line. Here `That` in `this.code` is the one that `this.code` declares, also when another loaded file declares a `That` too:
+
+```code
+# this.code
+first := That(5)   # the That below, not the That of another file
+
+That <value: Int>
+```
+
+1. Only a declaration that always runs shadows. A declaration in an `if` or `while` branch may never run, so it does not.
+2. Only the file's own declarations shadow. The names that a bare `@load` brings in do not.
+
 ## Classes
 
 1. Must start with an uppercase character
@@ -833,7 +845,7 @@ Every scope keeps two extra fallback places identifier lookup checks after its o
 1. `@splat x` unpacks `x` as a writable splat; `@splatr x` read-only; `@unsplat x` removes it. Works on a function param or by hand anywhere.
 2. A `: Type` / `: <...>` annotation on a splat param is enforced at the call, raising `Type_Contract_Violation` right there.
 3. Both sets are held *weakly* — a splatted instance isn't kept alive by the splat alone.
-4. The standard library works this way — `String`/`Array`/etc. sit on Global's own read-only splat, not declared on Global directly. Reassigning a built-in (`Array = Mine`) just shadows the name; the real one is untouched.
+4. The standard library works this way — `String`/`Array`/etc. sit on Global's own read-only splat, not declared on Global directly. Reassigning a built-in (`Array = Mine`) just shadows the name; the real one is untouched. Literals take the replacement only when it composes the built-in (`Mine + Array {}`). `Array = Mine` replaces it in Global, so for the whole program. `Array := Mine` in a function or at the top of a library replaces it only for the literals written there; an Array that a standard library method builds (`split`, `map`) still follows Global. A program can also declare its own struct with a built-in name (`Range <low: Int, high: Int>`), and `1..3` is still a real `Range`.
 
 ```code
 Vector {
@@ -1381,6 +1393,31 @@ A relative path resolves the same way wherever you start `bin/program`. The firs
 
 `../x` climbs one folder, `../../x` climbs two, and `~/x` starts at your home folder. Only your own `~/` works: `~otheruser/path` is not a bare path.
 
+### A named load is a namespace
+
+A library does not need a prefix on its names. The user names the namespace when they load it. A capitalized name works in every type position, and in a tag:
+
+```code
+This := @load './this'   # this.code declares That, Other, Failure
+
+that: This.That = This.That('color', 'red')
+thats: Array\This.That = []
+
+read ( input: String -> This.Other | Nil;
+	...
+)
+
+if other
+else
+when nil\This.Failure
+	@puts 'failed'
+end
+```
+
+1. A deeper name works too: `Outer.Inner.Leaf`.
+2. A named load can declare a name that another file already has. If a file you load into the same scope as `this.code` declares `That`, a bare `@load './this'` raises, but `This := @load './this'` can still declare its own `That`. A bare `@load` into the same scope still raises on that name.
+3. A tag on a qualified type (`This.That\<Int>`) is not supported yet.
+
 ## @puts
 
 ```code
@@ -1497,6 +1534,8 @@ App + Server {
 ```
 
 ## Request & Response
+
+In a route, `request` is a `Server_Request` (`path`, `method`, `query`, `params`, `headers`, `body`), and `response` is a `Server_Response` (`status`, `headers`, `body`, `redirect(location)`). Both are in `lang/server.code`.
 
 ```code
 post://login (;
@@ -2179,7 +2218,7 @@ nothing(nothing)    # nil
 5. Reachable through `.tag` (`.tag.types`, `.tag.some_name`) — bound before `Self(;)` runs, never forwarded as constructor args
 6. `x.tag = new_tag` re-tags at runtime, only on a value whose type was declared with a tag, and only when `new_tag` composes at least everything the current tag does (`=>=`) — otherwise `Code::Tag_Signature_Violation`
 7. Bare `<...>` (no `\`) on an *undeclared* identifier builds a plain named struct instead of raising; a name already taken by a real Type still takes priority
-8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`), so two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring with a *different* shape raises `Code::Undeclared_Tagged_Type`
+8. A bare named struct's member can be annotated with the struct's own name (`Node <name: String, parent: Node>`), so two structs can reference each other. An empty `Name <>` is a forward declaration a later `Name <...>` fills in; redeclaring with a *different* shape raises `Code::Name_Already_Declared`
 9. A Type composed into a struct brings its methods with it, so the data and its logic can live apart: `User + User_Logic <name: String, age: Int>`, then `User('Ada', 36).greet()`. The methods go after the data members, so positional arguments fill the data members in order
 10. An instance composed into a struct brings its type's methods too, but they stay bound to that instance: `Tasks + Task + tasks_table <>` gives a `Tasks.find` that runs on `tasks_table`. See Record ORM
 

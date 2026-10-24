@@ -98,7 +98,7 @@ module Code
 		end
 
 		def linked_temporal instance, type_name
-			Code::Interpreter.current&.link_instance_to_type instance, type_name
+			Code::Interpreter.current&.adopt_type instance, type_name
 			instance
 		end
 

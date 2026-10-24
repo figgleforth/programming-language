@@ -39,6 +39,19 @@ class Declarator_Test < Base_Test
 		assert_equal %w(a b c), nested.keys.sort
 	end
 
+	# A branch may never run, so what it declares is marked, and it does not shadow an outer name (see Interpreter#interp_identifier).
+	def test_a_declaration_in_a_conditional_branch_is_marked
+		decls = Code.declare <<~CODE
+			Always <value: Int>
+
+			if ready
+				Sometimes <value: Int>
+			end
+		CODE
+		refute decls['Always'].conditional
+		assert decls['Sometimes'].conditional
+	end
+
 	def test_for_loop_body_does_not_leak_out
 		decls = Code.declare <<~CODE
 		    run (;
