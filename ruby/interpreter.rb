@@ -2080,6 +2080,19 @@ module Code
 				raise Code::Destructuring_Arity_Mismatch.new(expr, targets.length, values.length)
 			end
 
+			# More values than targets: the last target gets the rest. From an Array, a new Array (`(one, two, rest) := [1, 2, 3, 4, 5]` makes rest [3, 4, 5]). From a struct, an anonymous struct of the remaining members, with their names and types.
+			if values.length > targets.length
+				kept = targets.length - 1
+				rest = if right_value.is_a? Code::Array
+					wrap_prog_array values.drop(kept)
+				else
+					rest_struct                    = build_struct right_value.names.drop(kept), right_value.type_names.drop(kept), right_value.type_objects.drop(kept), values.drop(kept)
+					rest_struct.value_member_names = right_value.value_member_names # `name := value` members stay values, for `=>=`
+					rest_struct
+				end
+				values = values.take(kept) + [rest]
+			end
+
 			targets.each_with_index do |target, i|
 				value = values[i]
 
@@ -2190,7 +2203,7 @@ module Code
 
 		# Code::Struct carries a plain Ruby-level `.values` reader holding the raw proxy array (distinct from the Code-level `.values` dot-access, a member of that name).
 		def destructurable_values value
-			value.values if value.is_a? Code::Struct
+			value.values if value.is_a?(Code::Struct) || value.is_a?(Code::Array)
 		end
 
 		# @param expr [Code::Infix_Expr]

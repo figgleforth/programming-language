@@ -4819,12 +4819,20 @@ class Interpreter_Test < Base_Test
 		assert_equal 3, error.expected
 		assert_equal 2, error.actual
 
-		# Asking for fewer is fine -- the rest are just discarded.
-		out = Code.interp '(a, b) := <1, 2, 3>
-			a + b'
-		assert_equal 3, out
+		# More values than targets: the last target gets the rest, as an anonymous struct.
+		out = Code.interp '(a, rest) := <1, 2, 3>
+			rest'
+		assert_instance_of Code::Struct, out
+		assert_equal [2, 3], out.values
 
-		# Only a Struct can be destructured.
+		# Named members keep their names in the rest.
+		out = Code.interp "(status, more) := <status := 404, body := 'gone', retry := false>
+			<more.body, more.retry, more.@names>"
+		assert_equal 'gone', out.values[0]
+		assert_equal false, out.values[1]
+		assert_equal %w(body retry), out.values[2].values
+
+		# Only a Struct or an Array can be destructured.
 		assert_raises Code::Invalid_Destructuring_Source do
 			Code.interp '(a, b) := 5'
 		end
@@ -4838,6 +4846,37 @@ class Interpreter_Test < Base_Test
 			(a, b) := <1, 2>
 			<a,b>'
 		assert_equal [1, 2], out.values
+	end
+
+	def test_array_destructuring
+		out = Code.interp <<~CODE
+		    (a, b) := [1, 2]
+		    <a, b>
+		CODE
+		assert_equal [1, 2], out.values
+
+		# More values than targets: the last target gets the rest, as an Array.
+		out = Code.interp <<~CODE
+		    array := [1, 2, 3, 4, 5]
+		    (one, two, rest) := array
+		    <one, two, rest, rest.length()>
+		CODE
+		assert_equal 1, out.values[0]
+		assert_equal 2, out.values[1]
+		assert_equal [3, 4, 5], out.values[2].values
+		assert_equal 3, out.values[3]
+
+		out = Code.interp <<~CODE
+		    (method, target, version) := "GET /x HTTP/1.1".split(' ')
+		    target
+		CODE
+		assert_equal '/x', out
+
+		error = assert_raises Code::Destructuring_Arity_Mismatch do
+			Code.interp '(a, b, c) := [1, 2]'
+		end
+		assert_equal 3, error.expected
+		assert_equal 2, error.actual
 	end
 
 	def test_member_destructuring_targets

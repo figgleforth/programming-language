@@ -633,7 +633,7 @@ module Code
 
 	class Invalid_Destructuring_Source < Error
 		def detail_message
-			'Only a Struct can be destructured with `(...) := ...`: `(a, b) := <404, []>`'
+			'Only a Struct or an Array can be destructured with `(...) := ...`: `(a, b) := <404, []>`'
 		end
 	end
 

@@ -2214,7 +2214,7 @@ Tree <
 ### Several Values
 
 1. A struct holds an ordered list of values: `<404, []>`. Read a value by its position with `.0` or `[0]`
-2. `(status, body) := <404, []>` takes the values out by position. The `( )` on the left is the list of targets
+2. `(status, body) := <404, []>` takes the values out by position. The `( )` on the left is the list of targets. An Array works too. When there are more values than targets, the last target gets the rest: from an Array, an Array; from a struct, an anonymous struct of the remaining members, with their names. Fewer values than targets raises `Code::Destructuring_Arity_Mismatch`
 3. A function returns several values as a struct. The return type is a struct shape, by name (`-> <ok: Bool, data: Any>`) or by position (`-> <Bool, Any>`). Each call checks the value it returns
 4. `( )` around one value groups it. A list of values in `( )` is not a value: `(404, [])` raises `Code::Values_In_Parentheses`
 5. A Type in a positional member is the member's type, not its value: `<Number>` is a slot for a Number. Give the member a name to keep a Type as a value: `<type := Number>`
@@ -2229,6 +2229,10 @@ split (-> <Bool, Any>;
     <false, 'reason'>
 )
 (ok, why) := split()        # ok is false, why is 'reason'
+
+(one, two, rest) := [1, 2, 3, 4, 5]   # one is 1, two is 2, rest is [3, 4, 5]
+(status, more) := <status := 404, body := 'gone', retry := false>
+more.body                   # 'gone' -- more is <body := 'gone', retry := false>
 
 pair := <404, []>
 pair.0                      # 404

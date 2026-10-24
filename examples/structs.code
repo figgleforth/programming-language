@@ -121,10 +121,16 @@ quad     := <1, id := 2, ix: Number, String>(4, 8, 1, 'five')
 
 ### Extracting fewer than what's there is fine
 
-You don't have to take everything -- the rest are just discarded:
+The last target gets the rest, as a struct of the remaining members:
 ###
-(first, second) := <1, 2, 3>
-@assert first == 1 && second == 2, 'extracting fewer targets than values should discard the rest'
+(first, rest) := <1, 2, 3>
+@assert first == 1 && rest.0 == 2 && rest.1 == 3, 'the last target gets the remaining members'
+
+# The rest is a struct, not an Array: named members keep their names.
+(status, more) := <status := 404, body := 'gone', retry := false>
+@assert more =>= Struct, 'the rest is a struct'
+@assert more.body == 'gone' && more.retry == false, 'the rest keeps the member names'
+@assert more.@names == ['body', 'retry'], 'only the members after the first target are in the rest'
 
 
 ### Asking for more than exists raises
