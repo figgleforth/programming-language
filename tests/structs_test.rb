@@ -1635,6 +1635,33 @@ class Structs_Test < Base_Test
 		assert_equal ['error', 'panic', 'ok'], out.values
 	end
 
+	# A tagged nil is a nil, so it satisfies every contract that a plain nil does: a return type, a variable, a param, a signature, a struct member.
+	def test_a_tagged_nil_satisfies_any_contract
+		source = <<~CODE
+			Bad + Error <>
+
+			find (-> String;
+				nil\\Bad
+			)
+
+			count: Int = nil\\Bad
+
+			take ( n: Int;
+				n
+			)
+
+			call ( callback: (;);
+				callback
+			)
+
+			Box <n: Int>
+
+			[find(), count, take(nil\\Bad), call(nil\\Bad), Box(nil\\Bad).n]
+		CODE
+		out = Code.interp("@load 'lang/errors.code'\n" + source)
+		assert out.values.all? { it.is_a?(Code::Type) && it.name == 'Nil' }
+	end
+
 	def test_bare_nil_tag_reference_still_composes_nil
 		out = Code.interp "nil\\<reason := 'x'> =>= Nil"
 		assert_equal true, out
@@ -1643,11 +1670,10 @@ class Structs_Test < Base_Test
 	# Regression: `x := 1, x = nil\<reason := 'Broken'>` used to crash with a raw Ruby RuntimeError
 	# (Helpers#type_of_identifier: unknown identifier type nil) instead of a proper Code error --
 	# the unconsumed `\<...>` got reparsed as a bogus `\ < reason` comparison, then `:= 'Broken'`
-	# declared onto *that*. Now it's an ordinary, correctly-typed contract violation.
-	def test_bare_nil_tag_mismatched_assignment_raises_cleanly_regression
-		assert_raises Code::Type_Contract_Violation do
-			Code.interp "x := 1, x = nil\\<reason := 'Broken'>"
-		end
+	# declared onto *that*. A tagged nil is a nil, so it satisfies the lock, the same as a plain nil.
+	def test_bare_nil_tag_assignment_parses_its_tag_regression
+		out = Code.interp "x := 1, x = nil\\<reason := 'Broken'>\nx.@tag.reason"
+		assert_equal 'Broken', out.value
 	end
 
 	# A Type can compose directly with a bare, anonymous struct literal (no name, no variable in

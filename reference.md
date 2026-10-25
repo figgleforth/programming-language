@@ -509,7 +509,7 @@ A literal in a type position is a type that allows only that one value: a String
 2. They mix with type names and with each other, and each operator keeps its set meaning: `Int | "auto"`, `Int ~ 0`
 3. A value matches a literal with `==`, so `5.0` matches `5`, but `:fill` does not match `"fill"`
 4. Only literals, not expressions: `x + 1` is not a type
-5. `Five :: 5` is a type that only `5` satisfies, not a value, so `Five + 1` raises `Code::Type_Alias_Is_Not_A_Type`. For a named value, use a constant: `FIVE := 5`
+5. `Five :: 5` is a type that only `5` satisfies, not a value, so `Five + 1` raises `Code::Type_Alias_Is_Not_A_Type`. For a named value, use a constant: `FIVE := 5`. Passed to a method written in Ruby (`line.ends_with?(CRLF)` with `CRLF :: "\r\n"`), or compared with a value by `==`/`!=` (`method != OPTIONS`), an alias raises `Code::Type_Alias_Is_Not_A_Value`. Use `=>=` to check a value against it
 6. The static type checker checks a literal value against a literal type before the program runs
 7. A Dictionary entry uses `=` (`{:mode = "fill"}`), so `name: "fill"` inside `{}` is never an entry
 
@@ -751,7 +751,7 @@ A trailing window shorter than `stride` is kept, not dropped. Use `.?N` (not `.N
 
 1. Attaches to `if`/`elif`/`unless`, to each branch of a `while`/`until` chain, and to `for`, comparing against a subject: the condition's value for `if`/`elif`/`unless` and for a `while`/`until` branch, the current element for `for` (the counter, for C-style `for`).
 2. The block's own body runs first; a matching `when` then replaces its value. First match wins.
-3. Compares with `=>=` (is-a) for a type, bare or tagged (`Number`, `Array\String`, `nil\Error`), or a struct. Every other value compares with `==`, an instance included. So one `when nil\Client_Error` catches every error kind that composes `Client_Error`. Put the most specific case first:
+3. Compares with `=>=` (is-a) for a type, bare or tagged (`Number`, `Array\String`, `nil\Error`), a struct, or a type alias (`when GET` with `GET :: "GET"`). Every other value compares with `==`, an instance included. So one `when nil\Client_Error` catches every error kind that composes `Client_Error`. Put the most specific case first:
 
 ```code
 handle ( line;
@@ -2097,7 +2097,7 @@ word := 'four'
 double(word)  # raises Code::Type_Contract_Violation — checked on the call
 ```
 
-A `: Type` annotation can join types, and [literals](#literal-types), with `|`, `&`, `^`, or `~`. Each one compares the values that the types allow: `|` either, `&` both, `~` the left but not the right, `^` exactly one. An annotation never builds a new composed type. `nil` passes every annotation. Give an annotation a name with [`::`](#type-aliases).
+A `: Type` annotation can join types, and [literals](#literal-types), with `|`, `&`, `^`, or `~`. Each one compares the values that the types allow: `|` either, `&` both, `~` the left but not the right, `^` exactly one. An annotation never builds a new composed type. `nil` passes every annotation, and so does a tagged nil (`nil\Bad_Request`). Give an annotation a name with [`::`](#type-aliases).
 
 ```code
 x: Int | Nil = 1           # ok — an Int

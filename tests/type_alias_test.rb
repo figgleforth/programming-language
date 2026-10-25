@@ -649,4 +649,53 @@ class Type_Alias_Test < Base_Test
 		assert_equal [-1, 1], Code.interp("S <n: -1 | 1 = -1>\n<S().n, S(1).n>").values
 		assert_raises(Code::Type_Checking_Failed) { Code.type_check 'n: -1 | 1 = 2' }
 	end
+
+	# A method written in Ruby needs a value, and an alias only describes values. Through a standard library wrapper (`ends_with?` calls `end_with?`), the error still points at the program's own call.
+	def test_an_alias_passed_to_a_ruby_method_raises
+		error = assert_raises(Code::Type_Alias_Is_Not_A_Value) { Code.interp "CRLF :: \"\\r\\n\"\nline := 'a'\nline.ends_with?(CRLF)" }
+		assert_equal 'CRLF', error.type_alias.name
+		assert_equal 'ends_with?', error.function_name
+		assert_equal 3, error.expression.line_start
+
+		error = assert_raises(Code::Type_Alias_Is_Not_A_Value) { Code.interp "Strumber :: String | Number\n'abc'.include?(Strumber)" }
+		assert_equal 'include?', error.function_name
+	end
+
+	def test_an_alias_passed_to_a_function_written_in_the_language_is_a_value
+		out = Code.interp "Strumber :: String | Number\nkeep ( x;\n\tx\n)\nkeep(Strumber)"
+		assert_instance_of Code::Type_Alias, out
+	end
+
+	# A value is never equal to a type, so `==`/`!=` between a value and an alias would always give the same answer.
+	def test_comparing_a_value_with_an_alias_raises
+		pre = "OPTIONS :: \"OPTIONS\"\nmethod := \"GET\"\n"
+		error = assert_raises(Code::Type_Alias_Is_Not_A_Value) { Code.interp pre + "method != OPTIONS" }
+		assert_equal '!=', error.operator
+		assert_equal 'OPTIONS', error.type_alias.name
+
+		assert_raises(Code::Type_Alias_Is_Not_A_Value) { Code.interp pre + "OPTIONS == method" }
+		assert_equal true, Code.interp(pre + "OPTIONS == OPTIONS")
+	end
+
+	# A `when` case that is an alias is a contract, the same as a Type: `when GET` matches "GET".
+	def test_a_when_case_that_is_an_alias_checks_the_contract
+		source = <<~CODE
+			GET  :: "GET"
+			Read :: "GET" | "HEAD"
+
+			kind ( method;
+				if method
+				when GET
+					'get'
+				when Read
+					'read'
+				when it
+					'other'
+				end
+			)
+
+			<kind("GET"), kind("HEAD"), kind("POST")>
+		CODE
+		assert_equal %w(get read other), Code.interp(source).values
+	end
 end

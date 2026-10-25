@@ -174,6 +174,31 @@ module Code
 		end
 	end
 
+	# A type alias used as a value: passed to a method written in Ruby (`line.ends_with?(CRLF)` with `CRLF :: "\r\n"`), or compared with a value by `==`/`!=` (`method != OPTIONS`). An alias only describes values.
+	# @expression: the argument, or the comparison
+	class Type_Alias_Is_Not_A_Value < Error
+		attr_reader :type_alias, :function_name, :operator
+
+		def initialize expression = nil, highlighted_expression = nil, type_alias: nil, function_name: nil, operator: nil
+			@type_alias    = type_alias
+			@function_name = function_name
+			@operator      = operator
+			super expression, highlighted_expression
+		end
+
+		def detail_message
+			name    = type_alias&.name || 'this'
+			message = if operator
+				"#{Ascii.bold name} is a type alias (`#{type_alias}`). It describes values, so `#{operator}` cannot compare a value with it. To check that a value satisfies it, use `=>=`: `value =>= #{name}`."
+			else
+				"#{Ascii.bold name} is a type alias (`#{type_alias}`). It describes values, but it is not a value, so #{Ascii.bold "#{function_name}"} cannot take it."
+			end
+			return message unless type_alias&.tree.is_a? Code::Type_Alias::Literal
+
+			"#{message} For a value, declare it with `:=`: `#{name} := #{type_alias.tree.text}`."
+		end
+	end
+
 	# `x.tag = new_tag` where new_tag doesn't keep x's declared tag signature -- a replacement must compose at least everything the current tag does, at every link of the chain (`=>=`).
 	class Tag_Signature_Violation < Error
 		attr_accessor :declared, :given

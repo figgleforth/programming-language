@@ -704,7 +704,7 @@ module Code
 				expected = stack.reverse_each.find { it.is_a? Code::Type }&.name or raise Code::Self_Outside_Type.new
 			end
 			return true if expected.nil? || expected == 'Any'
-			return true if value.nil? || value.is_a?(Code::Nil)
+			return true if nil_value? value # a tagged nil (`nil\Bad_Request`) too
 			return expected.satisfied? { type_contract_satisfied? value, it } if expected.is_a? Code::Type_Alias
 			return literal_type_matches?(value, expected) if expected.is_a? Code::Type_Alias::Literal
 			return true if type_name_to_string(value) == expected
@@ -796,7 +796,7 @@ module Code
 		def type_alias_literal expr
 			value = interpret expr
 			text  = case expr
-			when Code::String_Expr then expr.quotation_style == :double ? %("#{value}") : "'#{value}'"
+			when Code::String_Expr then expr.quotation_style == :double ? value.inspect : "'#{value}'" # inspect, so `"\r\n"` shows its escapes
 			when Code::Symbol_Expr then ":#{value}"
 			else expr.value.to_s # a number as written (`0xff`, `2.5`), or true/false/nil
 			end
@@ -2009,7 +2009,7 @@ module Code
 					signature = resolve_func_signature type
 
 					if signature
-						unless right_value.nil? || right_value.is_a?(Code::Nil) || signature.matches?(right_value) # a nil passes, as for every other contract
+						unless nil_value?(right_value) || signature.matches?(right_value) # a nil passes, as for every other contract
 							raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(right_value))
 						end
 					else
@@ -2674,6 +2674,11 @@ module Code
 				value, contract = operator == '=<=' ? [right, left] : [left, right]
 				raise Code::Type_Alias_Is_Not_A_Type.new(expr) unless operator != '=/=' && contract.is_a?(Code::Type_Alias) && !value.is_a?(Code::Type_Alias)
 				return !nil_value?(value) && type_contract_satisfied?(value, contract) # `nil =>= String` is false, so `nil =>= Strumber` is too
+			end
+
+			# A value is never equal to a type, so `method != OPTIONS` would always be true. Two aliases still compare their trees.
+			if %w(== !=).include?(operator) && (left.is_a?(Code::Type_Alias) ^ right.is_a?(Code::Type_Alias))
+				raise Code::Type_Alias_Is_Not_A_Value.new(expr, type_alias: left.is_a?(Code::Type_Alias) ? left : right, operator:)
 			end
 
 			# A value against an anonymous struct shape (`reply =>= <status: 404>`, `when <status: 404>`) matches by its members, the same as a struct-typed param. A named struct (`Missing`) is a type, so it still matches by name.
@@ -3726,6 +3731,12 @@ module Code
 				positional
 			end
 
+			# A method written in Ruby (`ends_with? ( suffix; @ruby )`) needs values, and a type alias only describes them.
+			if (alias_index = arg_values.index { it.is_a? Code::Type_Alias }) && func.expressions&.any? { it.is_a?(Code::Identifier_Expr) && it.prefixed_with_at && it.value == 'ruby' }
+				argument = expr.respond_to?(:arguments) && expr.arguments&.[](alias_index) || expr
+				raise Code::Type_Alias_Is_Not_A_Value.new(argument, type_alias: arg_values[alias_index], function_name: func.name&.value)
+			end
+
 			# note: `func` is the single, shared Func object registered when the function was declared. Pushing it directly as the call frame (as this used to do) meant every invocation declared its params onto that same shared object, so recursive/repeated calls stomped on each other's param values. Each call gets its own fresh scope instead.
 			call_scope                 = Code::Func.new func.name
 			call_scope.expressions     = func.expressions
@@ -3818,7 +3829,7 @@ module Code
 
 				if signature
 					# A nil passes, as it does for every other contract, so `cb: (;) = nil` works.
-					raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(value)) unless value.nil? || value.is_a?(Code::Nil) || signature.matches?(value)
+					raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(value)) unless nil_value?(value) || signature.matches?(value)
 				elsif type && !type_contract_satisfied?(value, type)
 					raise Code::Type_Contract_Violation.new(expr, type_contract_display(type), describe_value_shape(value))
 				end
@@ -3897,6 +3908,14 @@ module Code
 			end
 
 			return_value
+		rescue Code::Type_Alias_Is_Not_A_Value => error
+			# A standard library function (`ends_with?`) can pass the alias on to the one written in Ruby (`end_with?`). Point at the call in the program instead.
+			library = ::File.dirname Code::STANDARD_LIBRARY_PATH
+			raise unless error.expression&.source_file&.start_with?(library) && !expr.source_file&.start_with?(library)
+
+			alias_index = arg_values&.index { it.equal? error.type_alias }
+			argument    = alias_index && expr.respond_to?(:arguments) && expr.arguments&.[](alias_index) || expr
+			raise Code::Type_Alias_Is_Not_A_Value.new(argument, type_alias: error.type_alias, function_name: func.name&.value)
 		ensure
 			self.stack = saved_stack if saved_stack
 		end
@@ -4879,7 +4898,7 @@ module Code
 					else
 						bare_type   = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
 						bare_struct = when_value.is_a?(Code::Struct)
-						bare        = bare_type || bare_struct
+						bare        = bare_type || bare_struct || when_value.is_a?(Code::Type_Alias) # `when GET` with `GET :: "GET"` is a contract too
 
 						infix          = Infix_Expr.new
 						infix.operator = Lexeme.new :operator, bare ? '=>=' : '=='
