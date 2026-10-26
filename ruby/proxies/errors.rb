@@ -87,7 +87,8 @@ module Code
 
 		def detail_message
 			name     = expression.name.is_a?(Code::Lexeme) ? expression.name.value : expression.name
-			declared = "#{Ascii.bold name} #{expression}"
+			shape    = expression.respond_to?(:struct_body) ? expression.struct_body : expression # a composed struct (`Task + Conn <b: String>`) is a Type_Expr
+			declared = "#{Ascii.bold name} #{shape}"
 			case existing_kind
 			when :struct
 				"#{Ascii.bold name} is already declared with another shape. Give #{declared} the same shape, or another name."
