@@ -2302,8 +2302,13 @@ module Code
 				return stringify_context(value, pretty_print: pretty_print)
 			end
 
-			# A bare Type's `to_s` (copied from its own body) assumes real instance context and crashes if called directly on the Type itself, so only attempt it on a genuine Instance.
-			return value unless value.is_a? Code::Instance
+			# A bare Type's `to_s` (copied from its own body) assumes real instance context and crashes if called directly on the Type itself, so a Type shows its name as written: `String`, `Array\String`, `nil\Bad_Request`.
+			unless value.is_a? Code::Instance
+				return value unless value.is_a? Code::Type
+
+				shown = context_vital 'display_name', value
+				return value.tag_instance && value.name == 'Nil' ? shown.sub(/\ANil/, 'nil') : shown
+			end
 
 			method_name ||= show_quotes && value.is_a?(Code::String) ? 'to_string' : 'to_s'
 			func        = [method_name, 'to_s'].uniq.lazy.filter_map do |name|

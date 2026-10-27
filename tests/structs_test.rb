@@ -1662,6 +1662,16 @@ class Structs_Test < Base_Test
 		assert out.values.all? { it.is_a?(Code::Type) && it.name == 'Nil' }
 	end
 
+	def test_a_type_shows_as_it_is_written
+		source = <<~CODE
+			Bad + Error <>
+
+			"`String` `Array\\String` `nil\\Bad`"
+		CODE
+		out = Code.interp("@load 'lang/errors.code'\n" + source)
+		assert_equal 'String Array\\String nil\\Bad', out.to_s
+	end
+
 	def test_bare_nil_tag_reference_still_composes_nil
 		out = Code.interp "nil\\<reason := 'x'> =>= Nil"
 		assert_equal true, out
