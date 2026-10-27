@@ -1,3 +1,4 @@
++ Would it make sense to let you break (`stop`) out of an if/unless? 
 + Add a Context function for getting specific kinds of declarations when composing. `Type { Self += Flying.variables, Self += Duck.functions }`
 + Make a data structure for `replayed_compositions` with proper member names.
 + Consider making Html elements structs like Css. A main `Dom {}` can provide functionality, whether all in one or composed of pieces, then your html elements can be `Li | Dom <id := ...>` where the members of the struct would probably be similar to what javascript might log for FE devs, or how react stores the element as a tree. What I'm trying to say is, an L1 needs children, which is a bit different with structs than classes. The render(;) in the classes is a convenient wrapper, but you may have to write your own logic and just use the H1 as the storage.

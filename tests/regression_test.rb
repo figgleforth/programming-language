@@ -1333,4 +1333,136 @@ class Regression_Test < Base_Test
 		assert_equal 'Thing does not respond to `proxy_make`', error.detail_message
 		assert_equal 3, error.expression.line_start
 	end
+
+	def test_a_return_in_an_if_body_skips_the_rest_of_the_body
+		out = Code.interp <<~CODE
+			ran := []
+
+			go (;
+				if true
+					return 'early'
+					ran.push('body')
+				end
+				ran.push('after')
+			)
+
+			<go(), ran.count()>
+		CODE
+		assert_equal ['early', 0], out.values
+	end
+
+	def test_a_return_in_an_else_or_elif_body_skips_the_rest_of_the_body
+		out = Code.interp <<~CODE
+			in_else (;
+				unless true
+					'body'
+				else
+					return 'early'
+					'late'
+				end
+			)
+
+			in_elif (;
+				if false
+					'body'
+				elif true
+					return 'early'
+					'late'
+				end
+				'after'
+			)
+
+			<in_else(), in_elif()>
+		CODE
+		assert_equal ['early', 'early'], out.values
+	end
+
+	def test_a_return_in_a_when_body_skips_the_rest_of_the_body
+		out = Code.interp <<~CODE
+			after_body (t;
+				if t
+				when 'a'
+					return 'early'
+					'late'
+				end
+			)
+
+			after_else (t;
+				if t
+					'body'
+				else
+				when nil
+					return 'early'
+					'late'
+				end
+			)
+
+			<after_body('a'), after_else(nil)>
+		CODE
+		assert_equal ['early', 'early'], out.values
+	end
+
+	def test_a_return_unless_in_a_when_body_gives_back_the_value
+		out = Code.interp <<~CODE
+			Bad + Error <>
+
+			find (-> Bad | Nil;
+				nil\\Bad
+			)
+
+			go (t;
+				if t
+				when 'a'
+					found := find()
+					return found unless found
+					found.missing
+				end
+			)
+
+			go('a') =>= nil\\Bad
+		CODE
+		assert_equal true, out
+	end
+
+	def test_a_return_in_a_while_body_ends_the_loop_and_the_function
+		out = Code.interp <<~CODE
+			in_body (;
+				i := 0
+				while i < 3
+					i += 1
+					return i if i == 1
+				end
+				'after'
+			)
+
+			in_when (;
+				i := 0
+				while i < 3
+					i += 1
+				when true
+					return 'early'
+					'late'
+				end
+				'after'
+			)
+
+			<in_body(), in_when()>
+		CODE
+		assert_equal [1, 'early'], out.values
+	end
+
+	def test_a_return_in_a_block_skips_the_rest_of_the_block
+		out = Code.interp <<~CODE
+			go (;
+				{
+					return 'early'
+					'late'
+				}
+				'after'
+			)
+
+			go()
+		CODE
+		assert_equal 'early', out
+	end
 end

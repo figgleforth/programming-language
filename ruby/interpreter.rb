@@ -2912,6 +2912,7 @@ module Code
 			push_then_pop scope do
 				expr.expressions.each do |it|
 					last_expr = interpret it
+					break if last_expr.is_a? Code::Return
 				end
 			end
 			last_expr
@@ -4794,6 +4795,7 @@ module Code
 
 				if own_branch
 					last_value = run_conditional_body expr.when_true
+					return last_value if last_value.is_a? Code::Return
 
 					matched, when_value = dispatch_when_cases expr, condition
 					matched ? when_value : last_value
@@ -4839,10 +4841,13 @@ module Code
 					end
 
 					catch :skip do
-						result              = run_conditional_body taken.when_true
+						result = run_conditional_body taken.when_true
+						throw :stop if result.is_a? Code::Return
+
 						matched, when_value = dispatch_when_cases taken, condition
 						result              = when_value if matched
 					end
+					throw :stop if result.is_a? Code::Return
 				end
 			end
 			result
@@ -4859,7 +4864,7 @@ module Code
 		# The `else` branch of an if/unless (`expr.when_false`, or an elif chain). Its body runs first, then its own `when` cases (written after `else`), where a matching case replaces the value. A second `else` runs when no case matched.
 		def run_else_branch expr, condition
 			last_value = run_conditional_body expr.when_false
-			return last_value unless expr.else_when_cases&.any?
+			return last_value if last_value.is_a?(Code::Return) || !expr.else_when_cases&.any?
 
 			matched, when_value = dispatch_when_cases expr, condition, cases: expr.else_when_cases
 			return when_value if matched
@@ -4871,7 +4876,10 @@ module Code
 			return interp_conditional body if body.is_a? Code::Conditional_Expr
 
 			last_value = nil
-			body.each { |e| last_value = interpret e }
+			body.each do |e|
+				last_value = interpret e
+				break if last_value.is_a? Code::Return
+			end
 			last_value
 		end
 
@@ -4913,6 +4921,7 @@ module Code
 					if matched_case
 						when_case.body.each do |case_body_expr|
 							last_value = interpret case_body_expr
+							break if last_value.is_a? Code::Return
 						end
 
 						case_matched = true
