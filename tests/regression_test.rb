@@ -1629,4 +1629,71 @@ class Regression_Test < Base_Test
 		expr = Code.parse('return true if (g(it) for xs)').first
 		assert_kind_of Code::Conditional_Expr, expr
 	end
+
+	# `Methods :: GET | HEAD` with `GET := "GET"` read `GET` as a type name, so no value matched it, silently.
+	def test_a_constant_that_holds_a_literal_is_a_literal_type
+		out = Code.interp <<~CODE
+			GET  := "GET"
+			HEAD := "HEAD"
+			Methods :: GET | HEAD
+
+			[("GET" =>= Methods), ("HEAD" =>= Methods), ("BREW" =>= Methods)]
+		CODE
+		assert_equal [true, true, false], out.values
+
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+				GET  := "GET"
+				HEAD := "HEAD"
+				Methods :: GET | HEAD
+
+				method: Methods = "BREW"
+			CODE
+		end
+	end
+
+	def test_a_constant_that_holds_a_literal_as_a_one_name_alias
+		out = Code.interp <<~CODE
+			GET := "GET"
+			Get_Only :: GET
+
+			[("GET" =>= Get_Only), ("HEAD" =>= Get_Only)]
+		CODE
+		assert_equal [true, false], out.values
+	end
+
+	# A name in a chain is looked up when a value is checked, so the constant can come after the alias
+	def test_a_constant_that_holds_a_literal_declared_after_the_alias
+		out = Code.interp <<~CODE
+			Methods :: GET | "HEAD"
+			GET := "GET"
+
+			[("GET" =>= Methods), ("BREW" =>= Methods)]
+		CODE
+		assert_equal [true, false], out.values
+	end
+
+	def test_a_constant_that_holds_a_value_raises_in_a_type_alias
+		error = assert_raises Code::Not_A_Type_Or_Literal do
+			Code.interp <<~CODE
+				LIST := [1, 2]
+				Listed :: LIST | String
+			CODE
+		end
+		assert_equal 'LIST', error.name
+	end
+
+	# A tagged nil with a message is an Instance, and showed as `nil` or as the Ruby object
+	def test_a_tagged_nil_with_a_message_shows_its_tag
+		out = Code.interp <<~CODE
+			Bad_Request + Error <>
+
+			fail (-> Int | Nil;
+				return nil\\Bad_Request('why')
+			)
+
+			"`nil\\Bad_Request('why')` `fail()`"
+		CODE
+		assert_equal 'nil\Bad_Request nil\Bad_Request', out.to_s
+	end
 end

@@ -736,6 +736,8 @@ module Code
 
 			named_alias = find_contract_type expected
 			return named_alias.satisfied? { type_contract_satisfied? value, it } if named_alias.is_a? Code::Type_Alias
+			# A constant bound to a literal (`GET := "GET"`) is that literal type, so `Methods :: GET | HEAD` means `"GET" | "HEAD"`
+			return values_equal?(value, named_alias) if literal_value? named_alias
 			# A name bound to a signature (`Any_Func :: (;)`) is a function's shape, as in a param.
 			return named_alias.matches? value if named_alias.is_a? Code::Func_Signature
 
@@ -2332,6 +2334,9 @@ module Code
 				return value.tag_instance && value.name == 'Nil' ? shown.sub(/\ANil/, 'nil') : shown
 			end
 
+			# A tagged nil built with arguments (`nil\Bad_Request('why')`) is an Instance, but shows as its tag, the same as the bare `nil\Bad_Request`.
+			return context_vital('display_name', value).sub(/\ANil/, 'nil') if value.tag_instance && nil_value?(value)
+
 			method_name ||= show_quotes && value.is_a?(Code::String) ? 'to_string' : 'to_s'
 			func        = [method_name, 'to_s'].uniq.lazy.filter_map do |name|
 				to_s_ident        = Code::Identifier_Expr.new
@@ -3599,7 +3604,9 @@ module Code
 				interp_func_body func_new, call_expr
 			elsif call_expr.arguments.count > 0 && instance.tag_instance.is_a?(Code::Struct)
 				# No initializer, but a struct tag: the arguments fill the tag. `nil\Error('oh snap')` is a nil tagged with `Error('oh snap')`.
+				written_name          = instance.tag_instance.bare_reference_name
 				instance.tag_instance = interp_struct_call instance.tag_instance, call_expr
+				instance.tag_instance.bare_reference_name ||= written_name
 				declare_tag instance
 			elsif call_expr.arguments.count > 0
 				# No initializer was declared so we have nowhere to pass the arguments
@@ -3640,11 +3647,56 @@ module Code
 			value = if expr.right.is_a? Code::Func_Signature_Expr
 				build_func_signature expr.right
 			elsif (type_alias = type_alias_for expr.right)
+				check_type_alias_operands expr.right
 				type_alias.tap { it.name = name }
 			else
-				interp_type_annotation expr.right
+				type = interp_type_annotation expr.right
+				# `Get_Only :: GET`, with `GET := "GET"`: the literal type, not the String value
+				if literal_value? type
+					Code::Type_Alias.new expr.right.value, name
+				else
+					raise Code::Not_A_Type_Or_Literal.new(expr.right, name: expr.right.value, value: type) unless type_like? type
+					type
+				end
 			end
 			stack.last.declare name, value
+		end
+
+		# A literal value: what a constant such as `GET := "GET"` holds, so it can stand for a literal type
+		def literal_value? value
+			case value
+			when ::String, ::Numeric, ::Symbol, true, false, Code::String, Code::Symbol, Code::Number then true
+			else false
+			end
+		end
+
+		# What a name in a type position may stand for. An Instance is a value, except a Struct (a shape) and an Enum.
+		def type_like? value
+			case value
+			when Code::Type_Alias, Code::Func_Signature, Code::Struct, Code::Enum then true
+			when Code::Instance then false
+			else value.is_a? Code::Type
+			end
+		end
+
+		# Each name in `Name :: A | B` must be a type, a constant bound to a literal, or not declared yet (a later declaration). Anything else could never match, so it raises here.
+		def check_type_alias_operands type_expr
+			operands = [[type_expr.name, type_expr]]
+			type_expr.expressions.each do |composition|
+				next unless composition.is_a?(Code::Composition_Expr) && !literal_type_expr?(composition.identifier)
+
+				operand = composition.identifier
+				operands << [operand.is_a?(Code::Type_Expr) ? operand.name : operand.value, operand]
+			end
+
+			operands.each do |operand_name, operand_expr|
+				next unless operand_name.is_a?(::String) && operand_name != 'Self'
+
+				found = find_contract_type operand_name
+				next if found.nil? || literal_value?(found) || type_like?(found)
+
+				raise Code::Not_A_Type_Or_Literal.new(operand_expr, name: operand_name, value: found)
+			end
 		end
 
 		def interp_func_signature expr

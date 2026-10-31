@@ -512,6 +512,7 @@ A literal in a type position is a type that allows only that one value: a String
 5. `Five :: 5` is a type that only `5` satisfies, not a value, so `Five + 1` raises `Code::Type_Alias_Is_Not_A_Type`. For a named value, use a constant: `FIVE := 5`. Passed to a method written in Ruby (`line.ends_with?(CRLF)` with `CRLF :: "\r\n"`), or compared with a value by `==`/`!=` (`method != OPTIONS`), an alias raises `Code::Type_Alias_Is_Not_A_Value`. Use `=>=` to check a value against it
 6. The static type checker checks a literal value against a literal type before the program runs
 7. A Dictionary entry uses `=` (`{:mode = "fill"}`), so `name: "fill"` inside `{}` is never an entry
+8. A constant that holds a literal is that literal type: with `GET := "GET"`, `Methods :: GET | HEAD` means `"GET" | "HEAD"`. So one constant is both a value to compare (`method == GET`) and a type (`method =>= Methods`). In `A | B`, the constant can come after the alias; in a one-name alias (`Get_Only :: GET`), it must come first. A name in `::` that holds any other value (an Array, an instance) raises `Code::Not_A_Type_Or_Literal`, because no value could match it
 
 ```code
 mode: "fill" | "line" = "fill"
@@ -530,6 +531,12 @@ Margin  :: Number | Auto
 Port :: Int ~ 0          # any Int except 0
 Sign :: -1 | 0 | 1
 80 =>= Port              # true
+
+GET     := "GET"         # a constant: a value...
+HEAD    := "HEAD"
+Methods :: GET | HEAD    # ...and, in a type position, its literal type
+"HEAD" =>= Methods       # true
+"BREW" =>= Methods       # false
 ```
 
 A struct member with a literal type tells structs apart. A member typed with one literal starts with that value, so a call does not need to give it:

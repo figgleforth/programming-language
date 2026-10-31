@@ -162,6 +162,21 @@ module Code
 		end
 	end
 
+	# `Methods :: GET | HEAD`, where `GET` holds a value that is neither a type nor a literal (an Array, an instance), so no value could match it.
+	class Not_A_Type_Or_Literal < Error
+		attr_reader :name, :value
+
+		def initialize expression = nil, highlighted_expression = nil, name: nil, value: nil
+			@name  = name
+			@value = value
+			super expression, highlighted_expression
+		end
+
+		def detail_message
+			"`#{Ascii.bold @name}` is a value, not a type or a literal, so no value can match it. A type position takes a type (`String`), a literal (`\"GET\"`), or a constant that holds a literal (`GET := \"GET\"`)."
+		end
+	end
+
 	class Invalid_Type_Alias_Name < Error
 		def detail_message
 			"`::` names a type, so the name must be capitalized: `Mode :: \"fill\" | \"line\"`. A lowercase name is a value or a function; give it one with `:=`."
