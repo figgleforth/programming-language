@@ -50,16 +50,14 @@ class Interpreter_Test < Base_Test
 		assert_equal :development, out
 	end
 
-	def test_cannot_assign_incompatible_type
-		# todo; raises Cannot_Reassign_Undeclared_Identifier
-		assert_raises Code::Cannot_Assign_Incompatible_Type do
-			Code.interp 'MyType {}
-			My_Type = :anything'
+	# A type name is declared by `:=`, `::` or its own construct, not by `=`
+	def test_a_type_name_is_not_declared_with_equals
+		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
+			Code.interp 'My_Type = Other {}'
 		end
 
-		refute_raises Code::Cannot_Assign_Incompatible_Type do
-			Code.interp 'MyType {}
-			My_Type = Other {}'
+		refute_raises Code::Error do
+			Code.interp 'My_Type := Other {}'
 		end
 	end
 

@@ -175,12 +175,12 @@ tmp.y = 4
 
 ### The standard library works this way too
 
-`String` / `Array` / etc. are reachable through Global's own read-only splat, not declared on Global directly -- see examples/loading_code.code. Reassigning a built-in name shadows it for the rest of the program without touching the real one; if the replacement still composes the original, every literal keeps working and picks up whatever else you added:
+`String` / `Array` / etc. are reachable through Global's own read-only splat, not declared on Global directly -- see examples/loading_code.code. Declaring a built-in name again with `:=` shadows it for the rest of the program without touching the real one (`=` cannot change a capitalized name); if the replacement still composes the original, every literal keeps working and picks up whatever else you added:
 ###
 Mine + Array { extra := true }
-Array = Mine
+Array := Mine
 
-@assert [1,2,3].length() == 3, 'reassigning Array keeps literals working -- Mine composes Array'
+@assert [1,2,3].length() == 3, 'redeclaring Array keeps literals working -- Mine composes Array'
 @assert [1].extra == true, 'every array literal now picks up what Mine added'
 
 

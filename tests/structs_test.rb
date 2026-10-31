@@ -1060,7 +1060,7 @@ class Structs_Test < Base_Test
 				extra := true
 			}
 
-			Array = Mine
+			Array := Mine
 
 			is_mine := [] =>= Mine
 
@@ -1108,7 +1108,7 @@ class Structs_Test < Base_Test
 			)
 
 			before := local_split()
-			Array = Mine
+			Array := Mine
 
 			<before, 'a,b'.split(',').@types>
 		CODE
@@ -1117,13 +1117,13 @@ class Structs_Test < Base_Test
 	end
 
 	# A replacement that does not compose the built-in does not take over the values Ruby builds. One that does is in examples/scopes.code (`Array = Mine`).
-	def test_reassigning_a_built_in_name_to_an_unrelated_type_keeps_literals_working
+	def test_redeclaring_a_built_in_name_as_an_unrelated_type_keeps_literals_working
 		source = <<~CODE
 			Mine {
 				value := 1
 			}
 
-			Range = Mine
+			Range := Mine
 
 			(1..3).to_a().count()
 		CODE

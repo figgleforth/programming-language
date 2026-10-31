@@ -223,13 +223,20 @@ instance := My_Class('some input')  # Initted with "some input"
 
 ## Constants
 
-1. Must be UPPERCASE
-2. Cannot be reassigned after initial declaration
+1. A name that starts with a capital letter is a constant: `PI` and `Point` are the same kind. By habit, UPPERCASE holds a value and Capitalized holds a type
+2. It is declared by `:=`, `::`, or its own construct (`Point {}`, `Point <x: Int>`, `COLORS [RED, BLUE]`). A typed one uses `=` the first time: `MAX: Int = 100`
+3. `=` and a compound operator (`+=`, `|=`, …) cannot change it, also through a dot (`Outer.Inner = 5`): each raises `Code::Cannot_Reassign_Constant`. To declare it again on purpose, use `:=`
+4. `Self` is the exception: it is the constructor's name, not a constant
 
 ```code
 PI := 3.14159
 MAX_SIZE := 100
 APP_NAME := 'My App'
+
+PI = 3              # raises Code::Cannot_Reassign_Constant
+Point {}
+Point = Other       # raises Code::Cannot_Reassign_Constant
+Point := Other      # works: declared again on purpose
 ```
 
 ## Comments
@@ -857,7 +864,7 @@ Every scope keeps two extra fallback places identifier lookup checks after its o
 1. `@splat x` unpacks `x` as a writable splat; `@splatr x` read-only; `@unsplat x` removes it. Works on a function param or by hand anywhere.
 2. A `: Type` / `: <...>` annotation on a splat param is enforced at the call, raising `Type_Contract_Violation` right there.
 3. Both sets are held *weakly* — a splatted instance isn't kept alive by the splat alone.
-4. The standard library works this way — `String`/`Array`/etc. sit on Global's own read-only splat, not declared on Global directly. Reassigning a built-in (`Array = Mine`) just shadows the name; the real one is untouched. Literals take the replacement only when it composes the built-in (`Mine + Array {}`). `Array = Mine` replaces it in Global, so for the whole program. `Array := Mine` in a function or at the top of a library replaces it only for the literals written there; an Array that a standard library method builds (`split`, `map`) still follows Global. A program can also declare its own struct with a built-in name (`Range <low: Int, high: Int>`), and `1..3` is still a real `Range`.
+4. The standard library works this way — `String`/`Array`/etc. sit on Global's own read-only splat, not declared on Global directly. Declaring a built-in name again (`Array := Mine`) just shadows the name; the real one is untouched. Literals take the replacement only when it composes the built-in (`Mine + Array {}`). At the top of the program, `Array := Mine` replaces it in Global, so for the whole program. `Array := Mine` in a function or at the top of a library replaces it only for the literals written there; an Array that a standard library method builds (`split`, `map`) still follows Global. A program can also declare its own struct with a built-in name (`Range <low: Int, high: Int>`), and `1..3` is still a real `Range`.
 
 ```code
 Vector {
@@ -892,7 +899,7 @@ doubled := double(v)  # doubled.x: 6, doubled.y: 8
 # The standard library works the same way -- Array is reachable through
 # Global's own read-only splat, not declared on Global directly
 Mine + Array { extra := true }
-Array = Mine          # shadows the name -- the real Array is untouched
+Array := Mine         # shadows the name -- the real Array is untouched
 [1, 2, 3].length()    # 3 -- still works, Mine composes Array
 [1].extra              # true -- and every array literal now has this too
 ```

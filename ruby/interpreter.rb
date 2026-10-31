@@ -2012,22 +2012,11 @@ module Code
 				right_value = interpret expr.right
 			end
 
-			# A Class-styled identifier (`My_Type = Other {}`) assigning a Scope value is itself a declaration, same reasoning as has_type_annotation above: `=` onto a fresh Class-styled name is how types get named/aliased, so it's allowed to introduce the identifier rather than requiring `:=` first.
-			is_class_declaration = Code.type_of_identifier(expr.left.value) == :Identifier && right_value.is_a?(Code::Scope)
-			assignment_scope     ||= stack.last if is_class_declaration
-
-			# Before the actual assignment, the identifier is checked for specific behavior errors based on its expression type (class, constant, variable/function)
+			# Before the actual assignment, the identifier is checked for specific behavior errors based on its expression type (constant, variable/function)
 			case Code.type_of_identifier expr.left.value
-			when :IDENTIFIER
-				# It can only be assigned once, so if the declaration exists, fail. An undeclared constant falls through to the Cannot_Reassign_Undeclared_Identifier check below.
-				if assignment_scope&.has? expr.left.value
-					raise Code::Cannot_Reassign_Constant.new(expr.left)
-				end
-			when :Identifier
-				# It can only be assigned `value` of Code::Scope, which includes Code::Type
-				if !right_value.is_a?(Code::Scope)
-					raise Code::Cannot_Assign_Incompatible_Type.new(expr)
-				end
+			when :IDENTIFIER, :Identifier
+				# A constant (`MAX`) or a type (`Point`) is one kind: declared once, by `:=`, `::` or its own construct (`Point {}`), and never changed by `=`. An undeclared one falls through to the Cannot_Assign_Undeclared_Identifier check below.
+				raise Code::Cannot_Reassign_Constant.new(expr.left) if assignment_scope&.has? expr.left.value
 			when :identifier
 				if assignment_scope
 					# If the left side of the expression was declared with a type annotation, the type of `right_value` is enforced here.
@@ -2059,7 +2048,7 @@ module Code
 				end
 			end
 
-			unless assignment_scope && (assignment_scope.has?(expr.left.value) || has_type_annotation || is_class_declaration)
+			unless assignment_scope && (assignment_scope.has?(expr.left.value) || has_type_annotation)
 				# it may not be declared using =
 				raise Code::Cannot_Assign_Undeclared_Identifier.new(expr)
 			end
@@ -2259,7 +2248,7 @@ module Code
 				raise Code::Cannot_Assign_Undeclared_Identifier.new(expr)
 			end
 
-			if Code.type_of_identifier(property) == :IDENTIFIER
+			if %i(IDENTIFIER Identifier).include? Code.type_of_identifier(property)
 				raise Code::Cannot_Reassign_Constant.new(expr)
 			end
 
@@ -2832,6 +2821,9 @@ module Code
 
 		# (a += b)  ==>  (a = (a + b)). Compound operators only ever consult a scope-level @operator overload (never the operand's own), since their built-in meaning is assignment, not a property of the operand's type.
 		def interp_compound_infix expr, left, right
+			# `X += 1` changes a constant the same as `X = X + 1` does
+			raise Code::Cannot_Reassign_Constant.new(expr.left) if expr.left.is_a?(Code::Identifier_Expr) && %i(IDENTIFIER Identifier).include?(Code.type_of_identifier(expr.left.value))
+
 			overload = find_operator_overload expr.operator.value
 			return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
 

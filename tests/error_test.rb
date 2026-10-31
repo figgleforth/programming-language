@@ -59,10 +59,50 @@ class Error_Test < Base_Test
 		end
 	end
 
-	def test_cannot_assign_incompatible_type
-		error = assert_raises Code::Cannot_Assign_Incompatible_Type do
+	# A type name is a constant too: `=` never changes it, and neither does a compound operator
+	def test_cannot_reassign_a_type
+		assert_raises Code::Cannot_Reassign_Constant do
 			Code.interp 'Person { name, }, Person = 5'
 		end
+
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp <<~CODE
+				Person {}
+				Robot {}
+
+				Person = Robot
+			CODE
+		end
+
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp 'Person {}, Person += 1'
+		end
+
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp 'COUNT := 1, COUNT += 1'
+		end
+
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp <<~CODE
+				Outer {
+					Inner {}
+				}
+
+				Outer.Inner = 5
+			CODE
+		end
+	end
+
+	# `:=` declares it again on purpose
+	def test_colon_equals_redeclares_a_type
+		out = Code.interp <<~CODE
+			Person {}
+			Robot {}
+
+			Person := Robot
+			Person.@name
+		CODE
+		assert_equal 'Robot', out
 	end
 
 	def test_cannot_call_value

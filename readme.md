@@ -136,7 +136,7 @@ lower :: Integer       # Invalid_Type_Alias_Name
 
 ### Constants
 
-Uppercase means it never changes.
+A capital first letter means it never changes: a constant (`PI`) or a type (`Point`).
 
 ```code
 PI := 3.14159

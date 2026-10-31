@@ -129,6 +129,9 @@ module Code
 	end
 
 	class Cannot_Reassign_Constant < Error
+		def detail_message
+			"A capitalized name (`Point`, `MAX`) is declared once, and `=` cannot change it. To declare it again on purpose, use `:=`."
+		end
 	end
 
 	class Elif_In_Loop_Chain < Error
@@ -228,9 +231,6 @@ module Code
 		def detail_message
 			"`.tag` here is `#{Ascii.bold declared}` -- a replacement must compose at least everything it does (`=>=`), but `#{Ascii.bold given}` does not."
 		end
-	end
-
-	class Cannot_Assign_Incompatible_Type < Error
 	end
 
 	class Cannot_Assign_Undeclared_Identifier < Error
