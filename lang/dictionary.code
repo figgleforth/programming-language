@@ -1,9 +1,7 @@
 Dictionary {
 	hash,
 
-	Self ( hash := {};
-		self.hash = hash
-	)
+	Self ( hash := {}; @ruby )
 
 	keys (; @ruby )
 	values (; @ruby )

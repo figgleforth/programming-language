@@ -1819,9 +1819,10 @@ module Code
 				return expr if precedence_for(curr_lexeme.value) <= precedence
 
 				# @pasted from original For_Loop_Expr initialization, with modifications
-				it        = Code::For_Loop_Expr.new
-				it.lexeme = eat 'for'
-				it.body   = [expr]
+				it         = Code::For_Loop_Expr.new
+				it.lexeme  = eat 'for'
+				it.body    = [expr]
+				it.postfix = true
 
 				lexemes = peek_until "\n"
 
@@ -1883,6 +1884,17 @@ module Code
 				it_prec       = precedence_for it.type.value
 				it.condition  = parse_expression
 				it.when_true  = [expr]
+
+				# A trailing `for` applies to the whole statement, not only to the condition: `return true if x for xs` is `(return true if x) for xs`
+				if it.condition.is_a?(Code::For_Loop_Expr) && it.condition.postfix
+					loop         = it.condition
+					it.condition = loop.body.first
+					loop.body    = [it]
+					set_expr_location it, expr, it.condition
+					set_expr_location loop, it, (loop.step || loop.overlap || loop.stride || loop.collection)
+					return complete_expression loop, precedence
+				end
+
 				set_expr_location it, expr, it.condition
 				return complete_expression it, precedence
 			end

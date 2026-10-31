@@ -227,11 +227,11 @@ Penguin { Self += Swimming }     # or from inside a body
 Ostrich().can_swim               # true
 Ostrich().can_fly                # Undeclared_Identifier
 
-Array + Array {                  # extend built-ins, too
-    second (;
-        self.values.1
-    )
-}
+@push_scope Array                # extend built-ins, too
+second (;
+    self.values.1
+)
+@pop_scope Array
 ```
 
 ### Comparing
@@ -908,17 +908,17 @@ Mod.Some_Type()
 The standard library is written in .code, and `@ruby` runs the built-in Ruby method right where it is written, so you can wrap or replace any built-in.
 
 ```code
-String + String {
-    upcase (;
-        @puts "upcasing `self`"
-        @ruby                   # the built-in upcase runs here
-    )
-}
+@push_scope String
+upcase (;
+    @puts "upcasing `self`"
+    @ruby                     # the built-in upcase runs here
+)
+@pop_scope String
 'hi'.upcase()                 # prints upcasing hi, gives 'HI'
 
-String + String {
-    upcase (; "`@ruby`!" )
-}
+@push_scope String
+upcase (; "`@ruby`!" )
+@pop_scope String
 'hi'.upcase()                 # 'HI!'
 ```
 

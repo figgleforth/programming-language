@@ -36,6 +36,15 @@ String {
         result
 	)
 
+	@operator + @infix ( left: String, right;
+		if right
+		when it =>= String
+			"`left``right`"
+		else
+			@panic "String + operator expected `right` to be a String"
+		end
+	)
+
 	downcase (; @ruby )
 	empty? (; @ruby )
 	end_with? ( suffix; @ruby )

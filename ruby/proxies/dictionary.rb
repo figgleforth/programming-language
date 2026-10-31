@@ -10,6 +10,13 @@ module Code
 		end
 
 		proxy_delegate 'hash'
+
+		# `Dictionary()` or `Dictionary(other)`. A copy, so a change to the new Dictionary leaves `other` alone. In Ruby, because `self.hash = hash` is a dot write, which a Dictionary does not take.
+		def proxy_Self other = nil
+			@hash                 = other.is_a?(Code::Dictionary) ? other.hash.dup : {}
+			@declarations['hash'] = @hash
+			self
+		end
 		proxy :count
 		proxy :empty?
 		proxy :clear

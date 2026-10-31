@@ -1213,14 +1213,15 @@ class Interpreter_Test < Base_Test
 	# Reopening `Arguments` to restrict what a variadic accepts.
 	def test_arguments_push_can_be_overridden_for_a_typed_variadic
 		src = <<~CODE
-		    Arguments + Array {
-		    	push ( item;
-		    		unless item =>= Number
-		    			return nil
-		    		end
-		    		self.append(item)
-		    	)
-		    }
+		    @push_scope Arguments
+		    push ( item;
+		    	unless item =>= Number
+		    		return nil
+		    	end
+		    	self.append(item)
+		    )
+		    @pop_scope Arguments
+
 		    collect ( nums...; nums )
 		    r := collect()
 		    r.push(1)
@@ -3544,12 +3545,13 @@ class Interpreter_Test < Base_Test
 
 	def test_using_pound_proxy_as_expression
 		code = <<~CODE
-		    String + String {
-		        upcase (;
-		        	@ruby + " (SWIZZLED)"
-		        )
-		    }
-			"test".upcase()
+		    @push_scope String
+		    upcase (;
+		    	@ruby + " (SWIZZLED)"
+		    )
+		    @pop_scope String
+
+		    "test".upcase()
 		CODE
 		assert_equal "TEST (SWIZZLED)", Code.interp(code)
 	end

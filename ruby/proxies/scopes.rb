@@ -136,6 +136,7 @@ module Code
 		attr_accessor :tag_declaration
 		attr_accessor :declaration_in_progress
 		attr_accessor :replayed_compositions # a Replayed_Composition for each `Self += X` / `Self -= X` a method ran on this type; each instance built later runs them again
+		attr_accessor :pushed_methods        # {::String => Code::Func}: each method that `@push_scope` replaced; each instance built later gets them after its body runs
 
 		# One `Self += X` / `Self -= X` that a method ran on a type: the composition, with no target, and the operand's value (a local operand is gone by the time it replays).
 		Replayed_Composition = ::Data.define :composition, :value
@@ -160,6 +161,11 @@ module Code
 		def []= key, value
 			@member_names&.add key.to_s
 			super
+		end
+
+		# Each instance this type built, held weakly (as Scope#readable_scopes does), so `@pop_scope` can give an overridden method to the instances built before it.
+		def instances
+			@instances ||= ObjectSpace::WeakMap.new
 		end
 
 		def delete key

@@ -295,30 +295,30 @@ class Regression_Test < Base_Test
 	end
 
 	def test_self_inside_for_loop
-		# note: Composing Array with itself allows extending or overriding behavior of Array. Notice how `values` is accessible despite being declared on the original Array type.
+		# note: `@push_scope Array` extends or overrides the behavior of Array. Notice how `values` is accessible despite being declared on the original Array type.
 		without_prefix = <<~CODE
-		    Array + Array {
-		        each ( func;
-		        	for values
-		        		func(it)
-		        	end
-		        )
-		    }
+		    @push_scope Array
+		    each ( func;
+		    	for values
+		    		func(it)
+		    	end
+		    )
+		    @pop_scope Array
 		CODE
 
 		with_prefix = <<~CODE
-		    Array + Array {
-		        each ( func;
-		        	for self.values
-		        		func(it)
-		        	end
-		        )
-		    }
+		    @push_scope Array
+		    each ( func;
+		    	for self.values
+		    		func(it)
+		    	end
+		    )
+		    @pop_scope Array
 		CODE
 
 		out = Code.interp <<~CODE
-		    values := Array([1,2,3])
 		    #{without_prefix}
+		    values := Array([1,2,3])
 		    values2 := []
 		    values.each((it;
 		    	values2.push(it)
@@ -328,8 +328,8 @@ class Regression_Test < Base_Test
 		assert_equal [1, 2, 3], out.values
 
 		out = Code.interp <<~CODE
-		    values := Array([1,2,3])
 		    #{with_prefix}
+		    values := Array([1,2,3])
 		    values2 := []
 		    values.each((it;
 		    	values2.push(it)
@@ -1464,5 +1464,169 @@ class Regression_Test < Base_Test
 			go()
 		CODE
 		assert_equal 'early', out
+	end
+
+	# `Dictionary()` raised Dictionary_Dot_Write, because its constructor did `self.hash = hash`.
+	def test_the_dictionary_constructor
+		assert_equal({}, Code.interp("Dictionary()").hash)
+		assert_equal({ 'a' => 1 }, Code.interp("Dictionary({a = 1})").hash)
+
+		out = Code.interp <<~CODE
+			original := {a = 1}
+			copy     := Dictionary(original)
+			copy[:b] = 2
+			original
+		CODE
+		assert_equal({ 'a' => 1 }, out.hash)
+	end
+
+	# A type with a standard library name used to reopen the built-in; through an alias (`Map :: Dictionary`), it changed `Dictionary`. Now it is a new type, and `@push_scope` is the one way to change a built-in.
+	def test_a_type_named_like_an_alias_is_its_own_type
+		out = Code.interp <<~CODE
+			Map {
+				width := 10
+			}
+
+			<Map().width, Map.@name>
+		CODE
+		assert_equal [10, 'Map'], out.values
+
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+				Map {
+					width := 10
+				}
+
+				{a = 1}.width
+			CODE
+		end
+	end
+
+	def test_a_type_named_like_a_built_in_shadows_it
+		out = Code.interp <<~CODE
+			Time {
+				ticks := 0
+			}
+
+			Time().ticks
+		CODE
+		assert_equal 0, out
+
+		assert_raises Code::Undeclared_Identifier do
+			Code.interp <<~CODE
+				Float {
+					bits := 32
+				}
+
+				x := 1.5
+				x.bits
+			CODE
+		end
+	end
+
+	def test_push_scope_still_changes_a_built_in
+		out = Code.interp <<~CODE
+			@push_scope String
+			shout (;
+				upcase() + "!"
+			)
+			@pop_scope String
+
+			"hi".shout()
+		CODE
+		assert_equal 'HI!', out
+	end
+
+	# An instance built with `Type()` keeps its own copy of each method, so `@push_scope` did not reach an instance built before it, and the type's body gave an instance built after it the old method again.
+	def test_push_scope_overrides_a_method_on_instances_built_before_and_after
+		out = Code.interp <<~CODE
+			Button {
+				label := 'default'
+
+				greet (;
+					"hi from `label`"
+				)
+
+				other (;
+					'other'
+				)
+			}
+
+			before := Button()
+			before.label = 'before'
+
+			mine := Button()
+			@push_scope mine
+			other (;
+				'its own'
+			)
+			@pop_scope mine
+
+			@push_scope Button
+			greet (;
+				"hello from `label`"
+			)
+			other (;
+				'new other'
+			)
+			label := 'pushed'
+			@pop_scope Button
+
+			after := Button()
+			<before.greet(), after.greet(), before.other(), mine.other()>
+		CODE
+		assert_equal ['hello from before', 'hello from default', 'new other', 'its own'], out.values
+	end
+
+	def test_push_scope_overrides_a_built_in_method_on_an_array_built_before
+		out = Code.interp <<~CODE
+			numbers := Array([1, 2, 3])
+
+			@push_scope Array
+			each ( func;
+				for values
+					func(it * 10)
+				end
+			)
+			@pop_scope Array
+
+			seen := []
+			numbers.each((it;
+				seen.push(it)
+			))
+			seen
+		CODE
+		assert_equal [10, 20, 30], out.values
+	end
+
+	# `return true if x for xs` parsed as `return true if (x for xs)`, so the condition was the loop's last pass, and only the last item counted. A trailing `for` now applies to the whole statement.
+	def test_a_trailing_for_applies_to_the_whole_postfix_if
+		out = Code.interp <<~CODE
+			starts_with_any? ( text: String, prefixes: Array\\String -> Bool;
+				return true if text.start_with?(it) for prefixes
+				false
+			)
+
+			<starts_with_any?('ax', ['a', 'b']), starts_with_any?('bx', ['a', 'b']), starts_with_any?('cx', ['a', 'b'])>
+		CODE
+		assert_equal [true, true, false], out.values
+
+		expr = Code.parse('return true if g(it) for xs').first
+		assert_kind_of Code::For_Loop_Expr, expr
+		assert_kind_of Code::Conditional_Expr, expr.body.first
+	end
+
+	def test_a_trailing_for_applies_to_the_whole_postfix_unless
+		out = Code.interp <<~CODE
+			kept := []
+			kept << it unless it == 2 for [1, 2, 3]
+			kept
+		CODE
+		assert_equal [1, 3], out.values
+	end
+
+	def test_a_grouped_for_stays_the_condition
+		expr = Code.parse('return true if (g(it) for xs)').first
+		assert_kind_of Code::Conditional_Expr, expr
 	end
 end

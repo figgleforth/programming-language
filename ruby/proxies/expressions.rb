@@ -265,6 +265,7 @@ module Code
 		attr_accessor :collection, :stride, :overlap, :body # my way
 		attr_accessor :counter, :condition, :step # c-like
 		attr_accessor :when_cases, :when_bodies, :when_else_case
+		attr_accessor :postfix # true for a trailing `x for xs`
 	end
 
 	class When_Expr < Prefix_Expr

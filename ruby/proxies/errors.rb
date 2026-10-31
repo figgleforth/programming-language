@@ -542,18 +542,21 @@ module Code
 	end
 
 	class Type_Contract_Violation < Error
-		attr_accessor :contract, :actual
+		attr_accessor :contract, :actual, :member
 
-		def initialize expression, contract, actual
+		# `member` names the struct member, param or property whose value broke the contract, when the raise knows it.
+		def initialize expression, contract, actual, member: nil
 			@contract = contract
 			@actual   = actual
+			@member   = member
 			super expression
 		end
 
 		# A `detail_message` (not a `message` override) so the shared formatter still prefixes the
 		# `at <file>:<line>:<col>` location -- points at the offending call/assignment.
 		def detail_message
-			"expected #{Ascii.bold @contract}, got #{Ascii.bold(@actual || 'unknown')}"
+			prefix = @member ? "#{Ascii.bold @member}: " : ''
+			"#{prefix}expected #{Ascii.bold @contract}, got #{Ascii.bold(@actual || 'unknown')}"
 		end
 	end
 

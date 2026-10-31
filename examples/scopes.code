@@ -238,3 +238,62 @@ onclick := 'clicked'
 
 @assert button_c.onclick == 'clicked', 'the reopened instance has the new member'
 # button_d.onclick would raise Code::Undeclared_Identifier -- only button_c was reopened, not the type
+
+
+### Replacing a method reaches every instance
+
+A method you replace while a Type is pushed reaches every instance, built before or after. An instance keeps its own data: `old_torch` still has 2 hours of fuel. An instance that got its own method with `@push_scope` keeps that method too.
+###
+Torch {
+	fuel := 3
+
+	describe (;
+		"a torch with fuel for `fuel` hours"
+	)
+}
+
+old_torch := Torch()
+old_torch.fuel = 2
+
+special_torch := Torch()
+@push_scope special_torch
+describe (;
+	'the special torch'
+)
+@pop_scope special_torch
+
+@push_scope Torch
+describe (;
+	"a torch: `fuel` hours left"
+)
+@pop_scope Torch
+
+new_torch := Torch()
+@assert old_torch.describe() == 'a torch: 2 hours left', 'an instance built before the push gets the new method, with its own fuel'
+@assert new_torch.describe() == 'a torch: 3 hours left', 'an instance built after the push gets the new method too'
+@assert special_torch.describe() == 'the special torch', 'an instance with its own method keeps it'
+
+
+### Changing a built-in type
+
+`@push_scope` is the one way to change a built-in type. A method you add to `String` reaches every String, literals included:
+###
+@push_scope String
+shout (;
+	upcase() + '!'
+)
+@pop_scope String
+
+@assert 'help'.shout() == 'HELP!', 'a String literal gets the method that @push_scope added'
+
+
+### A built-in's name makes a new type
+
+A type you declare with a built-in's name, or an alias's name, is a new type of your own. `Map :: Dictionary` is an alias, but this `Map` does not change `Dictionary`:
+###
+Map {
+	width := 10
+}
+
+@assert Map().width == 10, 'Map is a type of its own'
+@assert {spot = 'beach'}.?width == nil, 'and Dictionary did not get its members'

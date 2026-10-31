@@ -1934,6 +1934,64 @@ class Structs_Test < Base_Test
 		assert_equal [1, 'x'], Code.interp("A <v: String, n: Number>\na := A(n := 1, v := 'x')\n<a.n, a.v>").values
 	end
 
+	def test_a_construction_type_error_names_the_member_and_points_at_its_argument
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+				Address <host: String, port: Int>
+
+				Address(
+				    host := 'x.org'
+				    port := '8080'
+				)
+			CODE
+		end
+		assert_equal 'port', err.member
+		assert_equal 5, err.expression.line_start
+	end
+
+	def test_a_positional_construction_type_error_points_at_its_argument
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+				Address <host: String, port: Int>
+
+				Address(
+				    'x.org',
+				    '8080'
+				)
+			CODE
+		end
+		assert_equal 'port', err.member
+		assert_equal 5, err.expression.line_start
+	end
+
+	def test_a_param_type_error_names_the_param
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+				double ( n: Int;
+				    n * 2
+				)
+
+				text := 'x'.upcase()
+				double(text)
+			CODE
+		end
+		assert_equal 'n', err.member
+	end
+
+	def test_a_member_write_type_error_names_the_member
+		err = assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+				Counter {
+				    count: Int = 0
+				}
+
+				counter := Counter()
+				counter.count = 'x'
+			CODE
+		end
+		assert_equal 'count', err.member
+	end
+
 	def test_construction_lets_a_missing_or_nil_member_pass
 		assert_nil Code.interp("A <v: String>\nA().v")
 		assert_nil Code.interp("A <v: String>\nA(nil).v")

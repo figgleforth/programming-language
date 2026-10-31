@@ -367,16 +367,16 @@ o.can_swim    # true
 o.can_fly     # raises Code::Undeclared_Identifier
 ```
 
-A type can even compose with itself, to extend or override a built-in type's own behavior:
+To extend or override a built-in type's own behavior, reopen it with `@push_scope` (see [Reopening Scopes](#reopening-scopes-push_scopepop_scope)). A composition with a built-in's name (`Array + Array {}`) declares a new type of your own, and the built-in stays as it was:
 
 ```code
-Array + Array {
-    each ( func;
-        for self.values   # self.values reaches the original Array's own values, despite `each` itself now being redefined
-            func(it)
-        end
-    )
-}
+@push_scope Array
+each ( func;
+    for self.values   # self.values reaches the original Array's own values, despite `each` itself now being redefined
+        func(it)
+    end
+)
+@pop_scope Array
 
 values := Array([1, 2, 3])
 doubled := []
@@ -654,6 +654,7 @@ end
 1. Iterate over arrays, ranges, or any iterable
 2. `it` is the current element
 3. `at` is the current index
+4. Also works at the end of a line: `<statement> for <collection>`. It applies to the whole statement, so `return true if done?(it) for items` is `(return true if done?(it)) for items`. Parentheses keep a loop inside the condition: `x if (y for items)`
 
 ```code
 for [1, 2, 3]
@@ -915,7 +916,8 @@ outer()  # 65
 
 1. `@push_scope <Type or instance>` pushes that scope directly onto the stack, so declarations made inside it become real members of the target
 2. `@pop_scope <same target>` pops back to the previous scope — it asserts (by identity) that you're popping what you actually pushed, raising instead of popping the wrong thing
-3. Unlike a splat, `@push_scope` mutates its target — reopening a Type extends every instance of it, reopening a specific instance changes only that one
+3. Unlike a splat, `@push_scope` mutates its target — reopening a Type extends every instance of it, reopening a specific instance changes only that one. A method you replace in a Type reaches the instances built before and after, except an instance that has its own method under that name. A data member you change in a Type does not change an instance's own value
+4. `@push_scope` is the one way to change a built-in type (`String`, `Array`, …). A `Name {}` declaration with a built-in's name, or an alias's name (`Map`, `Int`), declares a new type of your own, and the built-in stays as it was
 
 ```code
 Button {
@@ -935,6 +937,20 @@ b.css_filter   # 'invert()' — every Button gets it, since Button itself was ex
 
 c := Button()
 c.onclick   # raises Code::Undeclared_Identifier — only b was modified
+```
+
+```code
+@push_scope String
+    shout (;
+        upcase() + "!"
+    )
+@pop_scope String
+
+"hi".shout()   # 'HI!'
+
+Map {           # a new type: it does not change Dictionary, though Map :: Dictionary
+    width := 10
+}
 ```
 
 ## Arrays

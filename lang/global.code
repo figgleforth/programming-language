@@ -21,7 +21,6 @@
 @load 'lang/enum'
 @load 'lang/bool'
 @load 'lang/context'
-@load 'lang/pointer'
 
 ### How to load programs.
 @load 'lang/some.code'  # the standard library itself lives in ./lang/

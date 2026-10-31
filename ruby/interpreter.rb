@@ -76,6 +76,7 @@ module Code
 			@stack                 = [] # [Code::Scope]
 			@servers               = [] # [Code::Server]
 			@loading_files         = [] # [Loading_File] files mid-load, outermost first -- see #load_file_into_scope
+			@methods_before_push   = [] # [[Code::Type, {::String => Code::Func}]] for each open `@push_scope`, see #give_overridden_methods_to_instances
 
 			# Hot reload (browser auto-refresh on save). Only Hot_Reloader turns @hot_reload on, so a
 			# plain `prog interpf` / production server never streams events or injects the client script.
@@ -310,6 +311,27 @@ module Code
 			if marked
 				@loading_files.pop
 				into_scope.loaded_filepaths.delete resolved_path if $! # a failed load is not loaded, so a later @load can try again
+			end
+		end
+
+		# An instance built with `Type()` holds its own copy of each method, which wins over the type's, and an instance built later gets its copies from the type's body again. So a method that `@push_scope Type` replaced goes to each instance built before (unless the instance has a method of its own under that name), and is kept in `type.pushed_methods` for each instance built later. Data members stay as they are.
+		def give_overridden_methods_to_instances type, methods_before
+			return unless methods_before && !type.is_a?(Code::Instance)
+
+			methods_before.each do |name, old_method|
+				new_method = type.declarations[name]
+				next if new_method.equal?(old_method) || !new_method.is_a?(Code::Func)
+
+				(type.pushed_methods ||= {})[name] = new_method
+				type.instances.each_key do |instance|
+					own = instance.declarations[name]
+					# A copy of the type's old method has the same expression; a method the instance got some other way does not
+					next unless own.is_a?(Code::Func) && own.func_expr.equal?(old_method.func_expr)
+
+					copy                        = new_method.dup
+					copy.enclosing_scope        = instance
+					instance.declarations[name] = copy
+				end
 			end
 		end
 
@@ -2209,7 +2231,7 @@ module Code
 
 				expected = receiver.type_by_identifier[property]
 				if expected && !type_contract_satisfied?(value, expected)
-					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value), member: property)
 				end
 
 				receiver[property] = value
@@ -2231,7 +2253,7 @@ module Code
 			else
 				expected = receiver.type_by_identifier[property]
 				if expected && !type_contract_satisfied?(value, expected)
-					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value), member: property)
 				end
 			end
 
@@ -2467,6 +2489,7 @@ module Code
 
 		def interp_dot_scope scope, expr
 			raise Code::Invalid_Dot_Infix_Left_Operand.new(expr) if scope.nil?
+			raise Code::Receiver_Is_Nil.new(expr) if scope.is_a?(Code::Nil) && !expr.right.instance_of?(Code::Identifier_Expr)
 			raise Code::Invalid_Dot_Infix_Right_Operand.new(expr.right) unless expr.right.instance_of? Code::Identifier_Expr
 
 			check_dot_access_permissions! scope, expr.right.value, expr
@@ -2626,16 +2649,18 @@ module Code
 				return compose_type_values(left, expr.operator.value, right)
 			end
 
-			overload = find_operator_overload expr.operator.value, maybe_instance(left)
+			maybe_instanced_left  = maybe_instance(left)
+			maybe_instanced_right = maybe_instance(right)
+			overload              = find_operator_overload expr.operator.value, maybe_instanced_left
 
 			if overload.is_a? Code::Func
 				call_operator_overload overload, expr, [left, right]
 			elsif left.is_a?(Code::Struct) && MEMBER_COMPOSITION_OPERATORS.include?(expr.operator.value)
 				compose_struct_values expr, left, right
-			elsif !maybe_instance(left).respond_to?(expr.operator.value)
+			elsif !maybe_instanced_left.respond_to?(expr.operator.value)
 				raise Code::Undeclared_Infix_Operator.new(expr)
 			else
-				result = maybe_instance(left).send expr.operator.value, maybe_instance(right)
+				result = maybe_instanced_left.send expr.operator.value, maybe_instanced_right
 				# A Ruby-level operator (`Code::Array#+`) builds its result outside the interpreter, so it needs linking to its type like any `@ruby` return.
 				result.is_a?(Code::Array) ? adopt_type(result, 'Array') : result
 			end
@@ -3190,9 +3215,9 @@ module Code
 			type
 		end
 
-		# A plain, untagged declaration (`String { ... }`) -- reopens/extends the same shared Type object across multiple declarations of the same bare name, e.g. how global.code's files each contribute to the same base String/Array/etc.
+		# A plain, untagged declaration (`String { ... }`) -- reopens/extends the same shared Type object across multiple declarations of the same bare name in one scope, e.g. how global.code's files each contribute to the same base String/Array/etc. A type found only through a readable scope (the standard library) is shadowed, not reopened; `@push_scope` is the one way to change it.
 		def interp_bare_type_declaration expr
-			existing = stack.last.has?(expr.name) && stack.last[expr.name]
+			existing = declared_where_it_lands expr.name.to_s
 			# Code::Struct < Instance < Type, so a plain `existing.is_a?(Code::Type)` check also matches a Bare
 			# Named Struct value sharing this name (`User <...>` then later `User | Table {}`) -- that's a value,
 			# not a reopenable declared Type, so it must be excluded here or the struct itself gets mistakenly
@@ -3503,6 +3528,7 @@ module Code
 						end
 
 						type.replayed_compositions&.each { |replayed| interp_composition replayed.composition, replayed.value }
+						type.pushed_methods&.each { |name, method| instance.declarations[name] = method }
 					end
 				end
 			end
@@ -3552,6 +3578,7 @@ module Code
 			end
 
 			run_type_body_on_instance type, instance
+			type.instances[instance] = instance
 			instance
 		end
 
@@ -3835,9 +3862,9 @@ module Code
 
 				if signature
 					# A nil passes, as it does for every other contract, so `cb: (;) = nil` works.
-					raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(value)) unless nil_value?(value) || signature.matches?(value)
+					raise Code::Type_Contract_Violation.new(expr, signature.to_s, describe_value_shape(value), member: param.name.value) unless nil_value?(value) || signature.matches?(value)
 				elsif type && !type_contract_satisfied?(value, type)
-					raise Code::Type_Contract_Violation.new(expr, type_contract_display(type), describe_value_shape(value))
+					raise Code::Type_Contract_Violation.new(expr, type_contract_display(type), describe_value_shape(value), member: param.name.value)
 				end
 
 				stack.last.declare param.name.value, value
@@ -3961,6 +3988,9 @@ module Code
 			named_args = {}
 			positional = []
 			seen_named = false
+			# The argument each value came from, so a type error points at it, not at the whole call. A splat gives each of its values the splat itself.
+			named_arg_exprs  = {}
+			positional_exprs = []
 
 			expr.arguments.each do |arg|
 				if callsite_splat_expr? arg
@@ -3972,24 +4002,28 @@ module Code
 						spread_value.hash.each do |key, value|
 							name = key.to_s
 							raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
-							named_args[name] = value
+							named_args[name]      = value
+							named_arg_exprs[name] = arg
 						end
 					when Code::Struct
 						seen_named = true
 						spread_value.names.each_with_index do |name, i|
 							next unless name
 							raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
-							named_args[name] = spread_value.values[i]
+							named_args[name]      = spread_value.values[i]
+							named_arg_exprs[name] = arg
 						end
 					when Code::Array
 						raise Code::Positional_Argument_After_Named.new(expr) if seen_named
 						positional.concat spread_value.values
+						positional_exprs.concat [arg] * spread_value.values.length
 					else
 						if plain_type_or_instance? spread_value
 							seen_named = true
 							spread_value.declarations.each do |name, value|
 								raise Code::Duplicate_Named_Argument.new(expr, name) if named_args.key? name
-								named_args[name] = value
+								named_args[name]      = value
+								named_arg_exprs[name] = arg
 							end
 						else
 							raise Code::Invalid_Callsite_Splat_Argument.new(expr, spread_value)
@@ -4009,9 +4043,11 @@ module Code
 				if kind == :named
 					seen_named = true
 					raise Code::Duplicate_Named_Argument.new(expr, name_or_label) if named_args.key? name_or_label
-					named_args[name_or_label] = value
+					named_args[name_or_label]      = value
+					named_arg_exprs[name_or_label] = arg
 				else
 					positional << value
+					positional_exprs << arg
 				end
 			end
 
@@ -4045,7 +4081,8 @@ module Code
 				next unless struct.names[i] && expected
 				next if type_contract_satisfied? value, expected
 
-				raise Code::Type_Contract_Violation.new(expr, type_contract_display(expected), type_name_to_string(value))
+				arg_expr = named_arg_exprs[struct.names[i]] || positional_exprs[i] || expr
+				raise Code::Type_Contract_Violation.new(arg_expr, type_contract_display(expected), type_name_to_string(value), member: struct.names[i])
 			end
 
 			instance = build_struct struct.names, struct.type_names, struct.type_objects, values
@@ -5119,6 +5156,8 @@ module Code
 				raise Code::Invalid_Scope_Function_Argument.new(target_expr) unless target_expr.is_a?(Code::Identifier_Expr)
 				target = maybe_instance(interpret target_expr)
 				raise Code::Invalid_Scope_Function_Argument.new(target_expr) unless target.is_a?(Code::Type)
+				# The type's methods as they are now, so #pop_scope can find the ones this push overrides
+				@methods_before_push << [target, target.declarations.select { |_, value| value.is_a? Code::Func }]
 				push_scope target
 
 			when 'pop_scope'
@@ -5130,6 +5169,9 @@ module Code
 				# By identity -- an instance and a reference to its type don't interchange. Check before the pop, so a mismatch leaves the stack as it was.
 				Code.assert stack.last.equal?(scope_to_pop)
 				pop_scope
+				# By identity, from the end: a push whose pop an error skipped leaves its entry behind
+				index = @methods_before_push.rindex { |pushed, _| pushed.equal? scope_to_pop }
+				give_overridden_methods_to_instances scope_to_pop, @methods_before_push.slice!(index..).first.last if index
 				scope_to_pop
 
 			when 'splat', 'splatr'
@@ -5336,6 +5378,11 @@ module Code
 			struct
 		end
 
+		# The value a declaration of `name` finds where it lands: the scope's own declarations, or a writable splat (see Scope#[]=). Not a readable scope, so a named load (`This := @load 'this'`) can have its own `That`, and a program can have its own `Range` or `Map` next to the standard library's.
+		def declared_where_it_lands name
+			stack.last.declarations[name] || stack.last.writable_scopes.keys.reverse_each.find { it.has? name }&.[](name)
+		end
+
 		# Ensures `expr.name` resolves while this struct's own members are interpreted, so a member
 		# annotated with the struct's own name (`parent: Node`) doesn't raise Undeclared_Identifier --
 		# the same reason a bare Type is declared before its body runs. Returns the stand-in (a fresh
@@ -5345,9 +5392,7 @@ module Code
 		def predeclare_bare_named_struct_stub expr
 			return nil unless expr.name.is_a? Code::Lexeme
 			name     = expr.name.value
-			# Only where the declaration lands: the scope's own declarations, or a writable splat (see Scope#[]=). Not a readable scope, so a named load (`This := @load 'this'`) can have its own `That`, and a program can have its own `Range` next to the standard library's.
-			existing = stack.last.declarations[name]
-			existing ||= stack.last.writable_scopes.keys.reverse_each.find { it.has? name }&.[](name)
+			existing = declared_where_it_lands name
 
 			# `Name <>` written earlier as an empty forward declaration -- members resolve against it,
 			# and it gets filled in below (a non-empty prior shape is a real conflict, left to raise).
@@ -5372,9 +5417,7 @@ module Code
 
 		# Registers (or idempotently confirms) a Bare Named Struct under `name` -- redeclaring the identical shape is a no-op; anything else already bound there raises instead of clobbering it.
 		def register_bare_named_struct name, struct, expr, stub = nil
-			# @pasted from #predeclare_bare_named_struct_stub
-			existing = stack.last.declarations[name]
-			existing ||= stack.last.writable_scopes.keys.reverse_each.find { it.has? name }&.[](name)
+			existing = declared_where_it_lands name
 
 			# `stub` is the empty stand-in from #predeclare_bare_named_struct_stub (a fresh one, or an
 			# earlier `Name <>` forward declaration) -- fill it in with the finished struct. Not a real
