@@ -150,6 +150,7 @@ module Code
 			return [] unless type_expr
 			return [] if type_expr.is_a?(Code::Func_Expr) || type_expr.is_a?(Code::Func_Signature_Expr) # a signature (`cb: (;)`) is checked only at run time
 			return [type_expr.value] unless composed_annotation? type_expr
+			return [] if type_expr.leading_shape || type_expr.expressions.any? { it.is_a?(Code::Composition_Expr) && it.identifier.is_a?(Code::Struct_Expr) } # a struct shape is checked only at run time
 
 			operands = [type_expr.leading_literal || type_expr.name]
 			type_expr.expressions.each do |composition|

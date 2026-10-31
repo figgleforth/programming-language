@@ -729,6 +729,7 @@ module Code
 			return true if nil_value? value # a tagged nil (`nil\Bad_Request`) too
 			return expected.satisfied? { type_contract_satisfied? value, it } if expected.is_a? Code::Type_Alias
 			return literal_type_matches?(value, expected) if expected.is_a? Code::Type_Alias::Literal
+			return struct_shape_mismatch(expected.struct, value).nil? if expected.is_a? Code::Type_Alias::Shape
 			return true if type_name_to_string(value) == expected
 
 			value_types = composed_types_for value
@@ -794,7 +795,13 @@ module Code
 		def type_alias_for type_expr
 			return nil unless type_expr.is_a?(Code::Type_Expr) && type_expr.anonymous_composition
 
-			operands  = [type_expr.leading_literal ? type_alias_literal(type_expr.leading_literal) : type_alias_operand(type_expr.name, type_expr.tag)]
+			operands  = [if type_expr.leading_literal
+				type_alias_literal type_expr.leading_literal
+			elsif type_expr.leading_shape
+				type_alias_shape type_expr.leading_shape
+			else
+				type_alias_operand type_expr.name, type_expr.tag
+			end]
 			operators = []
 			type_expr.expressions.each do |composition|
 				next unless composition.is_a? Code::Composition_Expr
@@ -803,6 +810,8 @@ module Code
 				operators << composition.operator.value
 				operands << if literal_type_expr? operand
 					type_alias_literal operand
+				elsif operand.is_a? Code::Struct_Expr
+					type_alias_shape operand
 				else
 					type_alias_operand(operand.is_a?(Code::Type_Expr) ? operand.name : operand.value, operand.tag)
 				end
@@ -838,6 +847,12 @@ module Code
 			infix          = Infix_Expr.new
 			infix.operator = Lexeme.new :operator, '=='
 			truthy? interp_comparison_infix(infix, left, right)
+		end
+
+		# A struct shape in a type position (`<data: String> | Nil`). A value fits it by its members, the same check a struct-typed param uses.
+		def type_alias_shape expr
+			shape = interp_struct expr, allow_spread: false
+			Code::Type_Alias::Shape.new shape, stringify_for_display(shape)
 		end
 
 		# One operand of a Code::Type_Alias tree: the type name, or a Type_Alias::Tagged that keeps the tag for display (`Array\Bool`).
@@ -3352,7 +3367,15 @@ module Code
 				satisfied  = if literal
 					values_equal? member_value, shape.values[i]
 				elsif declared_type.is_a? Code::Type_Alias
-					declared_type.satisfied? { it.is_a?(Code::Type_Alias::Literal) ? literal_type_matches?(member_value, it) : candidates.include?(it) }
+					declared_type.satisfied? do
+						if it.is_a? Code::Type_Alias::Literal
+							literal_type_matches? member_value, it
+						elsif it.is_a? Code::Type_Alias::Shape
+							struct_shape_mismatch(it.struct, member_value).nil?
+						else
+							candidates.include? it
+						end
+					end
 				else
 					candidates.include? declared_type
 				end
@@ -3646,6 +3669,8 @@ module Code
 			name  = expr.left.value
 			value = if expr.right.is_a? Code::Func_Signature_Expr
 				build_func_signature expr.right
+			elsif expr.right.is_a? Code::Struct_Expr
+				Code::Type_Alias.new type_alias_shape(expr.right), name # `Point :: <x: Int, y: Int>`: any value with those members
 			elsif (type_alias = type_alias_for expr.right)
 				check_type_alias_operands expr.right
 				type_alias.tap { it.name = name }
@@ -3683,7 +3708,7 @@ module Code
 		def check_type_alias_operands type_expr
 			operands = [[type_expr.name, type_expr]]
 			type_expr.expressions.each do |composition|
-				next unless composition.is_a?(Code::Composition_Expr) && !literal_type_expr?(composition.identifier)
+				next unless composition.is_a?(Code::Composition_Expr) && !literal_type_expr?(composition.identifier) && !composition.identifier.is_a?(Code::Struct_Expr)
 
 				operand = composition.identifier
 				operands << [operand.is_a?(Code::Type_Expr) ? operand.name : operand.value, operand]

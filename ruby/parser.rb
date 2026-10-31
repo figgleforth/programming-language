@@ -675,7 +675,7 @@ module Code
 						param.type = parse_type_position # `mode: "fill" | "line"`
 					elsif curr?(':', '<')
 						eat ':'
-						param.type = parse_struct
+						param.type = parse_type_position
 						# ^ bare struct annotation, e.g. `right: <name: String, type: Any, value: Any>` -- structural rather than nominal, see #check_struct_type_contract
 					elsif curr?(':', '(')
 						eat ':'
@@ -709,7 +709,7 @@ module Code
 			if curr? FUNCTION_RETURN_DELIMITER
 				eat FUNCTION_RETURN_DELIMITER
 
-				return_expr = in_type_position { literal_type_next? ? parse_type_position : parse_expression }
+				return_expr = in_type_position { literal_type_next? || curr?('<') ? parse_type_position : parse_expression }
 				raise Invalid_Return_Type_In_Function.new(return_expr, return_expr) if return_expr.is_a?(Type_Expr) && return_expr.leading_literal && !curr?(FUNCTION_BODY_DELIMITER) # `-> 1+2`: a literal type, then a value operator
 				if return_expr.is_a?(Circumfix_Expr) && return_expr.grouping == '()'
 					# `-> (A | B)` groups one type. A list (`-> (Any, Int)`) is not a type, a struct is: `-> <Any, Int>`.
@@ -1003,7 +1003,7 @@ module Code
 					func             = copy_location signature, func
 				end
 				func
-			elsif curr?(TYPE_IDENTIFIER) || literal_type_next?
+			elsif curr?(TYPE_IDENTIFIER) || literal_type_next? || curr?('<')
 				parse_type_position
 			else
 				raise Code::Invalid_Type_Alias.new(curr_lexeme)
@@ -1016,10 +1016,11 @@ module Code
 		def parse_type_position
 			in_type_position do
 				next parse_literal_type_chain if literal_type_next?
+				next parse_shape_type_chain if curr? '<'
 
 				saved_i = @i
 				single  = parse_identifier_expr
-				next single unless curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<') || literal_type_operand_next?
+				next single unless type_chain_operand_next?
 
 				@i = saved_i
 				parse_type_decl
@@ -1049,6 +1050,11 @@ module Code
 			return false unless lexeme
 
 			LITERAL_TYPE_STARTS.any? { lexeme.is it } || (lexeme.is(':') && ANY_IDENTIFIER.any? { input[@i + ahead + 1]&.is it })
+		end
+
+		# A composition operator, then an operand: a type name, a struct shape, or a literal.
+		def type_chain_operand_next?
+			curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || curr?(TYPE_COMPOSITION_OPERATORS, '<') || literal_type_operand_next?
 		end
 
 		def literal_type_operand_next?
@@ -1094,8 +1100,22 @@ module Code
 			it.anonymous_composition = true
 			it.leading_literal       = parse_literal_type
 			it.expressions           = []
-			it.expressions << parse_composition_expr while curr?(TYPE_COMPOSITION_OPERATORS, ANY_IDENTIFIER) || literal_type_operand_next?
+			it.expressions << parse_composition_expr while type_chain_operand_next?
 			set_expr_location it, start, it.expressions.last || it.leading_literal
+		end
+
+		# A type position that starts with a struct shape (`<data: String> | Nil`): the same Type_Expr shape, with the struct on `leading_shape`. A shape with no chain after it stays a plain Struct_Expr (`-> <ok: Bool>`, `x: <a: Int>`).
+		def parse_shape_type_chain
+			start = curr_lexeme
+			shape = parse_struct
+			return shape unless type_chain_operand_next?
+
+			it                       = Code::Type_Expr.new
+			it.anonymous_composition = true
+			it.leading_shape         = shape
+			it.expressions           = []
+			it.expressions << parse_composition_expr while type_chain_operand_next?
+			set_expr_location it, start, it.expressions.last
 		end
 
 		def parse_statement_expr
@@ -1174,7 +1194,7 @@ module Code
 				expr.tag  = expr.type.tag
 			elsif curr?(':', '<')
 				eat ':'
-				expr.type = parse_struct # bare struct annotation, e.g. `thing: <String, Number>` -- sugar for `thing: Struct<String, Number>`
+				expr.type = parse_type_position # bare struct annotation, e.g. `thing: <String, Number>` -- sugar for `thing: Struct<String, Number>`
 			elsif curr?(':') && literal_type_next?(1)
 				eat ':'
 				expr.type = parse_type_position # `mode: "fill" | "line"`

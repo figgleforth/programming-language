@@ -132,6 +132,8 @@ module Code
 		attr_accessor :struct_body
 		# A type position that starts with a literal (`"fill" | "line"`) -- the literal expression, with `name` left nil. See Parser#parse_literal_type_chain.
 		attr_accessor :leading_literal
+		# A type position that starts with a struct shape (`<data: String> | Nil`) -- the Struct_Expr, with `name` left nil. See Parser#parse_shape_type_chain.
+		attr_accessor :leading_shape
 	end
 
 	class Number_Expr < Expression

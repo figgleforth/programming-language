@@ -2152,6 +2152,57 @@ class Structs_Test < Base_Test
 		assert_raises(Code::Type_Contract_Violation) { Code.interp "f (-> <Bool, String>;\n\t<true>\n)\nf()" } # a missing member
 	end
 
+	# `-> <...> | Nil` raised Invalid_Return_Type_In_Function: a shape could not be one operand of a chain
+	def test_a_struct_shape_or_nil_return_type
+		code = <<~CODE
+			Bad_Request + Error <>
+
+			f (-> <data: String, length: Int> | Nil;
+				VALUE
+			)
+
+			f()
+		CODE
+		assert_equal ['abc', 3], Code.interp(code.sub('VALUE', "<data := 'abc', length := 3>")).values
+		assert_nil Code.interp(code.sub('VALUE', 'nil'))
+		assert Code.interp(code.sub('VALUE', 'nil\Bad_Request')).tag_instance
+
+		err = assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', '<data := 5, length := 3>') }
+		assert_equal '<data: String, length: Integer> | Nil', err.contract # Int is an alias, so the shape shows the type it names
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', '5') }
+	end
+
+	def test_a_struct_shape_in_a_param_chain
+		code = <<~CODE
+			describe ( value: <name: String> | Int;
+				value
+			)
+
+			describe(VALUE)
+		CODE
+		assert_equal 4, Code.interp(code.sub('VALUE', '4'))
+		assert_equal ['Ada'], Code.interp(code.sub('VALUE', "<name := 'Ada'>")).values
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', "'Ada'") }
+		assert_raises(Code::Type_Contract_Violation) { Code.interp code.sub('VALUE', '<name := 5>') }
+	end
+
+	def test_a_struct_shape_in_a_variable_and_a_member_chain
+		out = Code.interp <<~CODE
+			point: Int | <x: Int, y: Int> = <x := 1, y := 2>
+			Reply <body: <text: String> | Nil>
+
+			<point.y, Reply(<text := 'hi'>).body.text, Reply().body>
+		CODE
+		assert_equal [2, 'hi', nil], out.values
+
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+				Reply <body: <text: String> | Nil>
+				Reply(<text := 5>)
+			CODE
+		end
+	end
+
 	# A positional shape also works with `=>=`, and a value in it counts as a literal.
 	def test_a_positional_struct_shape_with_greater_or_equal
 		out = Code.interp "<(<1, 2> =>= <Number, Number>), (<'a', 2> =>= <Number, Number>), (<404, []> =>= <404, Array>), (<200, []> =>= <404, Array>)>"

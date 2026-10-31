@@ -698,4 +698,56 @@ class Type_Alias_Test < Base_Test
 		CODE
 		assert_equal %w(get read other), Code.interp(source).values
 	end
+
+	def test_a_chain_that_starts_with_a_struct_shape_parses_to_a_type_expr
+		out = Code.parse('Result :: <ok: Bool> | Nil').first
+		assert_instance_of Code::Type_Expr, out.right
+		assert out.right.anonymous_composition
+		assert_nil out.right.name
+		assert_instance_of Code::Struct_Expr, out.right.leading_shape
+		assert_equal 'Nil', out.right.expressions.last.identifier.value
+	end
+
+	# With no operator after it, a shape stays a Struct_Expr, so `-> <ok: Bool>` keeps its own check
+	def test_a_struct_shape_alone_stays_a_struct_expr
+		func = Code.parse("f (-> <ok: Bool>;\n\t<ok := true>\n)").first
+		assert_instance_of Code::Struct_Expr, func.type
+
+		param = Code.parse("g ( value: <name: String>;\n\tvalue\n)").first.parameters.first
+		assert_instance_of Code::Struct_Expr, param.type
+	end
+
+	def test_an_alias_of_a_struct_shape_or_nil
+		out = Code.interp <<~CODE
+			Result :: <ok: Bool> | Nil
+
+			<(<ok := true> =>= Result), (<ok := 'yes'> =>= Result), (<other := 1> =>= Result), Result.@types>
+		CODE
+		assert_equal [true, false, false, '<ok: Bool> | Nil'], out.values
+	end
+
+	def test_an_alias_of_a_struct_shape_alone
+		out = Code.interp <<~CODE
+			Point :: <x: Int, y: Int>
+
+			<(<x := 1, y := 2> =>= Point), (<x := 1> =>= Point), (<x := 'a', y := 2> =>= Point)>
+		CODE
+		assert_equal [true, false, false], out.values
+	end
+
+	def test_a_struct_shape_after_another_operand
+		out = Code.interp <<~CODE
+			Mode :: "none" | <width: Int>
+
+			<("none" =>= Mode), (<width := 4> =>= Mode), ("all" =>= Mode)>
+		CODE
+		assert_equal [true, true, false], out.values
+	end
+
+	# The static checker has no shape to compare, so the check happens when the program runs
+	def test_the_static_checker_leaves_a_struct_shape_chain_to_the_run
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp 'point: <x: Int> | Nil = 5'
+		end
+	end
 end

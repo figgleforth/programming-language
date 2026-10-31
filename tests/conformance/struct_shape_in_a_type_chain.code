@@ -1,0 +1,48 @@
+# A struct shape can be one operand of a type chain, in any type position
+Bad_Request + Error <>
+
+parse ( text: String -> <data: String, length: Int> | Nil;
+	return nil\Bad_Request('empty') if text.empty?()
+
+	<data := text, length := text.length>
+)
+
+@out parse('abc').length # out: 3
+@out parse('')           # out: nil\Bad_Request
+
+# A param, and a variable
+describe ( value: <name: String> | Int -> String;
+	if value =>= Int
+		"the number `value`"
+	else
+		"the name `value.name`"
+	end
+)
+
+@out describe(4)               # out: the number 4
+@out describe(<name := 'Ada'>) # out: the name Ada
+
+point: Int | <x: Int, y: Int> = <x := 1, y := 2>
+@out point.y # out: 2
+
+# A named alias, and =>=
+Result :: <ok: Bool> | Nil
+@out <ok := true> =>= Result  # out: true
+@out <ok := 'yes'> =>= Result # out: false
+@out nil =>= Result           # out: false
+@out Result                   # out: Result :: <ok: Bool> | Nil
+
+# A shape alone, as an alias
+Point :: <x: Int, y: Int>
+@out <x := 1, y := 2> =>= Point # out: true
+@out <x := 1> =>= Point         # out: false
+
+# A struct member
+Reply <body: <text: String> | Nil>
+@out Reply(<text := 'hi'>).body.text # out: hi
+
+# A value with the wrong shape
+broken (-> <data: String> | Nil;
+	<data := 5>
+)
+broken() # error: Type_Contract_Violation

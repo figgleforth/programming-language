@@ -93,8 +93,8 @@ module Code
 			# A member typed with a contract (`v: String | Number`) holds a Code::Type_Alias, which decides from the candidate names.
 			type_names.each_with_index.all? do |declared_type, i|
 				candidates = candidate_type_lists[i]
-				# A literal leaf has no value to compare here, only candidate type names, so its own type name stands in for it.
-				declared_type.is_a?(Type_Alias) ? declared_type.satisfied? { candidates.include?(it.is_a?(Type_Alias::Literal) ? it.type_name : it) } : candidates.include?(declared_type)
+				# A literal or shape leaf has no value to compare here, only candidate type names, so its own type name stands in for it.
+				declared_type.is_a?(Type_Alias) ? declared_type.satisfied? { candidates.include?(it.respond_to?(:type_name) ? it.type_name : it) } : candidates.include?(declared_type)
 			end
 		end
 

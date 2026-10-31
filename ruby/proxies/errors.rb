@@ -152,7 +152,7 @@ module Code
 
 	class Invalid_Type_Alias < Error
 		def detail_message
-			"`::` names a type expression, so its right side must be a type: `Int :: Integer`, `Strumber :: String | Number`, a literal such as `Mode :: \"fill\" | \"line\"`, or a signature such as `Func :: (;)`. A function with a body is a value; give it a name with `:=`."
+			"`::` names a type expression, so its right side must be a type: `Int :: Integer`, `Strumber :: String | Number`, a literal such as `Mode :: \"fill\" | \"line\"`, a struct shape such as `Point :: <x: Int, y: Int>`, or a signature such as `Func :: (;)`. A function with a body is a value; give it a name with `:=`."
 		end
 	end
 

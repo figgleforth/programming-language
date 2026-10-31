@@ -480,6 +480,7 @@ Use `::` for a plain synonym (`Int :: Integer` in the standard library); use `+ 
 5. An alias hoists, so it works before its own line in the file
 6. A second `::` with the same name replaces the first, the same as `:=`. An annotation that names the alias reads it when the check runs, so it follows the replacement
 7. The name must be capitalized, because `::` names a type. `lowercase :: true` raises `Code::Invalid_Type_Alias_Name`
+8. A struct shape is a type too, alone or in a composition: `Point :: <x: Int, y: Int>`, `Result :: <ok: Bool> | Nil`. A value fits a shape when it has each member, by name or by position, with a type that fits
 
 ```code
 Strumber :: String | Number
@@ -497,6 +498,9 @@ Drawing <shapes: Array\Shape>
 
 Callback :: (;)
 run ( callback: Callback; callback() )
+
+Point :: <x: Int, y: Int>
+<x := 1, y := 2> =>= Point   # true
 
 x := String + Number # a value: one new Type that composes both, the same as `Both + String + Number {}`, then `x := Both`
 ```
@@ -2277,7 +2281,7 @@ Tree <
 
 1. A struct holds an ordered list of values: `<404, []>`. Read a value by its position with `.0` or `[0]`
 2. `(status, body) := <404, []>` takes the values out by position. The `( )` on the left is the list of targets. An Array works too. When there are more values than targets, the last target gets the rest: from an Array, an Array; from a struct, an anonymous struct of the remaining members, with their names. Fewer values than targets raises `Code::Destructuring_Arity_Mismatch`
-3. A function returns several values as a struct. The return type is a struct shape, by name (`-> <ok: Bool, data: Any>`) or by position (`-> <Bool, Any>`). Each call checks the value it returns
+3. A function returns several values as a struct. The return type is a struct shape, by name (`-> <ok: Bool, data: Any>`) or by position (`-> <Bool, Any>`). Each call checks the value it returns. A shape can be one operand of a composition, so a function that can fail returns `-> <ok: Bool, data: Any> | Nil`
 4. `( )` around one value groups it. A list of values in `( )` is not a value: `(404, [])` raises `Code::Values_In_Parentheses`
 5. A Type in a positional member is the member's type, not its value: `<Number>` is a slot for a Number. Give the member a name to keep a Type as a value: `<type := Number>`
 

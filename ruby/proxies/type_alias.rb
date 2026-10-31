@@ -7,6 +7,11 @@ module Code
 		# A literal in the tree (`"fill"`, `5`, `:fill`, `true`, `nil`). It allows only a value equal to `value`. `type_name` is the literal's own type, for a check that has only type names.
 		Literal = ::Data.define :value, :type_name, :text
 
+		# A struct shape in the tree (`<data: String>`). It allows a value that has each member, by name or by position. `struct` is the Code::Struct the shape was read into.
+		Shape = ::Data.define :struct, :text do
+			def type_name = 'Struct'
+		end
+
 		# Two parts of the tree joined by an operator (`A | B`). `left` and `right` are each a type name, a Tagged, a Literal, or another Node.
 		Node = ::Data.define :operator, :left, :right
 
@@ -39,7 +44,7 @@ module Code
 			output.first
 		end
 
-		# @yieldparam leaf [::String, Literal] one type name, or one literal, in the tree
+		# @yieldparam leaf [::String, Literal, Shape] one type name, literal, or struct shape in the tree
 		# @yieldreturn [Boolean] whether the value satisfies that one leaf
 		def satisfied? node = tree, &satisfies_leaf
 			return satisfies_leaf.call(node.name) if node.is_a? Tagged
@@ -57,7 +62,7 @@ module Code
 
 		# @return [::String] the expression as written, for example "String | Number"
 		def expression_to_s node = tree, parent_precedence = 0
-			return node.text if node.is_a?(Tagged) || node.is_a?(Literal)
+			return node.text if node.is_a?(Tagged) || node.is_a?(Literal) || node.is_a?(Shape)
 			return node unless node.is_a? Node
 
 			precedence = PRECEDENCES[node.operator] || DEFAULT_OPERATOR_PRECEDENCE
