@@ -8,6 +8,7 @@ Tcp_Socket {
 
 	read_line (-> String; @ruby )             # up to and with the next "\n"; nil when the other side closed
 	read ( count: Int -> String; @ruby )      # waits for count bytes, or fewer when the other side closes first; nil when it closed before the first byte
+	read_available (-> Buffer; @ruby )        # the bytes that have come, without waiting; empty when none have come yet; nil when the other side closed
 	write ( text: String -> Int; @ruby )      # the number of bytes written; nil when the other side closed
 
 	close   (; @ruby )

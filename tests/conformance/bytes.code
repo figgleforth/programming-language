@@ -2,3 +2,15 @@ b := Buffer.from_string("hello")
 @out b # out: Buffer(5 bytes)
 @out b.bytes() # out: [104, 101, 108, 108, 111]
 @out b.get_string() # out: hello
+
+# from_string counts bytes, not characters: é is 2 bytes
+@out Buffer.from_string("héllo").length() # out: 6
+
+c := Buffer.from_string("key=value")
+c.append(Buffer.from_string(";next"))
+@out c.get_string()             # out: key=value;next
+@out c.index_of("=")            # out: 3
+@out c.index_of(";", 4)         # out: 9
+@out c.index_of("zz")           # out: nil
+@out c.slice(4, 5).get_string() # out: value
+@out c.slice(10).get_string()   # out: next

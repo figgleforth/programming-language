@@ -18,6 +18,9 @@ Tcp_Server {
 	# Waits until a client connects (blocking)
 	wait_for_connection (-> Tcp_Socket; @ruby )
 
+	# Waits until one of `sockets` has bytes to read, or a client waits to connect. The server itself is in the result when a client waits, and the result is empty after `timeout` seconds.
+	wait_for_ready ( sockets: Array\Tcp_Socket, timeout: Number = nil -> Array; @ruby )
+
 	# Stops listening for new connections. A Tcp_Socket that wait_for_connection() already gave back stays open.
 	close   (; @ruby )
 	closed? (-> Bool; @ruby )

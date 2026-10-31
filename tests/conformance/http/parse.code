@@ -131,9 +131,59 @@ accept_items := parse_accept("text/html, application/json;q=0.9, */*;q=0.1", "*/
 @out response_text(200, "hi", head := true).ends_with?("Content-Length: 2\r\nConnection: close\r\n\r\n")       # out: true
 @out response_text(405, headers := {'Allow' = 'GET, HEAD'}).include?("Allow: GET, HEAD\r\n")                   # out: true
 
-@out status_for(nil\Bad_Request)           # out: 400
-@out status_for(nil\Not_Implemented)       # out: 501
-@out status_for(nil\Version_Not_Supported) # out: 505
-@out status_for(nil\Headers_Too_Large)     # out: 431
-@out status_for(nil\Body_Too_Large)        # out: 413
-@out status_for(nil\No_Request)            # out: nil
+@out status_for(nil\Bad_Request)               # out: 400
+@out status_for(nil\Not_Implemented)           # out: 501
+@out status_for(nil\Version_Not_Supported)     # out: 505
+@out status_for(nil\Headers_Too_Large)         # out: 431
+@out status_for(nil\Body_Too_Large)            # out: 413
+@out status_for(nil\No_Request)                # out: nil
+@out status_for(nil\Incomplete_Header_Section) # out: nil
+
+# A whole request from bytes. message_length is where it ends: bytes after it belong to the next request
+text    := "POST /hello HTTP/1.1\r\nHost: x\r\nAccept: */*;q=0.8, application/json;q=0\r\nContent-Length: 3\r\n\r\nx=1"
+request := parse_request(Buffer.from_string(text))
+@out request.method                           # out: POST
+@out request.target.path                      # out: /hello
+@out String.from_buffer(request.body)         # out: x=1
+@out request.message_length == text.bytesize  # out: true
+@out request.accepts.0.value                  # out: */*
+@out accepts?(request, "application/json")    # out: false
+@out accepts?(request, "text/html")           # out: true
+@out request.encodings.0.value                # out: *
+
+# A cut before the last byte is an incomplete message, never an error
+cuts := (0..<text.length).map(it; parse_request(Buffer.from_string(text.slice(0, it))))
+@out cuts.all?(it; it =>= nil\Incomplete_Message) # out: true
+@out cuts[10]                                     # out: nil\Incomplete_Header_Section
+@out cuts[text.length - 1]                        # out: nil\Incomplete_Message_Body
+
+chunked_text := "POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n5;name=x\r\npedia\r\n0\r\nX-Trailer: 1\r\n\r\n"
+chunked      := parse_request(Buffer.from_string(chunked_text))
+@out String.from_buffer(chunked.body)                 # out: Wikipedia
+@out chunked.message_length == chunked_text.bytesize  # out: true
+
+chunked_cuts := (0..<chunked_text.length).map(it; parse_request(Buffer.from_string(chunked_text.slice(0, it))))
+@out chunked_cuts.all?(it; it =>= nil\Incomplete_Message) # out: true
+
+# Two requests in one buffer: the second starts at the first one's message_length
+two    := Buffer.from_string("GET /a HTTP/1.1\r\nHost: x\r\n\r\nGET /b HTTP/1.1\r\nHost: x\r\n\r\n")
+first  := parse_request(two)
+second := parse_request(two.slice(first.message_length))
+@out first.target.path  # out: /a
+@out second.target.path # out: /b
+
+# Expect: 100-continue. The client sends the body only after the server's 100 Continue line
+waiting := parse_request(Buffer.from_string("POST / HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Length: 2\r\n\r\n"))
+@out waiting                       # out: nil\Incomplete_Message_Body
+@out waiting.@tag.expects_continue # out: true
+
+# The body keeps every byte, also one that is not valid UTF-8
+binary := Buffer.from_string("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 1\r\n\r\n")
+binary.append(Buffer(1).fill(255))
+@out parse_request(binary).body.get(:u8, 0) # out: 255
+
+@out parse_request(Buffer.from_string("\r\n\r\n"))                                                                    # out: nil\Bad_Request
+@out parse_request(Buffer.from_string("GET / HTTP/1.1\r\n\r\n"))                                                      # out: nil\Bad_Request
+@out parse_request(Buffer.from_string("GET / HTTP/1.1\r\nHost: x\nX: y\r\n\r\n"))                                     # out: nil\Bad_Request
+@out parse_request(Buffer.from_string("GET / HTTP/1.1\r\nHost: " + "a" * MAX_HEADER_SECTION))                         # out: nil\Headers_Too_Large
+@out parse_request(Buffer.from_string("POST / HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWikiXX")) # out: nil\Bad_Request

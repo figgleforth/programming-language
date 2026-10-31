@@ -104,6 +104,31 @@ Buffer {
 		@ruby
 	)
 
+	# Copies the other buffer's bytes onto the end, so this buffer grows.
+	append ( other: Buffer -> Buffer; @ruby )
+
+	# The byte offset where `text` first starts, from `start` on, or nil when it is not there.
+	index_of ( text: String, start: Int = 0 -> Int | Nil; @ruby )
+
+	# A new Buffer with a copy of `length` bytes from `start_index`. A `length` of -1 copies to the end.
+	slice ( start_index: Int, length: Int = -1 -> Buffer;
+		unless start_index === Integer and length === Integer # @pasted
+			@raise "start_index and length must be Integers, got `start_index` (`start_index.@type`) and `length` (`length.@type`)"
+		end
+
+		if start_index < 0
+			@raise Out_Of_Bounds("reading at byte offset `start_index` is before the start: byte offsets start at 0")
+		elif length < -1
+			@raise "length must be 0 or more, or -1 to read to the end, got `length` (`length.@type`)"
+		elif start_index > self.length()
+			@raise Out_Of_Bounds("reading at byte offset `start_index` goes past the end: `_size_text()`")
+		elif length != -1 and start_index + length > self.length()
+			@raise Out_Of_Bounds("reading `length` bytes at byte offset `start_index` goes past the end: `_size_text()`")
+		end
+
+		@ruby
+	)
+
 	# a fresh Array of every byte, 0 to 255
 	bytes (-> Array; @ruby )
 	hexdump (-> String; @ruby )

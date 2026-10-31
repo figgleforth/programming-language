@@ -71,9 +71,34 @@ module Code
 		def proxy_from_string string
 			# b = Code::Buffer.new
 			buf           = Code::Buffer.new
-			buf.io_buffer = ::IO::Buffer.new string.size
+			buf.io_buffer = ::IO::Buffer.new string.bytesize # bytes, not characters: "héllo" needs 6
 			buf.io_buffer.set_string string
 			buf
+		end
+
+		# Grows this buffer and copies the other's bytes onto its end.
+		# @param other Code::Buffer
+		def proxy_append other
+			size = @io_buffer.size
+			@io_buffer.resize size + other.io_buffer.size
+			@io_buffer.copy other.io_buffer, size
+			self
+		end
+
+		# The byte offset where text first starts, from start on.
+		# @return ::Integer, nil when the text is not there
+		def proxy_index_of text, start = 0
+			@io_buffer.get_string.index (text.respond_to?(:value) ? text.value : text).b, start
+		end
+
+		# A copy, not a view: a view would point at freed memory after this buffer resizes.
+		# @return Code::Buffer
+		def proxy_slice start, length = -1
+			length          = @io_buffer.size - start if length == -1
+			slice           = Code::Buffer.new
+			slice.io_buffer = Code::Buffer.new_io_buffer length
+			slice.io_buffer.copy @io_buffer, 0, length, start
+			slice
 		end
 
 		# todo; @slow converting this to a Ruby array. API for getting slices is better

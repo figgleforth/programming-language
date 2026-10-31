@@ -28,6 +28,17 @@ module Code
 			socket
 		end
 
+		# Waits until one of the sockets has bytes to read, or a client waits to connect. The server itself is in the result when a client waits.
+		# @param sockets Code::Array of Code::Tcp_Socket
+		# @param timeout ::Numeric, seconds; nil waits as long as it takes
+		# @return Code::Array of the ready ones, empty after the timeout
+		def proxy_wait_for_ready sockets, timeout = nil
+			by_io = { @server => self }
+			(sockets.respond_to?(:values) ? sockets.values : sockets).each { by_io[it.socket] = it unless it.proxy_closed? }
+			ready, = ::IO.select by_io.keys, nil, nil, timeout
+			Code::Array.new (ready || []).map { by_io[it] }
+		end
+
 		# @return nil
 		def proxy_close
 			@server&.close

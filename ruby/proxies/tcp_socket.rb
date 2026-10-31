@@ -37,6 +37,17 @@ module Code
 			nil
 		end
 
+		# The bytes that have come, without waiting: an empty Buffer when none have come yet. The bytes stay as they came, so a body can hold any byte.
+		# @return Code::Buffer, nil when the other side closed
+		def proxy_read_available
+			bytes = @socket.read_nonblock 65536, exception: false
+			return nil if bytes.nil?
+
+			Code::Buffer.new.proxy_from_string(bytes == :wait_readable ? '' : bytes)
+		rescue Errno::ECONNRESET
+			nil
+		end
+
 		# A socket sends each write at once (Ruby sets sync on sockets), so there is nothing to flush.
 		# @param text ::String
 		# @return ::Integer the number of bytes written, nil when the other side closed

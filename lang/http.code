@@ -41,6 +41,7 @@ Message <
 	version: Version
 	headers: Headers
 	body: Buffer | String
+	message_length: Int   # bytes, from the start line to the end of the body; bytes after it belong to the next message
 >
 
 Request + Message <
@@ -69,12 +70,20 @@ Version_Not_Supported + Error <> # a well-formed version that is not HTTP/1.x, s
 Headers_Too_Large + Error <>     # 431
 Body_Too_Large    + Error <>     # 413
 
-DIGITS           := '0123456789'
-HEX_DIGITS       := '0123456789abcdefABCDEF'
-MAX_HEADER_LINE  := 8192      # bytes in one line
-MAX_HEADER_COUNT := 100
-MAX_BODY         := 1048576   # 1 MB
-CHUNKED          := -1        # body_length gives this for Transfer-Encoding: chunked
+# Not all of the message has come yet, so wait for more bytes (RFC 9112 §8)
+Incomplete_Message        + Error <>
+Incomplete_Header_Section + Incomplete_Message <>
+Incomplete_Message_Body   + Incomplete_Message <
+	expects_continue: Bool   # the client waits for 100 Continue before it sends the body (RFC 9110 §10.1.1)
+>
+
+DIGITS             := '0123456789'
+HEX_DIGITS         := '0123456789abcdefABCDEF'
+MAX_HEADER_LINE    := 8192      # bytes in one line
+MAX_HEADER_COUNT   := 100
+MAX_HEADER_SECTION := 65536     # bytes before the empty line: the request line and every field line
+MAX_BODY           := 1048576   # 1 MB
+CHUNKED            := -1        # body_length gives this for Transfer-Encoding: chunked
 
 REASON_PHRASES := {
 	200 = 'OK'
@@ -256,25 +265,6 @@ parse_headers ( lines: Array\String -> Headers | Nil;
 	)
 )
 
-read_request_headers ( socket: Tcp_Socket -> Headers | Nil;
-	lines := []
-
-	while line := read_line(socket)
-		lines << line
-		# parse_headers handles the 431; here we stop so a client cannot send headers indefinitely
-		stop if lines.count() > MAX_HEADER_COUNT
-	else
-		when nil\End_Of_Section
-			stop
-		when nil\No_Line
-			return nil\No_Request("The connection closed, or a line did not end")
-		else
-			@unreachable 'There was some issue with readline():\n`line`'
-	end
-
-	parse_headers(lines)
-)
-
 # "text/html, application/json;q=0.9" -> the items, highest q first. Equal q keeps the client's order. A missing header gives [<wildcard, 1.0>].
 parse_accept ( text: String, wildcard: String -> Array\Accept_Item;
 	return [Accept_Item(wildcard, 1.0)] unless text
@@ -350,76 +340,107 @@ parse_chunk_size ( line: String -> Int | Nil;
 	size_text.to_i(16)
 )
 
-read_body ( socket: Tcp_Socket, headers: Headers -> String | Nil;
-	byte_count := body_length(headers)
-	return byte_count unless byte_count
-	return '' if byte_count == 0
-
-	# A client that sends Expect: 100-continue waits for this line before it sends the body (RFC 9110 §10.1.1)
-	if headers.by_name['expect'].?downcase() == '100-continue'
-		socket.write("HTTP/1.1 100 Continue\r\n\r\n")
-	end
-
-	if byte_count != CHUNKED
-		body := socket.read(byte_count)
-		return nil\No_Request("The client closed in the middle of the body") unless body and body.bytesize == byte_count
-		return body
-	end
-
-	# 4\r\n Wiki\r\n 5\r\n pedia\r\n 0\r\n \r\n -> "Wikipedia"
-	body := ''
+# chunked-body = *chunk last-chunk trailer-section CRLF (RFC 9112 §7.1). 4\r\n Wiki\r\n 5\r\n pedia\r\n 0\r\n \r\n -> "Wikipedia"
+# message_length: bytes, from the start of the message to the end of the trailer section
+parse_chunked_body ( buffer: Buffer, start: Int -> <data: Buffer, message_length: Int> | Nil;
+	data     := Buffer()
+	position := start
 	while true
-		size_line := read_line(socket)
-		return nil\Bad_Request("A blank line where a chunk size should be") if size_line =>= nil\End_Of_Section
-		return nil\No_Request unless size_line
+		line_end := buffer.index_of(CRLF, position)
+		unless line_end
+			return nil\Bad_Request("A chunk size line longer than `MAX_HEADER_LINE` bytes") if buffer.length() - position > MAX_HEADER_LINE
+			return nil\Incomplete_Message_Body
+		end
 
-		size := parse_chunk_size(size_line)
+		size := parse_chunk_size(String.from_buffer(buffer.slice(position, line_end - position)).scrub())
 		return size unless size
+		position = line_end + 2
 		stop if size == 0
-		return nil\Body_Too_Large("The chunks are larger than `MAX_BODY`") if body.bytesize + size > MAX_BODY
+		return nil\Body_Too_Large("The chunks are larger than `MAX_BODY`") if data.length() + size > MAX_BODY
 
-		chunk := socket.read(size)
-		return nil\No_Request unless chunk and chunk.bytesize == size
-		return nil\Bad_Request("A chunk does not end with CRLF") unless socket.read(2) == CRLF
-		body += chunk
+		return nil\Incomplete_Message_Body if buffer.length() < position + size + 2
+		data.append(buffer.slice(position, size))
+		return nil\Bad_Request("A chunk does not end with CRLF") unless buffer.get_string_slice(position + size, 2) == CRLF
+		position += size + 2
 	end
 
-	# Trailer lines come after the last chunk, until a blank line. Read them and drop them
+	# The trailer section: field lines until an empty line. They are read and dropped
 	trailer_count := 0
-	while trailer := read_line(socket)
+	while true
+		line_end := buffer.index_of(CRLF, position)
+		unless line_end
+			return nil\Headers_Too_Large("A trailer line longer than `MAX_HEADER_LINE` bytes") if buffer.length() - position > MAX_HEADER_LINE
+			return nil\Incomplete_Message_Body
+		end
+
+		empty_line := line_end == position
+		position = line_end + 2
+		stop if empty_line
+
 		trailer_count += 1
 		return nil\Headers_Too_Large("More than `MAX_HEADER_COUNT` trailer lines") if trailer_count > MAX_HEADER_COUNT
 	end
-	return nil\No_Request unless trailer =>= nil\End_Of_Section
 
-	body
+	<data := data, message_length := position>
 )
 
-read_request ( socket: Tcp_Socket -> Request | Nil;
-	start_line := read_line(socket)
-	return nil\Bad_Request("A blank line where the request line should be") if start_line =>= nil\End_Of_Section
-	return nil\No_Request unless start_line
+# A request message from the bytes that came on a connection (RFC 9112 §2.1): the request line, the field lines, an empty line, then the body.
+# The bytes after the message stay in the buffer: message_length says where the message ended.
+parse_request ( buffer: Buffer -> Request | Nil;
+	header_section_end := buffer.index_of(CRLF + CRLF)
+	return nil\Headers_Too_Large("More than `MAX_HEADER_SECTION` bytes before the empty line") if (header_section_end or buffer.length()) > MAX_HEADER_SECTION
+	return nil\Incomplete_Header_Section unless header_section_end
+
+	# A CR or LF that is not part of a CRLF can end a line for one reader and not for another (RFC 9112 §2.2)
+	header_section := String.from_buffer(buffer.slice(0, header_section_end)).scrub()
+	without_crlf   := header_section.gsub(CRLF, '')
+	return nil\Bad_Request("A bare CR or LF in the header section") if without_crlf.includes?("\r") or without_crlf.includes?("\n")
+
+	lines      := header_section.split(CRLF)
+	start_line := lines.?0 or ''
+	return nil\Bad_Request("A blank line where the request line should be") if start_line.empty?()
 
 	request_line := parse_request_line(start_line)
 	return request_line unless request_line
 
-	headers := read_request_headers(socket)
+	headers := parse_headers(lines[1..])
 	return headers unless headers
 
-	body := read_body(socket, headers)
-	return body unless body
+	byte_count := body_length(headers)
+	return byte_count unless byte_count
+
+	expects_continue := headers.by_name['expect'].?downcase() == '100-continue'
+	body_start       := header_section_end + 4
+	body             := Buffer()
+	message_length   := body_start
+	if byte_count == CHUNKED
+		chunked_body := parse_chunked_body(buffer, body_start)
+		if chunked_body
+			body           = chunked_body.data
+			message_length = chunked_body.message_length
+		elif chunked_body =>= nil\Incomplete_Message_Body
+			return nil\Incomplete_Message_Body(expects_continue := expects_continue)
+		else
+			return chunked_body
+		end
+	elif byte_count > 0
+		message_length = body_start + byte_count
+		return nil\Incomplete_Message_Body(expects_continue := expects_continue) if buffer.length() < message_length
+		body = buffer.slice(body_start, byte_count)
+	end
 
 	Request(
-		start_line := start_line
-		version    := request_line.version
-		headers    := headers
-		body       := body
-		method     := request_line.method
-		target     := request_line.target
-		target_uri := request_line.target.value
-		accepts    := parse_accept(headers.by_name['accept'], '*/*')
-		encodings  := parse_accept(headers.by_name['accept-encoding'], '*')
-		languages  := parse_accept(headers.by_name['accept-language'], '*')
+		start_line     := start_line
+		version        := request_line.version
+		headers        := headers
+		body           := body
+		message_length := message_length
+		method         := request_line.method
+		target         := request_line.target
+		target_uri     := request_line.target.value
+		accepts        := parse_accept(headers.by_name['accept'], '*/*')
+		encodings      := parse_accept(headers.by_name['accept-encoding'], '*')
+		languages      := parse_accept(headers.by_name['accept-language'], '*')
 	)
 )
 
@@ -444,7 +465,7 @@ response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head:
 # Each error kind -> its status. nil means no reply: the client is gone.
 status_for ( error -> Int | Nil;
 	if error
-		@unreachable "status_for takes the tagged nil that a failed read_request gives back (nil\Bad_Request, ...), but it got a value: `error`. Call it only when read_request gives a nil."
+		@unreachable "status_for takes the tagged nil that a failed parse_request gives back (nil\Bad_Request, ...), but it got a value: `error`. Call it only when parse_request gives a nil."
 	else
 	when nil\Bad_Request 400
 	when nil\Not_Implemented 501
@@ -452,6 +473,7 @@ status_for ( error -> Int | Nil;
 	when nil\Headers_Too_Large 431
 	when nil\Body_Too_Large 413
 	when nil\No_Request nil
+	when nil\Incomplete_Message nil
 	else 500
 	end
 )

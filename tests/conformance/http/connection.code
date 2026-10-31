@@ -1,0 +1,36 @@
+@load 'lang/http.code'
+
+# One process plays both sides. Port 0 lets the OS pick a free port, so parallel tests never clash
+server := Tcp_Server(0)
+client := Tcp_Socket('localhost', server.port)
+
+# The server itself is ready when a client waits to connect
+ready := server.wait_for_ready([], 1)
+@out ready.count()                            # out: 1
+@out ready.0.@object_id == server.@object_id  # out: true
+connection := server.wait_for_connection()
+
+# Nothing has come yet: an empty Buffer, with no wait
+@out connection.read_available().length()     # out: 0
+
+# One request in two writes: the buffer grows until the message is whole
+buffer := Buffer()
+client.write("GET /hello HTTP/1.1\r\nHo")
+server.wait_for_ready([connection], 1)
+buffer.append(connection.read_available())
+@out parse_request(buffer)                    # out: nil\Incomplete_Header_Section
+
+client.write("st: x\r\n\r\n")
+server.wait_for_ready([connection], 1)
+buffer.append(connection.read_available())
+@out parse_request(buffer).target.path        # out: /hello
+
+# With nothing to read, the wait ends at the timeout with nothing ready
+@out server.wait_for_ready([connection], 0.05).count() # out: 0
+
+# When the client closes, the connection is ready, and the read gives nil
+client.close()
+server.wait_for_ready([connection], 1)
+@out connection.read_available()              # out: nil
+connection.close()
+server.close()

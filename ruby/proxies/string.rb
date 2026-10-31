@@ -33,6 +33,7 @@ module Code
 		proxy :end_with?
 		proxy :gsub
 		proxy :bytesize
+		proxy :scrub
 
 		# The UTF-8 bytes, not the character codes: "é" gives [195, 169], not [233].
 		def proxy_bytes
