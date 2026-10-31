@@ -51,6 +51,8 @@ String {
 	ends_with? ( suffix; end_with?(suffix))
 	gsub ( pattern, replacement; @ruby )
 	include? ( substr; @ruby )
+	includes? := include?
+
 	replace ( new; @ruby )
 	reverse (; @ruby )
 
@@ -59,6 +61,11 @@ String {
 
 	start_with? ( prefix; @ruby )
 	starts_with? ( prefix; start_with?(prefix))
+
+	starts_with_any_of? ( prefixes: Array\String -> Bool;
+		prefixes.any?(prefix; start_with?(prefix))
+	)
+
 	to_md5_hash (; @ruby )
 	trim_left (; @ruby )
 	trim_right (; @ruby )

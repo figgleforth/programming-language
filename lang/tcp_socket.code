@@ -19,3 +19,20 @@ Tcp_Socket {
 
 	to_s (-> String; @ruby )
 }
+
+read_line ( socket: Tcp_Socket -> String | Nil;
+	line := socket.read_line()
+
+	return nil\Connection_Closed unless line
+	return nil\Unending_Line  unless line.ends_with?(CRLF)
+	return nil\End_Of_Section if line == CRLF
+
+	line.slice(0, line.length - 2)
+)
+
+No_Line           + Error <>
+Connection_Closed + No_Line <>
+Unending_Line     + No_Line <>
+End_Of_Section    + No_Line <>
+
+CRLF    := "\r\n"

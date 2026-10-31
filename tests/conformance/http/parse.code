@@ -1,0 +1,139 @@
+@load 'lang/http.code'
+
+line := parse_request_line("GET /tasks/3?sort=new HTTP/1.1")
+@out line.method        # out: GET
+@out line.target.path   # out: /tasks/3
+@out line.target.query  # out: sort=new
+@out line.version.major # out: 1
+@out line.version.minor # out: 1
+
+@out parse_request_line("GET /where HTTP/1.1").target.query            # out: nil
+@out parse_request_line("GET /a?b?c HTTP/1.1").target.query            # out: b?c
+@out parse_request_line("OPTIONS * HTTP/1.1").target =>= Asterisk_Form # out: true
+@out parse_request_line("GET / HTTP/1.0").version.minor                # out: 0
+
+# An error prints as its tag. =>= also matches a sub-kind: nil\Unending_Line =>= nil\No_Line
+@out parse_request_line("GET /")                              # out: nil\Bad_Request
+@out parse_request_line("GET / x HTTP/1.1")                   # out: nil\Bad_Request
+@out parse_request_line("GET  / HTTP/1.1")                    # out: nil\Bad_Request
+@out parse_request_line("GET\t/ HTTP/1.1")                    # out: nil\Bad_Request
+@out parse_request_line("get / HTTP/1.1")                     # out: nil\Not_Implemented
+@out parse_request_line("BREW / HTTP/1.1")                    # out: nil\Not_Implemented
+@out parse_request_line("GET * HTTP/1.1") =>= nil\Bad_Request # out: true
+@out parse_request_line("GET tasks HTTP/1.1")                 # out: nil\Bad_Request
+@out parse_request_line("GET / HTTP/1")                       # out: nil\Bad_Request
+@out parse_request_line("GET / HTTP/1.x")                     # out: nil\Bad_Request
+@out parse_request_line("GET / http/1.1")                     # out: nil\Bad_Request
+@out parse_request_line("GET / HTTP/2.0")                     # out: nil\Version_Not_Supported
+
+@out parse_request_target('*') =>= Asterisk_Form                                              # out: true
+@out parse_request_target('/abc/def/ghi.html') =>= Origin_Form                                # out: true
+@out parse_request_target('http://www.example.org/pub/WWW/TheProject.html') =>= Absolute_Form # out: true
+
+origin := parse_request_target('/tasks/3?sort=new')
+@out origin.value                            # out: /tasks/3?sort=new
+@out origin.path                             # out: /tasks/3
+@out origin.query                            # out: sort=new
+@out parse_request_target('/').path          # out: /
+@out parse_request_target('/').query         # out: nil
+@out parse_request_target('/a?').query == '' # out: true
+
+absolute := parse_request_target('http://www.example.org/pub/a.html?x=1')
+@out absolute.value  # out: http://www.example.org/pub/a.html?x=1
+@out absolute.scheme # out: http
+@out absolute.host   # out: www.example.org
+@out absolute.path   # out: /pub/a.html
+@out absolute.query  # out: x=1
+
+@out parse_request_target('HTTPS://x.org/').scheme                # out: https
+@out parse_request_target('http://x.org:8080/a').host             # out: x.org
+@out parse_request_target('http://x.org').path                    # out: /
+@out parse_request_target('http://x.org').query                   # out: nil
+@out parse_request_target('http://x.org?q=1').host                # out: x.org
+@out parse_request_target('http://x.org?q=1').path                # out: /
+@out parse_request_target('http://x.org/a?next=http://y:9').host  # out: x.org
+@out parse_request_target('http://x.org/a?next=http://y:9').query # out: next=http://y:9
+@out parse_request_target('http://[::1]:8080/a').host             # out: [::1]
+
+@out parse_request_target('http://') =>= nil\Bad_Request # out: true
+@out parse_request_target('http:///a')                   # out: nil\Bad_Request
+@out parse_request_target('http://user@x.org/')          # out: nil\Bad_Request
+@out parse_request_target('http://x.org:80a/')           # out: nil\Bad_Request
+
+authority := parse_request_target('www.example.com:443')
+@out authority.value                        # out: www.example.com:443
+@out authority.host                         # out: www.example.com
+@out authority.port                         # out: 443
+@out parse_request_target('[::1]:443').host # out: [::1]
+@out parse_request_target('[::1]:443').port # out: 443
+
+@out parse_request_target('www.example.com')       # out: nil\Bad_Request
+@out parse_request_target('www.example.com:')      # out: nil\Bad_Request
+@out parse_request_target('www.example.com:https') # out: nil\Bad_Request
+@out parse_request_target('www.example.com:99999') # out: nil\Bad_Request
+@out parse_request_target(':443')                  # out: nil\Bad_Request
+@out parse_request_target('[::1')                  # out: nil\Bad_Request
+
+@out parse_request_target('')             # out: nil\Bad_Request
+@out parse_request_target('ftp://x.org/') # out: nil\Bad_Request
+
+@out parse_request_line("CONNECT x.org:443 HTTP/1.1").target =>= Authority_Form # out: true
+@out parse_request_line("GET x.org:443 HTTP/1.1")                               # out: nil\Bad_Request
+@out parse_request_line("CONNECT / HTTP/1.1")                                   # out: nil\Bad_Request
+
+@out parse_header_line("Accept: */*").name                     # out: accept
+@out parse_header_line("Accept: */*").value                    # out: */*
+@out parse_header_line("Accept: */*").raw                      # out: Accept: */*
+@out parse_header_line("Host:localhost").value                 # out: localhost
+@out parse_header_line("Host : localhost") =>= nil\Bad_Request # out: true
+@out parse_header_line(" continued value")                     # out: nil\Bad_Request
+@out parse_header_line(": no name")                            # out: nil\Bad_Request
+@out parse_header_line("NoColon")                              # out: nil\Bad_Request
+
+headers := parse_headers(["Host: x", "Accept: a", "Accept: b", "Cookie: a=1", "Cookie: b=2"])
+@out headers.by_name['accept']                                      # out: a, b
+@out headers.by_name['cookie']                                      # out: a=1; b=2
+@out headers.lines.count()                                          # out: 5
+@out parse_headers(["Accept: a"])                                   # out: nil\Bad_Request
+@out parse_headers(["Host: a", "Host: b"])                          # out: nil\Bad_Request
+@out parse_headers(["Host: x", "X-Long: " + "a" * MAX_HEADER_LINE]) # out: nil\Headers_Too_Large
+@out parse_headers(Array.of("X: y", MAX_HEADER_COUNT + 1))          # out: nil\Headers_Too_Large
+
+accept_items := parse_accept("text/html, application/json;q=0.9, */*;q=0.1", "*/*")
+@out accept_items.map(it; it.value)                               # out: ['text/html', 'application/json', '*/*']
+@out accept_items.map(it; it.q)                                   # out: [1.0, 0.9, 0.1]
+@out parse_accept("a;q=0.5, b, c;q=0.5", "*/*").map(it; it.value) # out: ['b', 'a', 'c']
+@out parse_accept("a;q=x, b;q=2, c", "*/*").map(it; it.value)     # out: ['c']
+@out parse_accept("a;q=0", "*/*").0.q                             # out: 0.0
+@out parse_accept(nil, "*/*").0.value                             # out: */*
+@out parse_accept(nil, "*").0.value                               # out: *
+
+@out body_length(parse_headers(["Host: x"]))                                                               # out: 0
+@out body_length(parse_headers(["Host: x", "Content-Length: 3"]))                                          # out: 3
+@out body_length(parse_headers(["Host: x", "Content-Length: 3", "Content-Length: 3"]))                     # out: 3
+@out body_length(parse_headers(["Host: x", "Content-Length: 3", "Content-Length: 4"])) =>= nil\Bad_Request # out: true
+@out body_length(parse_headers(["Host: x", "Content-Length: 12abc"]))                                      # out: nil\Bad_Request
+@out body_length(parse_headers(["Host: x", "Content-Length: -1"]))                                         # out: nil\Bad_Request
+@out body_length(parse_headers(["Host: x", "Content-Length:"]))                                            # out: nil\Bad_Request
+@out body_length(parse_headers(["Host: x", "Content-Length: 2000000"]))                                    # out: nil\Body_Too_Large
+@out body_length(parse_headers(["Host: x", "Transfer-Encoding: chunked"])) == CHUNKED                      # out: true
+@out body_length(parse_headers(["Host: x", "Transfer-Encoding: gzip"]))                                    # out: nil\Not_Implemented
+@out body_length(parse_headers(["Host: x", "Transfer-Encoding: chunked", "Content-Length: 3"]))            # out: nil\Bad_Request
+
+@out parse_chunk_size("4")                    # out: 4
+@out parse_chunk_size("ff")                   # out: 255
+@out parse_chunk_size("5;name=x")             # out: 5
+@out parse_chunk_size("zz")                   # out: nil\Bad_Request
+@out parse_chunk_size("") =>= nil\Bad_Request # out: true
+
+@out response_text(404) == "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\nConnection: close\r\n\r\nNot Found" # out: true
+@out response_text(200, "héllo").include?("Content-Length: 6\r\n")                                             # out: true
+@out response_text(200, "hi", head := true).ends_with?("Content-Length: 2\r\nConnection: close\r\n\r\n")       # out: true
+@out response_text(405, headers := {'Allow' = 'GET, HEAD'}).include?("Allow: GET, HEAD\r\n")                   # out: true
+
+@out status_for(nil\Bad_Request)           # out: 400
+@out status_for(nil\Not_Implemented)       # out: 501
+@out status_for(nil\Version_Not_Supported) # out: 505
+@out status_for(nil\Headers_Too_Large)     # out: 431
+@out status_for(nil\Body_Too_Large)        # out: 413
+@out status_for(nil\No_Request)            # out: nil

@@ -1,0 +1,460 @@
+@load 'lang/errors.code'
+@load 'lang/tcp_server'
+@load 'lang/tcp_socket'
+
+MAX_PORT_NUMBER := 65535
+
+GET     := "GET"
+HEAD    := "HEAD"
+POST    := "POST"
+PUT     := "PUT"
+DELETE  := "DELETE"
+CONNECT := "CONNECT"
+OPTIONS := "OPTIONS"
+TRACE   := "TRACE"
+
+Methods :: GET | HEAD | POST | PUT | DELETE | CONNECT | OPTIONS | TRACE
+
+Version <
+	major: String | Int | nil
+	minor: String | Int | nil
+>
+
+Header <
+	name: String
+	value: String
+	raw: String
+>
+
+Headers <
+	by_name: Dictionary      # "accept" => "*/*"; a repeated name has its values joined
+	lines: Array\Header      # each line as it came, in order
+>
+
+Accept_Item <
+	value: String   # "text/html", "gzip", "en-US"
+	q: Float        # 0.0 to 1.0; no q means 1.0
+>
+
+Message <
+	start_line: String
+	version: Version
+	headers: Headers
+	body: Buffer | String
+>
+
+Request + Message <
+	method: Methods
+	target: Request_Targets
+	target_uri: String
+	accepts: Array\Accept_Item     # Accept
+	encodings: Array\Accept_Item   # Accept-Encoding
+	languages: Array\Accept_Item   # Accept-Language
+>
+
+Response + Message <
+	status_code: Int
+>
+
+Request_Line <
+	method: Methods
+	target: Request_Targets
+	version: Version
+>
+
+Bad_Request       + Error <>
+No_Request        + Error <>     # the connection ended before a whole request came
+Not_Implemented   + Error <>     # a well-formed request with a method this server does not know, so the reply is 501
+Version_Not_Supported + Error <> # a well-formed version that is not HTTP/1.x, so the reply is 505
+Headers_Too_Large + Error <>     # 431
+Body_Too_Large    + Error <>     # 413
+
+DIGITS           := '0123456789'
+HEX_DIGITS       := '0123456789abcdefABCDEF'
+MAX_HEADER_LINE  := 8192      # bytes in one line
+MAX_HEADER_COUNT := 100
+MAX_BODY         := 1048576   # 1 MB
+CHUNKED          := -1        # body_length gives this for Transfer-Encoding: chunked
+
+REASON_PHRASES := {
+	200 = 'OK'
+	400 = 'Bad Request'
+	404 = 'Not Found'
+	405 = 'Method Not Allowed'
+	413 = 'Content Too Large'
+	431 = 'Request Header Fields Too Large'
+	500 = 'Internal Server Error'
+	501 = 'Not Implemented'
+	505 = 'HTTP Version Not Supported'
+}
+
+Request_Target  <value: String>
+Request_Targets :: Origin_Form | Absolute_Form | Authority_Form | Asterisk_Form
+
+Origin_Form    + Request_Target < path: String, query: String >
+Authority_Form + Request_Target < host: String, port: Int >
+Asterisk_Form  + Request_Target < value: "*" >
+Absolute_Form  + Request_Target <
+	scheme: String
+	host: String
+	port: Integer
+	path: String
+	query: String
+>
+
+# host:port
+# [IPv6]:port
+parse_authority ( text: String, requires_port_value: Bool -> Authority_Form | Nil;
+	return nil\Bad_Request("No authority") unless text
+	return nil\Bad_Request("user@host is not allowed in an http URI") if text.includes?('@') # RFC 9110 §4.2.4
+
+	host: String
+	port_text: String
+	if text.starts_with?('[') # [::1]:2345
+		closing := text.index(']')
+		return nil\Bad_Request("No closing ']' in the IPv6 host") unless closing
+
+		host = text.slice(0, closing + 1)
+		after_host := text.slice(closing + 1, text.length)
+		if after_host.starts_with?(':')
+			port_text = after_host.slice(1, after_host.length)
+		elif not after_host.empty?()
+			return nil\Bad_Request("Text after the ']' that is not a port")
+		end
+	else
+		parts := text.split(':', 2)
+		host = parts.?0
+		port_text = parts.?1
+	end
+	return nil\Bad_Request("Empty host") if host == nil or host.empty?()
+
+	port: Int
+	if port_text != nil
+		valid := port_text.chars().all?(it; DIGITS.include?(it))
+		return nil\Bad_Request("The port is not a number") if port_text.empty?() or not valid
+		port = port_text.to_i()
+		return nil\Bad_Request("The port is larger than `MAX_PORT_NUMBER`") if port > MAX_PORT_NUMBER
+	end
+	return nil\Bad_Request("The authority form needs a port") if requires_port_value and port == nil
+
+	Authority_Form(value := text, host := host, port := port)
+)
+
+parse_request_target ( target: String -> Request_Targets | Nil;
+	if target
+	when '*' Asterisk_Form()
+	when it.starts_with?('/')
+		# /where?q=now
+		parts := it.split('?', 2)
+		Origin_Form(
+			value := it
+			path := parts.0
+			query := parts.?1
+		)
+
+	when it.downcase().starts_with_any_of?( %string(http:// https://) )
+		# http://www.example.org:8080/pub/WWW/TheProject.html?x=1
+		# The first ? starts the query, so split it off first: the query can hold a / or a :
+		scheme_and_rest    := it.split('://', 2)
+		rest_and_query     := scheme_and_rest.1.split('?', 2)
+		authority_and_path := (rest_and_query.?0 or '').split('/', 2)
+
+		auth_text := authority_and_path.?0 or ''
+		authority := parse_authority(auth_text, requires_port_value := false)
+		return authority unless authority
+
+		Absolute_Form(
+			value := it
+			scheme := scheme_and_rest.0.downcase()
+			host := authority.host
+			port := authority.port
+			path := '/' + (authority_and_path.?1 or '')
+			query := rest_and_query.?1
+		)
+	when it
+		# www.example.com:443 with a CONNECT request
+		parse_authority(it, requires_port_value := true)
+	end
+)
+
+# GET /tasks/3?sort=new HTTP/1.1
+parse_request_line ( line: String -> Request_Line | Nil;
+	parts := line.split(' ') # split(' ') also splits on tabs and runs of spaces, so put the line together again to check for exactly one space between the parts
+	return nil\Bad_Request("The request line does not have 3 parts") unless parts.count() == 3
+
+	(method, target, version) := parts
+	return nil\Bad_Request("The request line needs exactly one space between its parts") unless "`method` `target` `version`" == line
+	return nil\Not_Implemented("Unknown method `method`") unless method =>= Methods
+
+	request_target := parse_request_target(target)
+	return request_target unless request_target
+	return nil\Bad_Request("Only OPTIONS takes the * target") if request_target =>= Asterisk_Form and method != OPTIONS
+
+	# RFC 9112 §3.2.3
+	return nil\Bad_Request("Only CONNECT takes the authority form") if request_target =>= Authority_Form and method != CONNECT
+	return nil\Bad_Request("CONNECT takes only the authority form") if method == CONNECT and not (request_target =>= Authority_Form)
+
+	# HTTP-version = "HTTP/" DIGIT "." DIGIT
+	major := version.slice(5, 1)
+	minor := version.slice(7, 1)
+	return nil\Bad_Request("The version is not HTTP/x.y") unless version.length == 8 and version.starts_with?('HTTP/') and version.slice(6, 1) == '.'
+	return nil\Bad_Request("The version numbers are not digits") unless DIGITS.includes?(major) and DIGITS.includes?(minor)
+	return nil\Version_Not_Supported unless major == '1'
+
+	Request_Line(
+		method := method
+		target := request_target
+		version := Version(major.to_i(), minor.to_i())
+	)
+)
+
+# Accept: */*
+parse_header_line ( line: String -> Header | Nil;
+	parts := line.split(':', 2)
+	return nil\Bad_Request("A header line with no ':'") unless parts.count() == 2
+
+	# A space at the start of the line is old line folding, which is not allowed either (RFC 9112 §5.1, §5.2)
+	field_name := parts.0
+	return nil\Bad_Request("The header name is empty or holds a space") if field_name.empty?() or field_name.includes?(' ') or field_name.includes?('\t')
+
+	Header(
+		name  := field_name.downcase()
+		value := parts.1.trim()
+		raw   := line
+	)
+)
+
+# The header lines, each without its CRLF. Operates on Strings so the socket is not required here
+parse_headers ( lines: Array\String -> Headers | Nil;
+	return nil\Headers_Too_Large("More than `MAX_HEADER_COUNT` header lines") if lines.count() > MAX_HEADER_COUNT
+
+	by_name := {}
+	headers := []
+	for lines
+		return nil\Headers_Too_Large("A header line longer than `MAX_HEADER_LINE` bytes") if it.bytesize > MAX_HEADER_LINE
+
+		header := parse_header_line(it)
+		return header unless header
+
+		headers << header
+		if by_name.has_key?(header.name)
+			# A repeated name joins its values, in order (RFC 9110 §5.3). A cookie value can hold a ',', so Cookie joins with '; '
+			separator := ', '
+			separator = '; ' if header.name == 'cookie'
+			by_name[header.name] = "`by_name[header.name]``separator``header.value`"
+		else
+			by_name[header.name] = header.value
+		end
+	end
+
+	# RFC 9112 §3.2. by_name joins two into one value, so count the lines
+	return nil\Bad_Request("A request needs exactly one Host header") unless headers.select(it; it.name == 'host').count() == 1
+
+	Headers(
+		by_name := by_name
+		lines   := headers
+	)
+)
+
+read_request_headers ( socket: Tcp_Socket -> Headers | Nil;
+	lines := []
+
+	while line := read_line(socket)
+		lines << line
+		# parse_headers handles the 431; here we stop so a client cannot send headers indefinitely
+		stop if lines.count() > MAX_HEADER_COUNT
+	else
+		when nil\End_Of_Section
+			stop
+		when nil\No_Line
+			return nil\No_Request("The connection closed, or a line did not end")
+		else
+			@unreachable 'There was some issue with readline():\n`line`'
+	end
+
+	parse_headers(lines)
+)
+
+# "text/html, application/json;q=0.9" -> the items, highest q first. Equal q keeps the client's order. A missing header gives [<wildcard, 1.0>].
+parse_accept ( text: String, wildcard: String -> Array\Accept_Item;
+	return [Accept_Item(wildcard, 1.0)] unless text
+
+	items := []
+	for text.split(',')
+		parts := it.split(';')
+		value := parts.0.trim()
+		q     := 1.0
+		valid := not value.empty?()
+
+		# Other params (text/html;level=1) are left out of the value
+		for parts[1..]
+			pair := it.trim().split('=', 2)
+			if pair.0.downcase() == 'q'
+				q_text := pair.?1 or ''
+				q = q_text.to_f()
+				# A q that is not a number from 0 to 1 skips the item, not the whole request
+				valid = false if q_text.empty?() or not q_text.chars().all?(it; "`DIGITS`.".include?(it)) or q > 1
+			end
+		end
+
+		# q=0 means "not this one", and accepts? needs it so it stays
+		items << Accept_Item(value, q) if valid
+	end
+
+	items.sort_by(it; -it.q)
+)
+
+# The most specific item decides, not the first one in q order (RFC 9110 §12.5.1): an exact match, then type/*, then */*
+accepts? ( request: Request, media_type: String -> Bool;
+	wanted := media_type.downcase()
+	for [wanted, "`wanted.split('/').0`/*", '*/*']
+		candidate := it
+		if item := request.accepts.find(it; it.value.downcase() == candidate)
+			return item.q > 0
+		end
+	end
+
+	false
+)
+
+# The number of body bytes the headers announce: 0 for no body, or CHUNKED (RFC 9112 §6.3)
+body_length ( headers: Headers -> Int | Nil;
+	transfer_encoding := headers.by_name['transfer-encoding']
+	content_lengths   := headers.lines.select(it; it.name == 'content-length')
+
+	# https://en.wikipedia.org/wiki/HTTP_request_smuggling
+	return nil\Bad_Request("Possible request smuggling detected") if transfer_encoding and not content_lengths.empty?()
+
+	if transfer_encoding
+		return CHUNKED if transfer_encoding.downcase() == 'chunked'
+		return nil\Not_Implemented("Unknown Transfer-Encoding `transfer_encoding`")
+	end
+	return 0 if content_lengths.empty?()
+
+	length_text := content_lengths.0.value
+	return nil\Bad_Request("Two different Content-Length values") unless content_lengths.all?(it; it.value == length_text)
+	return nil\Bad_Request("Content-Length is not a number") if length_text.empty?() or not length_text.chars().all?(it; DIGITS.include?(it))
+
+	byte_count := length_text.to_i()
+	return nil\Body_Too_Large("Content-Length is larger than `MAX_BODY`") if byte_count > MAX_BODY
+	byte_count
+)
+
+# 5;name=x -> 5. The size is hex, and a ';' starts an extension, which is skipped (RFC 9112 §7.1)
+parse_chunk_size ( line: String -> Int | Nil;
+	size_text := line.split(';', 2).?0.?trim()
+	return nil\Bad_Request("Empty chunk size") if size_text == nil or size_text.empty?()
+	# to_i(16) gives 0 for text that is not hex, so check the digits first
+	return nil\Bad_Request("The chunk size is not hex") unless size_text.chars().all?(it; HEX_DIGITS.include?(it))
+
+	size_text.to_i(16)
+)
+
+read_body ( socket: Tcp_Socket, headers: Headers -> String | Nil;
+	byte_count := body_length(headers)
+	return byte_count unless byte_count
+	return '' if byte_count == 0
+
+	# A client that sends Expect: 100-continue waits for this line before it sends the body (RFC 9110 §10.1.1)
+	if headers.by_name['expect'].?downcase() == '100-continue'
+		socket.write("HTTP/1.1 100 Continue\r\n\r\n")
+	end
+
+	if byte_count != CHUNKED
+		body := socket.read(byte_count)
+		return nil\No_Request("The client closed in the middle of the body") unless body and body.bytesize == byte_count
+		return body
+	end
+
+	# 4\r\n Wiki\r\n 5\r\n pedia\r\n 0\r\n \r\n -> "Wikipedia"
+	body := ''
+	while true
+		size_line := read_line(socket)
+		return nil\Bad_Request("A blank line where a chunk size should be") if size_line =>= nil\End_Of_Section
+		return nil\No_Request unless size_line
+
+		size := parse_chunk_size(size_line)
+		return size unless size
+		stop if size == 0
+		return nil\Body_Too_Large("The chunks are larger than `MAX_BODY`") if body.bytesize + size > MAX_BODY
+
+		chunk := socket.read(size)
+		return nil\No_Request unless chunk and chunk.bytesize == size
+		return nil\Bad_Request("A chunk does not end with CRLF") unless socket.read(2) == CRLF
+		body += chunk
+	end
+
+	# Trailer lines come after the last chunk, until a blank line. Read them and drop them
+	trailer_count := 0
+	while trailer := read_line(socket)
+		trailer_count += 1
+		return nil\Headers_Too_Large("More than `MAX_HEADER_COUNT` trailer lines") if trailer_count > MAX_HEADER_COUNT
+	end
+	return nil\No_Request unless trailer =>= nil\End_Of_Section
+
+	body
+)
+
+read_request ( socket: Tcp_Socket -> Request | Nil;
+	start_line := read_line(socket)
+	return nil\Bad_Request("A blank line where the request line should be") if start_line =>= nil\End_Of_Section
+	return nil\No_Request unless start_line
+
+	request_line := parse_request_line(start_line)
+	return request_line unless request_line
+
+	headers := read_request_headers(socket)
+	return headers unless headers
+
+	body := read_body(socket, headers)
+	return body unless body
+
+	Request(
+		start_line := start_line
+		version    := request_line.version
+		headers    := headers
+		body       := body
+		method     := request_line.method
+		target     := request_line.target
+		target_uri := request_line.target.value
+		accepts    := parse_accept(headers.by_name['accept'], '*/*')
+		encodings  := parse_accept(headers.by_name['accept-encoding'], '*')
+		languages  := parse_accept(headers.by_name['accept-language'], '*')
+	)
+)
+
+# The whole reply. With no body, the reason phrase is the body, so a browser shows something. A reply to HEAD has the same headers, but no body (RFC 9110 §9.3.2).
+response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head: Bool = false -> String;
+	reason := REASON_PHRASES[status]
+	body    = body or reason
+
+	text := "HTTP/1.1 `status` `reason`\r\n"
+	for headers
+		text += "`at`: `it`\r\n"
+	end
+	# Content-Length counts bytes, not characters. Each reply closes its connection until the select loop.
+	text += "Content-Length: `body.bytesize`\r\n"
+	text += "Connection: close\r\n"
+	text += "\r\n"
+	text += body unless head
+
+	text
+)
+
+# Each error kind -> its status. nil means no reply: the client is gone.
+status_for ( error -> Int | Nil;
+	if error
+		@unreachable "status_for takes the tagged nil that a failed read_request gives back (nil\Bad_Request, ...), but it got a value: `error`. Call it only when read_request gives a nil."
+	else
+	when nil\Bad_Request 400
+	when nil\Not_Implemented 501
+	when nil\Version_Not_Supported 505
+	when nil\Headers_Too_Large 431
+	when nil\Body_Too_Large 413
+	when nil\No_Request nil
+	else 500
+	end
+)
+
+# todo; Quoted values (filename="a;b, c.png") can hold ';' and ','. Content-Disposition and Cookie need a parser that skips quoted text.
+# todo; ask claude about paradigm where the struct is provided along with standalone functions, and the user can compose to make a class-like container. "# I wanna provide both paradigms, one where you can use File.whatever, and one where you xan call read_file_to_string(). But in a way where the user has multiple ways to use the functions. Like they could compose read_file_to_string into File along with the other 3 Self.functions, and then that means we only declare a File <> struct here. Then declare these functions elsewhere. Users use them how they want."
