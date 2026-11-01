@@ -134,7 +134,7 @@ Absolute_Form  + Request_Target <
 # host:port
 # [IPv6]:port
 parse_authority ( text: String, requires_port_value: Bool -> Authority_Form | Nil;
-	return nil\Bad_Request("No authority") unless text
+	return nil\Bad_Request("No host:port where the authority should be") unless text
 	return nil\Bad_Request("user@host is not allowed in an http URI") if text.includes?('@') # RFC 9110 §4.2.4
 
 	host: String
@@ -228,7 +228,7 @@ parse_request_line ( line: String -> Request_Line | Nil;
 	minor := version.slice(7, 1)
 	return nil\Bad_Request("The version is not HTTP/x.y") unless version.length == 8 and version.starts_with?('HTTP/') and version.slice(6, 1) == '.'
 	return nil\Bad_Request("The version numbers are not digits") unless DIGITS.includes?(major) and DIGITS.includes?(minor)
-	return nil\Version_Not_Supported unless major == '1'
+	return nil\Version_Not_Supported("HTTP/`major`.`minor` is not supported, only HTTP/1.x") unless major == '1'
 
 	Request_Line(
 		method := method
@@ -333,7 +333,7 @@ body_length ( headers: Headers -> Int | Nil;
 	content_lengths   := headers.lines.select(it; it.name == 'content-length')
 
 	# https://en.wikipedia.org/wiki/HTTP_request_smuggling
-	return nil\Bad_Request("Possible request smuggling detected") if transfer_encoding and not content_lengths.empty?()
+	return nil\Bad_Request("Both Transfer-Encoding and Content-Length, a way to smuggle a request") if transfer_encoding and not content_lengths.empty?()
 
 	if transfer_encoding
 		return CHUNKED if transfer_encoding.downcase() == 'chunked'
