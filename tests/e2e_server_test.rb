@@ -98,7 +98,7 @@ class E2E_Server_Test < Minitest::Test
 		Net::HTTP.start(uri.host, uri.port) { it.request request }
 	end
 
-	# Sends a click as bytes, the way live_page.js does by default (lang/protocols/live_page.code has the format).
+	# Sends a click as bytes, the way live_page.js does by default (lang/web/live_page.code has the format).
 	def click_as_bytes token, inputs, path: '', query: ''
 		str   = ->(text) { [text.bytesize].pack('N') + text.b }
 		bytes = [1].pack('C') + str.(path) + str.(query) + [inputs.size].pack('n')

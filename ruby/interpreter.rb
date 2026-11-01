@@ -1067,11 +1067,11 @@ module Code
 			end
 		end
 
-		# A click sent as bytes (live_page.js), decoded by lang/protocols/live_page.code on either server. A click that does not decode reads as an empty one, the same as a JSON body that does not parse.
+		# A click sent as bytes (live_page.js), decoded by lang/web/live_page.code on either server. A click that does not decode reads as an empty one, the same as a JSON body that does not parse.
 		def decode_click_bytes bytes
 			call           = Code::Call_Expr.new
 			call.arguments = []
-			click          = interp_func_body runtime_library('lang/protocols/live_page')['decode_click'], call, arg_values: [adopt_type(Code::Buffer.new.proxy_from_string(bytes || ''), 'Buffer')]
+			click          = interp_func_body runtime_library('lang/web/live_page')['decode_click'], call, arg_values: [adopt_type(Code::Buffer.new.proxy_from_string(bytes || ''), 'Buffer')]
 			if nil_value? click
 				message = click.tag_instance&.get('message') if click.respond_to?(:tag_instance)
 				warn "[Code] a click that does not decode: #{message.respond_to?(:value) ? message.value : message}"

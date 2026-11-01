@@ -1,4 +1,4 @@
-@load 'lang/protocols/http.code'
+@load 'lang/web/http.code'
 
 line := parse_request_line("GET /tasks/3?sort=new HTTP/1.1")
 @out line.method        # out: GET

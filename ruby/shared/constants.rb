@@ -2,7 +2,7 @@ module Code
 	DOM_CONSTRUCTOR_PROP_NAMES        = %w(onclick key)
 	DOM_CONSTRUCTOR_PROP_PREFIXES     = %w(html_ css_)
 	DOM_ATTRIBUTE_PREFIX              = 'data-runtime' # starts each attribute that the runtime writes and live_page.js reads (<prefix>-onclick, <prefix>-on-server-read)
-	CLICK_BYTES_CONTENT_TYPE          = 'application/octet-stream' # a click that live_page.js sends as bytes (lang/protocols/live_page.code); application/json is the other
+	CLICK_BYTES_CONTENT_TYPE          = 'application/octet-stream' # a click that live_page.js sends as bytes (lang/web/live_page.code); application/json is the other
 	DOM_TARGET_ID_HEADER              = 'X-Code-Target-Id' # a click reply's header that names the element live_page.js replaces
 	DOM_BROWSER_VIEW_SIZE             = 'browser_view_size'
 	DOM_NAMESPACE                     = '_runtime' # the URL namespace of the runtime's own paths (DOM_EVENT_URL, DOM_HOT_RELOAD_URL)

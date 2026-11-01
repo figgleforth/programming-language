@@ -27,7 +27,7 @@
 		}
 	}
 
-	// The click as bytes. lang/protocols/live_page.code has the format and decodes it. Numbers are big-endian.
+	// The click as bytes. lang/web/live_page.code has the format and decodes it. Numbers are big-endian.
 	function encode_click(path, query, inputs) {
 		const text  = new TextEncoder()
 		const parts = []

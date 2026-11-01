@@ -14,7 +14,7 @@ A few files do not load on their own. You must add an `@load` line for these you
 @load 'lang/css.code'                 # a small CSS builder, formatter, and linter
 @load 'lang/database.code'            # Sqlite and the Database type
 @load 'lang/server.code'              # the Server type and HTTP routes
-@load 'lang/protocols/http.code'      # an HTTP/1.1 parser: parse_request, response_text, and their Request and Response
+@load 'lang/web/http.code'      # an HTTP/1.1 parser: parse_request, response_text, and their Request and Response
 @load 'lang/iterable.code'            # Iterable: compose it into a type to give it `next`
 @load 'lang/raylib.code'              # 2D game and graphics support (needs the raylib-bindings gem)
 ```
@@ -29,11 +29,11 @@ A few files exist to support another file, and you rarely load them by name your
 - `member.code` supports `struct.code` (it gives a struct's `<...>` value its `@.members` list).
 - `visitor.code` supports `css.code` and `html2.code` (it holds a small mixin both of them share).
 - `http_server.code` is the server loop. `@start_server` loads it into a scope of its own (unless `CODE_SERVER=webrick`).
-- `tcp_server.code` and `tcp_socket.code` support `protocols/http.code`.
+- `tcp_server.code` and `tcp_socket.code` support `web/http.code`.
 
 ### Protocols
 
-`protocols/` holds wire formats: the bytes that two programs send each other. `http.code` reads HTTP/1.1, and `live_page.code` reads a click that a live page sends as bytes (`decode_click`).
+`web/` holds wire formats: the bytes that two programs send each other. `http.code` reads HTTP/1.1, and `live_page.code` reads a click that a live page sends as bytes (`decode_click`).
 
 ### Where to see these in use
 

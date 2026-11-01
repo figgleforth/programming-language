@@ -1,4 +1,4 @@
-@load 'lang/protocols/live_page'
+@load 'lang/web/live_page'
 
 # Builds the bytes of a click, the same way live_page.js does
 u8 ( n: Int -> Buffer;

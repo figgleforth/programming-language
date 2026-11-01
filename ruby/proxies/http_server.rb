@@ -20,7 +20,7 @@ module Code
 			@stopping = false
 		end
 
-		# @param request Code::Struct, a Request from lang/protocols/http.code
+		# @param request Code::Struct, a Request from lang/web/http.code
 		# @return Code::Array of the status, the headers (Code::Dictionary) and the body
 		def proxy_respond request
 			interpreter.respond_to_http_request app, request
