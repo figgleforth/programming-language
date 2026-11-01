@@ -1,4 +1,4 @@
-@load 'lang/html2'
+@load 'lang/web/html2'
 
 # A boolean attribute (checked, disabled, selected) is on whenever its name is there.
 # So true prints the bare name, and false or nil leave the attribute out.

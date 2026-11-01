@@ -1,0 +1,4 @@
+# Everything a web program needs, with pages built from one Element struct and lowercase constructors: div(), p(), h1() (html2.code, which also loads css.code)
+@load 'lang/web/server'
+@load 'lang/web/html2'
+@load 'lang/database'

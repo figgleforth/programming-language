@@ -1,4 +1,4 @@
-@load 'lang/html'
+@load 'lang/web/html'
 
 # A Checkbox is checked only when html_checked is true. It is nil until something sets it, so compare with true
 checked? ( box: Checkbox -> Bool;

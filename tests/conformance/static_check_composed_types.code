@@ -21,7 +21,7 @@ n: Int32 = 4
 @out n                          # out: 4
 
 # A type from a loaded file is not known here, so it is not checked statically
-@load 'lang/html.code'
+@load 'lang/web/html.code'
 div := Div()
 dom: Dom = div
 @out 'ok'                       # out: ok

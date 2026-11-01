@@ -1,4 +1,4 @@
-@load 'lang/html2'
+@load 'lang/web/html2'
 
 # Text and attribute values are escaped, so input can never become markup
 @out Html_Renderer.render(p("<script>alert(1)</script>"))           # out: <p>&lt;script&gt;alert(1)&lt;/script&gt;</p>

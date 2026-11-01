@@ -1,7 +1,7 @@
 @load 'lang/database'
 @load 'lang/table'
-@load 'lang/html'
-@load 'lang/server'
+@load 'lang/web/html'
+@load 'lang/web/server'
 
 Task_Type [TODO BUG DESIGN]
 

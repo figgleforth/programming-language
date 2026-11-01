@@ -1,14 +1,14 @@
 ###
-The tasks app with a page reload for each click, built on lang/css.code + lang/html2.code (structs and a visitor) instead of html.code's Dom types.
+The tasks app with a page reload for each click, built on lang/web/css.code + lang/web/html2.code (structs and a visitor) instead of html.code's Dom types.
 
 Every "click a button, something changes" here is a plain HTML form POST and a redirect, on purpose: this version uses no JavaScript, so each click loads a new page. tasks-live-reload.code is the same app with live clicks.
 ###
 
 @load 'lang/database'
 @load 'lang/table'
-@load 'lang/css'
-@load 'lang/html2'
-@load 'lang/server'
+@load 'lang/web/css'
+@load 'lang/web/html2'
+@load 'lang/web/server'
 
 Task_Type [TODO BUG DESIGN]
 

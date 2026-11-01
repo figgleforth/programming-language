@@ -2,10 +2,10 @@ require 'minitest/autorun'
 require_relative '../ruby/main'
 require_relative 'base_test'
 
-# lang/css.code: the AST node structs, Css_Formatter_Visitor (format + minify), and
+# lang/web/css.code: the AST node structs, Css_Formatter_Visitor (format + minify), and
 # Css_Lint_Visitor (duplicate properties, vendor prefixes, redundant zero-units).
 class Css_Test < Base_Test
-	CSS = "@load 'lang/css.code'"
+	CSS = "@load 'lang/web/css.code'"
 
 	# --- Css_Formatter_Visitor -------------------------------------------------
 

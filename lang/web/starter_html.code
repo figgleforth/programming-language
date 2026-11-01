@@ -1,0 +1,5 @@
+# Everything a web program needs, with pages built from the Dom types: Div, P, H1, and a type of your own composed with them (html.code)
+@load 'lang/web/server'
+@load 'lang/web/html'
+@load 'lang/web/css'
+@load 'lang/database'

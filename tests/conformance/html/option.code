@@ -1,4 +1,4 @@
-@load 'lang/html'
+@load 'lang/web/html'
 
 # An Option renders only the attributes that are set
 o := Option('Bug')

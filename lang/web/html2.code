@@ -1,12 +1,12 @@
 ###
-Struct-and-render take on lang/html.code, same spirit as lang/css.code: markup is plain, immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag Type, no `| Dom` composition, no method-override polymorphism. The two coexist.
+Struct-and-render take on lang/web/html.code, same spirit as lang/web/css.code: markup is plain, immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag Type, no `| Dom` composition, no method-override polymorphism. The two coexist.
 
 It only builds an HTML String. An Element with `onclick`, `on_server_read` or `replacement_target_id` is live when a server route renders it: the formatter writes the runtime's data-runtime-* attributes, through `@onclick` and `@on_server_read`.
 
 The server does not know about Element. Any renderer that writes the same attributes gets the same live behavior.
 ###
 @load 'lang/visitor'
-@load 'lang/css'
+@load 'lang/web/css'
 
 ### 1. The one node shape ###
 
@@ -29,14 +29,14 @@ Element <
 	replacement_target_id: String
 >
 
-### 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as lang/css.code's Css_Formatter_Visitor) ###
+### 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as lang/web/css.code's Css_Formatter_Visitor) ###
 
 Html_Formatter_Visitor {
 	DEFAULT_INDENT := 2
 	indent_size: Int = DEFAULT_INDENT
 	minify: Bool = false
 
-	# Never given a closing tag, regardless of mode -- matches how lang/html.code's own generic Dom#to_s already never self-closes anything either (no new inconsistency introduced there), it just means these never emit an *empty* `</tag>` at all, in either mode.
+	# Never given a closing tag, regardless of mode -- matches how lang/web/html.code's own generic Dom#to_s already never self-closes anything either (no new inconsistency introduced there), it just means these never emit an *empty* `</tag>` at all, in either mode.
 	VOID_TAGS := %string(area base br col command embed hr img input keygen link meta param source track wbr)
 
 	# The text inside these is JavaScript or CSS, not HTML, so it is never escaped.
@@ -311,8 +311,8 @@ Html_Lint_Visitor + Warnings_Visitor {
 	)
 }
 
-### 3. Element constructors (recovers the ergonomics lang/html.code gets from per-tag Types)
-- note; lowercase, not capitalized like lang/html.code's Div/Title/etc -- these are functions, and a capitalized name before `(` routes to type-reference parsing instead of a function declaration (found the hard way writing this file).
+### 3. Element constructors (recovers the ergonomics lang/web/html.code gets from per-tag Types)
+- note; lowercase, not capitalized like lang/web/html.code's Div/Title/etc -- these are functions, and a capitalized name before `(` routes to type-reference parsing instead of a function declaration (found the hard way writing this file).
 - Each tag's constructor is made by constructor_for or void_constructor_for, because they all take the same arguments. href and utf8_meta are written out, because each adds an attribute of its own.
 ###
 

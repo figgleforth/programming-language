@@ -203,7 +203,7 @@ module Code
 			end
 		end
 
-		# `Dom#to_html` (lang/html.code). A Dom element is a plain Instance with no Ruby class of its own, so the proxy lives here.
+		# `Dom#to_html` (lang/web/html.code). A Dom element is a plain Instance with no Ruby class of its own, so the proxy lives here.
 		def proxy_to_html
 			Code::Interpreter.current.render_dom_to_html self, live_page_instance: nil
 		end

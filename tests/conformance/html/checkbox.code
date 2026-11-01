@@ -1,4 +1,4 @@
-@load 'lang/html'
+@load 'lang/web/html'
 
 # A Checkbox starts unchecked, and an unchecked box has no checked attribute
 box := Checkbox()

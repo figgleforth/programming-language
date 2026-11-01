@@ -35,7 +35,7 @@ module Code
 				                              instead of reloading in place
 
 				-webrick | --webrick        Serve with Ruby's WEBrick, not the
-				                            server in lang/http_server.code
+				                            server in lang/web/http_server.code
 				                            (sets CODE_SERVER=webrick)
 
 			--- EXAMPLES

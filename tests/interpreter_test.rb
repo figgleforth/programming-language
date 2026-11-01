@@ -3578,7 +3578,7 @@ class Interpreter_Test < Base_Test
 
 	def test_html_fence_in_route_handler
 		out = Code.interp "
-		@load 'lang/server.code'
+		@load 'lang/web/server.code'
 
 		App + Server {
 			get:// home (;

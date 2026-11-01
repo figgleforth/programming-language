@@ -402,10 +402,10 @@ class Type_Alias_Test < Base_Test
 		assert_equal '<shapes: Array\\Shape = [<radius: Number = 1>, <side: Number = 2>]>', out
 	end
 
-	# lang/css.code declares `Css :: Style_Rule | At_Rule | ...`, so any one rule is a Css.
+	# lang/web/css.code declares `Css :: Style_Rule | At_Rule | ...`, so any one rule is a Css.
 	def test_the_standard_library_css_alias
 		out = Code.interp <<~CODE
-		    @load 'lang/css'
+		    @load 'lang/web/css'
 		    rule := Style_Rule(['p'], [])
 		    <(rule =>= Css), (5 =>= Css)>
 		CODE

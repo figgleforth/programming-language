@@ -170,7 +170,7 @@ A bare `@load` hoists too, so imports can live at the bottom of the file instead
 sign := Div([P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-@load 'lang/html.code'
+@load 'lang/web/html.code'
 ```
 
 `Ident := @load 'file'` / `IDENT := @load 'file'` hoist too — only a Capitalized or UPPERCASE name opts in:
@@ -179,9 +179,9 @@ sign.to_s()  # '<div><p>hi</p></div>'
 sign := Html_Lib.Div([Html_Lib.P('hi')])
 sign.to_s()  # '<div><p>hi</p></div>'
 
-Html_Lib := @load 'lang/html.code'
+Html_Lib := @load 'lang/web/html.code'
 
-# html_lib := @load 'lang/html.code'   -- lowercase stays a plain variable, not hoisted
+# html_lib := @load 'lang/web/html.code'   -- lowercase stays a plain variable, not hoisted
 ```
 
 A plain variable is never hoisted — reading it before its line runs still raises `Undeclared_Identifier`:
@@ -1426,7 +1426,7 @@ A relative path resolves the same way wherever you start `bin/program`. The firs
 
 1. The folder of the file that holds the `@load`. So `@load ./helper` in `app/main.code` finds `app/helper.code`.
 2. The folder you started `bin/program` from. Code with no file of its own (`bin/program interp "..."`) starts here.
-3. The language's own folder (`source/`). This is how `@load 'lang/html'` finds the standard library from anywhere.
+3. The language's own folder (`source/`). This is how `@load 'lang/web/html'` finds the standard library from anywhere.
 
 `../x` climbs one folder, `../../x` climbs two, and `~/x` starts at your home folder. Only your own `~/` works: `~otheruser/path` is not a bare path.
 
@@ -1509,13 +1509,15 @@ supplies := <water: Number = 40, wood: Number = 12>
 
 ## Web Server
 
+One `@load` gives you everything: the server, HTML, CSS, and the database. `lang/web/starter_html2` builds pages from one `Element` struct (`div()`, `p()`), and `lang/web/starter_html` builds them from the `Dom` types (`Div`, `P`). See `lang/web/readme.md`.
+
 1. Compose with `Server` type
 2. Define routes with HTTP method syntax
 3. Boot with `@start_server` (background thread; `@stop_server` to shut one down)
-4. The server is written in the language (`lang/http_server.code`). One thread waits on every connection at once, so a slow client holds up no one. A connection stays open for the next request (keep-alive), unless the client sends `Connection: close`, or sends HTTP/1.0 without `Connection: keep-alive`. A connection that sends nothing for 30 seconds is closed, and above 512 open connections the one that has waited longest is closed. It also streams the hot reload events. `CODE_SERVER=webrick` runs Ruby's WEBrick in its place
+4. The server is written in the language (`lang/web/http_server.code`). One thread waits on every connection at once, so a slow client holds up no one. A connection stays open for the next request (keep-alive), unless the client sends `Connection: close`, or sends HTTP/1.0 without `Connection: keep-alive`. A connection that sends nothing for 30 seconds is closed, and above 512 open connections the one that has waited longest is closed. It also streams the hot reload events. `CODE_SERVER=webrick` runs Ruby's WEBrick in its place
 
 ```code
-@load 'lang/server.code'
+@load 'lang/web/server.code'
 
 App + Server {
     Self (;
@@ -1573,7 +1575,7 @@ App + Server {
 
 ## Request & Response
 
-In a route, `request` is a `Request` (`path`, `method`, `query`, `params`, `headers`, `body`), and `response` is a `Response` (`status`, `headers`, `body`, `redirect(location)`). Both are in `lang/server.code`.
+In a route, `request` is a `Request` (`path`, `method`, `query`, `params`, `headers`, `body`), and `response` is a `Response` (`status`, `headers`, `body`, `redirect(location)`). Both are in `lang/web/server.code`.
 
 ```code
 post://login (;
@@ -1671,7 +1673,7 @@ User_Record(name := 'Bob').greet()  # 'Hi Bob' -- a record built in memory gets 
 
 ## HTML Elements
 
-1. Compose with HTML element types from `lang/html.code`
+1. Compose with HTML element types from `lang/web/html.code`
 2. `css_*` prefix sets inline CSS properties
 3. `html_*` prefix sets HTML attributes
 4. `.to_s()` renders an element and its children to string directly, without attributes
@@ -1679,7 +1681,7 @@ User_Record(name := 'Bob').greet()  # 'Hi Bob' -- a record built in memory gets 
 6. When a server renders a page, text children, attribute values, and `css_*` values are escaped, so text from a user can never become markup. The text inside `Script` and `Style` stays raw, because it is JavaScript or CSS
 
 ```code
-@load 'lang/html.code'
+@load 'lang/web/html.code'
 
 Card + Div {
     css_padding := '1rem'
@@ -1715,13 +1717,13 @@ box.to_html()             # <input type="checkbox" checked>
 
 ## CSS
 
-1. `@load 'lang/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
+1. `@load 'lang/web/css.code'` -- CSS is plain data: `Property`/`Style_Rule`/`At_Rule`/`Scope_Rule`/`Custom_Property_Rule`/`Layer_Order`/`Keyframe`/`Variable_Declaration`/`Css_Function`/`Color` are all bare structs, no parser involved
 2. `Css_Formatter_Visitor` walks the tree into a real CSS string -- pretty by default, `minify := true` for one line
 3. A rule nested inside another rule's `rules` gets a synthesized `&` prefix; a rule inside an `At_Rule`/`Scope_Rule` body does not, since there's no parent selector to refer to
 4. `Css_Lint_Visitor` checks for duplicate properties, hardcoded vendor prefixes, and redundant zero-units (`0px` -> `0`). Given a whole `Stylesheet`, it also warns when a state rule (`:hover`, `:focus`, ...) sets `transform` while the base selector runs a keyframe `animation` that also animates it -- the animation overrides the hover value every frame
 
 ```code
-@load 'lang/css.code'
+@load 'lang/web/css.code'
 
 rule := Style_Rule(['.card'], [Property('color', 'red'), Property('padding', '8px')])
 
@@ -1737,7 +1739,7 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 
 ## Struct-Based HTML
 
-1. `@load 'lang/html2.code'` -- same spirit as CSS above: `Element <tag, attributes, css, children, onclick, on_server_read, replacement_target_id>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `lang/html.code`'s `Dom` types above. It builds an HTML String, and an Element with `onclick`, `on_server_read` or `replacement_target_id` is live when a server route renders it (see Live Pages below)
+1. `@load 'lang/web/html2.code'` -- same spirit as CSS above: `Element <tag, attributes, css, children, onclick, on_server_read, replacement_target_id>` is the one node shape, and lowercase constructors (`div`, `p`, `h1`, ...) build it. Coexists with `lang/web/html.code`'s `Dom` types above. It builds an HTML String, and an Element with `onclick`, `on_server_read` or `replacement_target_id` is live when a server route renders it (see Live Pages below)
 2. `attributes` is an ordered `Array\Attribute`, not a Dictionary -- attributes keep their given order and can even collide (see `Html_Lint_Visitor` below)
 3. `css` takes any css.code struct directly -- `Html_Formatter_Visitor` renders it as an embedded `<style>` child wherever it's attached
 4. `Html_Renderer`/`Html_Formatter` are compact/pretty formatter instances; void tags (`br`, `img`, `input`, ...) never get a closing tag in either mode
@@ -1747,8 +1749,8 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 8. Every constructor takes the same arguments: `children`, `attributes`, `css`, `onclick`, `on_server_read` and `replacement_target_id`. A void tag (`input`, `img`, `br`, ...) has no `children`, so its first argument is `attributes`
 
 ```code
-@load 'lang/html2.code'
-@load 'lang/css.code'
+@load 'lang/web/html2.code'
+@load 'lang/web/css.code'
 
 page := div([
     h1('Welcome'),
@@ -1802,7 +1804,7 @@ What happens on a click:
 The read closures and the click closure share the locals of the function that made them, so a read closure fills a local and the click closure uses it:
 
 ```code
-@load 'lang/html2'
+@load 'lang/web/html2'
 
 edit_page ( tasks, task;
     draft: String = task.text

@@ -86,7 +86,7 @@ class Load_Path_Test < Base_Test
 	end
 
 	def test_the_standard_library_loads_from_any_working_directory
-		with_files('main' => "@load 'lang/html'\nDiv([P('hi')]).to_s()") do |dir|
+		with_files('main' => "@load 'lang/web/html'\nDiv([P('hi')]).to_s()") do |dir|
 			assert_equal '<div><p>hi</p></div>', from_elsewhere { Code.interp_file File.join(dir, 'main.code') }
 		end
 	end

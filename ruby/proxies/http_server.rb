@@ -1,5 +1,5 @@
 module Code
-	# The Ruby half of lang/http_server.code: the bridge from a parsed request to the routes, and the stop flag.
+	# The Ruby half of lang/web/http_server.code: the bridge from a parsed request to the routes, and the stop flag.
 	class Http_Server < Instance
 		extend Ruby_Proxies
 

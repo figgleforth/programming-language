@@ -27,9 +27,9 @@ bundle exec bin/program examples/hello_world.code   # Hello, Code!
 Server, database, HTML, and click handlers that run on the server, with no JavaScript.
 
 ```code
-@load 'lang/server'
+@load 'lang/web/server'
 @load 'lang/database'
-@load 'lang/html'
+@load 'lang/web/html'
 
 db := @connect Sqlite.memory()
 Todo <id: Primary_Key, title: String>
@@ -350,7 +350,7 @@ add(@puts 1, 2)         # coming soon: prints 1, returns 3
 Elements are types, and styles and attributes are members.
 
 ```code
-@load 'lang/html.code'
+@load 'lang/web/html.code'
 
 Card + Div {
     css_padding := '1rem'     # style="padding: 1rem"
@@ -391,7 +391,7 @@ Counter + Div {
 Stylesheets as plain data that you can format and lint.
 
 ```code
-@load 'lang/css.code'
+@load 'lang/web/css.code'
 
 rule := Style_Rule(['.card'], [Property('color', 'red')])
 
@@ -482,7 +482,7 @@ fib ( n;
     end
 )
 
-@load 'lang/html.code'       # imports can live at the bottom,
+@load 'lang/web/html.code'       # imports can live at the bottom,
                              # and load cycles work
 ```
 
@@ -896,7 +896,7 @@ button := Button()
 Load a file once, and scope it to a name if you like.
 
 ```code
-@load 'lang/html.code'               # standard library, from anywhere
+@load 'lang/web/html.code'               # standard library, from anywhere
 @load ./tools/my\ module.code        # bare paths work too
 
 Mod := @load './my_module.code'

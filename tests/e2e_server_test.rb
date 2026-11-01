@@ -49,7 +49,7 @@ class E2E_Server_Test < Minitest::Test
 	# A route's tokens start with the page's live page instance id. After the request, there is no token counter.
 	def test_render_token_counter_is_nil_after_a_request
 		code = <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -125,7 +125,7 @@ class E2E_Server_Test < Minitest::Test
 
 	def test_on_server_read_closure_gets_the_value_before_the_click_closure_runs
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    draft := ''
 		    saved := ''
@@ -160,7 +160,7 @@ class E2E_Server_Test < Minitest::Test
 	# A <select multiple> sends an Array, and the closure gets it as a language Array.
 	def test_on_server_read_closure_gets_a_list_as_an_array
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    picked := ''
 
@@ -192,7 +192,7 @@ class E2E_Server_Test < Minitest::Test
 	# The default from live_page.js: a click as bytes, with text, a list, a checkbox, and the page to run again
 	def test_a_click_sent_as_bytes_reaches_the_closures
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    seen := ''
 
@@ -226,7 +226,7 @@ class E2E_Server_Test < Minitest::Test
 	# A click whose bytes do not decode runs the closure with no inputs, the same as a JSON body that does not parse
 	def test_a_click_with_bad_bytes_still_runs_its_closure
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    clicks := 0
 
@@ -257,7 +257,7 @@ class E2E_Server_Test < Minitest::Test
 	# A closure with no param runs without the value.
 	def test_on_server_read_closure_with_no_param_still_runs
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    ran := 'no'
 
@@ -286,11 +286,11 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'yes', ran.body
 	end
 
-	# A Dom input from lang/html.code still gets its `value` member.
+	# A Dom input from lang/web/html.code still gets its `value` member.
 	def test_dom_input_still_gets_its_value_on_a_click
 		start_app <<~CODE
-		    @load 'lang/server'
-		    @load 'lang/html'
+		    @load 'lang/web/server'
+		    @load 'lang/web/html'
 
 		    saved := ''
 
@@ -334,8 +334,8 @@ class E2E_Server_Test < Minitest::Test
 	# The reply is only that HTML, and the header names its root id, so live_page.js replaces that one element.
 	def test_handler_that_returns_html_with_a_root_id_replaces_that_element
 		start_app <<~CODE
-		    @load 'lang/server'
-		    @load 'lang/html2'
+		    @load 'lang/web/server'
+		    @load 'lang/web/html2'
 
 		    items := ['a']
 
@@ -362,11 +362,11 @@ class E2E_Server_Test < Minitest::Test
 		assert_nil @interpreter.render_token_counter
 	end
 
-	# A Dom element from lang/html.code is HTML too. It is rendered once, by #interp_route_body.
+	# A Dom element from lang/web/html.code is HTML too. It is rendered once, by #interp_route_body.
 	def test_handler_that_returns_a_dom_element_with_an_id_replaces_that_element
 		start_app <<~CODE
-		    @load 'lang/server'
-		    @load 'lang/html'
+		    @load 'lang/web/server'
+		    @load 'lang/web/html'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -389,7 +389,7 @@ class E2E_Server_Test < Minitest::Test
 	# A record, a number, or HTML with no id on its root element replaces nothing.
 	def test_handler_that_returns_no_html_with_a_root_id_replaces_nothing
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -416,7 +416,7 @@ class E2E_Server_Test < Minitest::Test
 	# A handler that returns no HTML with a root id gets the full page back, run again with the new state.
 	def test_click_with_no_html_reply_sends_the_full_page_again
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    items := []
 		    draft := ''
@@ -449,7 +449,7 @@ class E2E_Server_Test < Minitest::Test
 	# The page path and query in the click body choose the route that runs again, as a GET.
 	def test_click_fallback_runs_the_route_of_the_page_it_came_from
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -479,7 +479,7 @@ class E2E_Server_Test < Minitest::Test
 	# Without a page path (an old live_page.js, or a request made by hand), the click still ends in a 404.
 	def test_click_without_a_page_path_still_gives_a_404
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -508,7 +508,7 @@ class E2E_Server_Test < Minitest::Test
 	# After a restart the server does not know an open page's tokens. It sends the page again, so the page gets new tokens.
 	def test_click_with_an_unknown_token_sends_the_full_page_again
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -538,8 +538,8 @@ class E2E_Server_Test < Minitest::Test
 	# A list page made only of html2 Elements: a textarea that the server reads, a button that adds the text, and a button that adds it and returns only the new list.
 	def start_html2_list_app
 		start_app <<~CODE
-		    @load 'lang/server'
-		    @load 'lang/html2'
+		    @load 'lang/web/server'
+		    @load 'lang/web/html2'
 
 		    items := []
 
@@ -630,7 +630,7 @@ class E2E_Server_Test < Minitest::Test
 	# Each GET of `/` is one tab. Its callbacks count into that tab's own slot, so a test can see which tab's callback ran.
 	def start_two_tab_app
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    clicks := []
 		    reads  := []
@@ -720,7 +720,7 @@ class E2E_Server_Test < Minitest::Test
 	# A URL param is text. A typed one gets the text as its type, and text that is not that type gives a 404, not a 500.
 	def test_typed_route_params_get_their_type_from_the_url
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -776,7 +776,7 @@ class E2E_Server_Test < Minitest::Test
 	# An error message quotes source code and request text. Both 500 pages escape it, so a `<textarea>` in it stays text and does not become a real field.
 	def test_error_pages_escape_their_message
 		start_app <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -855,7 +855,7 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	# A route matching every segment literally wins over one that leaned on a `:param`, regardless of
-	# declaration order. This is what makes `lang/server.code`'s `get://favicon.ico` route actually
+	# declaration order. This is what makes `lang/web/server.code`'s `get://favicon.ico` route actually
 	# shield an app's own `get://:id` from the browser's automatic icon probes.
 	def test_literal_route_beats_a_param_route_regardless_of_order
 		code = <<~CODE
@@ -1035,7 +1035,7 @@ class E2E_Server_Test < Minitest::Test
 	# `#double_key_with_symbols` helper, applied to both in `#handle_request`.
 	def test_request_body_subscript_access
 		code = <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -1064,13 +1064,13 @@ class E2E_Server_Test < Minitest::Test
 
 	# `response.redirect` was completely unreachable: Response is a plain Scope, not a Code::Instance,
 	# and #build_prog_response pokes `declarations` directly rather than running the Type's own body
-	# on it, so `redirect` (declared in lang/server.code's `Response {}`) never got copied onto the
+	# on it, so `redirect` (declared in lang/web/server.code's `Response {}`) never got copied onto the
 	# instance -- and the Instance-fallback lookup that would normally rescue that is gated on
 	# `is_a?(Code::Instance)`, so it never fired either. Every call raised `Undeclared_Identifier:
 	# redirect has not been declared`. Fixed with a real `Code::Response#proxy_redirect` (scopes.rb).
 	def test_response_redirect
 		code = <<~CODE
-		    @load 'lang/server'
+		    @load 'lang/web/server'
 
 		    Web_App + Server {
 		    	Self ( port := #{@port}; self.port = port )
@@ -1100,7 +1100,7 @@ class E2E_Server_Test < Minitest::Test
 
 	def test_dialog_and_popover_render_through_a_real_route
 		code = <<~CODE
-		    @load 'lang/html'
+		    @load 'lang/web/html'
 
 		    Server {
 		    	port,

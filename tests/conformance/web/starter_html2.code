@@ -1,0 +1,6 @@
+@load 'lang/web/starter_html2'
+
+@out Server.@name     # out: Server
+@out Element.@name    # out: Element
+@out Style_Rule.@name # out: Style_Rule
+@out Database.@name   # out: Database

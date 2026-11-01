@@ -4,7 +4,7 @@ require 'net/http'
 require 'socket'
 require 'timeout'
 
-# The server loop in lang/http_server.code, also when CODE_SERVER=webrick. The routes still run through Interpreter#handle_request, so e2e_server_test.rb covers them; these tests cover the loop itself.
+# The server loop in lang/web/http_server.code, also when CODE_SERVER=webrick. The routes still run through Interpreter#handle_request, so e2e_server_test.rb covers them; these tests cover the loop itself.
 class Http_Server_Test < Base_Test
 	def setup
 		@port = 10200 + Random.rand(300)
@@ -19,7 +19,7 @@ class Http_Server_Test < Base_Test
 		@interpreter.server_backend = :code
 		@interpreter.hot_reload     = hot_reload
 		@app                        = @interpreter.run <<~CODE
-			@load 'lang/server'
+			@load 'lang/web/server'
 
 			Web_App + Server {
 				Self ( port := #{@port}; self.port = port )
@@ -153,7 +153,7 @@ class Http_Server_Test < Base_Test
 		@interpreter.server_backend = :code
 		@interpreter.serve_in_foreground = false
 		out = @interpreter.run <<~CODE
-			@load 'lang/server'
+			@load 'lang/web/server'
 
 			Web_App + Server {
 				Self ( port := #{@port}; self.port = port )

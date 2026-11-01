@@ -12,9 +12,9 @@ Each of the three click replies is used once:
 
 @load 'lang/database'
 @load 'lang/table'
-@load 'lang/css'
-@load 'lang/html2'
-@load 'lang/server'
+@load 'lang/web/css'
+@load 'lang/web/html2'
+@load 'lang/web/server'
 
 Task_Type [TODO BUG DESIGN]
 

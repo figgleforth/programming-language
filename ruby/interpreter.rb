@@ -85,7 +85,7 @@ module Code
 
 			@load_standard_library = true
 			@serve_in_foreground   = true # Hot_Reloader flips this -- see #run
-			@server_backend        = ENV['CODE_SERVER'] == 'webrick' ? :webrick : :code # :code is lang/http_server.code, see #start_code_server. CODE_SERVER=webrick keeps WEBrick until it is deleted
+			@server_backend        = ENV['CODE_SERVER'] == 'webrick' ? :webrick : :code # :code is lang/web/http_server.code, see #start_code_server. CODE_SERVER=webrick keeps WEBrick until it is deleted
 			@input                 = [] # [Code::Expression]
 			@stack                 = [] # [Code::Scope]
 			@stack_key             = :"code_stack_#{object_id}" # a thread that runs code on its own (the server loop) keeps its stack here, see #stack
@@ -415,7 +415,7 @@ module Code
 		# is what let callbacks move out of new() and into render(). `token_counter` is a Token_Counter,
 		# seeded in #handle_request or #render_dom_to_html; the slot counter advances in depth-first render order.
 		#
-		# An `element_key` (the element's own `key := '...'`, see lang/html.code) pins the token by
+		# An `element_key` (the element's own `key := '...'`, see lang/web/html.code) pins the token by
 		# name instead of position and does not touch the slot counter -- so a conditional element
 		# appearing or vanishing between renders can't shift its siblings' tokens.
 		def next_render_token token_counter, element_key = nil
@@ -1088,9 +1088,9 @@ module Code
 			Click_Body.new inputs: inputs, path: (path if path&.start_with?('/')), query: text.(click.get 'query')
 		end
 
-		# The .code server (lang/http_server.code) on a thread of its own, with a stack of its own (#stack). Its library loads once, into a scope of its own (#runtime_library), so its Request and Connection do not meet the program's own names. A port in use raises here, on the caller's thread.
+		# The .code server (lang/web/http_server.code) on a thread of its own, with a stack of its own (#stack). Its library loads once, into a scope of its own (#runtime_library), so its Request and Connection do not meet the program's own names. A port in use raises here, on the caller's thread.
 		def start_code_server server
-			library = runtime_library 'lang/http_server'
+			library = runtime_library 'lang/web/http_server'
 
 			no_arguments           = Code::Call_Expr.new
 			no_arguments.arguments = []
@@ -1183,7 +1183,7 @@ module Code
 			server.server_thread&.kill
 		end
 
-		# The routes' reply to one Request from lang/http_server.code: [status, headers, body, streaming]. A Ruby error gives a 500, so one request cannot stop the loop.
+		# The routes' reply to one Request from lang/web/http_server.code: [status, headers, body, streaming]. A Ruby error gives a 500, so one request cannot stop the loop.
 		def respond_to_http_request server, request
 			text    = ->(value) { value.respond_to?(:value) ? value.value : value }
 			target  = request.get 'target'

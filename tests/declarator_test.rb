@@ -182,7 +182,7 @@ class Declarator_Test < Base_Test
 		    sign := Div([P('hi')])
 		    result := sign.to_s()
 
-		    @load 'lang/html.code'
+		    @load 'lang/web/html.code'
 
 		    result
 		CODE
@@ -198,7 +198,7 @@ class Declarator_Test < Base_Test
 		    sign := Div([P('hi')])
 		    result := sign.to_s()
 
-		    @load 'lang/html.code'
+		    @load 'lang/web/html.code'
 		CODE
 		assert_equal '<div><p>hi</p></div>', out
 	end
@@ -210,7 +210,7 @@ class Declarator_Test < Base_Test
 		    sign := Html_Lib.Div([Html_Lib.P('hi')])
 		    result := sign.to_s()
 
-		    Html_Lib := @load 'lang/html.code'
+		    Html_Lib := @load 'lang/web/html.code'
 
 		    result
 		CODE
@@ -222,7 +222,7 @@ class Declarator_Test < Base_Test
 			Code.interp <<~CODE
 			    sign := html_lib.Div([html_lib.P('hi')])
 
-			    html_lib := @load 'lang/html.code'
+			    html_lib := @load 'lang/web/html.code'
 			CODE
 		end
 	end
@@ -232,7 +232,7 @@ class Declarator_Test < Base_Test
 	# (bare merge, named isolation, forward-declaration hoisting) is unaffected.
 	def test_bare_path_load_works_the_same_as_a_quoted_path
 		out = Code.interp <<~CODE
-		    @load ./lang/html.code
+		    @load ./lang/web/html.code
 		    Div([P('hi')]).to_s()
 		CODE
 		assert_equal '<div><p>hi</p></div>', out
@@ -243,7 +243,7 @@ class Declarator_Test < Base_Test
 		    sign := Html_Lib.Div([Html_Lib.P('hi')])
 		    result := sign.to_s()
 
-		    Html_Lib := @load ./lang/html.code
+		    Html_Lib := @load ./lang/web/html.code
 
 		    result
 		CODE
