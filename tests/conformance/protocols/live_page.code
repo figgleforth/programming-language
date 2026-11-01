@@ -1,0 +1,59 @@
+@load 'lang/protocols/live_page'
+
+# Builds the bytes of a click, the same way live_reload.js does
+u8 ( n: Int -> Buffer;
+	Buffer(1).set(:u8, 0, n)
+)
+
+u16 ( n: Int -> Buffer;
+	Buffer(2).set(:U16, 0, n)
+)
+
+str ( text: String -> Buffer;
+	text_bytes := Buffer.from_string(text)
+	Buffer(4).set(:U32, 0, text_bytes.length()).append(text_bytes)
+)
+
+join ( parts: Array -> Buffer;
+	bytes := Buffer()
+	for parts
+		bytes.append(it)
+	end
+	bytes
+)
+
+# A click on /3?x=1: a text input, a list input, an empty one, and a checkbox
+bytes := join([
+	u8(1), str('/3'), str('x=1'), u16(4)
+	str('name'), u8(TEXT_INPUT), str('Ada é')
+	str('tags'), u8(LIST_INPUT), u16(2), str('a'), str('b')
+	str('note'), u8(EMPTY_INPUT)
+	str('done'), u8(BOOL_INPUT), u8(1)
+])
+click := decode_click(bytes)
+@out click.version              # out: 1
+@out click.path                 # out: /3
+@out click.query                # out: x=1
+@out click.inputs.count()       # out: 4
+@out click.inputs.0.element_id  # out: name
+@out click.inputs.0.value       # out: Ada é
+@out click.inputs.1.value       # out: ['a', 'b']
+@out click.inputs.2.value       # out: nil
+@out click.inputs.3.value       # out: true
+
+# An empty path or query was not there
+@out decode_click(join([u8(1), str(''), str(''), u16(0)])).path # out: nil
+
+# Every cut before the last byte is an error, never a wrong click
+cuts := (0..<bytes.length()).map(it; decode_click(bytes.slice(0, it)))
+@out cuts.all?(it; it =>= nil\Bad_Click) # out: true
+
+wrong_version := decode_click(join([u8(2), str('/'), str(''), u16(0)]))
+@out wrong_version                   # out: nil\Bad_Click
+@out wrong_version.@tag.message      # out: This server reads version 1 of the click, not 2
+
+unknown_kind := decode_click(join([u8(1), str('/'), str(''), u16(1), str('x'), u8(9)]))
+@out unknown_kind.@tag.message # out: Input x has kind 9, which is not text (0), list (1), empty (2) or bool (3)
+
+extra := decode_click(join([u8(1), str('/'), str(''), u16(0), u8(0)]))
+@out extra.@tag.message        # out: Bytes come after the last input (1 of them)

@@ -1781,11 +1781,12 @@ A click in the browser runs a closure on the server. Any renderer can do this: h
 6. A click runs only closures of its own live page instance, and reads only its inputs. So two visitors, or two tabs, never run each other's closures. The server keeps the 1024 live page instances it saw last (`LIVE_PAGE_INSTANCE_LIMIT`). A click on an older page, or after a restart, gets the page again, with new tokens. A route that makes no closure keeps nothing
 7. Outside a route (a test, the top level of a program), there is no live page instance. `@onclick` and `@on_server_read` store nothing and return `nil`, and html2 leaves the attribute out. `.to_html()` on an `html.code` element also stores nothing
 8. A token names a position in the page, not a record
+9. The browser sends a click as bytes (`application/octet-stream`), in the format at the top of `lang/protocols/live_page.code`, which also decodes it. JSON (`application/json`) works too. To read clicks in the browser's network tab, run `localStorage.live_page_format = 'json'` in the browser console
 
 What happens on a click:
 
 ```
- browser ── POST /_runtime/event/<click token>  { inputs: { <token>: value, ... }, path, query } ──▶ server
+ browser ── POST /_runtime/event/<click token>  path, query, and each input's <token> and value, as bytes ──▶ server
 
  server: 1. each read closure gets its value
          2. the click closure runs

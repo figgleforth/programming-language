@@ -936,7 +936,7 @@ bin/program run app.code         # the same
 The HTTP server is written in the language, on two small socket types. It parses the bytes that have come so far, and waits for more when a request is not whole yet. Each error is a tagged nil that carries its reason.
 
 ```code
-@load 'lang/http'
+@load 'lang/protocols/http'
 
 request := parse_request(Buffer.from_string("GET /tasks?sort=new HTTP/1.1\r\nHost: x\r\n\r\n"))
 request.target.path              # '/tasks'

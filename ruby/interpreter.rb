@@ -91,6 +91,7 @@ module Code
 			@stack_key             = :"code_stack_#{object_id}" # a thread that runs code on its own (the server loop) keeps its stack here, see #stack
 			@servers               = [] # [Code::Server]
 			@loading_files         = [] # [Loading_File] files mid-load, outermost first -- see #load_file_into_scope
+			@runtime_libraries     = {} # { path => Code::Scope }, see #runtime_library
 			@methods_before_push   = [] # [[Code::Type, {::String => Code::Func}]] for each open `@push_scope`, see #give_overridden_methods_to_instances
 
 			# Hot reload (browser auto-refresh on save). Only Hot_Reloader turns @hot_reload on, so a
@@ -1053,17 +1054,43 @@ module Code
 			!!server.server_thread&.alive?
 		end
 
-		# The .code server (lang/http_server.code) on a thread of its own, with a stack of its own (#stack). Its library loads once, into a scope of its own, so its Request and Connection do not meet the program's own names. A port in use raises here, on the caller's thread.
-		def start_code_server server
-			library = @http_server_library ||= Code::Scope.new('Http_Server_Library').tap do |scope|
+		# A standard library file that the runtime itself uses (the server loop, a protocol), loaded once into a scope of its own, so its names (Request, Click, ...) do not meet the program's own.
+		def runtime_library path
+			@runtime_libraries[path] ||= Code::Scope.new(path).tap do |scope|
 				saved_stack = stack
 				self.stack  = [global]
 				begin
-					load_file_into_scope 'lang/http_server', scope
+					load_file_into_scope path, scope
 				ensure
 					self.stack = saved_stack
 				end
 			end
+		end
+
+		# A click sent as bytes (live_reload.js), decoded by lang/protocols/live_page.code on either server. A click that does not decode reads as an empty one, the same as a JSON body that does not parse.
+		def decode_click_bytes bytes
+			call           = Code::Call_Expr.new
+			call.arguments = []
+			click          = interp_func_body runtime_library('lang/protocols/live_page')['decode_click'], call, arg_values: [adopt_type(Code::Buffer.new.proxy_from_string(bytes || ''), 'Buffer')]
+			if nil_value? click
+				message = click.tag_instance&.get('message') if click.respond_to?(:tag_instance)
+				warn "[Code] a click that does not decode: #{message.respond_to?(:value) ? message.value : message}"
+				return Click_Body.new inputs: {}, path: nil, query: nil
+			end
+
+			text   = ->(value) { value.respond_to?(:value) ? value.value : value }
+			inputs = click.get('inputs').values.to_h do |input|
+				value = input.get 'value'
+				value = value.values.map(&text) if value.is_a? Code::Array
+				[text.(input.get 'element_id'), text.(value)]
+			end
+			path   = text.(click.get 'path')
+			Click_Body.new inputs: inputs, path: (path if path&.start_with?('/')), query: text.(click.get 'query')
+		end
+
+		# The .code server (lang/http_server.code) on a thread of its own, with a stack of its own (#stack). Its library loads once, into a scope of its own (#runtime_library), so its Request and Connection do not meet the program's own names. A port in use raises here, on the caller's thread.
+		def start_code_server server
+			library = runtime_library 'lang/http_server'
 
 			no_arguments           = Code::Call_Expr.new
 			no_arguments.arguments = []
@@ -1175,12 +1202,13 @@ module Code
 				Code::Http_Server::Webrick_Cookie.new(name, value) if name && value
 			end
 
-			adapted = Code::Http_Server::Webrick_Request.new(
+			raw_body = request.get('body').io_buffer.get_string
+			adapted  = Code::Http_Server::Webrick_Request.new(
 				path:           path,
 				query_string:   (text.(target.get 'query') if target.has? 'query'),
 				request_method: method == 'HEAD' ? 'GET' : method, # as WEBrick does: HEAD runs the GET route, and the loop leaves out the body
 				content_type:   by_name['content-type']&.first,
-				body:           request.get('body').io_buffer.get_string.force_encoding(Encoding::UTF_8).scrub,
+				body:           by_name['content-type']&.first&.start_with?(CLICK_BYTES_CONTENT_TYPE) ? raw_body : raw_body.force_encoding(Encoding::UTF_8).scrub, # bytes stay bytes
 				header:         by_name,
 				cookies:        cookies
 			)
@@ -1216,6 +1244,8 @@ module Code
 			# callback. Real JSON bodies now get real JSON parsing instead.
 			body_hash = if request.content_type&.start_with?('application/json')
 				JSON.parse(request.body || '{}') rescue {}
+			elsif request.content_type&.start_with?(CLICK_BYTES_CONTENT_TYPE)
+				{} # a click sent as bytes, decoded below
 			else
 				# The first value wins for a repeated key, as it did with CGI.parse.
 				URI.decode_www_form(request.body || '').each_with_object({}) { |(key, value), form| form[key] ||= value } rescue {}
@@ -1246,7 +1276,11 @@ module Code
 				entry              = live_page_instance&.callbacks&.[](clicked_token)
 
 				# Parsed before `if entry`, so a click with an unknown token can still read the page path below.
-				click_body = Click_Body.parse request.body
+				click_body = if request.content_type&.start_with?(CLICK_BYTES_CONTENT_TYPE)
+					decode_click_bytes request.body
+				else
+					Click_Body.parse request.body
+				end
 
 				if entry
 					live_page_instance.last_seen = ::Time.now
@@ -1381,7 +1415,7 @@ module Code
 						response.body.prepend "<!DOCTYPE html>"
 
 						# live_reload.js began as a Ruby string, so it still names its cookie `#{DOM_BROWSER_VIEW_SIZE}`. Fill that in, or the browser sets a cookie that the check above never finds. `#{DOM_ATTRIBUTE_PREFIX}`, `#{DOM_TARGET_ID_HEADER}` and `#{DOM_EVENT_URL}` are filled in the same way, so each name stays in one constant.
-						live_reload_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/live_reload.js')).gsub('#{DOM_BROWSER_VIEW_SIZE}', DOM_BROWSER_VIEW_SIZE).gsub('#{DOM_ATTRIBUTE_PREFIX}', DOM_ATTRIBUTE_PREFIX).gsub('#{DOM_TARGET_ID_HEADER}', DOM_TARGET_ID_HEADER).gsub('#{DOM_EVENT_URL}', DOM_EVENT_URL)
+						live_reload_js = self.class.cached_asset_source_by_path['ruby/shared/live_reload.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/live_reload.js')).gsub('#{DOM_BROWSER_VIEW_SIZE}', DOM_BROWSER_VIEW_SIZE).gsub('#{DOM_ATTRIBUTE_PREFIX}', DOM_ATTRIBUTE_PREFIX).gsub('#{DOM_TARGET_ID_HEADER}', DOM_TARGET_ID_HEADER).gsub('#{DOM_EVENT_URL}', DOM_EVENT_URL).gsub('#{CLICK_BYTES_CONTENT_TYPE}', CLICK_BYTES_CONTENT_TYPE)
 
 						# Idiomorph morphs a reply into the page, and live_reload.js calls it, so it comes first.
 						idiomorph_js        = self.class.cached_asset_source_by_path['ruby/shared/3rd/idiomorph.min.js'] ||= ::File.read(::File.join(ROOT_PATH, 'ruby/shared/3rd/idiomorph.min.js'))

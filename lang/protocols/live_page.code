@@ -1,0 +1,131 @@
+###
+The live page protocol: what a page sends to the server when a click runs there (live_reload.js).
+A click is sent as bytes. Numbers are big-endian (network byte order).
+
+	click = version:u8 · path:str · query:str · input_count:U16 · input*
+	input = element_id:str · kind:u8 · value
+	kind  = 0 text (value = str) · 1 list (value = count:U16 · str*) · 2 empty (no value) · 3 bool (value = u8: 0 false, 1 true)
+	str   = length:U32 · UTF-8 bytes
+###
+
+LIVE_PAGE_VERSION := 1
+
+TEXT_INPUT  := 0
+LIST_INPUT  := 1
+EMPTY_INPUT := 2
+BOOL_INPUT  := 3   # a checkbox or a radio button
+
+Bad_Click + Error <>
+
+# One input on the page, with what it held when the click was sent. A <select multiple> gives a list
+Click_Input <
+	element_id: String
+	value: String | Array | Bool | Nil
+>
+
+Click <
+	version: Int
+	path: String    # the page the click came from, or nil
+	query: String   # nil when the page had no query
+	inputs: Array\Click_Input
+>
+
+# Reads values one after another from a Buffer. Each read moves the position on, and reading past the end gives nil\Bad_Click
+Byte_Reader {
+	buffer: Buffer
+	position: Int
+
+	Self ( buffer: Buffer;
+		self.buffer   = buffer
+		self.position = 0
+	)
+
+	u8 (-> Int | Nil;
+		return nil\Bad_Click("The click ends at byte `position`, before a 1-byte number") if position + 1 > buffer.length()
+		value := buffer.get(:u8, position)
+		position += 1
+		value
+	)
+
+	u16 (-> Int | Nil;
+		return nil\Bad_Click("The click ends at byte `position`, before a 2-byte number") if position + 2 > buffer.length()
+		value := buffer.get(:U16, position)
+		position += 2
+		value
+	)
+
+	u32 (-> Int | Nil;
+		return nil\Bad_Click("The click ends at byte `position`, before a 4-byte number") if position + 4 > buffer.length()
+		value := buffer.get(:U32, position)
+		position += 4
+		value
+	)
+
+	# A length, then that many bytes of UTF-8
+	str (-> String | Nil;
+		size := u32()
+		return size unless size
+		return nil\Bad_Click("A text of `size` bytes at byte `position` goes past the end of the click") if position + size > buffer.length()
+
+		text := String.from_buffer(buffer.slice(position, size)).scrub()
+		position += size
+		text
+	)
+}
+
+# Bytes -> a Click, or nil\Bad_Click with the reason
+decode_click ( bytes: Buffer -> Click | Nil;
+	reader := Byte_Reader(bytes)
+
+	version := reader.u8()
+	return version unless version
+	return nil\Bad_Click("This server reads version `LIVE_PAGE_VERSION` of the click, not `version`") unless version == LIVE_PAGE_VERSION
+
+	path := reader.str()
+	return path unless path
+	query := reader.str()
+	return query unless query
+
+	count := reader.u16()
+	return count unless count
+
+	inputs := []
+	for 0..<count
+		element_id := reader.str()
+		return element_id unless element_id
+
+		kind := reader.u8()
+		return kind unless kind
+
+		value := nil
+		if kind == TEXT_INPUT
+			value = reader.str()
+			return value unless value
+		elif kind == LIST_INPUT
+			list_count := reader.u16()
+			return list_count unless list_count
+
+			value = []
+			for 0..<list_count
+				item := reader.str()
+				return item unless item
+				value << item
+			end
+		elif kind == BOOL_INPUT
+			flag := reader.u8()
+			return flag unless flag
+			return nil\Bad_Click("Input `element_id` has the bool value `flag`, which is not 0 or 1") unless flag == 0 or flag == 1
+			value = flag == 1
+		elif kind != EMPTY_INPUT
+			return nil\Bad_Click("Input `element_id` has kind `kind`, which is not text (0), list (1), empty (2) or bool (3)")
+		end
+
+		inputs << Click_Input(element_id, value)
+	end
+	return nil\Bad_Click("Bytes come after the last input (`bytes.length() - reader.position` of them)") unless reader.position == bytes.length()
+
+	# An empty path or query was not there
+	path  = nil if path.empty?()
+	query = nil if query.empty?()
+	Click(version, path, query, inputs)
+)

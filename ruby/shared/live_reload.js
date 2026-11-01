@@ -18,6 +18,51 @@
 		}
 	}
 
+	// A click goes as bytes. To read clicks in the browser's network tab, run `localStorage.live_page_format = 'json'` in the console.
+	function click_format() {
+		try {
+			return localStorage.getItem('live_page_format') || 'bytes'
+		} catch {
+			return 'bytes'
+		}
+	}
+
+	// The click as bytes. lang/protocols/live_page.code has the format and decodes it. Numbers are big-endian.
+	function encode_click(path, query, inputs) {
+		const text  = new TextEncoder()
+		const parts = []
+		const u8    = (n) => parts.push(Uint8Array.of(n))
+		const u16   = (n) => { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, n); parts.push(b) }
+		const str   = (s) => { const bytes = text.encode(s); const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, bytes.length); parts.push(b, bytes) }
+
+		u8(1) // the version
+		str(path)
+		str(query)
+
+		const entries = Object.entries(inputs)
+		u16(entries.length)
+		for (const [element_id, value] of entries) {
+			str(element_id)
+			if (Array.isArray(value)) {
+				u8(1); u16(value.length); value.forEach(str)
+			} else if (typeof value === 'boolean') {
+				u8(3); u8(value ? 1 : 0)
+			} else if (value === null || value === undefined) {
+				u8(2)
+			} else {
+				u8(0); str(String(value))
+			}
+		}
+
+		const bytes = new Uint8Array(parts.reduce((size, part) => size + part.length, 0))
+		let at = 0
+		for (const part of parts) {
+			bytes.set(part, at)
+			at += part.length
+		}
+		return bytes
+	}
+
 	document.addEventListener('click', async (event) => {
 		// The server fills in the DOM_ATTRIBUTE_PREFIX, DOM_TARGET_ID_HEADER and DOM_EVENT_URL placeholders (constants.rb) when it reads this file.
 		const element = event.target.closest('a[href], button, input:not([type="hidden"]), select, textarea, summary, [#{DOM_ATTRIBUTE_PREFIX}-onclick]')
@@ -49,16 +94,15 @@
 
 		// The page path and query tell the server which page to run again when the handler returns no HTML.
 		const url = `#{DOM_EVENT_URL}/${object_id}`
+		const path = location.pathname
+		const query = location.search.slice(1)
+		const as_json = click_format() === 'json'
 		const response = await fetch(url, {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/json',
+				'Content-Type': as_json ? 'application/json' : '#{CLICK_BYTES_CONTENT_TYPE}',
 			},
-			body: JSON.stringify({
-				inputs,
-				path: location.pathname,
-				query: location.search.slice(1),
-			})
+			body: as_json ? JSON.stringify({ inputs, path, query }) : encode_click(path, query, inputs),
 		})
 
 		const html = await response.text()

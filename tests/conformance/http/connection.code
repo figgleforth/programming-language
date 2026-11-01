@@ -1,4 +1,4 @@
-@load 'lang/http.code'
+@load 'lang/protocols/http.code'
 
 # One process plays both sides. Port 0 lets the OS pick a free port, so parallel tests never clash
 server := Tcp_Server(0)

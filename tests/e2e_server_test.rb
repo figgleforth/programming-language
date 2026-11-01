@@ -98,6 +98,26 @@ class E2E_Server_Test < Minitest::Test
 		Net::HTTP.start(uri.host, uri.port) { it.request request }
 	end
 
+	# Sends a click as bytes, the way live_reload.js does by default (lang/protocols/live_page.code has the format).
+	def click_as_bytes token, inputs, path: '', query: ''
+		str   = ->(text) { [text.bytesize].pack('N') + text.b }
+		bytes = [1].pack('C') + str.(path) + str.(query) + [inputs.size].pack('n')
+		inputs.each do |element_id, value|
+			bytes << str.(element_id)
+			bytes << case value
+			when ::Array then [1, value.size].pack('Cn') + value.map(&str).join
+			when true, false then [3, value ? 1 : 0].pack('CC')
+			when nil then [2].pack('C')
+			else [0].pack('C') + str.(value.to_s)
+			end
+		end
+
+		uri          = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/#{token}")
+		request      = Net::HTTP::Post.new uri, 'Content-Type' => Code::CLICK_BYTES_CONTENT_TYPE
+		request.body = bytes
+		Net::HTTP.start(uri.host, uri.port) { it.request request }
+	end
+
 	# The tokens on a page, in order: the live page instance id, then `page`, then the slots (`9f3c…-page-0`, or `9f3c…-page-1-0` for HTML that a click callback made).
 	def page_tokens body
 		body.scan(/\h{16}-page(?:-\d+)+/)
@@ -167,6 +187,71 @@ class E2E_Server_Test < Minitest::Test
 
 		picked = Net::HTTP.get_response URI("http://localhost:#{@port}/picked")
 		assert_equal 'red+blue', picked.body
+	end
+
+	# The default from live_reload.js: a click as bytes, with text, a list, a checkbox, and the page to run again
+	def test_a_click_sent_as_bytes_reaches_the_closures
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    seen := ''
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		name_token  := @on_server_read((value; seen = seen + value))
+		    		tags_token  := @on_server_read((values; seen = seen + values.join('+')))
+		    		done_token  := @on_server_read((value; seen = seen + value.to_s()))
+		    		click_token := @onclick((; seen = seen + '!'))
+		    		"`name_token` `tags_token` `done_token` `click_token`"
+		    	)
+
+		    	get://seen (;
+		    		seen
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page                                             = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		name_token, tags_token, done_token, click_token = page_tokens page.body
+		reply                                            = click_as_bytes click_token, { name_token => 'Ada é', tags_token => ['red', 'blue'], done_token => true }, path: '/'
+
+		assert_equal '200', reply.code
+		assert_equal 'Ada éred+bluetrue!', Net::HTTP.get_response(URI("http://localhost:#{@port}/seen")).body.force_encoding('UTF-8')
+	end
+
+	# A click whose bytes do not decode runs the closure with no inputs, the same as a JSON body that does not parse
+	def test_a_click_with_bad_bytes_still_runs_its_closure
+		start_app <<~CODE
+		    @load 'lang/server'
+
+		    clicks := 0
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		@onclick((; clicks += 1 ))
+		    	)
+
+		    	get://clicks (;
+		    		"`clicks`"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		token        = page_tokens(Net::HTTP.get_response(URI("http://localhost:#{@port}/")).body).first
+		uri          = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/#{token}")
+		request      = Net::HTTP::Post.new uri, 'Content-Type' => Code::CLICK_BYTES_CONTENT_TYPE
+		request.body = "\x09junk"
+		Net::HTTP.start(uri.host, uri.port) { it.request request }
+
+		assert_equal '1', Net::HTTP.get_response(URI("http://localhost:#{@port}/clicks")).body
 	end
 
 	# A closure with no param runs without the value.

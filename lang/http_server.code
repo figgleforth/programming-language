@@ -1,4 +1,4 @@
-@load 'lang/http'
+@load 'lang/protocols/http'
 
 # One client's connection, and the bytes that came on it but are not parsed yet
 Connection <
