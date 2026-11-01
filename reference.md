@@ -1246,6 +1246,9 @@ d.iso8601()    # '2020-03-15'
 
 Time.now().epoch()   # Unix seconds (Time only)
 
+start := Time.monotonic()           # seconds as a Float, from a fixed point; a change to the computer's clock does not move it
+took  := Time.monotonic() - start   # how long something took
+
 Date.parse('2020-01-01') < Date.parse('2021-01-01')   # true -- all of < > <= >= == != work
 ```
 
@@ -1509,7 +1512,7 @@ supplies := <water: Number = 40, wood: Number = 12>
 1. Compose with `Server` type
 2. Define routes with HTTP method syntax
 3. Boot with `@start_server` (background thread; `@stop_server` to shut one down)
-4. The server is written in the language (`lang/http_server.code`). One thread waits on every connection at once, so a slow client holds up no one, and each reply closes its connection. It also streams the hot reload events. `CODE_SERVER=webrick` runs Ruby's WEBrick in its place
+4. The server is written in the language (`lang/http_server.code`). One thread waits on every connection at once, so a slow client holds up no one, and each reply closes its connection. A connection that sends nothing for 30 seconds is closed, and above 512 open connections the one that has waited longest is closed. It also streams the hot reload events. `CODE_SERVER=webrick` runs Ruby's WEBrick in its place
 
 ```code
 @load 'lang/server.code'

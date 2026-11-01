@@ -6,6 +6,7 @@ Connection <
 	buffer: Buffer
 	continue_sent: Bool
 	streaming: Bool   # an event stream: it stays open, and the server only writes to it
+	last_active: Float  # Time.monotonic() when bytes last came, or when it opened
 >
 
 # The web server. One thread waits on every socket at once (wait_for_ready), so a slow client never holds up the others.
@@ -14,6 +15,10 @@ Http_Server {
 
 	listener: Tcp_Server
 	connections: Array
+
+	# A browser opens connections ahead of time and can leave them unused, so neither of these may grow without end. An event stream is idle by design, so only the limit counts it
+	idle_seconds    := 30    # a connection that sends nothing for longer than this is closed
+	max_connections := 512   # above this, the connection that has waited longest is closed
 
 	# Opens the port. A port that is in use raises here, before the loop starts
 	listen ( port: Int;
@@ -33,16 +38,25 @@ Http_Server {
 			for listener.wait_for_ready(connections.map(it; it.socket), SHORT_STOP_WAIT_WHILE_RUNNING)
 				ready := it
 				if ready.@object_id == listener.@object_id
-					connections << Connection(listener.wait_for_connection(), Buffer(), false, false)
+					connections << Connection(listener.wait_for_connection(), Buffer(), false, false, Time.monotonic())
+					if connections.count() > max_connections
+						waited_longest := connections.sort_by(it; it.last_active).0
+						drop(waited_longest)
+					end
 				else
 					connection := connections.find(it; it.socket.@object_id == ready.@object_id)
 					bytes      := ready.read_available()
+					connection.last_active = Time.monotonic()
 					# A stream's client sends nothing more, so its bytes only say whether it closed
 					if not bytes or (not connection.streaming and serve(connection, bytes))
-						ready.close()
-						connections = connections.select(it; it.socket.@object_id != ready.@object_id)
+						drop(connection)
 					end
 				end
+			end
+
+			now := Time.monotonic()
+			for connections.select(it; not it.streaming and now - it.last_active > idle_seconds)
+				drop(it)
 			end
 		end
 
@@ -51,6 +65,12 @@ Http_Server {
 		end
 
 		listener.close()
+	)
+
+	# Closes the connection and forgets it
+	drop ( connection: Connection;
+		connection.socket.close()
+		connections = connections.select(it; it.socket.@object_id != connection.socket.@object_id)
 	)
 
 	# Adds the bytes, and replies when a whole request has come. Gives true when the connection is done

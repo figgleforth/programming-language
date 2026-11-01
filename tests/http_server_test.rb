@@ -207,4 +207,52 @@ class Http_Server_Test < Base_Test
 	ensure
 		stream&.close
 	end
+
+	# True once the server has closed the socket: a read gives the end of the stream
+	def closed_by_server? socket, seconds: 5
+		Timeout.timeout(seconds) { socket.read(1).nil? }
+	rescue Errno::ECONNRESET
+		true
+	end
+
+	# A browser opens connections ahead of time and can leave them unused
+	def test_an_idle_connection_is_closed
+		start_app
+		@app.http_server['idle_seconds'] = 1
+		idle = TCPSocket.new 'localhost', @port
+
+		assert closed_by_server?(idle)
+		assert_equal 'hello', get('/hello').body
+	ensure
+		idle&.close
+	end
+
+	# An event stream is idle by design, so the idle timeout leaves it open
+	def test_an_event_stream_is_not_closed_for_being_idle
+		start_app hot_reload: true
+		@app.http_server['idle_seconds'] = 1
+		stream = TCPSocket.new 'localhost', @port
+		stream.write "GET #{Code::DOM_HOT_RELOAD_URL} HTTP/1.1\r\nHost: x\r\n\r\n"
+		Timeout.timeout(5) { stream.readpartial 4096 }
+
+		sleep 2.5
+		assert_equal :wait_readable, stream.read_nonblock(1, exception: false)
+	ensure
+		stream&.close
+	end
+
+	def test_above_the_limit_the_connection_that_waited_longest_is_closed
+		start_app
+		@app.http_server['max_connections'] = 2
+		first  = TCPSocket.new 'localhost', @port
+		sleep 0.3
+		second = TCPSocket.new 'localhost', @port
+		sleep 0.3
+		third  = TCPSocket.new 'localhost', @port
+
+		assert closed_by_server?(first)
+		assert_equal :wait_readable, third.read_nonblock(1, exception: false)
+	ensure
+		[first, second, third].each { it&.close }
+	end
 end

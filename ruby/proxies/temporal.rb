@@ -108,6 +108,11 @@ module Code
 			Code::Time.new ::Time.at(number_arg(epoch_seconds))
 		end
 
+		# @return ::Float, seconds from a fixed point that the clock of the computer cannot move
+		def proxy_monotonic
+			::Process.clock_gettime ::Process::CLOCK_MONOTONIC
+		end
+
 		def proxy_parse string
 			Code::Time.new ::Time.parse(string_arg(string))
 		end

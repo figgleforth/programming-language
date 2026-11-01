@@ -7,6 +7,17 @@ class Temporal_Test < Base_Test
 		assert_equal Time.now.year, Code.interp('Date.today().year')
 	end
 
+	# A clock for how long something took: a Float that never goes back
+	def test_time_monotonic_is_a_float_that_does_not_go_back
+		out = Code.interp <<~CODE
+			first  := Time.monotonic()
+			second := Time.monotonic()
+
+			[first.@type, (second >= first)]
+		CODE
+		assert_equal ['Float', true], out.values
+	end
+
 	def test_date_parse_reads_components
 		out = Code.interp('d := Date.parse("2020-03-15"), [d.year, d.month, d.day]')
 		assert_equal [2020, 3, 15], out.values

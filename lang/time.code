@@ -8,6 +8,9 @@ Time {
 
 	Self.now (; @ruby )
 	Self.at ( epoch_seconds; @ruby )
+
+	# Seconds as a Float, from a fixed point that is not a date. Changes to the computer's clock do not move it, so it measures how long something took, or how long ago it was
+	Self.monotonic (-> Float; @ruby )
 	Self.parse ( string; @ruby )
 
 	epoch (; @ruby )
