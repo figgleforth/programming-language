@@ -44,6 +44,7 @@ Context <
 	todo: (Args;)                       # raises Todo_Triggered, one "[TODO] ..." line per arg; parens optional, even with no args
 
 	onclick: ((;) -> String;)           # stores a click closure, returns its token for the <prefix>-onclick attribute
+	on_event: ((;) -> String;)          # the same for any browser event in LIVE_PAGE_EVENTS: returns the token for a <prefix>-on<event> attribute
 	on_server_read: ((;) -> String;)    # stores a closure that gets an input's browser value, returns its token for the <prefix>-on-server-read attribute
 
 	#- Functions that act on the calling scope / the interpreter's scope stack -- run in the caller's frame

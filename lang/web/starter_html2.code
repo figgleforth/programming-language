@@ -2,3 +2,4 @@
 @load 'lang/web/server'
 @load 'lang/web/html2'
 @load 'lang/database'
+@load 'lang/password'

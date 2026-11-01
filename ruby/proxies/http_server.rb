@@ -6,7 +6,7 @@ module Code
 		# A request and a reply shaped like WEBrick's, so Interpreter#handle_request serves this server with no change (Interpreter#respond_to_http_request builds them). They go when routing moves into .code.
 		Webrick_Request = ::Data.define :path, :query_string, :request_method, :content_type, :body, :header, :cookies
 		Webrick_Cookie  = ::Data.define :name, :value
-		Webrick_Reply   = ::Struct.new :status, :header, :body do
+		Webrick_Reply   = ::Struct.new :status, :header, :body, :cookies do # cookies: each Set-Cookie value, the same as WEBrick's HTTPResponse#cookies
 			def []= name, value
 				header[name] = value
 			end
@@ -21,7 +21,7 @@ module Code
 		end
 
 		# @param request Code::Struct, a Request from lang/web/http.code
-		# @return Code::Array of the status, the headers (Code::Dictionary) and the body
+		# @return Code::Array of the status, the headers (Code::Dictionary), the body, whether it is a stream, and the Set-Cookie values (Code::Array)
 		def proxy_respond request
 			interpreter.respond_to_http_request app, request
 		end

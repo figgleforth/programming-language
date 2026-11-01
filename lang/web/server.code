@@ -5,6 +5,8 @@ Request {
 	params,
 	headers,
 	body,
+	cookies,          # name => value, a Dictionary of the Cookie header
+	signed_cookies,   # name => value, only the cookies that set_signed_cookie made and that nobody changed
 }
 
 Response {
@@ -13,6 +15,15 @@ Response {
 	body,
 
 	redirect ( location; @ruby )
+
+	# One Set-Cookie line (RFC 6265). The defaults keep the cookie from JavaScript (http_only) and from a POST that another site starts (same_site 'Lax'). max_age is in seconds; with none, the cookie goes when the browser closes
+	set_cookie ( name: String, value, max_age: Int = nil, path: String = '/', http_only: Bool = true, secure: Bool = false, same_site: String = 'Lax'; @ruby )
+
+	# The same, signed with the server's secret (CODE_SECRET), so request.signed_cookies gives the value back only when nobody changed it. The value is a String, a Number, a Bool or nil
+	set_signed_cookie ( name: String, value, max_age: Int = nil, path: String = '/', http_only: Bool = true, secure: Bool = false, same_site: String = 'Lax'; @ruby )
+
+	# Tells the browser to drop the cookie. The path must be the same as when it was set
+	delete_cookie ( name: String, path: String = '/'; @ruby )
 }
 
 

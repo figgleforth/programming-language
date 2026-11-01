@@ -508,6 +508,10 @@ module Code
 	class Url_Not_Set_For_Database_Instance < Error
 	end
 
+	# A cookie that a browser would drop or misread (a bad name, SameSite=None without Secure), or a signed value that JSON cannot hold.
+	class Invalid_Cookie < Error
+	end
+
 	class Database_Not_Set_For_Table_Instance < Error
 	end
 

@@ -3,6 +3,13 @@ Dom {
 	html_element := 'div'
 	children,
 	onclick,
+	oninput,    # each on<event> holds a closure that runs on the server for that browser event (LIVE_PAGE_EVENTS)
+	onchange,
+	onsubmit,
+	onkeydown,
+	onkeyup,
+	onfocus,
+	onblur,
 	key,   # optional stable id for this element's handler/input token
 
 	Self ( children := [];

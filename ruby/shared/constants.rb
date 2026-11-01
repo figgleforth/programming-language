@@ -1,10 +1,12 @@
 module Code
-	DOM_CONSTRUCTOR_PROP_NAMES        = %w(onclick key)
+	LIVE_PAGE_EVENTS                  = %w(click input change submit keydown keyup focus blur) # the browser events live_page.js sends; each has an `on<event>` member and a <prefix>-on<event> attribute
+	DOM_CONSTRUCTOR_PROP_NAMES        = LIVE_PAGE_EVENTS.map { "on#{it}" } + %w(key)
 	DOM_CONSTRUCTOR_PROP_PREFIXES     = %w(html_ css_)
 	DOM_ATTRIBUTE_PREFIX              = 'data-runtime' # starts each attribute that the runtime writes and live_page.js reads (<prefix>-onclick, <prefix>-on-server-read)
 	CLICK_BYTES_CONTENT_TYPE          = 'application/octet-stream' # a click that live_page.js sends as bytes (lang/web/live_page.code); application/json is the other
 	DOM_TARGET_ID_HEADER              = 'X-Code-Target-Id' # a click reply's header that names the element live_page.js replaces
 	DOM_BROWSER_VIEW_SIZE             = 'browser_view_size'
+	CODE_SECRET_FILE                  = '.code_secret' # next to the program: the key that signs cookies when CODE_SECRET is not set
 	DOM_NAMESPACE                     = '_runtime' # the URL namespace of the runtime's own paths (DOM_EVENT_URL, DOM_HOT_RELOAD_URL)
 	DOM_EVENT_PATH                    = 'event' # after DOM_NAMESPACE: a browser event (a click) for the closure that the token names
 	DOM_EVENT_URL                     = "/#{DOM_NAMESPACE}/#{DOM_EVENT_PATH}" # live_page.js posts to DOM_EVENT_URL/<token>

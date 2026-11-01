@@ -26,7 +26,7 @@ Http_Server {
 		self.connections = []
 	)
 
-	# The routes' reply to one request: [status, headers, body, streaming] (Interpreter#respond_to_http_request)
+	# The routes' reply to one request: [status, headers, body, streaming, cookies] (Interpreter#respond_to_http_request). cookies: each Set-Cookie value
 	respond ( request: Request -> Array; @ruby )
 
 	# True after Interpreter#stop_server asks the loop to end
@@ -78,7 +78,7 @@ Http_Server {
 		connection.buffer.append(bytes)
 		# A client can send the next request before it reads the reply to the one before (RFC 9112 §9.3.2), so the buffer can hold more than one
 		while request := parse_request(connection.buffer)
-			(status, headers, body, streaming) := respond(request)
+			(status, headers, body, streaming, cookies) := respond(request)
 			if streaming
 				connection.socket.write(stream_head_text(status, headers) + body)
 				connection.streaming = true
@@ -86,7 +86,7 @@ Http_Server {
 			end
 
 			keep_open := keeps_alive?(request)
-			connection.socket.write(response_text(status, body, headers, head := request.method == HEAD, keep_alive := keep_open))
+			connection.socket.write(response_text(status, body, headers, head := request.method == HEAD, keep_alive := keep_open, set_cookies := cookies))
 			return true unless keep_open
 
 			# The bytes after this request belong to the next one

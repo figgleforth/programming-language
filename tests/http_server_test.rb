@@ -289,6 +289,63 @@ class Http_Server_Test < Base_Test
 		socket&.close
 	end
 
+	# A bad request ends a kept connection: after it, the server cannot know where the next request starts.
+	def test_a_bad_request_after_a_good_one_closes_the_connection
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "GET /hello HTTP/1.1\r\nHost: x\r\n\r\nGARBAGE\r\n\r\n"
+		assert read_reply(socket).end_with?("\r\n\r\nhello")
+		assert_match 'HTTP/1.1 400 Bad Request', read_reply(socket)
+		assert closed_by_server?(socket)
+	ensure
+		socket&.close
+	end
+
+	# The idle timeout also counts from the last request on a kept connection, not only from when it opened.
+	def test_a_kept_connection_closes_when_it_is_idle_after_a_reply
+		start_app
+		@app.http_server['idle_seconds'] = 1
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "GET /hello HTTP/1.1\r\nHost: x\r\n\r\n"
+		assert_match 'Connection: keep-alive', read_reply(socket)
+		assert closed_by_server?(socket)
+	ensure
+		socket&.close
+	end
+
+	def test_three_requests_in_one_write_get_three_replies
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "GET /hello HTTP/1.1\r\nHost: x\r\n\r\n" * 3
+		3.times { assert read_reply(socket).end_with?("\r\n\r\nhello") }
+	ensure
+		socket&.close
+	end
+
+	# The second request starts in the first write and ends in the second, so the bytes kept after the first reply must be the start of the next request.
+	def test_a_request_split_across_two_writes_after_another
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "GET /hello HTTP/1.1\r\nHost: x\r\n\r\nPOST /echo HTTP/1.1\r\nHost: x\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Len"
+		assert read_reply(socket).end_with?("\r\n\r\nhello")
+		socket.write "gth: 3\r\n\r\nx=5"
+		assert read_reply(socket).end_with?("\r\n\r\ngot 5")
+	ensure
+		socket&.close
+	end
+
+	# A reply to HEAD has a Content-Length but no body, so the next reply must start right after its head.
+	def test_head_then_get_on_one_connection
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "HEAD /hello HTTP/1.1\r\nHost: x\r\n\r\nGET /hello HTTP/1.1\r\nHost: x\r\n\r\n"
+		head = Timeout.timeout(5) { +''.tap { |text| text << socket.gets until text.end_with? "\r\n\r\n" } }
+		assert_match "Content-Length: 5\r\n", head
+		assert read_reply(socket).start_with?("HTTP/1.1 200 OK\r\n")
+	ensure
+		socket&.close
+	end
+
 	# True once the server has closed the socket: a read gives the end of the stream
 	def closed_by_server? socket, seconds: 5
 		Timeout.timeout(seconds) { socket.read(1).nil? }

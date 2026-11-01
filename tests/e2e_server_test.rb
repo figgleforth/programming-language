@@ -77,8 +77,9 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	# Runs `code` and starts the server it returns.
-	def start_app code
-		@interpreter    = Code::Interpreter.new
+	def start_app code, backend: nil
+		@interpreter                = Code::Interpreter.new
+		@interpreter.server_backend = backend if backend
 		server_instance = @interpreter.run code
 
 		@server_runner        = server_instance
@@ -155,6 +156,135 @@ class E2E_Server_Test < Minitest::Test
 
 		saved = Net::HTTP.get_response URI("http://localhost:#{@port}/saved")
 		assert_equal 'Buy milk', saved.body
+	end
+
+	# An event closure gets the element's own value, which live_page.js sends under the event's own token. A false (an unchecked box) is a value too.
+	def test_an_event_closure_gets_the_elements_own_value
+		start_app <<~CODE
+		    @load 'lang/web/server'
+
+		    seen := []
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		typed   := @on_event((text; seen << "typed `text`"))
+		    		checked := @on_event((on; seen << "checked `on`"))
+		    		pressed := @on_event((key; seen << "pressed `key`"))
+		    		left    := @on_event((; seen << "left"))
+		    		"`typed` `checked` `pressed` `left`"
+		    	)
+
+		    	get://seen (;
+		    		seen.join(', ')
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page                           = Net::HTTP.get_response URI("http://localhost:#{@port}/")
+		typed, checked, pressed, left  = page_tokens page.body
+		click typed, { typed => 'milk' }
+		click_as_bytes checked, { checked => false }
+		click pressed, { pressed => 'Enter' }
+		click left, { left => 'ignored' }
+
+		seen = Net::HTTP.get_response URI("http://localhost:#{@port}/seen")
+		assert_equal 'typed milk, checked false, pressed Enter, left', seen.body
+	end
+
+	# With no own value in the body (a click, or a request made by hand), a closure with a param gets nil, not an error.
+	def test_an_event_without_its_own_value_gives_nil
+		start_app <<~CODE
+		    @load 'lang/web/server'
+
+		    seen := 'not run'
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		@on_event((value; seen = "got `value`"))
+		    	)
+
+		    	get://seen (;
+		    		seen
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		click Net::HTTP.get_response(URI("http://localhost:#{@port}/")).body, {}
+		assert_equal 'got nil', Net::HTTP.get_response(URI("http://localhost:#{@port}/seen")).body
+	end
+
+	# The on_server_read values come with every event, not only with a click, and they run before the event's own closure.
+	def test_on_server_read_values_come_with_any_event
+		start_app <<~CODE
+		    @load 'lang/web/server'
+
+		    draft := ''
+		    seen  := ''
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		read  := @on_server_read((value; draft = value))
+		    		typed := @on_event((text; seen = "`draft` + `text`"))
+		    		"`read` `typed`"
+		    	)
+
+		    	get://seen (;
+		    		seen
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		read, typed = page_tokens Net::HTTP.get_response(URI("http://localhost:#{@port}/")).body
+		click_as_bytes typed, { read => 'note', typed => 'abc' }
+		assert_equal 'note + abc', Net::HTTP.get_response(URI("http://localhost:#{@port}/seen")).body
+	end
+
+	# An html Dom element with oninput renders again by itself, the same as with onclick: the reply names it, and it has the new value.
+	def test_a_dom_oninput_renders_its_element_again
+		start_app <<~CODE
+		    @load 'lang/web/server'
+		    @load 'lang/web/html'
+
+		    search := ''
+
+		    Finder + Div {
+		    	html_id := 'finder'
+
+		    	render (;
+		    		[Input(key := 'box', oninput := (text; search = text)), P("searching: `search`")]
+		    	)
+		    }
+
+		    Web_App + Server {
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get:// (;
+		    		Finder()
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		page  = Net::HTTP.get_response(URI("http://localhost:#{@port}/")).body
+		token = page[/#{Code::DOM_ATTRIBUTE_PREFIX}-oninput="([^"]+)"/, 1]
+		assert_match(/\A\h{16}-finder-box-input\z/, token)
+
+		reply = click token, { token => 'milk' }
+		assert_equal 'finder', reply[Code::DOM_TARGET_ID_HEADER]
+		assert_includes reply.body, '<p>searching: milk</p>'
 	end
 
 	# A <select multiple> sends an Array, and the closure gets it as a language Array.
@@ -1207,5 +1337,264 @@ class E2E_Server_Test < Minitest::Test
 		interpreter.stop_server @server_runner_a
 		interpreter.stop_server @server_runner_b
 		@server_runner = nil
+	end
+
+	# --- cookies ---
+
+	def with_secret
+		saved              = ENV['CODE_SECRET']
+		ENV['CODE_SECRET'] = 'a test secret'
+		yield
+	ensure
+		ENV['CODE_SECRET'] = saved
+	end
+
+	def get_with_cookies path, cookie_header
+		uri = URI("http://localhost:#{@port}#{path}")
+		Net::HTTP.start(uri.host, uri.port) { it.request Net::HTTP::Get.new(uri, 'Cookie' => cookie_header) }
+	end
+
+	COOKIE_APP = <<~CODE
+	    @load 'lang/web/server'
+
+	    Web_App + Server {
+	    	Self ( port := PORT; self.port = port )
+
+	    	get://login (;
+	    		response.set_cookie('theme', 'dark mode', max_age := 60)
+	    		response.set_signed_cookie('user_id', 7)
+	    		'in'
+	    	)
+
+	    	get://logout (;
+	    		response.delete_cookie('user_id')
+	    		'out'
+	    	)
+
+	    	get://who (;
+	    		"`request.cookies['theme']` `request.signed_cookies['user_id']` `request.signed_cookies['theme']`"
+	    	)
+
+	    	get://bad (;
+	    		response.set_cookie('no spaces', 'x')
+	    		'never'
+	    	)
+	    }
+
+	    app := Web_App()
+	CODE
+
+	# Two cookies are two Set-Cookie lines, with the safe defaults, and the value is URL-encoded.
+	def test_set_cookie_writes_one_line_for_each_cookie
+		with_secret do
+			start_app COOKIE_APP.sub('PORT', @port.to_s)
+			lines = Net::HTTP.get_response(URI("http://localhost:#{@port}/login")).get_fields('set-cookie')
+
+			assert_equal 2, lines.size
+			assert_equal 'theme=dark+mode; Path=/; Max-Age=60; HttpOnly; SameSite=Lax', lines[0]
+			assert_match(/\Auser_id=[\w-]+--\h{64}; Path=\/; HttpOnly; SameSite=Lax\z/, lines[1])
+		end
+	end
+
+	# A signed value comes back with its type. A changed value, or a signed value moved to another name, reads as nil.
+	def test_a_signed_cookie_reads_back_only_when_nobody_changed_it
+		with_secret do
+			start_app COOKIE_APP.sub('PORT', @port.to_s)
+			lines  = Net::HTTP.get_response(URI("http://localhost:#{@port}/login")).get_fields('set-cookie')
+			signed = lines[1][/\Auser_id=([^;]+)/, 1]
+
+			assert_equal 'dark mode 7 nil', get_with_cookies('/who', "theme=dark+mode; user_id=#{signed}").body
+
+			payload, mac = signed.split '--'
+			forged       = Code::Cookies.base64url_encode('8')
+			assert_equal 'dark mode nil nil', get_with_cookies('/who', "theme=dark+mode; user_id=#{forged}--#{mac}").body
+			assert_equal "#{signed} nil nil", get_with_cookies('/who', "theme=#{signed}").body
+		end
+	end
+
+	def test_delete_cookie_sets_max_age_0
+		with_secret do
+			start_app COOKIE_APP.sub('PORT', @port.to_s)
+			line = Net::HTTP.get_response(URI("http://localhost:#{@port}/logout"))['set-cookie']
+			assert_equal 'user_id=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax', line
+		end
+	end
+
+	# The first cookie of a name wins, a value is URL-decoded, and a pair with no `=` is skipped. A plain cookie with `--` in it is not a signed one.
+	def test_request_cookies_read_the_cookie_header
+		with_secret do
+			start_app COOKIE_APP.sub('PORT', @port.to_s)
+			assert_equal 'a b nil nil', get_with_cookies('/who', 'theme=a+b; theme=second; junk; user_id=not--signed').body
+		end
+	end
+
+	# Named options reach the Ruby side in their own places, also when an option before them is left out.
+	def test_cookie_options_by_name
+		with_secret do
+			start_app <<~CODE
+			    @load 'lang/web/server'
+
+			    Web_App + Server {
+			    	Self ( port := #{@port}; self.port = port )
+
+			    	get:// (;
+			    		response.set_cookie('a', '1', same_site := 'Strict')
+			    		response.set_cookie('b', '2', path := '/admin', http_only := false, secure := true, max_age := 5)
+			    		response.delete_cookie('c', path := '/admin')
+			    		'ok'
+			    	)
+
+			    	get://list (;
+			    		response.set_signed_cookie('list', [1, 2])
+			    		'never'
+			    	)
+			    }
+
+			    app := Web_App()
+			CODE
+
+			lines = Net::HTTP.get_response(URI("http://localhost:#{@port}/")).get_fields('set-cookie')
+			assert_equal ['a=1; Path=/; HttpOnly; SameSite=Strict', 'b=2; Path=/admin; Max-Age=5; Secure; SameSite=Lax', 'c=; Path=/admin; Max-Age=0; HttpOnly; SameSite=Lax'], lines
+			assert_equal '500', Net::HTTP.get_response(URI("http://localhost:#{@port}/list")).code
+		end
+	end
+
+	# WEBrick writes cookies its own way (HTTPResponse#cookies), so the same checks run on it until it goes.
+	def test_cookies_on_webrick_too
+		with_secret do
+			start_app COOKIE_APP.sub('PORT', @port.to_s), backend: :webrick
+			lines  = Net::HTTP.get_response(URI("http://localhost:#{@port}/login")).get_fields('set-cookie')
+			signed = lines[1][/\Auser_id=([^;]+)/, 1]
+			assert_equal 2, lines.size
+			assert_equal 'dark mode 7 nil', get_with_cookies('/who', "theme=dark+mode; user_id=#{signed}").body
+		end
+	end
+
+	# A cookie name with a space would break the header, so it raises, and the route replies 500.
+	def test_a_bad_cookie_name_raises
+		with_secret do
+			start_app COOKIE_APP.sub('PORT', @port.to_s)
+			assert_equal '500', Net::HTTP.get_response(URI("http://localhost:#{@port}/bad")).code
+		end
+	end
+
+	# The page runs again after the closure with the cookies that the browser sends next, so a login and a logout show in the same reply.
+	def test_the_page_after_an_event_sees_the_cookies_the_event_set
+		with_secret do
+			start_app <<~CODE
+			    @load 'lang/web/server'
+
+			    Web_App + Server {
+			    	Self ( port := #{@port}; self.port = port )
+
+			    	get:// (;
+			    		login  := @onclick((; response.set_signed_cookie('user', 'ada') ))
+			    		logout := @onclick((; response.delete_cookie('user') ))
+			    		"`request.signed_cookies['user']` `login` `logout`"
+			    	)
+			    }
+
+			    app := Web_App()
+			CODE
+
+			_, login, logout = get_with_cookies('/', '').body.split ' '
+			signed_in        = event_with_cookies login, ''
+			assert_match(/\Aada /, signed_in.body)
+
+			cookie = signed_in['set-cookie'][/\A[^;]+/]
+			_, _, logout = signed_in.body.split ' '
+			assert_match(/\Anil /, event_with_cookies(logout, cookie).body)
+		end
+	end
+
+	def event_with_cookies token, cookie_header, inputs = {}
+		uri       = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/#{token}")
+		post      = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json', 'Cookie' => cookie_header
+		post.body = JSON.generate(inputs: inputs, path: '/')
+		Net::HTTP.start(uri.host, uri.port) { it.request post }
+	end
+
+	def token_of attribute, html
+		html[/#{Code::DOM_ATTRIBUTE_PREFIX}-#{attribute}="([^"]+)"/, 1] or flunk "no #{attribute} token in the page"
+	end
+
+	# The example is a whole app, so this drives it the way a user would: a wrong password, the right one, a search, the other events, and a logout.
+	def test_the_events_and_login_example_works_end_to_end
+		with_secret do
+			source = ::File.read ::File.join(Code::ROOT_PATH, 'examples/live/events_and_login.code')
+			assert_includes source, "@start_server App()\n"
+			start_app source.sub("@start_server App()\n", "App(port := #{@port})\n")
+
+			page   = get_with_cookies('/', '').body
+			submit = token_of 'onsubmit', page
+			typed  = token_of 'on-server-read', page
+
+			wrong = event_with_cookies(submit, '', { typed => 'nope' })
+			assert_nil wrong['set-cookie']
+			assert_includes wrong.body, 'type="password"'
+			assert_includes wrong.body, '<li>wrong password</li>'
+
+			right = event_with_cookies(submit, '', { typed => 'hunter2' })
+			assert_includes right.body, 'Logged in as ada.'
+			cookie = right['set-cookie'][/\A[^;]+/]
+			assert_match(/\Auser=/, cookie)
+			assert_includes get_with_cookies('/', cookie).body, 'Logged in as ada.'
+
+			page   = get_with_cookies('/', cookie).body
+			search = token_of 'oninput', page
+			assert_includes event_with_cookies(search, cookie, { search => 'an' }).body, '<ul id="results"><li>banana</li><li>mango</li></ul>'
+
+			page = get_with_cookies('/', cookie).body
+			event_with_cookies token_of('onchange', page), cookie, { token_of('onchange', page) => true }
+			event_with_cookies token_of('onkeydown', page), cookie, { token_of('onkeydown', page) => 'Enter' }
+			event_with_cookies token_of('onkeyup', page), cookie, { token_of('onkeyup', page) => 'Enter' }
+			event_with_cookies token_of('onfocus', page), cookie, { token_of('onfocus', page) => '' }
+			last = event_with_cookies token_of('onblur', page), cookie, { token_of('onblur', page) => 'done' }
+			%w(change:\ true keydown:\ Enter keyup:\ Enter focus blur:\ done).each do |line|
+				assert_includes last.body, "<li>#{line.delete '\\'}</li>"
+			end
+
+			logout = event_with_cookies token_of('onclick', get_with_cookies('/', cookie).body), cookie
+			assert_match(/\Auser=; Path=\/; Max-Age=0/, logout['set-cookie'])
+			assert_includes logout.body, 'type="password"'
+			refute_includes logout.body, 'Logged in as'
+		end
+	end
+
+	# The closure gets the cookies of the click, not of the page it came from, so a logout counts at once. A cookie it sets stays when the page runs again after it.
+	def test_a_click_closure_sees_the_cookies_of_the_click_and_can_set_one
+		with_secret do
+			start_app <<~CODE
+			    @load 'lang/web/server'
+
+			    seen := ''
+
+			    Web_App + Server {
+			    	Self ( port := #{@port}; self.port = port )
+
+			    	get:// (;
+			    		@onclick((;
+			    			seen = request.cookies['user'] or 'nobody'
+			    			response.set_cookie('clicked', 'yes')
+			    		))
+			    	)
+
+			    	get://seen (;
+			    		seen
+			    	)
+			    }
+
+			    app := Web_App()
+			CODE
+
+			token = get_with_cookies('/', 'user=ada').body
+			uri   = URI("http://localhost:#{@port}#{Code::DOM_EVENT_URL}/#{token}")
+			post  = Net::HTTP::Post.new uri, 'Content-Type' => 'application/json', 'Cookie' => 'user=bob'
+			post.body = JSON.generate(inputs: {}, path: '/')
+			reply = Net::HTTP.start(uri.host, uri.port) { it.request post }
+
+			assert_equal 'clicked=yes; Path=/; HttpOnly; SameSite=Lax', reply['set-cookie']
+			assert_equal 'bob', Net::HTTP.get_response(URI("http://localhost:#{@port}/seen")).body
+		end
 	end
 end

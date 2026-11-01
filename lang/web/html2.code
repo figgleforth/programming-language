@@ -1,7 +1,7 @@
 ###
 Struct-and-render take on lang/web/html.code, same spirit as lang/web/css.code: markup is plain, immutable data (one struct shape for every element), and a single Renderer walks it -- no per-tag Type, no `| Dom` composition, no method-override polymorphism. The two coexist.
 
-It only builds an HTML String. An Element with `onclick`, `on_server_read` or `replacement_target_id` is live when a server route renders it: the formatter writes the runtime's data-runtime-* attributes, through `@onclick` and `@on_server_read`.
+It only builds an HTML String. An Element with `onclick` (or another `on<event>`), `on_server_read` or `replacement_target_id` is live when a server route renders it: the formatter writes the runtime's data-runtime-* attributes, through `@on_event` and `@on_server_read`.
 
 The server does not know about Element. Any renderer that writes the same attributes gets the same live behavior.
 ###
@@ -27,6 +27,14 @@ Element <
 	onclick: Any_Func
 	on_server_read: Any_Func
 	replacement_target_id: String
+	# The other browser events. Each closure runs on the server and gets the element's own value: the text for input, change, focus and blur, the key for keydown and keyup, and nothing for submit
+	oninput: Any_Func
+	onchange: Any_Func
+	onsubmit: Any_Func
+	onkeydown: Any_Func
+	onkeyup: Any_Func
+	onfocus: Any_Func
+	onblur: Any_Func
 >
 
 ### 2. Formatter (render + minify + pretty-print, same "one type, a mode flag" shape as lang/web/css.code's Css_Formatter_Visitor) ###
@@ -133,12 +141,23 @@ Html_Formatter_Visitor {
 			end
 		end
 
-		# The runtime's own attributes. Their prefix is DOM_ATTRIBUTE_PREFIX (constants.rb), which `.code` cannot read yet, so its value is written here. @onclick and @on_server_read store the closure and give its token, which needs no escape.
-		# Outside a live page (a test, or Code.interp), they give nil, and the attribute is left out.
-		if el.onclick
-			onclick_token := @onclick(el.onclick)
-			if onclick_token
-				parts.push("data-runtime-onclick=\"`onclick_token`\"")
+		# The runtime's own attributes. Their prefix is DOM_ATTRIBUTE_PREFIX (constants.rb), which `.code` cannot read yet, so its value is written here. @on_event and @on_server_read store the closure and give its token, which needs no escape.
+		# Outside a live page (a test, or Code.interp), they give nil, and the attribute is left out. The event names are LIVE_PAGE_EVENTS (constants.rb).
+		handlers := [
+			['click', el.onclick]
+			['input', el.oninput]
+			['change', el.onchange]
+			['submit', el.onsubmit]
+			['keydown', el.onkeydown]
+			['keyup', el.onkeyup]
+			['focus', el.onfocus]
+			['blur', el.onblur]
+		]
+		for handlers
+			(event, handler) := it
+			if handler
+				token := @on_event(handler)
+				parts.push("data-runtime-on`event`=\"`token`\"") if token
 			end
 		end
 
@@ -239,7 +258,7 @@ Html_Sanitizer_Visitor {
 					end
 				end
 				# The closures and the replacement target id stay: they run on the server, so they are not the browser code this removes.
-				Element(node.tag, sanitize_attributes(node.attributes), node.css, clean_children, node.onclick, node.on_server_read, node.replacement_target_id)
+				Element(node.tag, sanitize_attributes(node.attributes), node.css, clean_children, node.onclick, node.on_server_read, node.replacement_target_id, node.oninput, node.onchange, node.onsubmit, node.onkeydown, node.onkeyup, node.onfocus, node.onblur)
 			end
 		else
 			node
@@ -345,7 +364,7 @@ merge_attribute ( attributes: Array\Attribute, attr: Attribute -> Array\Attribut
 
 # Makes the constructor for one tag. Every constructor takes the same arguments and only forwards them to Element, so the function is written once here, not once for each tag.
 constructor_for ( tag: String -> Any_Func;
-	(children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replacement_target_id: String = nil -> Element;
+	(children := [], attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replacement_target_id: String = nil, oninput: Any_Func = nil, onchange: Any_Func = nil, onsubmit: Any_Func = nil, onkeydown: Any_Func = nil, onkeyup: Any_Func = nil, onfocus: Any_Func = nil, onblur: Any_Func = nil -> Element;
 		Element(
 			tag,
 			attributes,
@@ -353,14 +372,21 @@ constructor_for ( tag: String -> Any_Func;
 			as_children(children),
 			onclick,
 			on_server_read,
-			replacement_target_id
+			replacement_target_id,
+			oninput,
+			onchange,
+			onsubmit,
+			onkeydown,
+			onkeyup,
+			onfocus,
+			onblur,
 		)
 	)
 )
 
 # The same for a void tag, which has no children, so its first argument is the attributes.
 void_constructor_for ( tag: String -> Any_Func;
-	(attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replacement_target_id: String = nil -> Element;
+	(attributes: Array\Attribute = [], css: Css = nil, onclick: Any_Func = nil, on_server_read: Any_Func = nil, replacement_target_id: String = nil, oninput: Any_Func = nil, onchange: Any_Func = nil, onsubmit: Any_Func = nil, onkeydown: Any_Func = nil, onkeyup: Any_Func = nil, onfocus: Any_Func = nil, onblur: Any_Func = nil -> Element;
 		Element(
 			tag,
 			attributes,
@@ -368,7 +394,14 @@ void_constructor_for ( tag: String -> Any_Func;
 			[],
 			onclick,
 			on_server_read,
-			replacement_target_id
+			replacement_target_id,
+			oninput,
+			onchange,
+			onsubmit,
+			onkeydown,
+			onkeyup,
+			onfocus,
+			onblur,
 		)
 	)
 )

@@ -3,3 +3,4 @@
 @load 'lang/web/html'
 @load 'lang/web/css'
 @load 'lang/database'
+@load 'lang/password'

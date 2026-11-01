@@ -4,18 +4,20 @@ This folder holds what a web program needs: a server, routes, HTML, and CSS.
 
 ### Start with one line
 
-Load one starter file. It gives you the server, one way to build HTML, CSS, and the database.
+Load one starter file. It gives you the server, one way to build HTML, CSS, the database, and password hashes.
 
 ```
  starter_html2.code ──┬── server.code     the Server type, routes, Request, Response
                       ├── html2.code      one Element struct: div(), p(), h1()
                       │     └── css.code
-                      └── ../database.code
+                      ├── ../database.code
+                      └── ../password.code
 
  starter_html.code ───┬── server.code
                       ├── html.code       a Type for each tag: Div, P, H1
                       ├── css.code
-                      └── ../database.code
+                      ├── ../database.code
+                      └── ../password.code
 ```
 
 The two starters differ only in how you build HTML. Pick one.
@@ -139,7 +141,7 @@ If you do not know yet, start with `starter_html2`. It is the newer one, and it 
 
 | File | What it gives you |
 |---|---|
-| `server.code` | The `Server` type, routes (`get://`, `post://`, ...), `Request` and `Response` |
+| `server.code` | The `Server` type, routes (`get://`, `post://`, ...), `Request` and `Response`, cookies (signed too) |
 | `html2.code` | `Element`, the lowercase constructors (`div`, `p`, `button`, ...), the formatters, a linter and a sanitizer |
 | `html.code` | `Dom`, and one Type for each tag (`Div`, `P`, `Button`, ...) |
 | `css.code` | CSS as structs (`Style_Rule`, `Property`, ...), a formatter and a linter |
@@ -153,6 +155,7 @@ If you do not know yet, start with `starter_html2`. It is the newer one, and it 
 These files are in `lang/`, because programs that are not web programs use them too:
 
 - `database.code`: `Sqlite`, `Database` and `Table`. Both starters load it.
+- `password.code`: `hash_password` and `password_matches?`, for a login. Both starters load it.
 - `tcp_server.code`, `tcp_socket.code`: TCP connections, under `http.code`.
 - `visitor.code`: the mixin that `css.code` and `html2.code` share.
 

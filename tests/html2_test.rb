@@ -403,6 +403,36 @@ class Html2_Test < Base_Test
 		assert_equal "<input type=\"checkbox\" #{prefix}-onclick=\"test-page-0\" #{prefix}-on-server-read=\"test-page-1\" #{prefix}-replacement-target-id=\"task\">", out
 	end
 
+	# Each browser event has its own member and its own attribute, in the order of LIVE_PAGE_EVENTS.
+	def test_each_event_writes_its_own_token
+		interp             = Code::Interpreter.new
+		live_page_instance = start_live_page_instance interp
+		out                = interp.run <<~CODE
+		    #{HTML}
+		    Html_Renderer.render(input(oninput := (text; text), onkeydown := (key; key), onblur := (; 1 )))
+		CODE
+
+		prefix = Code::DOM_ATTRIBUTE_PREFIX
+		assert_equal "<input #{prefix}-oninput=\"test-page-0\" #{prefix}-onkeydown=\"test-page-1\" #{prefix}-onblur=\"test-page-2\">", out
+		assert_equal 3, live_page_instance.callbacks.size
+	end
+
+	def test_a_form_takes_onsubmit
+		interp = Code::Interpreter.new
+		start_live_page_instance interp
+		out = interp.run "#{HTML}\nHtml_Renderer.render(form([], onsubmit := (; 1 )))"
+		assert_equal "<form #{Code::DOM_ATTRIBUTE_PREFIX}-onsubmit=\"test-page-0\"></form>", out
+	end
+
+	# The sanitizer builds each element again, so it must keep every event closure.
+	def test_the_sanitizer_keeps_the_event_closures
+		interp = Code::Interpreter.new
+		start_live_page_instance interp
+		out = interp.run "#{HTML}\nHtml_Renderer.render(Html_Sanitizer_Visitor().sanitize(input(onchange := (v; v), onfocus := (; 1 ))))"
+		assert_includes out, "#{Code::DOM_ATTRIBUTE_PREFIX}-onchange="
+		assert_includes out, "#{Code::DOM_ATTRIBUTE_PREFIX}-onfocus="
+	end
+
 	# Outside a request there is no live page instance, so nothing registers, and the attribute is left out.
 	def test_outside_a_live_page_there_is_no_token
 		interp = Code::Interpreter.new

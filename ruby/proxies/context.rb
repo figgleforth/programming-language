@@ -48,6 +48,7 @@ module Code
 			'stop_server' => { fn: :intrinsic },
 			'todo' => { fn: :intrinsic, bare_call: true },
 			'onclick' => { fn: :intrinsic },
+			'on_event' => { fn: :intrinsic },
 			'on_server_read' => { fn: :intrinsic },
 
 			'load' => { fn: :stack },

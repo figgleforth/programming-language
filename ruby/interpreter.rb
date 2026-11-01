@@ -53,7 +53,7 @@ module Code
 		# One file mid-load. `declarations` is filled in when the file pauses at its own @load, and `cycle_files` lists the paused files this one closed a load cycle back into -- see #resolve_forward_declaration.
 		Loading_File = ::Struct.new :filepath, :scope, :declarations, :cycle_files
 
-		# What a click token runs: the closure, and the Dom element to render again after it (nil for @onclick).
+		# What an event token runs (a click, or any of LIVE_PAGE_EVENTS): the closure, and the Dom element to render again after it (nil for @onclick and @on_event).
 		Click_Entry = ::Data.define :callback, :target
 
 		# A declaration that ran early, before its own line: which expression, in which scope. The scope counts because a parsed file is cached, so the same expression object runs again when the file loads into another scope. See #resolve_forward_declaration.
@@ -140,6 +140,7 @@ module Code
 
 			# The main file counts as a file that is loading, the same as one reached through @load, so a load cycle back to it stops there instead of running it a second time. Only on the first run: a later run (the REPL, a test) has no file of its own, and `current_source_file` still names the last file that loaded.
 			main_file             = top_level_source_file if first_run && top_level_source_file != '<inline>'
+			@main_source_file   ||= main_file
 			if main_file
 				@global.loaded_filepaths[main_file] = nil
 				@loading_files << Loading_File.new(main_file, @global, nil, [])
@@ -1193,7 +1194,7 @@ module Code
 			# The hot reload stream (hot_reload.js) stays open. Its one event is this interpreter's token, and Hot_Reloader starts a new interpreter on a change, so the page sees another token when it connects again.
 			if hot_reload && path == DOM_HOT_RELOAD_URL
 				headers = adopt_type Code::Dictionary.new('Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache'), 'Dictionary'
-				return wrap_prog_array [200, headers, "retry: 300\n\ndata: #{hot_reload_token}\n\n", true] # retry: how long EventSource waits before it connects again
+				return wrap_prog_array [200, headers, "retry: 300\n\ndata: #{hot_reload_token}\n\n", true, wrap_prog_array([])] # retry: how long EventSource waits before it connects again
 			end
 
 			by_name = request.get('headers').get('by_name').hash.to_h { |name, value| [text.(name), [text.(value)]] }
@@ -1212,17 +1213,17 @@ module Code
 				header:         by_name,
 				cookies:        cookies
 			)
-			reply        = Code::Http_Server::Webrick_Reply.new 200, {}, ''
+			reply        = Code::Http_Server::Webrick_Reply.new 200, {}, '', []
 			saved_stack  = stack
 			saved_scopes = stack.map { it }
 			handle_request server, adapted, reply
 
 			headers = adopt_type Code::Dictionary.new(reply.header.to_h { |name, value| [name.to_s, text.(value).to_s] }), 'Dictionary'
-			wrap_prog_array [text.(reply.status).to_i, headers, text.(reply.body).to_s, false]
+			wrap_prog_array [text.(reply.status).to_i, headers, text.(reply.body).to_s, false, wrap_prog_array(reply.cookies)]
 		rescue => e
 			warn "\n[Code Server Error] #{e.class}: #{e.message}"
 			warn e.backtrace.first(10).map { "  #{it}" }.join("\n")
-			wrap_prog_array [500, adopt_type(Code::Dictionary.new, 'Dictionary'), 'Internal Server Error', false]
+			wrap_prog_array [500, adopt_type(Code::Dictionary.new, 'Dictionary'), 'Internal Server Error', false, wrap_prog_array([])]
 		ensure
 			# A route that raises can leave its scopes on the stack. Under WEBrick nothing noticed; here the loop's own call frame is below them.
 			if saved_stack
@@ -1232,8 +1233,9 @@ module Code
 		end
 
 		def handle_request server, request, response
-			path_string  = request.path
-			query_string = request.query_string
+			path_string     = request.path
+			query_string    = request.query_string
+			request_cookies = request.cookies
 			http_method  = request.request_method.downcase
 			path_parts   = request.path.split('/').reject { _1.empty? }
 
@@ -1305,12 +1307,18 @@ module Code
 						route             = Code::Route.from_func entry.callback
 						route.param_names = []
 
-						req = build_prog_request path_string, http_method, body_hash, parse_query_string(query_string), {}, headers_hash
+						# The element's own value (the text for input, the key for keydown, a Bool for a checkbox) comes under the event's own token. It goes to the closure's first param; a closure with no param runs without it.
+						own_value    = click_body.inputs[clicked_token]
+						own_value    = wrap_prog_array(own_value) if own_value.is_a?(::Array)
+						event_values = route.parameters.empty? ? {} : { route.parameters.first.name.value => own_value }
+
+						# The click's own request, with its own cookies, so a closure sees a logout at once, not the cookies of the page it came from.
+						req = build_prog_request path_string, http_method, body_hash, parse_query_string(query_string), {}, headers_hash, cookies: request.cookies
 						res = build_prog_response response
 
 						self.render_token_counter = Token_Counter.new(live_page_instance: live_page_instance, element_namespace: clicked_token, next_slot: 0)
 
-						result = interp_route_body route, req, res # note; This runs the callback. It stays before the target block below, because that block renders the state after the click; the block also comes first so that a Dom-path click keeps its old reply, whatever its callback returns.
+						result = interp_route_body route, req, res, event_values: event_values # note; This runs the callback. It stays before the target block below, because that block renders the state after the click; the block also comes first so that a Dom-path click keeps its old reply, whatever its callback returns.
 
 						# The target to re-render was recorded when the callback's token was minted, during the render walk (#add_onclick_callback) -- no scope-chain reconstruction needed, so a callback defined in a `.map` callback or a plain helper works the same as one in a method.
 						target = entry.target
@@ -1367,8 +1375,10 @@ module Code
 
 				# Nothing replied yet: the callback returned no HTML with a root id, or the token is unknown. Turn the click into a GET of the page it came from, and let the route match below reply with the full page. Without a page path (an old live_page.js, or a request made by hand), the click falls through to a 404, as before.
 				if click_body.path
-					path_string  = click_body.path
-					query_string = click_body.query
+					# The page runs again with the cookies that the browser will send next, so a login or a logout in the closure shows at once.
+					request_cookies = Code::Cookies.after_set_cookies request.cookies, response.cookies
+					path_string     = click_body.path
+					query_string    = click_body.query
 					path_parts   = path_string.split('/').reject { _1.empty? }
 					http_method  = 'get'
 					body_hash    = {}
@@ -1387,7 +1397,7 @@ module Code
 				url_params   = extract_url_params path_parts, route_function
 				query_params = parse_query_string query_string
 
-				req = build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash
+				req = build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash, cookies: request_cookies
 
 				begin
 					# A page load gets a new live page instance. After a click, the page runs again with the click's own instance (found above), so its tokens write over that tab's own callbacks.
@@ -1535,7 +1545,8 @@ module Code
 			query_params
 		end
 
-		def build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash
+		# @param cookies Array of objects with `name` and `value` (WEBrick::Cookie, or Http_Server::Webrick_Cookie)
+		def build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash, cookies: []
 			req          = Code::Request.new
 			body_dict    = Code::Dictionary.new body_hash
 			query_dict   = Code::Dictionary.new query_params
@@ -1553,7 +1564,33 @@ module Code
 			req.declarations['headers']           = headers_dict
 			req.declarations['body']              = body_dict
 			req.declarations['body'].declarations = body_hash
+
+			# The first cookie of a name wins, the same as a repeated form key. A signed cookie is in `cookies` too, as the text that came.
+			by_name = {}
+			cookies.each { |cookie| by_name[cookie.name] ||= Code::Cookies.decode(cookie.value) }
+			signed = by_name.each_with_object({}) do |(name, text), verified|
+				valid, value    = Code::Cookies.verify name, text, cookie_secret
+				verified[name] = value if valid
+			end if by_name.any? { |_, text| text.include? Code::Cookies::SIGNATURE_SPLIT }
+			req.declarations['cookies']        = adopt_type(Code::Dictionary.new(by_name), 'Dictionary')
+			req.declarations['signed_cookies'] = adopt_type(Code::Dictionary.new(signed || {}), 'Dictionary')
 			req
+		end
+
+		# The key that signs cookies (Response#set_signed_cookie). CODE_SECRET wins. Without it, the key is kept in CODE_SECRET_FILE next to the program, so a signed cookie (a login) still reads after a restart.
+		def cookie_secret
+			@cookie_secret ||= ENV['CODE_SECRET'] || begin
+				folder = @main_source_file ? ::File.dirname(@main_source_file) : Dir.pwd
+				path   = ::File.join folder, CODE_SECRET_FILE
+				if ::File.exist? path
+					::File.read(path).strip
+				else
+					secret = SecureRandom.hex 32
+					::File.write path, secret, perm: 0o600
+					warn "[Code] made a key for signed cookies in #{path}. Keep it out of git, or set CODE_SECRET in its place."
+					secret
+				end
+			end
 		end
 
 		def build_prog_response webrick_response
@@ -1563,6 +1600,7 @@ module Code
 			res.declarations['status']           = 200
 			res.declarations['headers']          = {}
 			res.declarations['body']             = ''
+			res.interpreter                      = self
 			link_instance_to_type res, 'Response'
 			res
 		end
@@ -1618,8 +1656,10 @@ module Code
 			# renderer instead of letting it mint its own.
 			element_key = dom_instance.declarations['key']
 
-			if renderer.onclick_expr
-				renderer.onclick_token = add_onclick_callback renderer.onclick_expr, token_counter, element_key
+			# A key pins the click's token; another event on the same element gets its own name under that key, so the tokens differ.
+			renderer.event_exprs.each do |event, callback|
+				event_key                    = element_key && (event == 'click' ? element_key : "#{element_key}-#{event}")
+				renderer.event_tokens[event] = add_onclick_callback callback, token_counter, event_key
 			end
 
 			if renderer.is_input_element?
@@ -4367,7 +4407,7 @@ module Code
 			value
 		end
 
-		def interp_route_body route, req, res, url_params = {}, server_instance: nil
+		def interp_route_body route, req, res, url_params = {}, server_instance: nil, event_values: {}
 			params = route.parameters
 
 			# A closure (an onclick callback) runs on the scopes where it was written, the same as in #interp_func_body, so it sees the names of a `for` loop and of the function around it. A method keeps the enclosing_scope walk below, as #interp_func_body uses #lexical_chain for it.
@@ -4405,6 +4445,12 @@ module Code
 
 			# Bind URL parameters as function arguments. For example, get://:abc/:def ( abc, def; )
 			params.each do |param|
+				# An event's own value can be false or nil (an unchecked box, a key with no value), so it is bound as it is, not through the nil check below.
+				if event_values.key? param.name.value
+					call_scope.declare param.name.value, event_values[param.name.value]
+					next
+				end
+
 				value = url_params[param.name.value] || url_params[param.name.value.to_sym]
 
 				if value.nil?
@@ -5275,7 +5321,7 @@ module Code
 				stop_server server
 				server
 
-			when 'onclick'
+			when 'onclick', 'on_event'
 				raise Code::Invalid_Callback_Argument.new(at) unless args.first.is_a? Code::Func
 				add_onclick_callback args.first, render_token_counter # nil outside a live page
 			when 'on_server_read'

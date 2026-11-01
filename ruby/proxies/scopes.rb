@@ -293,11 +293,27 @@ module Code
 	end
 
 	class Response < Scope
-		attr_accessor :webrick_response
+		attr_accessor :webrick_response, :interpreter
 
 		def proxy_redirect location
 			declarations['status']              = 303
 			declarations['headers']['Location'] = location
+			nil
+		end
+
+		# A proxy gets each param only up to the last one the caller gave, so the defaults are the same as in lang/web/server.code. Each goes straight onto the reply's own cookie list, so a cookie that a click closure sets stays when the page runs again after it. A headers Dictionary cannot hold two Set-Cookie lines.
+		def proxy_set_cookie name, value, max_age = nil, path = '/', http_only = true, secure = false, same_site = 'Lax'
+			webrick_response.cookies << Code::Cookies.header(name, value, max_age: max_age, path: path, http_only: http_only, secure: secure, same_site: same_site)
+			nil
+		end
+
+		def proxy_set_signed_cookie name, value, max_age = nil, path = '/', http_only = true, secure = false, same_site = 'Lax'
+			signed = Code::Cookies.sign name, value, interpreter.cookie_secret
+			proxy_set_cookie name, signed, max_age, path, http_only, secure, same_site
+		end
+
+		def proxy_delete_cookie name, path = '/'
+			webrick_response.cookies << Code::Cookies.header(name, '', max_age: 0, path: path)
 			nil
 		end
 	end

@@ -1575,7 +1575,7 @@ App + Server {
 
 ## Request & Response
 
-In a route, `request` is a `Request` (`path`, `method`, `query`, `params`, `headers`, `body`), and `response` is a `Response` (`status`, `headers`, `body`, `redirect(location)`). Both are in `lang/web/server.code`.
+In a route, `request` is a `Request` (`path`, `method`, `query`, `params`, `headers`, `body`, `cookies`, `signed_cookies`), and `response` is a `Response` (`status`, `headers`, `body`, `redirect(location)`, `set_cookie`, `set_signed_cookie`, `delete_cookie`). Both are in `lang/web/server.code`.
 
 ```code
 post://login (;
@@ -1594,6 +1594,50 @@ get://api/data (;
     response.headers['Content-Type'] = 'application/json'
     '{"status": "ok"}'
 )
+```
+
+### Cookies
+
+1. `request.cookies` is a Dictionary, from the name of each cookie to its value, a String
+2. `response.set_cookie(name, value, max_age := 3600)` writes one `Set-Cookie` line. The defaults are safe: `http_only := true` (JavaScript cannot read it), `same_site := 'Lax'` (a POST that another site starts does not send it), `path := '/'`. Set `secure := true` for HTTPS. With no `max_age`, the cookie goes when the browser closes. The value is URL-encoded, so any text fits
+3. `response.set_signed_cookie(name, value)` does the same, but signs the value with the server's secret. `request.signed_cookies[name]` gives the value back, with its type (`7`, not `"7"`), only when nobody changed it. A changed cookie, or a signed value that someone moved to another name, is not there. The value is a String, a Number, a Bool or `nil`
+4. `response.delete_cookie(name)` tells the browser to drop it. Give the same `path` as when it was set
+5. The secret is `CODE_SECRET` from the environment. Without it, the server makes one, keeps it in `.code_secret` next to the program, and prints a warning, so a login still works after a restart. Keep that file out of git
+6. A cookie that a click closure (or any other event closure) sets stays in the reply. The closure reads the cookies of the click, not of the page it came from. When the page runs again after the click, it reads the cookies that the browser will send next, so a login or a logout shows in the same reply. `examples/live/events_and_login.code` shows this
+7. A cookie name with a space, `=`, `;` or `,`, and `same_site := 'None'` without `secure := true`, raise `Code::Invalid_Cookie`, because a browser would drop the cookie
+
+### Passwords
+
+`@load 'lang/password'` (both web starters load it) gives `hash_password(text)` and `password_matches?(text, hash)`, with scrypt. Store the whole hash: it holds its own salt and settings. Two hashes of the same text differ.
+
+```code
+@load 'lang/web/starter_html2'
+
+users := { 'ada' = hash_password('hunter2') }
+
+App + Server {
+    post://login (;
+        name := request.body[:name]
+        hash := users[name]
+
+        if hash and password_matches?(request.body[:password], hash)
+            response.set_signed_cookie('user', name, max_age := 86400)
+            response.redirect('/')
+        else
+            response.status = 401
+            'Wrong name or password'
+        end
+    )
+
+    get:// (;
+        user := request.signed_cookies['user']
+        if user
+            "Hello, `user`"
+        else
+            'Please log in'
+        end
+    )
+}
 ```
 
 ## Database
@@ -1679,6 +1723,7 @@ User_Record(name := 'Bob').greet()  # 'Hi Bob' -- a record built in memory gets 
 4. `.to_s()` renders an element and its children to string directly, without attributes
 5. `.to_html()` gives the HTML that a server sends for the element, with its `html_*` attributes and `css_*` style. A boolean attribute (`checked`, `selected`, `disabled`, and so on) shows only when it is `true`. A `false` or `nil` attribute does not show. It registers no click closure, so it writes no `data-runtime-*` token
 6. When a server renders a page, text children, attribute values, and `css_*` values are escaped, so text from a user can never become markup. The text inside `Script` and `Style` stays raw, because it is JavaScript or CSS
+7. `onclick`, `oninput`, `onchange`, `onsubmit`, `onkeydown`, `onkeyup`, `onfocus` and `onblur` hold closures that run on the server (see Live Pages). Set them as members, or as named arguments: `Input(oninput := (text; ...))`. After the event, the element with the nearest `html_id` renders again. With `key := 'name'`, the click's token is the key, and each other event's token is the key plus the event name
 
 ```code
 @load 'lang/web/html.code'
@@ -1746,7 +1791,7 @@ Css_Lint_Visitor().lint(Style_Rule(['.a'], [Property('color', 'red'), Property('
 5. `Html_Stats_Visitor` (node count, depth, unique tags), `Html_Sanitizer_Visitor` (strips `script`/`iframe`/`object`/`embed` and `on*`/`javascript:` attributes), and `Html_Lint_Visitor` (void element given children, `<img>` missing `alt`, empty containers, duplicate attributes) walk the same tree for their own purposes
 6. Text children and attribute values are escaped (`&`, `<`, `>`, `"`, `'`), so text from a user can never become markup -- `p('<b>')` renders `<p>&lt;b&gt;</p>`. The text inside `script` and `style` stays raw, because it is JavaScript or CSS
 7. A boolean attribute (`checked`, `selected`, `disabled`, and so on) prints only its name when its value is `true`. A `false` or `nil` value leaves the attribute out
-8. Every constructor takes the same arguments: `children`, `attributes`, `css`, `onclick`, `on_server_read` and `replacement_target_id`. A void tag (`input`, `img`, `br`, ...) has no `children`, so its first argument is `attributes`
+8. Every constructor takes the same arguments: `children`, `attributes`, `css`, `onclick`, `on_server_read`, `replacement_target_id`, and the other events (`oninput`, `onchange`, `onsubmit`, `onkeydown`, `onkeyup`, `onfocus`, `onblur`, see Live Pages below). A void tag (`input`, `img`, `br`, ...) has no `children`, so its first argument is `attributes`
 
 ```code
 @load 'lang/web/html2.code'
@@ -1771,7 +1816,7 @@ Html_Renderer.render(button('Save', onclick := (; @puts 'saved')))
 
 ## Live Pages
 
-A click in the browser runs a closure on the server. Any renderer can do this: html2 is one way, and a renderer of your own is another.
+A click (or another browser event, see Other events below) runs a closure on the server. Any renderer can do this: html2 is one way, and a renderer of your own is another.
 
 ```code
 @onclick(fn: (;)) -> String | Nil                                     # fn takes nothing
@@ -1819,6 +1864,44 @@ edit_page ( tasks, task;
 
     Html_Renderer.render(div([h1(task.text), text_box, save], [Attribute('id', 'task')]))
 )
+```
+
+### Other events
+
+A click is one of eight browser events. Each one is sent the same way, and its closure runs on the server:
+
+| Event | Member (html2 and html) | The closure gets | Sent |
+|---|---|---|---|
+| click | `onclick` | nothing | at once |
+| input | `oninput` | the text | 250 ms after the last key, so one word is one event |
+| change | `onchange` | the value (a Bool for a checkbox, an Array for a `<select multiple>`) | at once |
+| submit | `onsubmit`, on a `form` | nothing; the page does not load again | at once |
+| keydown, keyup | `onkeydown`, `onkeyup` | the key: `'Enter'`, `'a'`, `'ArrowUp'` | on every key |
+| focus, blur | `onfocus`, `onblur` | the value | when the user moves the focus |
+
+1. A closure with no param, `(; ...)`, runs without the value
+2. The `on_server_read` values go with each event too, the same as with a click
+3. The reply is the same as for a click (above). `replacement_target_id` works on any element
+4. When a newer event has already replied, the reply to an older event is dropped, so a slow reply cannot replace newer text. The box that has the focus keeps what the user is typing
+5. A morph that moves the focus sends no `focus` or `blur` event
+6. A renderer of your own uses `@on_event(fn)`, which returns a token the same as `@onclick`, and writes it as `data-runtime-on<event>="<token>"` (`data-runtime-oninput`, ...). The event names are `LIVE_PAGE_EVENTS` (`constants.rb`)
+7. Mouse, pointer and scroll events are not sent: they fire many times a second, and each would be a round trip to the server
+
+```code
+@load 'lang/web/starter_html2'
+
+App + Server {
+    fruits := ['apple', 'banana', 'cherry']
+    search := ''      # one App serves every visitor, so they share it
+
+    get:// (;
+        shown := fruits.filter(it; it.includes?(search))
+        Html_Renderer.render(body([
+            input([Attribute('placeholder', 'search')], oninput := (text; search = text), replacement_target_id := 'results')
+            ul(shown.map(it; li(it)), [Attribute('id', 'results')])
+        ]))
+    )
+}
 ```
 
 A renderer of your own writes the same attributes. The page needs its `<html>` or `<body>` tag, because the server adds `live_page.js` only to a whole page:

@@ -9,13 +9,15 @@ module Code
 		BOOLEAN_ATTRS = %w[selected checked disabled readonly required multiple autofocus hidden open].freeze
 
 		attr_accessor :dom, :element, :inner_html
-		attr_accessor :onclick_token, :input_id_token
+		attr_accessor :input_id_token
+		attr_reader :event_tokens # event name => token, for each event in LIVE_PAGE_EVENTS that has a closure
 		attr_writer :html_attrs, :css_attrs
 
 		def initialize dom_instance, inner_html = ''
 			@dom        = dom_instance
 			@element    = @dom.declarations[ELEMENT_ATTR]
-			@inner_html = inner_html
+			@inner_html   = inner_html
+			@event_tokens = {}
 		end
 
 		def has_inner_html? # aka void tag
@@ -32,7 +34,7 @@ module Code
 		def html_attrs
 			@html_attrs ||= dom.declarations.reject do |key, _|
 				# This identifier is just used to determine the element to render, so it shouldn't be included as an attribute of the final HTML string.
-				key == 'html_element' || key == 'onclick'
+				key == 'html_element'
 			end.select do |key, value|
 				key.to_s.start_with?(HTML_PREFIX) && !blank_attr_value?(value)
 			end.map do |key, value|
@@ -42,8 +44,9 @@ module Code
 			end.to_h
 		end
 
-		def onclick_expr
-			dom.declarations['onclick']
+		# event name => closure, for each `on<event>` member that holds one (onclick, oninput, ...)
+		def event_exprs
+			LIVE_PAGE_EVENTS.to_h { [it, dom.declarations["on#{it}"]] }.select { |_, callback| callback.is_a? Code::Func }
 		end
 
 		def is_input_element?
@@ -91,8 +94,8 @@ module Code
 				end
 
 				# A static render (`Dom#to_html`) sets no tokens.
-				if onclick_expr && onclick_token
-					html << " #{DOM_ATTRIBUTE_PREFIX}-onclick=\"#{onclick_token}\""
+				event_tokens.each do |event, token|
+					html << " #{DOM_ATTRIBUTE_PREFIX}-on#{event}=\"#{token}\"" if token
 				end
 
 				if is_input_element? && input_id_token

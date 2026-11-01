@@ -11,6 +11,7 @@ A few files do not load on their own. You must add an `@load` line for these you
 ```code
 @load 'lang/web/starter_html2'  # everything for a web program: see web/readme.md
 @load 'lang/database.code'      # Sqlite and the Database type
+@load 'lang/password.code'      # hash_password and password_matches?, for a login
 @load 'lang/iterable.code'      # Iterable: compose it into a type to give it `next`
 @load 'lang/raylib.code'        # 2D game and graphics support (needs the raylib-bindings gem)
 ```

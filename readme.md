@@ -24,12 +24,10 @@ bundle exec bin/program examples/hello_world.code   # Hello, Code!
 ---
 ### A full-stack app in one file
 
-Server, database, HTML, and click handlers that run on the server, with no JavaScript.
+Server, database, HTML, and click handlers that run on the server, with no JavaScript to write.
 
 ```code
-@load 'lang/web/server'
-@load 'lang/database'
-@load 'lang/web/html'
+@load 'lang/web/starter_html'     # the server, HTML, CSS, the database, and passwords
 
 db := @connect Sqlite.memory()
 Todo <id: Primary_Key, title: String>
@@ -65,7 +63,7 @@ app := App()
 @start_server app
 ```
 
-This app can be written in any paradigm. See the tasks app as [components](examples/tasks/tasks-components.code), with a [page reload](examples/tasks/tasks-page-reload.code), and with a [live reload](examples/tasks/tasks-live-reload.code).
+This app can be written in any paradigm. See the tasks app as [components](examples/tasks/tasks-components.code), with a [page reload](examples/tasks/tasks-page-reload.code), and with a [live reload](examples/tasks/tasks-live-reload.code). [`lang/web/`](lang/web/readme.md) has a starter for each of the two ways to build HTML, and helps you choose.
 
 > For now, one single instance serves every visitor, so all visitors share its state. A separate state for each visitor is [coming soon](#one-state-per-visitor).
 
@@ -261,7 +259,7 @@ Flying =/= Swimming    # true: nothing shared
 
 ### Aliases and subtypes
 
-`::` names a type, and `| {}` makes a new one.
+`::` names a type, and `+ {}` makes a new one.
 
 ```code
 Int32 :: Integer              # the same type
@@ -386,6 +384,44 @@ Counter + Div {
 }
 ```
 
+### Every event, not only clicks
+
+Typing, keys, changes, submits, and focus run on the server too, and each closure gets the element's own value.
+
+```code
+@load 'lang/web/starter_html2'
+
+App + Server {
+    fruits := ['apple', 'banana', 'cherry']
+    search := ''                  # shared by every visitor, for now
+
+    get:// (;
+        shown := fruits.filter(it; it.includes?(search))
+        Html_Renderer.render(body([
+            input(oninput := (text; search = text), replacement_target_id := 'results')   # 250 ms after the last key
+            ul(shown.map(it; li(it)), [Attribute('id', 'results')])                    # only this list changes
+        ]))
+    )
+}
+```
+
+A closure made in a route still reaches the members of its type, so `search = text` changes `App`'s `search`. `onchange` gets a checkbox's `true` or `false`, `onkeydown` and `onkeyup` get the key (`'Enter'`), and `onsubmit` stops the page from loading again. See [the events and a login on one page](examples/live/events_and_login.code).
+
+### Logins
+
+Signed cookies and password hashes are built in.
+
+```code
+password_matches?(typed, hash_password('hunter2'))       # scrypt
+
+response.set_signed_cookie('user', 'ada', max_age := 3600)
+request.signed_cookies['user']     # 'ada', or nil when someone changed the cookie
+request.cookies['theme']           # a plain cookie
+response.delete_cookie('user')     # log out
+```
+
+A cookie is `HttpOnly` and `SameSite=Lax` unless you say otherwise. A login in a click shows in the same reply.
+
 ### CSS
 
 Stylesheets as plain data that you can format and lint.
@@ -482,7 +518,7 @@ fib ( n;
     end
 )
 
-@load 'lang/web/html.code'       # imports can live at the bottom,
+@load 'lang/web/html.code'   # imports can live at the bottom,
                              # and load cycles work
 ```
 
@@ -574,7 +610,7 @@ add(1, s)                  # Type_Contract_Violation
 
 ### Tagged types
 
-Attach metadata to a type with `\`, and each tagged type becomes is its own type.
+Attach metadata to a type with `\`, and each tagged type is its own type.
 
 ```code
 String\<num: Number> {
@@ -585,7 +621,7 @@ String\<5> === String\<6>      # true: the same shape
 String\<5> == String\<6>       # false: other values
 
 tasks: Array\Task              # a label only: elements are not type-checked.
-things: Dict\Formatter         # useful for complex formatters and such! 
+things: Dict\Formatter         # useful for complex formatters and such!
 ```
 
 ### Numbers
@@ -896,8 +932,9 @@ button := Button()
 Load a file once, and scope it to a name if you like.
 
 ```code
-@load 'lang/web/html.code'               # standard library, from anywhere
-@load ./tools/my\ module.code        # bare paths work too
+@load 'lang/web/html.code'       # standard library, from anywhere
+@load ./tools/my\ module.code    # a bare path must start with ./ ../ or ~/
+@load tools/my\ module.code      # Undeclared_Identifier: without ./ it reads as tools / my
 
 Mod := @load './my_module.code'
 Mod.Some_Type()
@@ -950,7 +987,7 @@ brew.@tag.message                # 'Unknown method BREW'
 status_for(brew)                 # 501
 ```
 
-Apps run on it. One thread waits on every connection at once, so a slow client holds up no one.
+Apps run on it. One thread waits on every connection at once, so a slow client holds up no one, and a connection stays open for the next request.
 
 ```sh
 bin/program interpf app.code             # the .code server
@@ -971,7 +1008,19 @@ bin/program interp "4 + 8" -p
 bin/program parsef app.code -p   # lexf, parsef, declaref, interpf for files
 ```
 
-### Coming soon
+## Coming soon
+
+### Changes that reach every tab
+
+An element watches the data it reads, and a write updates it in every open tab, with no click there.
+
+```code
+Task_Count + Small + Watchable {
+    render (; "`tasks.count()` tasks" )
+}
+
+# Coming soon: add a task in one tab, and the count changes in every tab.
+```
 
 ### One state per visitor
 
@@ -999,9 +1048,9 @@ App + Server {
 
 @start_server App()
 
-# Today: .code reads each request from a socket and parses it, then Ruby finds the route.
-# Coming soon: connections that stay open, and the route lookup in .code,
-# so you can read and change every step.
+# Today: .code reads each request from a socket, parses it, and keeps the connection open,
+# then Ruby finds the route.
+# Coming soon: the route lookup in .code, so you can read and change every step.
 ```
 
 ### Checks before the run, in any order
@@ -1051,6 +1100,6 @@ add(@puts 1, 2)            # today: Missing_Argument
                            # coming soon: prints 1, returns 3
 ```
 
-### Next steps
+## Next steps
 
 [Learn by example](examples/readme.md) · [Read the reference](reference.md) · [Edit the language](ruby/readme.md)

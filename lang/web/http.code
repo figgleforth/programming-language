@@ -474,7 +474,8 @@ keeps_alive? ( request: Request -> Bool;
 )
 
 # The whole reply. With no body, the reason phrase is the body, so a browser shows something. A reply to HEAD has the same headers, but no body (RFC 9110 §9.3.2).
-response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head: Bool = false, keep_alive: Bool = false -> String;
+# set_cookies: each Set-Cookie value. A headers Dictionary holds a name once, but each cookie needs a line of its own (RFC 6265 §3).
+response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head: Bool = false, keep_alive: Bool = false, set_cookies: Array = [] -> String;
 	reason := REASON_PHRASES[status] or '' # the reason phrase can be empty (RFC 9112 §4)
 
 	# A 1xx, 204 or 304 reply has no body, and a 1xx or 204 reply has no Content-Length (RFC 9110 §6.4.1, §8.6)
@@ -485,6 +486,9 @@ response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head:
 	text := "HTTP/1.1 `status` `reason`\r\n"
 	for headers
 		text += "`at`: `it`\r\n"
+	end
+	for set_cookies
+		text += "Set-Cookie: `it`\r\n"
 	end
 	# Content-Length counts bytes, not characters. It also tells a client on a kept connection where this reply ends
 	text += "Content-Length: `body.bytesize`\r\n" unless no_length

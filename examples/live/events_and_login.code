@@ -1,0 +1,117 @@
+###
+Browser events and a login, on one live page. Run it, then open http://localhost:8080.
+
+Each closure below runs on the server when its event happens in the browser. Nothing here is JavaScript that you write: `live_page.js` sends each event, and the server replies with the part of the page that changed.
+
+The login uses a signed cookie, so the server needs a secret. Set CODE_SECRET (`CODE_SECRET=something bin/program examples/live/events_and_login.code`), or the server makes a `.code_secret` file next to this file.
+###
+@load 'lang/web/starter_html2'
+
+# The password is hunter2. A real app keeps the hash in a table, never the password itself.
+users := { 'ada' = hash_password('hunter2') }
+
+fruits := ['apple', 'banana', 'cherry', 'grape', 'lemon', 'mango']
+search := ''
+log    := []
+typed  := ''
+
+
+### Login: submit, and a signed cookie
+
+The form's `onsubmit` runs on the server, and the page does not load again. `on_server_read` gives the password box's value to the closure before `onsubmit` runs. A signed cookie cannot be changed by the user, so `request.signed_cookies['user']` is only there for a real login.
+###
+login_section ( user;
+	if user
+		div([
+			p("Logged in as `user`.")
+			button('Log out', onclick := (;
+				response.delete_cookie('user')
+			))
+		], [Attribute('id', 'login')])
+	else
+		div([
+			form([
+				input([Attribute('type', 'password'), Attribute('placeholder', 'password: hunter2')], on_server_read := (text;
+					typed = text
+				))
+				button('Log in')
+			], onsubmit := (;
+				if password_matches?(typed, users['ada'])
+					response.set_signed_cookie('user', 'ada', max_age := 3600)
+				else
+					log << 'wrong password'
+				end
+			))
+		], [Attribute('id', 'login')])
+	end
+)
+
+
+### Search as you type: input
+
+`oninput` waits 250 ms after the last key, then sends the text. `replacement_target_id` names the one element that the browser replaces, so the box keeps its focus.
+###
+search_section (;
+	shown := fruits.filter(it; it.includes?(search))
+
+	div([
+		input([Attribute('value', search), Attribute('placeholder', 'search fruits')], oninput := (text;
+			search = text
+		), replacement_target_id := 'results')
+		ul(shown.map(it; li(it)), [Attribute('id', 'results')])
+	])
+)
+
+
+### The other events: change, keydown, keyup, focus, blur
+
+Each closure gets the element's own value: a Bool for a checkbox, the key for keydown and keyup, and the text for focus and blur. Each one adds a line to the log.
+###
+events_section (;
+	div([
+		label([
+			input([Attribute('type', 'checkbox')], onchange := (on;
+				log << "change: `on`"
+			), replacement_target_id := 'log')
+			' a checkbox'
+		])
+
+		input([Attribute('placeholder', 'press keys here')], onkeydown := (key;
+			log << "keydown: `key`"
+		), onkeyup := (key;
+			log << "keyup: `key`"
+		), replacement_target_id := 'log')
+
+		input([Attribute('placeholder', 'focus me, type, then leave')], onfocus := (;
+			log << 'focus'
+		), onblur := (text;
+			log << "blur: `text`"
+		), replacement_target_id := 'log')
+
+		ul(log.map(it; li(it)), [Attribute('id', 'log')])
+	])
+)
+
+
+App + Server {
+	get:// (;
+		user := request.signed_cookies['user']
+
+		page := html([
+			head(title('Events and a login'))
+			body([
+				h1('Events and a login')
+				login_section(user)
+
+				h2('Search as you type')
+				search_section()
+
+				h2('Other events')
+				events_section()
+			])
+		])
+		Html_Renderer.render(page)
+	)
+}
+
+@start_server App()

@@ -131,6 +131,7 @@ accept_items := parse_accept("text/html, application/json;q=0.9, */*;q=0.1", "*/
 @out response_text(200, "hi", head := true).ends_with?("Content-Length: 2\r\nConnection: close\r\n\r\n")       # out: true
 @out response_text(405, headers := {'Allow' = 'GET, HEAD'}).include?("Allow: GET, HEAD\r\n")                   # out: true
 @out response_text(200, "hi", keep_alive := true).include?("Connection: keep-alive\r\n")                        # out: true
+@out response_text(200, "hi", set_cookies := ['a=1', 'b=2']).include?("Set-Cookie: a=1\r\nSet-Cookie: b=2\r\n")  # out: true
 
 @out keeps_alive?(parse_request(Buffer.from_string("GET / HTTP/1.1\r\nHost: x\r\n\r\n")))                                    # out: true
 @out keeps_alive?(parse_request(Buffer.from_string("GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")))             # out: false

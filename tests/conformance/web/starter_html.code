@@ -4,3 +4,4 @@
 @out Dom.@name        # out: Dom
 @out Style_Rule.@name # out: Style_Rule
 @out Database.@name   # out: Database
+@out hash_password('x').starts_with?('scrypt$') # out: true

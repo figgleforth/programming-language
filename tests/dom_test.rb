@@ -222,6 +222,23 @@ class Dom_Test < Base_Test
 		refute_nil interp.live_page_instances['test'].callbacks['test-p-go']
 	end
 
+	# Each event member gets its own attribute. With a key, the click keeps the key, and each other event gets the key and its own name.
+	def test_dom_event_members_get_their_own_tokens
+		interp, html = render <<~CODE
+		    @load 'lang/web/html'
+		    Page + Div {
+		    	html_id := 'p'
+		    	render (; [Input(key := 'name', onclick := (; 1 ), oninput := (text; text), onblur := (; 2 ))] )
+		    }
+		    Page()
+		CODE
+		prefix = Code::DOM_ATTRIBUTE_PREFIX
+		assert_includes html, "#{prefix}-onclick=\"test-p-name\""
+		assert_includes html, "#{prefix}-oninput=\"test-p-name-input\""
+		assert_includes html, "#{prefix}-onblur=\"test-p-name-blur\""
+		assert_equal 3, interp.live_page_instances['test'].callbacks.size
+	end
+
 	def test_non_whitelisted_named_arg_on_a_dom_type_still_raises
 		assert_raises Code::Unknown_Named_Argument do
 			Code.interp "@load 'lang/web/html'\nButton(\"x\", bogus := 1)"
