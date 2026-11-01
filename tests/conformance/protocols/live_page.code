@@ -1,6 +1,6 @@
 @load 'lang/protocols/live_page'
 
-# Builds the bytes of a click, the same way live_reload.js does
+# Builds the bytes of a click, the same way live_page.js does
 u8 ( n: Int -> Buffer;
 	Buffer(1).set(:u8, 0, n)
 )

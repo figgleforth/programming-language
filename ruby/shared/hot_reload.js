@@ -1,4 +1,4 @@
-// Browser side of hot reload. Injected into every HTML response (right after live_reload.js) ONLY when
+// Browser side of hot reload. Injected into every HTML response (right after live_page.js) ONLY when
 // the server runs under Hot_Reloader -- see Interpreter#hot_reload. Talks to the matching
 // hot-reload endpoint (DOM_HOT_RELOAD_URL, filled in by the server): Interpreter#respond_to_http_request on the
 // .code server, or the WEBrick mount in Interpreter#start_server.

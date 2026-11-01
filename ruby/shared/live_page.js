@@ -124,7 +124,7 @@
 			return
 		}
 
-		// The reply is a full page. A script in it does not run, so live_reload.js does not add its listener a second time.
+		// The reply is a full page. A script in it does not run, so live_page.js does not add its listener a second time.
 		const doc = new DOMParser().parseFromString(html, 'text/html')
 
 		// 2. The clicked element names an element to replace: morph it into the same element from the new page.

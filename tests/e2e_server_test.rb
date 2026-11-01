@@ -87,7 +87,7 @@ class E2E_Server_Test < Minitest::Test
 		@interpreter.start_server @server_runner
 	end
 
-	# Sends a click the way live_reload.js does: POST DOM_EVENT_URL/<token>, with the input values as JSON. `path` and `query` name the page the click came from; leave them out to send a click without them.
+	# Sends a click the way live_page.js does: POST DOM_EVENT_URL/<token>, with the input values as JSON. `path` and `query` name the page the click came from; leave them out to send a click without them.
 	def click token, inputs, path: nil, query: nil
 		body         = { inputs: inputs }
 		body[:path]  = path if path
@@ -98,7 +98,7 @@ class E2E_Server_Test < Minitest::Test
 		Net::HTTP.start(uri.host, uri.port) { it.request request }
 	end
 
-	# Sends a click as bytes, the way live_reload.js does by default (lang/protocols/live_page.code has the format).
+	# Sends a click as bytes, the way live_page.js does by default (lang/protocols/live_page.code has the format).
 	def click_as_bytes token, inputs, path: '', query: ''
 		str   = ->(text) { [text.bytesize].pack('N') + text.b }
 		bytes = [1].pack('C') + str.(path) + str.(query) + [inputs.size].pack('n')
@@ -189,7 +189,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'red+blue', picked.body
 	end
 
-	# The default from live_reload.js: a click as bytes, with text, a list, a checkbox, and the page to run again
+	# The default from live_page.js: a click as bytes, with text, a list, a checkbox, and the page to run again
 	def test_a_click_sent_as_bytes_reaches_the_closures
 		start_app <<~CODE
 		    @load 'lang/server'
@@ -331,7 +331,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'Buy milk', saved.body
 	end
 
-	# The reply is only that HTML, and the header names its root id, so live_reload.js replaces that one element.
+	# The reply is only that HTML, and the header names its root id, so live_page.js replaces that one element.
 	def test_handler_that_returns_html_with_a_root_id_replaces_that_element
 		start_app <<~CODE
 		    @load 'lang/server'
@@ -476,7 +476,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_includes reply.body, "#{click_token} task 3 sort new get</body>"
 	end
 
-	# Without a page path (an old live_reload.js, or a request made by hand), the click still ends in a 404.
+	# Without a page path (an old live_page.js, or a request made by hand), the click still ends in a 404.
 	def test_click_without_a_page_path_still_gives_a_404
 		start_app <<~CODE
 		    @load 'lang/server'
@@ -892,7 +892,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'dynamic 42', dynamic.body
 	end
 
-	# live_reload.js began as a Ruby string and still names its cookie `#{BROWSER_VIEW_SIZE}`. Before the server filled that in, the browser set a cookie with that literal name, and no route ever saw the window size.
+	# live_page.js began as a Ruby string and still names its cookie `#{BROWSER_VIEW_SIZE}`. Before the server filled that in, the browser set a cookie with that literal name, and no route ever saw the window size.
 	def test_window_size_cookie_reaches_a_route
 		code = <<~CODE
 		    Server {
@@ -926,7 +926,7 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal '800x600', size.body
 	end
 
-	# The server read live_reload.js and the other browser assets relative to the working directory, so every HTML page failed with a 500 when `bin/program` started outside `source/`.
+	# The server read live_page.js and the other browser assets relative to the working directory, so every HTML page failed with a 500 when `bin/program` started outside `source/`.
 	def test_an_html_page_gets_its_scripts_from_any_working_directory
 		code = <<~CODE
 		    Server {
@@ -955,8 +955,8 @@ class E2E_Server_Test < Minitest::Test
 		page = Dir.mktmpdir { |elsewhere| Dir.chdir(elsewhere) { Net::HTTP.get_response URI("http://localhost:#{@port}/") } }
 
 		assert_equal '200', page.code
-		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick" # a line from live_reload.js
-		assert_includes page.body, "var Idiomorph" # loaded before live_reload.js, which calls it
+		assert_includes page.body, "#{Code::DOM_ATTRIBUTE_PREFIX}-onclick" # a line from live_page.js
+		assert_includes page.body, "var Idiomorph" # loaded before live_page.js, which calls it
 		refute_includes page.body, '#{DOM_ATTRIBUTE_PREFIX}' # the placeholder was filled in
 		refute_includes page.body, '#{DOM_TARGET_ID_HEADER}'
 		refute_includes page.body, '#{DOM_EVENT_URL}'

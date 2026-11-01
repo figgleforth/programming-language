@@ -19,7 +19,7 @@ class Validation_Test < Base_Test
 
 	# A placeholder with a typo (`#{DOM_ATRIBUTE_PREFIX}`) would reach the browser unfilled.
 	def test_each_placeholder_in_the_browser_scripts_names_a_real_constant
-		%w(ruby/shared/live_reload.js ruby/shared/hot_reload.js).each do |path|
+		%w(ruby/shared/live_page.js ruby/shared/hot_reload.js).each do |path|
 			source = ::File.read ::File.join(Code::ROOT_PATH, path)
 
 			source.scan(PLACEHOLDER_REGEX).flatten.uniq.each do |name|

@@ -1,5 +1,5 @@
 ###
-The live page protocol: what a page sends to the server when a click runs there (live_reload.js).
+The live page protocol: what a page sends to the server when a click runs there (live_page.js).
 A click is sent as bytes. Numbers are big-endian (network byte order).
 
 	click = version:u8 · path:str · query:str · input_count:U16 · input*
