@@ -48,7 +48,7 @@ class Http_Server_Test < Base_Test
 		Net::HTTP.get_response URI("http://localhost:#{@port}#{path}")
 	end
 
-	# Sends raw bytes and reads the whole reply, which ends when the server closes the connection.
+	# Sends raw bytes and reads the whole reply, which ends when the server closes the connection, so the request must ask for close.
 	def send_raw text
 		Timeout.timeout 5 do
 			socket = TCPSocket.new 'localhost', @port
@@ -65,7 +65,7 @@ class Http_Server_Test < Base_Test
 		assert_equal '200', reply.code
 		assert_equal 'hello', reply.body
 		assert_equal '5', reply['content-length']
-		assert_equal 'close', reply['connection']
+		assert_equal 'keep-alive', reply['connection']
 	end
 
 	def test_a_form_body_reaches_the_route
@@ -76,7 +76,7 @@ class Http_Server_Test < Base_Test
 
 	def test_head_has_the_headers_of_get_and_no_body
 		start_app
-		reply = send_raw "HEAD /hello HTTP/1.1\r\nHost: x\r\n\r\n"
+		reply = send_raw "HEAD /hello HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n"
 		assert_match "HTTP/1.1 200 OK\r\n", reply
 		assert_match "Content-Length: 5\r\n", reply
 		assert reply.end_with?("\r\n\r\n"), reply
@@ -96,7 +96,7 @@ class Http_Server_Test < Base_Test
 		reply = Timeout.timeout(5) { get '/hello' }
 		assert_equal 'hello', reply.body
 
-		slow.write "st: x\r\n\r\n"
+		slow.write "st: x\r\nConnection: close\r\n\r\n"
 		assert_match "\r\n\r\nhello", Timeout.timeout(5) { slow.read }
 	ensure
 		slow&.close
@@ -119,7 +119,7 @@ class Http_Server_Test < Base_Test
 		start_app
 		Timeout.timeout 5 do
 			socket = TCPSocket.new 'localhost', @port
-			socket.write "POST /echo HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 3\r\n\r\n"
+			socket.write "POST /echo HTTP/1.1\r\nHost: x\r\nConnection: close\r\nExpect: 100-continue\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 3\r\n\r\n"
 			assert_equal "HTTP/1.1 100 Continue\r\n", socket.gets
 			assert_equal "\r\n", socket.gets
 
@@ -206,6 +206,87 @@ class Http_Server_Test < Base_Test
 		assert_nil IO.select([stream], nil, nil, 0.3), 'the stream should stay open, with nothing more to read'
 	ensure
 		stream&.close
+	end
+
+	# Reads one reply from a connection that stays open: the head, then Content-Length bytes of body
+	def read_reply socket
+		Timeout.timeout 5 do
+			head = +''
+			head << socket.gets until head.end_with? "\r\n\r\n"
+			head + socket.read(head[/^Content-Length: (\d+)\r$/, 1].to_i)
+		end
+	end
+
+	def test_a_connection_stays_open_for_the_next_request
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "GET /hello HTTP/1.1\r\nHost: x\r\n\r\n"
+		first = read_reply socket
+		assert_match "Connection: keep-alive\r\n", first
+		assert first.end_with?("\r\n\r\nhello"), first
+
+		socket.write "GET /hello HTTP/1.1\r\nHost: x\r\n\r\n"
+		assert read_reply(socket).end_with?("\r\n\r\nhello")
+	ensure
+		socket&.close
+	end
+
+	# The second request comes before the first reply, so the bytes after the first body are the start of the next request
+	def test_requests_sent_together_get_their_replies_in_order
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "POST /echo HTTP/1.1\r\nHost: x\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 3\r\n\r\nx=1" \
+			"GET /hello HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n"
+
+		assert read_reply(socket).end_with?("\r\n\r\ngot 1")
+		last = read_reply socket
+		assert_match "Connection: close\r\n", last
+		assert last.end_with?("\r\n\r\nhello"), last
+		assert closed_by_server?(socket)
+	ensure
+		socket&.close
+	end
+
+	def test_connection_close_closes_after_the_reply
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		socket.write "GET /hello HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n"
+		assert_match "Connection: close\r\n", read_reply(socket)
+		assert closed_by_server?(socket)
+	ensure
+		socket&.close
+	end
+
+	def test_http_1_0_closes_unless_the_client_asks_for_keep_alive
+		start_app
+		closing = TCPSocket.new 'localhost', @port
+		closing.write "GET /hello HTTP/1.0\r\nHost: x\r\n\r\n"
+		assert_match "Connection: close\r\n", read_reply(closing)
+		assert closed_by_server?(closing)
+
+		kept = TCPSocket.new 'localhost', @port
+		kept.write "GET /hello HTTP/1.0\r\nHost: x\r\nConnection: keep-alive\r\n\r\n"
+		assert_match "Connection: keep-alive\r\n", read_reply(kept)
+		kept.write "GET /hello HTTP/1.0\r\nHost: x\r\nConnection: keep-alive\r\n\r\n"
+		assert read_reply(kept).end_with?("hello")
+	ensure
+		[closing, kept].each { it&.close }
+	end
+
+	# Each request on a kept connection gets its own 100 Continue
+	def test_expect_100_continue_works_for_each_request_on_a_connection
+		start_app
+		socket = TCPSocket.new 'localhost', @port
+		2.times do |i|
+			socket.write "POST /echo HTTP/1.1\r\nHost: x\r\nExpect: 100-continue\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 3\r\n\r\n"
+			assert_equal "HTTP/1.1 100 Continue\r\n", Timeout.timeout(5) { socket.gets }
+			assert_equal "\r\n", socket.gets
+
+			socket.write "x=#{i}"
+			assert read_reply(socket).end_with?("got #{i}")
+		end
+	ensure
+		socket&.close
 	end
 
 	# True once the server has closed the socket: a read gives the end of the stream

@@ -464,8 +464,17 @@ parse_request ( buffer: Buffer -> Request | Nil;
 	)
 )
 
+# True when the connection stays open for the next request: HTTP/1.1 stays open unless the client sends close, and HTTP/1.0 closes unless the client sends keep-alive (RFC 9112 §9.3)
+keeps_alive? ( request: Request -> Bool;
+	options := (request.headers.by_name['connection'] or '').downcase().split(',').map(it; it.trim())
+	return false if options.include?('close')
+	return true if request.version.minor >= 1
+
+	options.include?('keep-alive')
+)
+
 # The whole reply. With no body, the reason phrase is the body, so a browser shows something. A reply to HEAD has the same headers, but no body (RFC 9110 §9.3.2).
-response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head: Bool = false -> String;
+response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head: Bool = false, keep_alive: Bool = false -> String;
 	reason := REASON_PHRASES[status] or '' # the reason phrase can be empty (RFC 9112 §4)
 
 	# A 1xx, 204 or 304 reply has no body, and a 1xx or 204 reply has no Content-Length (RFC 9110 §6.4.1, §8.6)
@@ -477,9 +486,14 @@ response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head:
 	for headers
 		text += "`at`: `it`\r\n"
 	end
-	# Content-Length counts bytes, not characters. Each reply closes its connection, until keep-alive.
+	# Content-Length counts bytes, not characters. It also tells a client on a kept connection where this reply ends
 	text += "Content-Length: `body.bytesize`\r\n" unless no_length
-	text += "Connection: close\r\n"
+	# HTTP/1.1 keeps a connection without the keep-alive line, but an HTTP/1.0 client needs it
+	if keep_alive
+		text += "Connection: keep-alive\r\n"
+	else
+		text += "Connection: close\r\n"
+	end
 	text += "\r\n"
 	text += body unless head
 

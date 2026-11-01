@@ -130,6 +130,13 @@ accept_items := parse_accept("text/html, application/json;q=0.9, */*;q=0.1", "*/
 @out response_text(200, "héllo").include?("Content-Length: 6\r\n")                                             # out: true
 @out response_text(200, "hi", head := true).ends_with?("Content-Length: 2\r\nConnection: close\r\n\r\n")       # out: true
 @out response_text(405, headers := {'Allow' = 'GET, HEAD'}).include?("Allow: GET, HEAD\r\n")                   # out: true
+@out response_text(200, "hi", keep_alive := true).include?("Connection: keep-alive\r\n")                        # out: true
+
+@out keeps_alive?(parse_request(Buffer.from_string("GET / HTTP/1.1\r\nHost: x\r\n\r\n")))                                    # out: true
+@out keeps_alive?(parse_request(Buffer.from_string("GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")))             # out: false
+@out keeps_alive?(parse_request(Buffer.from_string("GET / HTTP/1.1\r\nHost: x\r\nConnection: Upgrade, Close\r\n\r\n")))    # out: false
+@out keeps_alive?(parse_request(Buffer.from_string("GET / HTTP/1.0\r\nHost: x\r\n\r\n")))                                    # out: false
+@out keeps_alive?(parse_request(Buffer.from_string("GET / HTTP/1.0\r\nHost: x\r\nConnection: Keep-Alive\r\n\r\n")))        # out: true
 
 @out status_for(nil\Bad_Request)               # out: 400
 @out status_for(nil\Not_Implemented)           # out: 501

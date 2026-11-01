@@ -73,11 +73,11 @@ Http_Server {
 		connections = connections.select(it; it.socket.@object_id != connection.socket.@object_id)
 	)
 
-	# Adds the bytes, and replies when a whole request has come. Gives true when the connection is done
+	# Adds the bytes, and replies to each whole request in them, in order. Gives true when the connection is done
 	serve ( connection: Connection, bytes: Buffer -> Bool;
 		connection.buffer.append(bytes)
-		request := parse_request(connection.buffer)
-		if request
+		# A client can send the next request before it reads the reply to the one before (RFC 9112 §9.3.2), so the buffer can hold more than one
+		while request := parse_request(connection.buffer)
 			(status, headers, body, streaming) := respond(request)
 			if streaming
 				connection.socket.write(stream_head_text(status, headers) + body)
@@ -85,8 +85,13 @@ Http_Server {
 				return false
 			end
 
-			connection.socket.write(response_text(status, body, headers, head := request.method == HEAD))
-			return true
+			keep_open := keeps_alive?(request)
+			connection.socket.write(response_text(status, body, headers, head := request.method == HEAD, keep_alive := keep_open))
+			return true unless keep_open
+
+			# The bytes after this request belong to the next one
+			connection.buffer        = connection.buffer.slice(request.message_length)
+			connection.continue_sent = false
 		end
 
 		if request =>= nil\Incomplete_Message
