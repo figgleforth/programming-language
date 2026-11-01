@@ -486,6 +486,16 @@ response_text ( status: Int, body: String = nil, headers: Dictionary = {}, head:
 	text
 )
 
+# The head of a reply whose body has no set length, such as an event stream: the body ends when the server closes the connection (RFC 9112 §6.3)
+stream_head_text ( status: Int, headers: Dictionary = {} -> String;
+	text := "HTTP/1.1 `status` `REASON_PHRASES[status] or ''`\r\n"
+	for headers
+		text += "`at`: `it`\r\n"
+	end
+	text += "Connection: close\r\n"
+	text + "\r\n"
+)
+
 # Each error kind -> its status. nil means no reply: the client is gone.
 status_for ( error -> Int | Nil;
 	if error

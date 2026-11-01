@@ -1509,7 +1509,7 @@ supplies := <water: Number = 40, wood: Number = 12>
 1. Compose with `Server` type
 2. Define routes with HTTP method syntax
 3. Boot with `@start_server` (background thread; `@stop_server` to shut one down)
-4. The server is written in the language (`lang/http_server.code`). One thread waits on every connection at once, so a slow client holds up no one, and each reply closes its connection. It does not stream the hot reload events yet, so a program that `bin/program` watches for changes still runs on Ruby's WEBrick. `CODE_SERVER=webrick` runs WEBrick for every program
+4. The server is written in the language (`lang/http_server.code`). One thread waits on every connection at once, so a slow client holds up no one, and each reply closes its connection. It also streams the hot reload events. `CODE_SERVER=webrick` runs Ruby's WEBrick in its place
 
 ```code
 @load 'lang/server.code'

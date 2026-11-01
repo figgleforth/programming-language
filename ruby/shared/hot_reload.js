@@ -1,6 +1,7 @@
 // Browser side of hot reload. Injected into every HTML response (right after live_reload.js) ONLY when
 // the server runs under Hot_Reloader -- see Interpreter#hot_reload. Talks to the matching
-// hot-reload endpoint (DOM_HOT_RELOAD_URL, filled in by the server) mounted in Interpreter#start_server.
+// hot-reload endpoint (DOM_HOT_RELOAD_URL, filled in by the server): Interpreter#respond_to_http_request on the
+// .code server, or the WEBrick mount in Interpreter#start_server.
 //
 // How it works: the endpoint streams one `data: <token>` line, where <token> is unique to the
 // running Interpreter. On a hot reload the whole Interpreter is rebuilt, so the token changes.

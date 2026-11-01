@@ -955,7 +955,7 @@ Apps run on it. One thread waits on every connection at once, so a slow client h
 ```sh
 bin/program interpf app.code             # the .code server
 bin/program interpf app.code -webrick    # Ruby's WEBrick, the same as CODE_SERVER=webrick
-bin/program app.code                     # hot reload: WEBrick for now, until the .code server streams its events
+bin/program app.code                     # the .code server, with hot reload
 ```
 
 ### Every stage, inspectable
@@ -1000,8 +1000,8 @@ App + Server {
 @start_server App()
 
 # Today: .code reads each request from a socket and parses it, then Ruby finds the route.
-# Coming soon: hot reload on the .code server, connections that stay open,
-# and the route lookup in .code, so you can read and change every step.
+# Coming soon: connections that stay open, and the route lookup in .code,
+# so you can read and change every step.
 ```
 
 ### Checks before the run, in any order

@@ -14,9 +14,10 @@ class Http_Server_Test < Base_Test
 		@interpreter&.stop_server @app if @app
 	end
 
-	def start_app
+	def start_app hot_reload: false
 		@interpreter                = Code::Interpreter.new
 		@interpreter.server_backend = :code
+		@interpreter.hot_reload     = hot_reload
 		@app                        = @interpreter.run <<~CODE
 			@load 'lang/server'
 
@@ -187,5 +188,23 @@ class Http_Server_Test < Base_Test
 			second.run "y := 2\ny"
 		end.value
 		assert_equal 2, out
+	end
+
+	# The hot reload stream stays open and gives the interpreter's token, and other requests go on while it is open
+	def test_the_hot_reload_stream_stays_open_beside_other_requests
+		start_app hot_reload: true
+		stream = TCPSocket.new 'localhost', @port
+		stream.write "GET #{Code::DOM_HOT_RELOAD_URL} HTTP/1.1\r\nHost: x\r\nAccept: text/event-stream\r\n\r\n"
+
+		head = Timeout.timeout(5) { stream.readpartial 4096 }
+		assert_match "HTTP/1.1 200 OK\r\n", head
+		assert_match "Content-Type: text/event-stream\r\n", head
+		refute_match 'Content-Length', head
+		assert_match "data: #{@interpreter.hot_reload_token}\n\n", head
+
+		assert_equal 'hello', get('/hello').body
+		assert_nil IO.select([stream], nil, nil, 0.3), 'the stream should stay open, with nothing more to read'
+	ensure
+		stream&.close
 	end
 end

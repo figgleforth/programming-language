@@ -5,6 +5,7 @@ Connection <
 	socket: Tcp_Socket
 	buffer: Buffer
 	continue_sent: Bool
+	streaming: Bool   # an event stream: it stays open, and the server only writes to it
 >
 
 # The web server. One thread waits on every socket at once (wait_for_ready), so a slow client never holds up the others.
@@ -20,7 +21,7 @@ Http_Server {
 		self.connections = []
 	)
 
-	# The routes' reply to one request: [status, headers, body] (Interpreter#respond_to_http_request)
+	# The routes' reply to one request: [status, headers, body, streaming] (Interpreter#respond_to_http_request)
 	respond ( request: Request -> Array; @ruby )
 
 	# True after Interpreter#stop_server asks the loop to end
@@ -32,11 +33,12 @@ Http_Server {
 			for listener.wait_for_ready(connections.map(it; it.socket), SHORT_STOP_WAIT_WHILE_RUNNING)
 				ready := it
 				if ready.@object_id == listener.@object_id
-					connections << Connection(listener.wait_for_connection(), Buffer(), false)
+					connections << Connection(listener.wait_for_connection(), Buffer(), false, false)
 				else
 					connection := connections.find(it; it.socket.@object_id == ready.@object_id)
 					bytes      := ready.read_available()
-					if not bytes or serve(connection, bytes)
+					# A stream's client sends nothing more, so its bytes only say whether it closed
+					if not bytes or (not connection.streaming and serve(connection, bytes))
 						ready.close()
 						connections = connections.select(it; it.socket.@object_id != ready.@object_id)
 					end
@@ -56,7 +58,13 @@ Http_Server {
 		connection.buffer.append(bytes)
 		request := parse_request(connection.buffer)
 		if request
-			(status, headers, body) := respond(request)
+			(status, headers, body, streaming) := respond(request)
+			if streaming
+				connection.socket.write(stream_head_text(status, headers) + body)
+				connection.streaming = true
+				return false
+			end
+
 			connection.socket.write(response_text(status, body, headers, head := request.method == HEAD))
 			return true
 		end

@@ -1084,8 +1084,7 @@ module Code
 		end
 
 		def start_server server
-			# Under Hot_Reloader, WEBrick still runs: the .code server streams no hot reload events yet (plan p2, step 10)
-			return start_code_server server if server_backend == :code && !hot_reload
+			return start_code_server server if server_backend == :code
 
 			require 'webrick' # loaded on first use, since it costs ~30 ms at startup
 			ready = Queue.new
@@ -1157,11 +1156,19 @@ module Code
 			server.server_thread&.kill
 		end
 
-		# The routes' reply to one Request from lang/http_server.code: [status, headers, body]. A Ruby error gives a 500, so one request cannot stop the loop.
+		# The routes' reply to one Request from lang/http_server.code: [status, headers, body, streaming]. A Ruby error gives a 500, so one request cannot stop the loop.
 		def respond_to_http_request server, request
 			text    = ->(value) { value.respond_to?(:value) ? value.value : value }
 			target  = request.get 'target'
+			path    = URI.decode_uri_component text.(target.has?('path') ? target.get('path') : target.get('value'))
 			method  = text.(request.get 'method')
+
+			# The hot reload stream (hot_reload.js) stays open. Its one event is this interpreter's token, and Hot_Reloader starts a new interpreter on a change, so the page sees another token when it connects again.
+			if hot_reload && path == DOM_HOT_RELOAD_URL
+				headers = adopt_type Code::Dictionary.new('Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache'), 'Dictionary'
+				return wrap_prog_array [200, headers, "retry: 300\n\ndata: #{hot_reload_token}\n\n", true] # retry: how long EventSource waits before it connects again
+			end
+
 			by_name = request.get('headers').get('by_name').hash.to_h { |name, value| [text.(name), [text.(value)]] }
 			cookies = by_name.fetch('cookie', []).flat_map { it.split ';' }.filter_map do |pair|
 				name, value = pair.strip.split '=', 2
@@ -1169,7 +1176,7 @@ module Code
 			end
 
 			adapted = Code::Http_Server::Webrick_Request.new(
-				path:           URI.decode_uri_component(text.(target.has?('path') ? target.get('path') : target.get('value'))),
+				path:           path,
 				query_string:   (text.(target.get 'query') if target.has? 'query'),
 				request_method: method == 'HEAD' ? 'GET' : method, # as WEBrick does: HEAD runs the GET route, and the loop leaves out the body
 				content_type:   by_name['content-type']&.first,
@@ -1183,11 +1190,11 @@ module Code
 			handle_request server, adapted, reply
 
 			headers = adopt_type Code::Dictionary.new(reply.header.to_h { |name, value| [name.to_s, text.(value).to_s] }), 'Dictionary'
-			wrap_prog_array [text.(reply.status).to_i, headers, text.(reply.body).to_s]
+			wrap_prog_array [text.(reply.status).to_i, headers, text.(reply.body).to_s, false]
 		rescue => e
 			warn "\n[Code Server Error] #{e.class}: #{e.message}"
 			warn e.backtrace.first(10).map { "  #{it}" }.join("\n")
-			wrap_prog_array [500, adopt_type(Code::Dictionary.new, 'Dictionary'), 'Internal Server Error']
+			wrap_prog_array [500, adopt_type(Code::Dictionary.new, 'Dictionary'), 'Internal Server Error', false]
 		ensure
 			# A route that raises can leave its scopes on the stack. Under WEBrick nothing noticed; here the loop's own call frame is below them.
 			if saved_stack
