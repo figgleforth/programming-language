@@ -19,7 +19,7 @@ class E2E_Server_Test < Minitest::Test
 
 	# `#start_server` used to spawn WEBrick in a Thread.new and return immediately, with nothing synchronizing the caller to when WEBrick actually starts listening. Thread.new returns before the new thread has run at all, so `webrick_server.status` was still :Stop right after start_server returned.
 	# Interpreter#run's own "did a server start?" check (`servers.any? { status == :Running }`) raced that and prog almost every time, so `bin/prog run`/`@start` would just silently exit instead of staying up. start_server now blocks on a StartCallback until WEBrick is genuinely :Running (or raises if it failed to start), so this must be true with no sleep at all.
-	def test_start_server_blocks_until_webrick_is_actually_running_regression
+	def test_start_server_blocks_until_the_server_is_running_regression
 		code = <<~CODE
 		    Server {
 		    	port,
@@ -43,7 +43,7 @@ class E2E_Server_Test < Minitest::Test
 		@server_runner.routes = @interpreter.collect_routes_from_instance server_instance
 		@interpreter.start_server @server_runner
 
-		assert_equal :Running, @server_runner.webrick_server.status
+		assert @interpreter.server_running?(@server_runner)
 	end
 
 	# A route's tokens start with the page's live page instance id. After the request, there is no token counter.
@@ -977,12 +977,12 @@ class E2E_Server_Test < Minitest::Test
 		assert_equal 'symbol: World, string: World', response.body
 	end
 
-	# `response.redirect` was completely unreachable: Server_Response is a plain Scope, not a Code::Instance,
+	# `response.redirect` was completely unreachable: Response is a plain Scope, not a Code::Instance,
 	# and #build_prog_response pokes `declarations` directly rather than running the Type's own body
-	# on it, so `redirect` (declared in lang/server.code's `Server_Response {}`) never got copied onto the
+	# on it, so `redirect` (declared in lang/server.code's `Response {}`) never got copied onto the
 	# instance -- and the Instance-fallback lookup that would normally rescue that is gated on
 	# `is_a?(Code::Instance)`, so it never fired either. Every call raised `Undeclared_Identifier:
-	# redirect has not been declared`. Fixed with a real `Code::Server_Response#proxy_redirect` (scopes.rb).
+	# redirect has not been declared`. Fixed with a real `Code::Response#proxy_redirect` (scopes.rb).
 	def test_response_redirect
 		code = <<~CODE
 		    @load 'lang/server'

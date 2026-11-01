@@ -141,7 +141,7 @@ reset()
 randomize_points()
 
 until Raylib.window_should_close?()
-	stop if Raylib.is_key_pressed?(:escape) || Raylib.is_key_pressed?(:period)
+	stop if Raylib.is_key_pressed?(:escape) or Raylib.is_key_pressed?(:period)
 
 #	if Raylib.is_key_pressed?(:r)
 #		reset()

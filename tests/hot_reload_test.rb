@@ -33,7 +33,7 @@ class Hot_Reload_Test < Base_Test
 
 		assert_instance_of Code::Server, result
 		assert_equal 1, @interpreter.servers.length
-		assert_equal :Running, @interpreter.servers.first.webrick_server.status
+		assert @interpreter.server_running?(@interpreter.servers.first)
 	end
 
 	def test_shutdown_all_servers_stops_every_server_and_empties_the_list
@@ -45,7 +45,7 @@ class Hot_Reload_Test < Base_Test
 		@interpreter.shutdown_all_servers
 
 		assert_empty @interpreter.servers
-		refute_equal :Running, server.webrick_server.status
+		refute @interpreter.server_running?(server)
 	end
 
 	def test_reset_file_caches_clears_every_parse_cache

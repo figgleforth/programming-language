@@ -1,0 +1,77 @@
+@load 'lang/http'
+
+# One client's connection, and the bytes that came on it but are not parsed yet
+Connection <
+	socket: Tcp_Socket
+	buffer: Buffer
+	continue_sent: Bool
+>
+
+# The web server. One thread waits on every socket at once (wait_for_ready), so a slow client never holds up the others.
+Http_Server {
+	SHORT_STOP_WAIT_WHILE_RUNNING := 0.2
+
+	listener: Tcp_Server
+	connections: Array
+
+	# Opens the port. A port that is in use raises here, before the loop starts
+	listen ( port: Int;
+		self.listener    = Tcp_Server(port)
+		self.connections = []
+	)
+
+	# The routes' reply to one request: [status, headers, body] (Interpreter#respond_to_http_request)
+	respond ( request: Request -> Array; @ruby )
+
+	# True after Interpreter#stop_server asks the loop to end
+	stopping? (-> Bool; @ruby )
+
+	run (;
+		until stopping?()
+			# A short wait, so the loop sees a stop soon
+			for listener.wait_for_ready(connections.map(it; it.socket), SHORT_STOP_WAIT_WHILE_RUNNING)
+				ready := it
+				if ready.@object_id == listener.@object_id
+					connections << Connection(listener.wait_for_connection(), Buffer(), false)
+				else
+					connection := connections.find(it; it.socket.@object_id == ready.@object_id)
+					bytes      := ready.read_available()
+					if not bytes or serve(connection, bytes)
+						ready.close()
+						connections = connections.select(it; it.socket.@object_id != ready.@object_id)
+					end
+				end
+			end
+		end
+
+		for connections
+			it.socket.close()
+		end
+
+		listener.close()
+	)
+
+	# Adds the bytes, and replies when a whole request has come. Gives true when the connection is done
+	serve ( connection: Connection, bytes: Buffer -> Bool;
+		connection.buffer.append(bytes)
+		request := parse_request(connection.buffer)
+		if request
+			(status, headers, body) := respond(request)
+			connection.socket.write(response_text(status, body, headers, head := request.method == HEAD))
+			return true
+		end
+
+		if request =>= nil\Incomplete_Message
+			# The client sends the body only after this line (RFC 9110 §10.1.1)
+			if request.@tag.?expects_continue and not connection.continue_sent
+				connection.socket.write("HTTP/1.1 100 Continue\r\n\r\n")
+				connection.continue_sent = true
+			end
+			return false
+		end
+
+		status := status_for(request)
+		connection.socket.write(response_text(status)) if status
+		true
+	)
+}

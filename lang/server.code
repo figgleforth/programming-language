@@ -1,4 +1,4 @@
-Server_Request {
+Request {
 	path,
 	method,
 	query,
@@ -7,7 +7,7 @@ Server_Request {
 	body,
 }
 
-Server_Response {
+Response {
 	status,
 	headers,
 	body,

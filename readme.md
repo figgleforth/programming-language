@@ -931,6 +931,33 @@ bin/program app.code
 bin/program run app.code         # the same
 ```
 
+### A server written in .code
+
+The HTTP server is written in the language, on two small socket types. It parses the bytes that have come so far, and waits for more when a request is not whole yet. Each error is a tagged nil that carries its reason.
+
+```code
+@load 'lang/http'
+
+request := parse_request(Buffer.from_string("GET /tasks?sort=new HTTP/1.1\r\nHost: x\r\n\r\n"))
+request.target.path              # '/tasks'
+request.target.query             # 'sort=new'
+
+parse_request(Buffer.from_string("GET /tasks HT"))     # nil\Incomplete_Header_Section -- wait for more
+
+brew := parse_request(Buffer.from_string("BREW / HTTP/1.1\r\nHost: x\r\n\r\n"))
+brew                             # nil\Not_Implemented
+brew.@tag.message                # 'Unknown method BREW'
+status_for(brew)                 # 501
+```
+
+Apps run on it. One thread waits on every connection at once, so a slow client holds up no one.
+
+```sh
+bin/program interpf app.code             # the .code server
+bin/program interpf app.code -webrick    # Ruby's WEBrick, the same as CODE_SERVER=webrick
+bin/program app.code                     # hot reload: WEBrick for now, until the .code server streams its events
+```
+
 ### Every stage, inspectable
 
 See the output of each step with `-p`.
@@ -961,9 +988,9 @@ App + Server {
 # "Clicked 1 times".
 ```
 
-### A server written in .code
+### All of the server in .code
 
-The code you write stays the same, and the server under it moves from Ruby into the language.
+The code you write stays the same, and more of the server under it moves into the language.
 
 ```code
 App + Server {
@@ -972,9 +999,9 @@ App + Server {
 
 @start_server App()
 
-# Today: Ruby's WEBrick reads each request.
-# Coming soon: .code reads it from a plain socket, parses the HTTP,
-# and finds the route, so you can read and change every step.
+# Today: .code reads each request from a socket and parses it, then Ruby finds the route.
+# Coming soon: hot reload on the .code server, connections that stay open,
+# and the route lookup in .code, so you can read and change every step.
 ```
 
 ### Checks before the run, in any order

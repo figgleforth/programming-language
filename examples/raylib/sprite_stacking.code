@@ -43,10 +43,10 @@ until Raylib.window_should_close?()
 
 	# A positive/negative offset to the spin speed, so A/D (or the arrows) spin right/left at
 	# different rates rather than snapping straight to a fixed speed.
-	if Raylib.is_key_down?(:left) || Raylib.is_key_down?(:a)
+	if Raylib.is_key_down?(:left) or Raylib.is_key_down?(:a)
 		rotation_speed -= SPEED_CHANGE
 	end
-	if Raylib.is_key_down?(:right) || Raylib.is_key_down?(:d)
+	if Raylib.is_key_down?(:right) or Raylib.is_key_down?(:d)
 		rotation_speed += SPEED_CHANGE
 	end
 

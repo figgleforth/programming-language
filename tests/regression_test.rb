@@ -1696,4 +1696,22 @@ class Regression_Test < Base_Test
 		CODE
 		assert_equal 'nil\Bad_Request nil\Bad_Request', out.to_s
 	end
+
+	# A value that Ruby builds (a socket from `wait_for_connection`) found its type only in the standard library or in Global, so with a named load it reached none of its type's methods, and `.read_available` called the Ruby method instead of naming it
+	def test_a_value_ruby_builds_finds_its_type_in_a_named_load
+		out = Code.interp <<~CODE
+			Net := @load 'lang/tcp_server'
+
+			server     := Net.Tcp_Server(0)
+			client     := Net.Tcp_Socket('localhost', server.port)
+			connection := server.wait_for_connection()
+			method     := connection.read_available
+
+			client.close()
+			connection.close()
+			server.close()
+			method
+		CODE
+		assert_instance_of Code::Func, out
+	end
 end

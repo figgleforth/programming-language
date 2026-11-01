@@ -34,12 +34,17 @@ module Code
 				                            + Restarts process on any change,
 				                              instead of reloading in place
 
+				-webrick | --webrick        Serve with Ruby's WEBrick, not the
+				                            server in lang/http_server.code
+				                            (sets CODE_SERVER=webrick)
+
 			--- EXAMPLES
 				bin/program examples/hello_world.code -p
 				bin/program lex "x = 5 + 3" -p
 
 				bin/program parsef examples/hello_world.code -p
 				bin/program interp "4815" -p
+				bin/program app.code -webrick
 
 		INST
 
@@ -53,6 +58,9 @@ module Code
 			@arg          = argv[1]
 			@print_output = argv.include?('-p') || argv.include?('--puts')
 			@reload       = argv.include?('-r') || argv.include?('--reload')
+
+			# Read by each Interpreter it makes (Interpreter#server_backend), and by a process that -r starts again
+			ENV['CODE_SERVER'] = 'webrick' if argv.include?('-webrick') || argv.include?('--webrick')
 		end
 
 		def run

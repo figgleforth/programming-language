@@ -79,22 +79,22 @@ Game {
 		dx := 0
 		dy := 0
 
-		if Raylib.is_key_down?(:right) || Raylib.is_key_down?(:d)
+		if Raylib.is_key_down?(:right) or Raylib.is_key_down?(:d)
 			dx += 1
 		end
-		if Raylib.is_key_down?(:left) || Raylib.is_key_down?(:a)
+		if Raylib.is_key_down?(:left) or Raylib.is_key_down?(:a)
 			dx -= 1
 		end
-		if Raylib.is_key_down?(:down) || Raylib.is_key_down?(:s)
+		if Raylib.is_key_down?(:down) or Raylib.is_key_down?(:s)
 			dy += 1
 		end
-		if Raylib.is_key_down?(:up) || Raylib.is_key_down?(:w)
+		if Raylib.is_key_down?(:up) or Raylib.is_key_down?(:w)
 			dy -= 1
 		end
 
 		# Normalized -- without this, holding two keys at once (a diagonal) moves sqrt(2) times
 		# faster than holding just one, since x and y would each get the *full* speed independently.
-		if dx != 0 || dy != 0
+		if dx != 0 or dy != 0
 			length := (dx * dx + dy * dy).sqrt()
 			x += (dx / length) * speed * dt
 			y += (dy / length) * speed * dt

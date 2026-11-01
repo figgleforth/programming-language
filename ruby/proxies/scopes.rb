@@ -283,16 +283,16 @@ module Code
 
 	class Server < Instance
 		DEFAULT_PORT = 8080
-		attr_accessor :port, :routes, :webrick_server, :server_thread
+		attr_accessor :port, :routes, :webrick_server, :server_thread, :http_server
 	end
 
-	class Server_Request < Scope
+	class Request < Scope
 		def initialize
-			super 'Server_Request'
+			super 'Request'
 		end
 	end
 
-	class Server_Response < Scope
+	class Response < Scope
 		attr_accessor :webrick_response
 
 		def proxy_redirect location

@@ -35,7 +35,20 @@ module Code
 			end
 		end
 
-		attr_accessor :input, :lexer, :parser, :load_standard_library, :stack, :route_functions_by_route_name, :servers, :live_page_instances, :live_page_instance_limit, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :hot_reload, :hot_reload_token, :render_token_counter
+		attr_accessor :input, :lexer, :parser, :load_standard_library, :route_functions_by_route_name, :servers, :live_page_instances, :live_page_instance_limit, :last_output, :current_source_file, :stdlib_scope, :declarations, :global, :serve_in_foreground, :hot_reload, :hot_reload_token, :render_token_counter, :server_backend
+
+		# The scopes the running code sees. The server loop runs on its own thread while the program's thread can still run code, and each call swaps the stack (#interp_func_body), so a thread that runs code on its own keeps its own stack.
+		def stack
+			Thread.current[@stack_key] || @stack
+		end
+
+		def stack= scopes
+			if Thread.current[@stack_key]
+				Thread.current[@stack_key] = scopes
+			else
+				@stack = scopes
+			end
+		end
 
 		# One file mid-load. `declarations` is filled in when the file pauses at its own @load, and `cycle_files` lists the paused files this one closed a load cycle back into -- see #resolve_forward_declaration.
 		Loading_File = ::Struct.new :filepath, :scope, :declarations, :cycle_files
@@ -72,8 +85,10 @@ module Code
 
 			@load_standard_library = true
 			@serve_in_foreground   = true # Hot_Reloader flips this -- see #run
+			@server_backend        = ENV['CODE_SERVER'] == 'webrick' ? :webrick : :code # :code is lang/http_server.code, see #start_code_server. CODE_SERVER=webrick keeps WEBrick until it is deleted
 			@input                 = [] # [Code::Expression]
 			@stack                 = [] # [Code::Scope]
+			@stack_key             = :"code_stack_#{object_id}" # a thread that runs code on its own (the server loop) keeps its stack here, see #stack
 			@servers               = [] # [Code::Server]
 			@loading_files         = [] # [Loading_File] files mid-load, outermost first -- see #load_file_into_scope
 			@methods_before_push   = [] # [[Code::Type, {::String => Code::Func}]] for each open `@push_scope`, see #give_overridden_methods_to_instances
@@ -133,7 +148,7 @@ module Code
 			ensure
 				@loading_files.pop if main_file
 			end
-			if servers.any? { |server| server.webrick_server&.status == :Running }
+			if servers.any? { server_running? it }
 				# Hot_Reloader sets this false: it owns the wait loop itself (watching files, tearing
 				# servers down and rebuilding on change), so `run` must return with the servers left
 				# running on their own threads instead of blocking here forever.
@@ -492,10 +507,15 @@ module Code
 			instance.enclosing_scope = type if type
 		end
 
-		# The type that a value Ruby builds belongs to. A program's own `Range <v: Int>` is another type with the same name, so ranges keep the standard library's `Range`. A replacement that composes the built-in (`Mine + Array {}`, then `Array := Mine`) takes over in the scope that declares it, so each literal written there gets what it adds; the nearest declaration of the name decides. A type that a program loads itself (`Pixel` in lang/raylib.code) is only in Global.
+		# The type that a value Ruby builds belongs to. A program's own `Range <v: Int>` is another type with the same name, so ranges keep the standard library's `Range`. A replacement that composes the built-in (`Mine + Array {}`, then `Array := Mine`) takes over in the scope that declares it, so each literal written there gets what it adds; the nearest declaration of the name decides. A type that a program loads itself (`Pixel` in lang/raylib.code) is in Global, or in the scope of a named load.
 		def builtin_type name
 			builtin = @stdlib_scope[name] if @stdlib_scope&.has? name
-			return (global[name] if global&.has? name) unless builtin
+			unless builtin
+				return global[name] if global&.has? name
+
+				# A type loaded into a scope of its own (`Net := @load 'lang/tcp_server'`, the server's library): the nearest one on the stack
+				return stack.reverse_each.find { it.respond_to?(:declarations) && it.declarations[name].is_a?(Code::Type) }&.declarations&.[](name)
+			end
 
 			# Global last, also when a dot access has swapped it off the stack (#interp_member_access). The standard library's own declaration is the built-in itself, not a shadow, so a method it declares (`split`, `map`) still builds a replaced Global `Array`.
 			[*stack.reverse_each, global].each do |scope|
@@ -1027,7 +1047,46 @@ module Code
 			end
 		end
 
+		def server_running? server
+			return server.webrick_server.status == :Running if server.webrick_server
+
+			!!server.server_thread&.alive?
+		end
+
+		# The .code server (lang/http_server.code) on a thread of its own, with a stack of its own (#stack). Its library loads once, into a scope of its own, so its Request and Connection do not meet the program's own names. A port in use raises here, on the caller's thread.
+		def start_code_server server
+			library = @http_server_library ||= Code::Scope.new('Http_Server_Library').tap do |scope|
+				saved_stack = stack
+				self.stack  = [global]
+				begin
+					load_file_into_scope 'lang/http_server', scope
+				ensure
+					self.stack = saved_stack
+				end
+			end
+
+			no_arguments           = Code::Call_Expr.new
+			no_arguments.arguments = []
+			http_server             = interp_type_call library['Http_Server'], no_arguments
+			http_server.interpreter = self
+			http_server.app         = server
+			interp_func_body http_server['listen'], no_arguments, arg_values: [server.port]
+
+			server.http_server   = http_server
+			stack_key            = @stack_key
+			server.server_thread = Thread.new do
+				Thread.current[stack_key] = [global]
+				interp_func_body http_server['run'], no_arguments
+			rescue => e
+				warn "\n[Code Server] the server loop stopped: #{e.class}: #{e.message}"
+				warn e.backtrace.first(10).map { "  #{it}" }.join("\n")
+			end
+		end
+
 		def start_server server
+			# Under Hot_Reloader, WEBrick still runs: the .code server streams no hot reload events yet (plan p2, step 10)
+			return start_code_server server if server_backend == :code && !hot_reload
+
 			require 'webrick' # loaded on first use, since it costs ~30 ms at startup
 			ready = Queue.new
 
@@ -1090,11 +1149,51 @@ module Code
 		end
 
 		def stop_server server
+			server.http_server&.stop!
 			server.webrick_server&.shutdown
 			# Let WEBrick's accept loop actually return (and release the listening socket) before
 			# forcing the thread down -- otherwise a quick restart on the same port can hit EADDRINUSE.
 			server.server_thread&.join(3)
 			server.server_thread&.kill
+		end
+
+		# The routes' reply to one Request from lang/http_server.code: [status, headers, body]. A Ruby error gives a 500, so one request cannot stop the loop.
+		def respond_to_http_request server, request
+			text    = ->(value) { value.respond_to?(:value) ? value.value : value }
+			target  = request.get 'target'
+			method  = text.(request.get 'method')
+			by_name = request.get('headers').get('by_name').hash.to_h { |name, value| [text.(name), [text.(value)]] }
+			cookies = by_name.fetch('cookie', []).flat_map { it.split ';' }.filter_map do |pair|
+				name, value = pair.strip.split '=', 2
+				Code::Http_Server::Webrick_Cookie.new(name, value) if name && value
+			end
+
+			adapted = Code::Http_Server::Webrick_Request.new(
+				path:           URI.decode_uri_component(text.(target.has?('path') ? target.get('path') : target.get('value'))),
+				query_string:   (text.(target.get 'query') if target.has? 'query'),
+				request_method: method == 'HEAD' ? 'GET' : method, # as WEBrick does: HEAD runs the GET route, and the loop leaves out the body
+				content_type:   by_name['content-type']&.first,
+				body:           request.get('body').io_buffer.get_string.force_encoding(Encoding::UTF_8).scrub,
+				header:         by_name,
+				cookies:        cookies
+			)
+			reply        = Code::Http_Server::Webrick_Reply.new 200, {}, ''
+			saved_stack  = stack
+			saved_scopes = stack.map { it }
+			handle_request server, adapted, reply
+
+			headers = adopt_type Code::Dictionary.new(reply.header.to_h { |name, value| [name.to_s, text.(value).to_s] }), 'Dictionary'
+			wrap_prog_array [text.(reply.status).to_i, headers, text.(reply.body).to_s]
+		rescue => e
+			warn "\n[Code Server Error] #{e.class}: #{e.message}"
+			warn e.backtrace.first(10).map { "  #{it}" }.join("\n")
+			wrap_prog_array [500, adopt_type(Code::Dictionary.new, 'Dictionary'), 'Internal Server Error']
+		ensure
+			# A route that raises can leave its scopes on the stack. Under WEBrick nothing noticed; here the loop's own call frame is below them.
+			if saved_stack
+				saved_stack.replace saved_scopes
+				self.stack = saved_stack
+			end
 		end
 
 		def handle_request server, request, response
@@ -1305,9 +1404,6 @@ module Code
 
 					result
 
-				rescue WEBrick::HTTPStatus::Status => e
-					raise e
-
 				rescue Code::Route_Param_Type_Mismatch => e
 					response.status                 = 404
 					response.body                   = "<h1>404 Not Found</h1>\n<p>#{CGI.escapeHTML e.message}</p>"
@@ -1399,12 +1495,12 @@ module Code
 		end
 
 		def build_prog_request path_string, http_method, body_hash, query_params, url_params, headers_hash
-			req          = Code::Server_Request.new
+			req          = Code::Request.new
 			body_dict    = Code::Dictionary.new body_hash
 			query_dict   = Code::Dictionary.new query_params
 			params_dict  = Code::Dictionary.new url_params
 			headers_dict = Code::Dictionary.new headers_hash
-			link_instance_to_type req, 'Server_Request'
+			link_instance_to_type req, 'Request'
 			adopt_type body_dict, 'Dictionary'
 			adopt_type query_dict, 'Dictionary'
 			adopt_type params_dict, 'Dictionary'
@@ -1420,13 +1516,13 @@ module Code
 		end
 
 		def build_prog_response webrick_response
-			res                                  = Code::Server_Response.new
+			res                                  = Code::Response.new
 			res.webrick_response                 = webrick_response
 			res.declarations['webrick_response'] = webrick_response
 			res.declarations['status']           = 200
 			res.declarations['headers']          = {}
 			res.declarations['body']             = ''
-			link_instance_to_type res, 'Server_Response'
+			link_instance_to_type res, 'Response'
 			res
 		end
 
@@ -4204,8 +4300,8 @@ module Code
 		end
 
 		# @param route [Code::Route] The route (or the onclick callback wrapper) to run
-		# @param req [Code::Server_Request] Request object to inject
-		# @param res [Code::Server_Response] Response object to inject
+		# @param req [Code::Request] Request object to inject
+		# @param res [Code::Response] Response object to inject
 		# @param url_params [Hash] Extracted URL parameters (e.g., {"id" => "123"})
 		# @param server_instance [Code::Instance] The server instance (for accessing instance variables)
 		# @return The result of the callback

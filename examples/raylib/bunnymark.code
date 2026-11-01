@@ -61,10 +61,10 @@ until Raylib.window_should_close?()
 		for bunnies
 			it.position = Vector2(it.position.x + it.speed.x * dt, it.position.y + it.speed.y * dt)
 
-			if (it.position.x + bunny_width / 2) > Raylib.get_screen_width() || (it.position.x + bunny_width / 2) < 0
+			if (it.position.x + bunny_width / 2) > Raylib.get_screen_width() or (it.position.x + bunny_width / 2) < 0
 				it.speed = Vector2(0 - it.speed.x, it.speed.y)
 			end
-			if (it.position.y + bunny_height / 2) > Raylib.get_screen_height() || (it.position.y + bunny_height / 2 - 40) < 0
+			if (it.position.y + bunny_height / 2) > Raylib.get_screen_height() or (it.position.y + bunny_height / 2 - 40) < 0
 				it.speed = Vector2(it.speed.x, 0 - it.speed.y)
 			end
 		end
