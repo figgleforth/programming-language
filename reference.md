@@ -985,6 +985,9 @@ arr.0               # 1 (dot notation)
 arr.push(6)         # Add to end
 arr.pop()           # Remove from end
 arr.length()        # 5
+arr.count()         # 5 (the same as length)
+arr.count(3)        # 1 (how many values are == 3)
+arr.count(x; x > 2) # 3 (how many values the function returns true for)
 arr.first(2)        # [1, 2]
 arr.last(2)         # [4, 5]
 arr.reverse()

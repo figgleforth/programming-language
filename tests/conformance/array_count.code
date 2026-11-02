@@ -1,0 +1,12 @@
+# `count` with no argument is the length
+values := [1, 2, 1, 3, 1]
+@out values.count()                 # out: 5
+@out [].count()                     # out: 0
+
+# a value counts the values that are == to it
+@out values.count(1)                # out: 3
+@out values.count(7)                # out: 0
+@out [nil, 1, nil].count(nil)       # out: 2
+
+# a function counts the values it returns true for
+@out values.count(it; it > 1)       # out: 2

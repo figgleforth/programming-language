@@ -50,7 +50,18 @@ Array {
 	# get one random item
 	random (; @ruby )
 	length (; @ruby )
-	count := length
+	# No argument: the length. A function: how many values it returns true for. Any other value: how many values are == to it, in Ruby (fast, but it does not see an @operator ==).
+	count ( item := nil;
+		if item.@type == "Func"
+			n := 0
+			for values
+				n += 1 if item(it)
+			end
+			return n
+		end
+
+		@ruby
+	)
 	first ( count := 1; @ruby )
 	last ( count := 1; @ruby )
 	slice ( from, to; @ruby )
