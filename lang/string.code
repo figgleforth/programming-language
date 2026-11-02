@@ -93,6 +93,8 @@ String {
 	split_by_spaces (;
 		split(' ')
 	)
+
+	split_by_newlines (; split('\n') )
 }
 
 Str :: String
