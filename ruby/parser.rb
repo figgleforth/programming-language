@@ -380,7 +380,13 @@ module Code
 			start        = curr_lexeme
 			it           = When_Expr.new
 			it.operator  = eat 'when'
-			it.condition = parse_expression
+			# In a case, a `[` after a space starts the body, so `when Integer [value]` is the case `Integer` and the body `[value]`, not the subscript `Integer[value]`. `when list[0]` stays a subscript.
+			in_when_case, @in_when_case = @in_when_case, true
+			begin
+				it.condition = parse_expression
+			ensure
+				@in_when_case = in_when_case
+			end
 			it.body      = []
 
 			until curr? %w(when else elsif elif end)
@@ -468,6 +474,7 @@ module Code
 		end
 
 		def parse_circumfix_expr opening: '('
+			in_when_case, @in_when_case = @in_when_case, false # inside brackets, `a [0]` is a subscript again, also in a when case
 			start = curr_lexeme
 			it    = Code::Circumfix_Expr.new
 			it.grouping = CIRCUMFIX_GROUPINGS[opening] or raise "parse_circumfix_expr unknown opening #{opening}"
@@ -493,6 +500,8 @@ module Code
 			it.expressions = it.expressions.compact
 			closing        = eat closing
 			set_expr_location it, start, closing
+		ensure
+			@in_when_case = in_when_case
 		end
 
 		# A Dictionary entry is `key = value`. The old `{name: 'Jack'}` now reads `name: 'Jack'` as a type annotation, so catch it here: an item with a `:` (`{5: 'x'}`), or an annotated name that is not alone on its line (`{name: 'Jack', id: 4}`). An annotated name on its own line (`{ x: Int` then a new line) is a declaration in a block.
@@ -1808,7 +1817,7 @@ module Code
 			spread_receiver   = expr.is_a?(Code::Call_Expr) || expr.is_a?(Code::Subscript_Expr) || (expr.is_a?(Code::Infix_Expr) && expr.operator&.value == '.')
 			spread_lambda_arg = curr?('(') && spread_receiver && anon_func_param_list_follows?
 			call_expr         = curr?('(') && curr?(:delimiter) && (!func_declaration_follows? || spread_lambda_arg)
-			subscript         = curr? '['
+			subscript         = curr?('[') && !(@in_when_case && !lexeme_adjacent?(prev_lexeme, curr_lexeme))
 			if call_expr && (precedence_for(curr_lexeme.value) > precedence)
 				receiver      = expr
 				expr          = Code::Call_Expr.new

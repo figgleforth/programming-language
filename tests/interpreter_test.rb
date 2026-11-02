@@ -5795,6 +5795,48 @@ class Interpreter_Test < Base_Test
 		assert_equal 'catch-all', out
 	end
 
+	# A `[` after a space starts the body of a case, so `when Integer [value]` is not the subscript `Integer[value]`.
+	def test_a_spaced_bracket_after_a_when_case_starts_the_body
+		out = Code.interp <<~CODE
+		    axes_of ( value;
+		    	if value
+		    	when Integer [value]
+		    	when Struct value.@values
+		    	when it value
+		    	end
+		    )
+
+		    [axes_of(8), axes_of(<4, 2>), axes_of([4, 2])]
+		CODE
+		assert_equal [[8], [4, 2], [4, 2]], out.values.map(&:values)
+	end
+
+	# Only a spaced `[` ends the case: one with no space, or one inside brackets, is still a subscript, and outside a case nothing changes.
+	def test_a_subscript_in_a_when_case_still_works
+		out = Code.interp <<~CODE
+		    list := [3, 4]
+		    a := if 3
+		    when list[0] 'touching'
+		    end
+		    b := if 3
+		    when (list [0]) 'in parens'
+		    end
+		    [a, b, list [1]]
+		CODE
+		assert_equal ['touching', 'in parens', 4], out.values
+	end
+
+	# Before, the lexer joined the operator and the sign (`<-`, `*-`), and these gave wrong answers with no error.
+	def test_an_operator_then_a_negative_number_with_no_space
+		out = Code.interp <<~CODE
+		    x := 5
+		    y := 3
+		    y-=-1
+		    [x <-1, x ==-1, x *-1, x +-1, y, <-1, 0>.@values, (0..-1).to_a()]
+		CODE
+		assert_equal [false, false, -5, 4, 4, [-1, 0], []], out.values.map { it.respond_to?(:values) ? it.values : it }
+	end
+
 	def test_when_first_match_wins_no_fallthrough
 		printed = capture_stdout do
 			Code.interp <<~CODE

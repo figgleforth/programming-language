@@ -10,10 +10,18 @@ A good order
 
 @load 'lang/math' # for Vec2
 
+# A bug in the caller's code raises one of these, at the line that is wrong. A case that can happen in a correct program gives back a nil tagged with one, so the caller decides what to do. Out_Of_Bounds is Buffer's (lang/buffer.code), so `when nil\Out_Of_Bounds` catches both.
+Memory_Error        + Error <>
+Bad_Dimension       + Memory_Error <>                  # raised: a dimension that is not a positive Integer
+Wrong_Axis_Count    + Memory_Error <>                  # raised: a coord with more or fewer axes than the Memory
+Space_Full          + Memory_Error <>                  # given back by alloc: no room is left, so the caller can grow it, flush it, or stop
+Coord_Out_Of_Bounds + Out_Of_Bounds + Memory_Error <>  # raised with Boundary.FAIL, given back with Boundary.NIL
+Index_Out_Of_Bounds + Out_Of_Bounds + Memory_Error <>  # raised: to_coord got an index outside the cells
+
 # Memory is an n-dimensional view into the Buffer that stores the actual bytes.
 # Reading or writing one cell runs a pipeline, one step per enum:
 #   coord -> Boundary -> coord -> Layout -> index -> Storage -> slot -> Packing/Encoding -> bits
-# Only the baseline option of each step works now. Every other option raises "not supported".
+# Only the baseline option of each step works now (and Boundary.NIL). Every other option stops with a [TODO].
 Memory {
 	buffer: Buffer      # of bits
 	type: Symbol        # like :u8 or :f32
@@ -39,19 +47,17 @@ Memory {
 	# Memory(:u8, 8) is 1d, Memory(:f32, <8, 8>) is 2d, and so on. With no dimensions it is 8 x 8 x 1.
 	Self ( type: Symbol = :u8, dimensions: Struct | Array | Integer = <8, 8, 1>, offset: Int = 0;
 		# `<8, 8>` or `8` (1d) as an Array of axes: [8, 8], or [8].
-		if dimensions === Integer
-			dimensions = [dimensions]
-		elif dimensions === Struct
-			dimensions = dimensions.@values
+		dimensions = if dimensions
+		when Integer [dimensions]
+		when Struct dimensions.@values
+		when it dimensions
 		end
 
 		# Pre-calculate stride based on dimensions
 		strides_arr    := []
 		current_stride := 1
 		for dimensions
-			unless it === Integer and it > 0
-				@raise "Memory dimension `at` must be a positive Integer, got `it`"
-			end
+			@raise Bad_Dimension("Memory dimension `at` must be a positive Integer, got `it`") unless it === Integer and it > 0
 			strides_arr.push(current_stride)
 			current_stride *= it
 		end
@@ -64,88 +70,81 @@ Memory {
 		self.ends_at    = offset + buffer.length() - 1
 	)
 
-	# Read the cell at `coord` (a struct like `<2, 3>`, an Array, or an Integer for 1d).
-	get ( coord, type := self.type;
-		slot := to_index(check_boundary(check_axes(coord)))
-		buffer.get(type, slot * Buffer.size_of(type)) # @pasted
+	# Read the cell at `coord` (a struct like `<2, 3>`, an Array, or an Integer for 1d). With Boundary.NIL, a coord outside gives nil\Coord_Out_Of_Bounds.
+	get ( coord, type := self.type -> Number | Nil;
+		inside := check_boundary(check_axes(coord))
+		return inside unless inside
+		buffer.get(type, to_index(inside) * Buffer.size_of(type)) # @pasted
 	)
 
-	# Write `value` into the cell at `coord`. Returns the Memory, so calls chain.
-	set ( coord, value, type := self.type;
-		slot := to_index(check_boundary(check_axes(coord)))
-		buffer.set(type, slot * Buffer.size_of(type), value) # @pasted
+	# Write `value` into the cell at `coord`. Returns the Memory, so calls chain. With Boundary.NIL, a coord outside writes nothing and gives nil\Coord_Out_Of_Bounds.
+	set ( coord, value, type := self.type -> Self | Nil;
+		inside := check_boundary(check_axes(coord))
+		return inside unless inside
+		buffer.set(type, to_index(inside) * Buffer.size_of(type), value) # @pasted
 		self
 	)
 
 	# Runs before the pipeline: a coord must have one number per dimension.
 	check_axes ( coord: Struct | Array | Integer -> Array;
-		if coord === Integer # @pasted
-			coord = [coord]
-		elif coord === Struct
-			coord = coord.@values
+		coord = if coord # @pasted
+		when Integer [coord]
+		when Struct coord.@values
+		when it coord
 		end
-		if coord.length() != dimensions.length()
-			@raise "Memory has `dimensions.length()` dimensions, but the coord `coord` has `coord.length()`"
-		end
+		@raise Wrong_Axis_Count("Memory has `dimensions.length()` dimensions, but the coord `coord` has `coord.length()`") if coord.length() != dimensions.length()
 		coord
 	)
 
-	# Boundary step: coord -> coord.
-	check_boundary ( coord: Array -> Array;
-		unless boundary == Boundary.FAIL
-			@raise "Boundary `boundary` is not supported yet"
-		end
+	# Boundary step: coord -> coord, or a nil tagged Coord_Out_Of_Bounds with Boundary.NIL.
+	check_boundary ( coord: Array -> Array | Nil;
+		@todo "Boundary `boundary` is not supported yet" unless boundary == Boundary.FAIL or boundary == Boundary.NIL
+
+		# Check each axis on its own -- on a 4 x 2 grid, <5, 0> would otherwise silently read <1, 1>.
 		for dimensions
-			# Check each axis on its own -- on a 4 x 2 grid, <5, 0> would otherwise silently read <1, 1>.
-			unless coord[at] >= 0 and coord[at] < it
-				@raise "Memory coord `coord` is out of bounds: axis `at` is `coord[at]`, but must be 0 to `it - 1`"
-			end
+			skip if (0..<it).include?(coord[at])
+
+			message := "Memory coord `coord` is out of bounds: axis `at` is `coord[at]`, but must be 0 to `it - 1`"
+			return nil\Coord_Out_Of_Bounds(message) if boundary == Boundary.NIL
+			@raise Coord_Out_Of_Bounds(message)
 		end
 		coord
 	)
 
 	# Layout step: coord -> index.
 	to_index ( coord: Array -> Integer;
-		unless layout == Layout.ROW_MAJOR
-			@raise "Layout `layout` is not supported yet"
-		end
+		@todo "Layout `layout` is not supported yet" unless layout == Layout.ROW_MAJOR
 
 		index := 0
-		for coord
-			index += it * self.strides[at]
-		end
+		index += it * strides[at] for coord
 		index
 	)
 
 	# Layout step, backward: index -> coord. Used to walk every cell in order.
 	to_coord ( index: Integer -> Array;
-		unless layout == Layout.ROW_MAJOR
-			@raise "Layout `layout` is not supported yet"
-		end
+		@todo "Layout `layout` is not supported yet" unless layout == Layout.ROW_MAJOR
+
 		cells := dimensions.product()
-		unless index >= 0 and index < cells
-			@raise "Memory index `index` is out of bounds: must be 0 to `cells - 1`"
-		end
-		coord := []
-		for dimensions
-			coord.push(index % it)
+		@raise Index_Out_Of_Bounds("Memory index `index` is out of bounds: must be 0 to `cells - 1`") unless (0..<cells).include?(index)
+
+		# Each axis takes the remainder, and what is left goes on to the next axis.
+		for dimensions map
+			axis := index % it
 			index = index / it
+			axis
 		end
-		coord
 	)
 
-	# Reserve `size` bytes that start on a multiple of `align`. Returns the byte where they start.
-	alloc ( size, align := 8;
+	# Reserve `size` bytes that start on a multiple of `align`. Returns the byte where they start, or nil\Space_Full when they do not fit.
+	alloc ( size, align := 8 -> Int | Nil;
 		start := Buffer.align_up(next_free_byte, align)
-		if start + size > buffer.length()
-			@raise "Space is full: asked for `size` bytes at byte `start`, only `buffer.length()` bytes total"
-		end
+		return nil\Space_Full("Space is full: asked for `size` bytes at byte `start`, only `buffer.length()` bytes total") if start + size > buffer.length()
 		next_free_byte = start + size
 		start
 	)
 
 	# Reserve room for `count` values of `type`, aligned to the type's own size.
-	alloc_of ( type, count := 1;
+	alloc_of ( type, count := 1 -> Int | Nil;
 		size := Buffer.size_of(type)
 		alloc(size * count, size)
 	)
@@ -193,7 +192,8 @@ Encoding [
 # What happens at an edge?
 
 Boundary [
-	FAIL                # A coord outside the grid raises an error.
+	FAIL                # A coord outside the grid raises Coord_Out_Of_Bounds.
+	NIL                 # A coord outside the grid gives back nil\Coord_Out_Of_Bounds, so an edge reads as empty, and a write there does nothing.
 	CLAMP               # A coord outside the grid is moved to the nearest edge, so -3 becomes 0.
 	WRAP                # A coord outside the grid comes back in on the other side, like Pac-Man.
 	MIRROR              # A coord outside the grid bounces back in, so one step past the end reads one step before it.

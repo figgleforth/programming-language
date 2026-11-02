@@ -1,0 +1,5 @@
+# An option that is not built yet stops with a [TODO], not an error that looks like a bug.
+@load 'lang/memory'
+grid := Memory(:u8, <4, 2>)
+grid.layout = Layout.MORTON
+grid.to_index([1, 1])   # error: [TODO] Layout MORTON is not supported yet

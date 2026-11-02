@@ -1,0 +1,5 @@
+# With Boundary.FAIL, the default, a coord outside the grid is a bug, so it raises.
+@load 'lang/memory'
+grid := Memory(:u8, <4, 2>)
+@out grid.get(<3, 1>)   # out: 0
+@out grid.get(<5, 0>)   # error: Coord_Out_Of_Bounds: Memory coord [5, 0] is out of bounds: axis 0 is 5, but must be 0 to 3

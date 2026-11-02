@@ -793,6 +793,7 @@ handle ( line;
 6. On `for`, `else` runs only when nothing matched. On `if`, each group of cases belongs to its branch: the cases after the body see only truthy values, and `else` takes every falsy value (see below). Each `elif` has its own `when` group.
 7. One `end` closes the whole block — a `when` clause has none of its own.
 8. Inside a matching `when`, `it` holds the matched value — but only `for`, `.each`, and a `when` clause declare `it`; a plain `if`/`unless` with no `when` does not.
+9. A case can have its body on the same line: `when Integer [value]`. A `[` after a space starts the body. With no space, it is a subscript of the case: `when list[0] 'first'`. Inside brackets, a space changes nothing: `when (list [0])`.
 
 ```code
 result := if 100

@@ -1,0 +1,33 @@
+@load 'lang/memory'
+
+# A coord is a struct, an Array, or an Integer for 1d.
+grid := Memory(:u8, <4, 2>)
+@out grid.dimensions               # out: [4, 2]
+@out grid.buffer.length()          # out: 8
+@out grid.set(<2, 1>, 7).get(<2, 1>) # out: 7
+@out grid.get([2, 1])              # out: 7
+@out Memory(:u8, 5).set(4, 3).get(4) # out: 3
+
+# Row-major: x changes fastest.
+@out grid.to_index([2, 1])         # out: 6
+@out grid.to_coord(5)              # out: [1, 1]
+@out Memory(:u8, <4, 3, 2>).to_index([1, 2, 1]) # out: 21
+
+# With Boundary.NIL, a coord outside gives back a tagged nil, and a write there does nothing.
+grid.boundary = Boundary.NIL
+edge := grid.get(<0, -1>)
+@out edge                          # out: nil\Coord_Out_Of_Bounds
+@out edge =>= nil\Out_Of_Bounds    # out: true
+@out edge =>= nil\Memory_Error     # out: true
+@out edge.@tag.message             # out: Memory coord [0, -1] is out of bounds: axis 1 is -1, but must be 0 to 1
+@out grid.set(<4, 0>, 9)           # out: nil\Coord_Out_Of_Bounds
+@out grid.get(<2, 1>)              # out: 7
+
+# alloc gives back nil\Space_Full when the bytes do not fit, so the caller decides.
+arena := Memory(:u8, <8>)
+@out arena.alloc_of(:u32)          # out: 0
+@out arena.alloc_of(:u32)          # out: 4
+full := arena.alloc_of(:u8)
+@out full                          # out: nil\Space_Full
+@out full.@tag.message             # out: Space is full: asked for 1 bytes at byte 8, only 8 bytes total
+@out arena.used()                  # out: 8

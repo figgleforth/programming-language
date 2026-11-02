@@ -5,7 +5,11 @@
 
 ### .code
 
-An expressive language for myself, with features I wanted to experience. You can use it to write scripts, servers, and lots of stuff in between.
+An expressive language to write scripts, servers, and lots of stuff in between.
+
+I wrote this code by hand from July 2023 to November 2025. Since then, I design the language, write the fun features, and use a single manually directed Claude Code agent to write the features I find boring, the tests, and the docs.
+
+About 2,000 tests keep my code and Claude's in check.
 
 ---
 

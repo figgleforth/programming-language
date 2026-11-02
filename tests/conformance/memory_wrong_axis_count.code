@@ -1,0 +1,3 @@
+# A coord needs one number for each dimension.
+@load 'lang/memory'
+Memory(:u8, <4, 2>).get(<1, 1, 1>)   # error: Wrong_Axis_Count: Memory has 2 dimensions, but the coord [1, 1, 1] has 3

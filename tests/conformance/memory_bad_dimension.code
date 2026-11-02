@@ -1,0 +1,3 @@
+# A dimension must be a positive Integer.
+@load 'lang/memory'
+Memory(:u8, <4, 0>)   # error: Bad_Dimension: Memory dimension 1 must be a positive Integer, got 0

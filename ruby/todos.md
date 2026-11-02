@@ -1,4 +1,4 @@
-+ I don't like the live_page "protocol" name. I'm not sure I like calling that directory `protocols`. Hm...
++ Design question: the `else` of an `if` and the catch-all of its `when` cases are easy to mix up. After `if value`, the `when` cases match a truthy value, and `else` is the falsy branch, not "no case matched". So `if value  when Integer [value]  when Struct value.@values  else value  end` gives nil for `[4, 2]`, with no error: `else` never runs, because `[4, 2]` is truthy. The catch-all on the truthy side is a bare `when it`. Found 2026-11-01 while writing `axes_of` for lang/memory.code. Idea from the user: give the `when` chain its own word in place of `else`, so the two cannot be confused.
 + Would it make sense to let you break (`stop`) out of an if/unless? 
 + Add a Context function for getting specific kinds of declarations when composing. `Type { Self += Flying.variables, Self += Duck.functions }`
 + Make a data structure for `replayed_compositions` with proper member names.

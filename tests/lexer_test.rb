@@ -616,6 +616,16 @@ class Lexer_Test < Base_Test
 		assert_equal 1, out.count
 	end
 
+	# A sign before a digit starts a number, so it is not the end of the operator before it: `<-` is not one token here.
+	def test_a_sign_before_a_digit_ends_the_operator
+		assert_equal %w(x < -1), Code.lex('x <-1').map(&:value)
+		assert_equal %w(x * -1), Code.lex('x *-1').map(&:value)
+		assert_equal %w(x -= -1), Code.lex('x-=-1').map(&:value)
+		assert_equal %w(< -1 , 0 >), Code.lex('<-1, 0>').map(&:value)
+		assert_equal %w(f ->), Code.lex('f ->').map(&:value)
+		assert_equal %w(-- 1), Code.lex('--1').map(&:value) # a doubled sign is still prefix decrement
+	end
+
 	def test_scientific_notation_literals_with_a_zero_exponent
 		out = Code.lex '5e0'
 		assert_equal %i(scientific_notation), out.map(&:type)

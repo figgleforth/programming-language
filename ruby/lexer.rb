@@ -236,6 +236,7 @@ module Code
 				break if str == Code::CONTEXT_OPERATOR && curr == '.'
 				break if str == '<' && curr == '>'
 				break if !str.empty? && !str.end_with?(':') && curr == ':' && identifier?(peek) # `:three` in `{:c=:three}` starts a Symbol; `::` stays one operator
+				break if !str.empty? && str != curr && '+-'.include?(curr) && numeric?(peek) # the sign starts a number: `x <-1` is `x < -1`, `<-1, 0>` is a struct, `x *-1` is `x * -1`. A doubled sign stays `++`/`--`, so `--1` is still a prefix decrement
 
 				str << eat
 
