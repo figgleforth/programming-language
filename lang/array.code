@@ -7,6 +7,7 @@ Array {
 
 	max (; @ruby )
 	min (; @ruby )
+	sum (-> Number; @ruby )
 	product ( other: Array = nil; @ruby ) # no argument: multiplies every value. An array: the cartesian product
 
 	# add to back/end

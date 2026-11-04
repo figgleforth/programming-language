@@ -6,7 +6,7 @@ OFF  := 0x2
 SIZE := 1000 # 0-999 per axis
 
 array := Array.of(OFF, SIZE*SIZE)
-input := read_file_to_string('examples/aoc/2015/6a.txt').split_by_newlines()
+input := read_file_to_string('examples/aoc/2015/6.txt').split_by_newlines()
 
 # - inclusive coordinates
 

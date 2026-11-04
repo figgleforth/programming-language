@@ -26,6 +26,7 @@ module Code
 		proxy :delete
 		proxy :max
 		proxy :min
+		proxy :sum
 		proxy :compact
 
 		def proxy_Self *args
