@@ -2120,6 +2120,13 @@ Duck.@composed_types.include?(Flying)    # true — the set holds the string 'Fl
 <<= >>=       # Shift compound
 ```
 
+1. `x += y` works the same as `x = x + y`, on a name, a member (`t.count += 1`), or a subscript (`xs[i] += 1`). It uses a type's `@operator +`, so `xs -= [1]` works
+2. The target runs one time: `xs[next_index()] += 1` and `next_counter().n += 1` each read and write the same place
+3. `x ||= y` assigns only when `x` is falsy, and `x &&= y` only when `x` is truthy. `y` runs only when it assigns. `x` must already be declared
+4. `x.?v = y` and `x.?v += y` work the same as `x.v = y` and `x.v += y` when `x` has a value. When `x` is nil, they do nothing, and `y` does not run. `x.?v := y` is a parse error, because `:=` declares a name
+5. A type can declare its own `@operator +=`. This replaces the whole operation, so the language does not assign its result to `x`
+6. An operator that cannot take its right side raises `Code::Invalid_Infix_Operands`: `1 + "a"`, `x := 1` then `x += "a"`
+
 ## Operator Overloading
 
 1. Declare with `@operator`, a symbol or identifier, a fixity (`@infix`, `@prefix`, `@postfix`), a precedence number, and a function body

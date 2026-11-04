@@ -1786,6 +1786,7 @@ module Code
 						expr.left     = left
 						expr.operator = eat(curr_lexeme.value)
 						raise Code::Cannot_Annotate_Inferred_Declaration.new(left) if expr.operator.value == ':=' && left.is_a?(Code::Identifier_Expr) && left.type
+						raise Code::Cannot_Declare_Through_Optional_Dot.new(left) if expr.operator.value == ':=' && left.is_a?(Code::Infix_Expr) && left.operator&.value == '.?'
 						expr.right    = parse_expression curr_operator_prec, member_rhs: DOT_ACCESS_OPERATORS.include?(expr.operator.value)
 						expr.right    = expr.right.left if expr.right.is_a? Code::Nil_Init_Expr
 

@@ -1,0 +1,77 @@
+### You just finish implementing your winning light pattern when you realize you mistranslated Santa's message from Ancient Nordic Elvish.
+
+The light grid you bought actually has individual brightness controls; each light can have a brightness of zero or more. The lights all start at zero.
+
+The phrase turn on actually means that you should increase the brightness of those lights by 1.
+
+The phrase turn off actually means that you should decrease the brightness of those lights by 1, to a minimum of zero.
+
+The phrase toggle actually means that you should increase the brightness of those lights by 2.
+
+What is the total brightness of all lights combined after following Santa's instructions?
+
+For example:
+
+	- `turn on 0,0 through 0,0` would increase the total brightness by 1.
+	- `toggle 0,0 through 999,999` would increase the total brightness by 2000000.
+
+###
+@load 'lang/File'
+
+SIZE  := 1000 # 0-999 per axis
+array := Array.of(0, SIZE*SIZE)
+input := read_file_to_string('examples/aoc/2015/6.txt').split_by_newlines()
+
+# Each light can have a brightness of zero or more
+# The lights all start at zero.
+
+# - inclusive coordinates
+# - "turn on  0,0     through 999,999"   (increase light +1)
+# - "turn off 499,499 through 500,500"   (decrease light -1, min 0)
+# - "toggle   0,0     through 999,0  "   (increase light +2)
+
+coord_to_index ( x, y -> Int;
+	y * SIZE + x
+)
+
+for input
+	parts := it.split_by_spaces()
+	count := parts.count()
+
+	if count == 5   # turn on/off
+		(xfrom, yfrom) := parts.2.split(',').map(it; it.to_i())
+		(xtill, ytill) := parts.4.split(',').map(it; it.to_i())
+	elif count == 4 # toggle
+		(xfrom, yfrom) := parts.1.split(',').map(it; it.to_i())
+		(xtill, ytill) := parts.3.split(',').map(it; it.to_i())
+	end
+
+	for xfrom..xtill
+		x := it
+		for yfrom..ytill
+			y := it
+			i := coord_to_index(x, y)
+			if parts.1 == "on"
+				array[i] += 1
+			elif parts.1 == "off"
+				array[i] = [array[i]-1, 0].max()
+			else # toggle
+				array[i] += 2
+			end
+		end
+	end
+end
+
+#lit := array.count(it; it == ON)
+lit := array.sum()
+@out "lit: `lit`"
+
+
+#   0|    1|      2|      3|      4|
+#    v     v       v       v       v
+# turn   off 150,300 through 213,740
+# turn   on  141,242 through 932,871
+
+#     0|      1|      2|      3|
+#      v       v       v       v
+# toggle 294,259 through 474,326

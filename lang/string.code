@@ -37,8 +37,7 @@ String {
 	)
 
 	@operator + @infix ( left: String, right;
-		if right
-		when it =>= String
+		if right =>= String
 			"`left``right`"
 		else
 			@panic "String + operator expected `right` to be a String"

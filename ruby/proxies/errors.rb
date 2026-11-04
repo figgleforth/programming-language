@@ -122,6 +122,12 @@ module Code
 		end
 	end
 
+	class Cannot_Declare_Through_Optional_Dot < Error
+		def detail_message
+			"`:=` declares a name, and `.?` is for a value that may be nil. Write `x.?v = 5` to assign, or `x.v := 5` to declare."
+		end
+	end
+
 	class Invalid_For_Loop_Header < Error
 		def detail_message
 			"A `for` header has no place for this comma. A collection loop takes one collection, then an optional verb and `by stride,overlap`: `for items by 2,1`. A counting loop takes exactly three parts: `for i := 0, i < n, i += 1`."
@@ -289,6 +295,23 @@ module Code
 	end
 
 	class Undeclared_Infix_Operator < Error
+	end
+
+	# `1 + "a"`: the left side has the operator, but it cannot take this right side.
+	class Invalid_Infix_Operands < Error
+		attr_reader :operator, :left_type, :right_type
+
+		def initialize expression = nil, highlighted_expression = nil, operator: nil, left_type: nil, right_type: nil
+			@operator   = operator
+			@left_type  = left_type
+			@right_type = right_type
+			super expression, highlighted_expression
+		end
+
+		def detail_message
+			return nil unless operator
+			"#{Ascii.bold operator} cannot take #{left_type || 'nil'} and #{right_type || 'nil'}"
+		end
 	end
 
 	class Unhandled_Postfix < Error

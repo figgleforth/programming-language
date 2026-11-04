@@ -1777,4 +1777,389 @@ class Regression_Test < Base_Test
 			assert_raises(Code::Undeclared_Infix_Operator, source) { Code.interp source }
 		end
 	end
+
+	# `next_counter().n += 1` evaluated the receiver two times, so it read one Counter and wrote the next
+	def test_a_compound_operator_evaluates_a_member_receiver_one_time
+		out = Code.interp <<~CODE
+			Counter {
+				n := 10
+			}
+
+			counters := [Counter(), Counter()]
+			calls    := 0
+
+			next_counter (;
+				calls += 1
+				counters[calls - 1]
+			)
+
+			next_counter().n += 1
+
+			Holder {
+				counter := Counter()
+
+				bump (;
+					self.counter.n += 5
+				)
+			}
+
+			reads  := 0
+			holder := Holder()
+
+			get_holder (;
+				reads += 1
+				holder
+			)
+
+			get_holder().counter.n += 2
+			holder.bump()
+
+			<counters[0].n, counters[1].n, calls, holder.counter.n, reads>
+		CODE
+		assert_equal [11, 10, 1, 17, 1], out.values
+	end
+
+	def test_a_compound_operator_on_a_member_still_checks_the_member
+		assert_raises(Code::Undeclared_Identifier) { Code.interp "T {\n\tv := 1\n}\nt := T()\nt.missing += 1" }
+		assert_raises(Code::Receiver_Is_Nil) { Code.interp "n := nil\nn.v += 1" }
+		assert_raises(Code::Type_Contract_Violation) do
+			Code.interp <<~CODE
+				Money {
+					@operator + @infix ( left, right;
+						"not money"
+					)
+				}
+
+				Wallet {
+					money: Money = Money()
+				}
+
+				wallet := Wallet()
+				wallet.money += 1
+			CODE
+		end
+		assert_raises(Code::Cannot_Reassign_Constant) { Code.interp "T {\n\tLIMIT := 1\n}\nt := T()\nt.LIMIT += 1" }
+	end
+
+	# `t.?v += 1` read the member, then wrote the result to the current scope under a nil name, so the member did not change and no error was raised
+	def test_a_compound_operator_through_an_optional_dot_works_like_a_dot
+		out = Code.interp <<~CODE
+			Counter {
+				n := 1
+				m := nil
+			}
+
+			counter := Counter()
+			counter.?n += 2
+			counter.?m ||= 7
+
+			reads := 0
+
+			get_counter (;
+				reads += 1
+				counter
+			)
+
+			get_counter().?n += 3
+
+			<counter.n, counter.m, reads>
+		CODE
+		assert_equal [6, 7, 1], out.values
+	end
+
+	def test_a_compound_operator_through_an_optional_dot_on_a_nil_does_nothing
+		out = Code.interp <<~CODE
+			Failed <>
+
+			calls := 0
+
+			next_value (;
+				calls += 1
+				calls
+			)
+
+			plain  := nil
+			tagged := nil\\Failed
+
+			first  := (plain.?n += next_value())
+			second := (tagged.?n ||= next_value())
+
+			<first, second, calls, plain>
+		CODE
+		assert_nil out.values[0]
+		assert_nil out.values[1]
+		assert_equal 0, out.values[2]
+		assert_nil out.values[3]
+	end
+
+	def test_a_compound_operator_through_an_optional_dot_still_checks_the_member
+		assert_raises(Code::Undeclared_Identifier) { Code.interp "T {\n\tv := 1\n}\nt := T()\nt.?missing += 1" }
+		assert_raises(Code::Undeclared_Identifier) { Code.interp "missing.?v += 1" }
+		assert_raises(Code::Cannot_Reassign_Constant) { Code.interp "T {\n\tLIMIT := 1\n}\nt := T()\nt.?LIMIT += 1" }
+	end
+
+	# `t.?v = 5` raised a raw RuntimeError, because a `.?` target fell through to the code for a plain name
+	def test_an_assignment_through_an_optional_dot_works_like_a_dot
+		out = Code.interp <<~CODE
+			Counter {
+				n := 1
+			}
+
+			counter := Counter()
+			counter.?n = 5
+
+			reads := 0
+
+			get_counter (;
+				reads += 1
+				counter
+			)
+
+			second := (get_counter().?n = 6)
+
+			<counter.n, second, reads>
+		CODE
+		assert_equal [6, 6, 1], out.values
+	end
+
+	def test_an_assignment_through_an_optional_dot_on_a_nil_does_nothing
+		out = Code.interp <<~CODE
+			Failed <>
+
+			calls := 0
+
+			next_value (;
+				calls += 1
+				calls
+			)
+
+			plain  := nil
+			tagged := nil\\Failed
+
+			first  := (plain.?n = next_value())
+			second := (tagged.?n = next_value())
+
+			<first, second, calls, plain>
+		CODE
+		assert_nil out.values[0]
+		assert_nil out.values[1]
+		assert_equal 0, out.values[2]
+		assert_nil out.values[3]
+	end
+
+	def test_an_assignment_through_an_optional_dot_still_checks_the_member
+		assert_raises(Code::Cannot_Assign_Undeclared_Identifier) { Code.interp "T {\n\tv := 1\n}\nt := T()\nt.?missing = 1" }
+		assert_raises(Code::Undeclared_Identifier) { Code.interp "missing.?v = 1" }
+		assert_raises(Code::Cannot_Reassign_Constant) { Code.interp "T {\n\tLIMIT := 1\n}\nt := T()\nt.?LIMIT = 1" }
+		assert_raises(Code::Type_Contract_Violation) { Code.interp "T {\n\tv: Int = 1\n}\nt := T()\nt.?v = 'a'" }
+	end
+
+	# `t.?v := 5` did not change `t.v`, and gave no error
+	def test_a_declaration_through_an_optional_dot_is_a_parse_error
+		["t.?v := 5", "a.b.?c := 5", "get().?v := 5"].each do |source|
+			assert_raises(Code::Cannot_Declare_Through_Optional_Dot, source) { Code.parse source }
+		end
+		refute_raises { Code.parse "t.?v.w := 5" }
+		refute_raises { Code.parse "t.v := 5" }
+		refute_raises { Code.parse "f(n := t.?v)" }
+	end
+
+	def test_a_compound_operator_on_a_static_member_works
+		out = Code.interp <<~CODE
+			Counter {
+				Self.count := 0
+
+				bump (;
+					Self.count += 1
+				)
+			}
+
+			Counter().bump()
+			Counter.count += 2
+			Counter.count
+		CODE
+		assert_equal 3, out
+	end
+
+	# A compound operator did not look at a type's `@operator`, so `xs -= [1]` raised, while `xs - [1]` worked
+	def test_a_compound_operator_uses_the_operator_of_its_type
+		out = Code.interp <<~CODE
+			Money {
+				cents := 0
+
+				@operator + @infix ( left, right;
+					result := Money()
+					result.cents = left.cents + right
+					result
+				)
+			}
+
+			wallet := Money()
+			wallet += 5
+			wallet += 2
+
+			less  := [1, 2, 3]
+			less -= [1]
+
+			either  := [1, 2]
+			either |= [2, 3]
+
+			both  := [1, 2]
+			both &= [2, 3]
+
+			<wallet.cents, less, either, both>
+		CODE
+		assert_equal 7, out.values[0]
+		assert_equal [2, 3], out.values[1].values
+		assert_equal [1, 2, 3], out.values[2].values
+		assert_equal [2], out.values[3].values
+	end
+
+	def test_an_operator_of_a_compound_form_replaces_the_whole_operation
+		out = Code.interp <<~CODE
+			Counter {
+				n := 0
+
+				@operator += @infix ( left, right;
+					left.n = left.n + right
+					:not_assigned
+				)
+			}
+
+			counter := Counter()
+			before  := counter
+			counter += 3
+			<counter.n, before.n>
+		CODE
+		assert_equal [3, 3], out.values
+	end
+
+	# `||=` and `&&=` are in reference.md, but each one sent the Ruby method `||` or `&&`, which does not exist
+	def test_logical_compound_operators_assign_like_their_logical_operators
+		out = Code.interp <<~CODE
+			a := nil
+			a ||= 1
+
+			b := 2
+			b ||= 3
+
+			c := 2
+			c &&= 3
+
+			d := false
+			d &&= 3
+
+			Missing <>
+			e := nil\\Missing
+			e ||= 4
+
+			f := {:x = nil}
+			f[:x] ||= 5
+
+			<a, b, c, d, e, f[:x]>
+		CODE
+		assert_equal [1, 2, 3, false, 4, 5], out.values
+	end
+
+	def test_logical_compound_operators_run_the_right_side_only_when_they_assign
+		out = Code.interp <<~CODE
+			calls := 0
+
+			next_value (;
+				calls += 1
+				calls
+			)
+
+			a := 9
+			a ||= next_value()
+
+			b := nil
+			b &&= next_value()
+
+			c := nil
+			c ||= next_value()
+
+			d := 9
+			d &&= next_value()
+
+			<a, b, c, d, calls>
+		CODE
+		assert_equal 9, out.values[0]
+		assert_nil out.values[1]
+		assert_equal 1, out.values[2]
+		assert_equal 2, out.values[3]
+		assert_equal 2, out.values[4]
+	end
+
+	def test_a_logical_compound_operator_still_needs_a_declared_name
+		assert_raises(Code::Undeclared_Identifier) { Code.interp "missing ||= 1" }
+	end
+
+	# `xs += [3]` built its Array outside the interpreter, with no link to its type, so its methods were not there and it printed as a Ruby object
+	def test_a_compound_operator_result_is_linked_to_its_type
+		out = Code.interp <<~CODE
+			xs := [1, 2]
+			xs += [3]
+
+			pair := <x := 1>
+			pair += <y := 2>
+
+			<xs.length(), "`xs`", pair.y>
+		CODE
+		assert_equal 3, out.values[0]
+		assert_equal '[1, 2, 3]', out.values[1].value
+		assert_equal 2, out.values[2]
+	end
+
+	def test_a_compound_operator_keeps_its_plain_values
+		out = Code.interp <<~CODE
+			n := 7
+			n += 1
+			n *= 2
+			n -= 1
+			n /= 3
+			n %= 4
+			n **= 2
+			n <<= 2
+			n >>= 1
+			n |= 1
+			n &= 7
+			n ^= 2
+
+			on := true
+			on &= false
+
+			s := "a"
+			s += "b"
+
+			<n, on, s, n.abs()>
+		CODE
+		assert_equal 1, out.values[0] # 8, 16, 15, 5, 1, 1, 4, 2, 3, 3, 1
+		assert_equal false, out.values[1]
+		assert_equal 'ab', out.values[2]
+	end
+
+	# These reached Ruby's own TypeError or NoMethodError, with a Ruby backtrace in place of the language's error
+	def test_an_operator_that_cannot_take_its_right_side_raises_a_language_error
+		{
+			'1 + "a"'                => ['+', 'Integer', 'String'],
+			'2 ** "a"'               => ['**', 'Integer', 'String'],
+			'[1] + 2'                => ['+', 'Array', 'Integer'],
+			'1 & "a"'                => ['&', 'Integer', 'String'],
+			'1.5 << 1'               => ['<<', 'Float', 'Integer'],
+			"x := 1\nx += 'a'"       => ['+', 'Integer', 'String'],
+			"x := [1]\nx += 2"       => ['+', 'Array', 'Integer'],
+			"xs := [1]\nxs[0] += 'a'" => ['+', 'Integer', 'String'],
+		}.each do |source, (operator, left_type, right_type)|
+			error = assert_raises(Code::Invalid_Infix_Operands, source) { Code.interp source }
+			assert_equal [operator, left_type, right_type], [error.operator, error.left_type, error.right_type], source
+		end
+	end
+
+	# `if right when it =>= String ... else @panic` reached `else` only for a falsy right side, so `"a" + 1` gave nil
+	def test_adding_a_non_string_to_a_string_panics
+		['"a" + 1', "s := 'a'\ns += 1", '"a" + nil'].each do |source|
+			assert_raises(RuntimeError, source) { Code.interp source }
+		end
+	end
 end

@@ -1769,9 +1769,8 @@ module Code
 		end
 
 		# `x.@word = v` / `x.@word := v` -- writes to x's Type's `at_members`, which must already have it.
-		def assign_context_member dot_expr, word_ident, value
-			receiver = maybe_instance interpret dot_expr.left
-			name     = word_ident.value
+		def assign_context_member dot_expr, word_ident, value, receiver = maybe_instance(interpret(dot_expr.left))
+			name = word_ident.value
 
 			if name == 'tag'
 				if receiver.is_a?(Code::Scope) && receiver.respond_to?(:tag_instance) && receiver.tag_instance
@@ -2172,10 +2171,19 @@ module Code
 			end
 
 			# Handle dot assignment
-			if expr.left.is_a?(Code::Infix_Expr) && expr.left.operator.value == '.'
-				if (at_word = dot_target_at_word(expr.left))
-					return assign_context_member expr.left, at_word, interpret(expr.right)
+			if expr.left.is_a?(Code::Infix_Expr) && DOT_ACCESS_OPERATORS.include?(expr.left.operator.value)
+				at_word = dot_target_at_word expr.left
+
+				# `x.?v = f()` on a nil `x` does nothing, and does not run `f`. Otherwise it is the same as `x.v = f()`.
+				if expr.left.operator.value == '.?'
+					receiver = maybe_instance interpret expr.left.left
+					return nil if nil_value? receiver
+
+					value = interpret expr.right
+					return at_word ? assign_context_member(expr.left, at_word, value, receiver) : assign_dot_member(expr, expr.left, value, receiver)
 				end
+
+				return assign_context_member expr.left, at_word, interpret(expr.right) if at_word
 				return assign_dot_member expr, expr.left, interpret(expr.right)
 			end
 
@@ -2380,8 +2388,7 @@ module Code
 		end
 
 		# Shared by every way of writing through `.` onto an already-interpreted receiver.
-		def assign_dot_member expr, target, value, declare: false
-			receiver = interpret target.left
+		def assign_dot_member expr, target, value, receiver = interpret(target.left), declare: false
 			property = target.right.value
 
 			# `interpret` here isn't run through #maybe_instance, so a nil receiver is still Ruby nil; a
@@ -2449,8 +2456,9 @@ module Code
 		end
 
 		# @param expr [Code::Infix_Expr]
-		def interp_dot_infix expr
-			receiver = maybe_instance interpret expr.left
+		# A compound operator passes in the receiver that it already evaluated (#interp_infix). It stays out of a default value, because the rescue below must also catch an error from `interpret`.
+		def interp_dot_infix expr, instanced_receiver = nil
+			receiver = instanced_receiver || maybe_instance(interpret(expr.left))
 
 			unless receiver.kind_of?(Code::Scope)
 				raise Code::Invalid_Dot_Infix_Left_Operand.new(expr)
@@ -2486,8 +2494,8 @@ module Code
 			end
 		rescue Code::Undeclared_Identifier, Code::Cannot_Call_Instance_Member_On_Type, Code::Receiver_Is_Nil, Code::Invalid_Dot_Infix_Left_Operand
 			# `.?` is lenient access -- a receiver that isn't even a Scope (a raw Func_Signature reached as
-			# a struct member's `type`, say) yields nil rather than raising, same as a nil receiver does.
-			raise unless expr.operator.value == '.?'
+			# a struct member's `type`, say) yields nil rather than raising, same as a nil receiver does. A compound operator is a write, so a missing member still raises (`t.?missing += 1`).
+			raise if instanced_receiver || expr.operator.value != '.?'
 			nil
 		end
 
@@ -2767,15 +2775,22 @@ module Code
 			return interp_dot_infix expr if operator == '.' || operator == '.?'
 			return interp_logical_infix expr if LOGICAL_OPERATORS.include? operator
 
-			# `xs[next_index()] += 1` evaluates the receiver and the key one time, so the read and the write reach the same slot.
+			# `xs[next_index()] += 1` and `get().count += 1` evaluate the receiver and the key one time, so the read and the write reach the same place.
 			if expr.left.is_a?(Code::Subscript_Expr) && COMPOUND_OPERATORS.include?(operator)
 				receiver = interpret expr.left.receiver
 				key      = interpret expr.left.expression.expressions.first
 				left     = interp_subscript expr.left, receiver, key
+			elsif expr.left.is_a?(Code::Infix_Expr) && DOT_ACCESS_OPERATORS.include?(expr.left.operator&.value) && COMPOUND_OPERATORS.include?(operator)
+				receiver = maybe_instance interpret expr.left.left
+				# `x.?v += f()` on a nil `x` does nothing, and does not run `f`.
+				return nil if expr.left.operator.value == '.?' && nil_value?(receiver)
+
+				left = interp_dot_infix expr.left, receiver
 			else
 				left = interpret expr.left
 			end
-			right = interpret expr.right
+			# `x ||= f()` runs `f` only when it assigns, so #interp_compound_infix reads the right side of these two itself.
+			right = interpret expr.right unless operator == '||=' || operator == '&&='
 
 			# A Code::Type_Alias is a type, not a value (`Five :: 5`, then `Five + 1`), so only the comparisons take one.
 			if (left.is_a?(Code::Type_Alias) || right.is_a?(Code::Type_Alias)) && !%w(=== =!= =>= =<= =/= == !=).include?(operator)
@@ -2809,10 +2824,7 @@ module Code
 			if %w(& |).include? expr.operator.value
 				left, right = interpret(expr.left), interpret(expr.right)
 				raise Code::Type_Alias_Is_Not_A_Type.new(expr) if left.is_a?(Code::Type_Alias) || right.is_a?(Code::Type_Alias)
-				overload = find_operator_overload expr.operator.value, maybe_instance(left)
-				return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
-				raise Code::Undeclared_Infix_Operator.new(expr) unless left.respond_to? expr.operator.value
-				return left.send expr.operator.value, right
+				return interp_bitwise_infix expr, left, right
 			end
 
 			overload = find_operator_overload expr.operator.value
@@ -2828,31 +2840,47 @@ module Code
 			end
 		end
 
-		# If left (or left's type) declares this operator via @operator, call it like a regular function with (left, right) as arguments. Falls back to left.enclosing_scope (the Type) because shorthand-constructed instances (array/string/dict literals, e.g. `[1, 2, 3]`) never get the type's own declarations copied down onto themselves the way `Array(...)`-style construction does (see #interp_type_call) -- this mirrors the same fallback #interp_identifier already does for regular method calls like `arr.push(...)`. Falls back further to a same-named global operator if the operand itself doesn't declare one.
-		def interp_arithmetic_infix expr, left, right
+		# `&` and `|`. `operator` is the base operator when this runs for a compound one (`x &= y`).
+		def interp_bitwise_infix expr, left, right, operator = expr.operator.value
+			overload = find_operator_overload operator, maybe_instance(left)
+			return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
+			raise Code::Undeclared_Infix_Operator.new(expr) unless left.respond_to? operator
+
+			send_ruby_operator expr, left, operator, right
+		end
+
+		# The left side has this operator, but it may not take this right side (`1 + "a"`, `[1] + 2`). The language reports that, not Ruby.
+		def send_ruby_operator expr, left, operator, right
+			left.send operator, right
+		rescue ::TypeError, ::NoMethodError
+			raise Code::Invalid_Infix_Operands.new(expr, operator: operator, left_type: type_name_to_string(left), right_type: type_name_to_string(right))
+		end
+
+		# If left (or left's type) declares this operator via @operator, call it like a regular function with (left, right) as arguments. Falls back to left.enclosing_scope (the Type) because shorthand-constructed instances (array/string/dict literals, e.g. `[1, 2, 3]`) never get the type's own declarations copied down onto themselves the way `Array(...)`-style construction does (see #interp_type_call) -- this mirrors the same fallback #interp_identifier already does for regular method calls like `arr.push(...)`. Falls back further to a same-named global operator if the operand itself doesn't declare one. `operator` is the base operator when this runs for a compound one (`x += y`).
+		def interp_arithmetic_infix expr, left, right, operator = expr.operator.value
 			# Two plain numbers stay plain, as they already do for a comparison: a number is boxed into a Code::Number only when it is used as an object (`4.abs()`). Only an @operator in scope applies to them.
 			if left.is_a?(::Numeric) && right.is_a?(::Numeric)
-				overload = find_operator_overload expr.operator.value
-				return overload.is_a?(Code::Func) ? call_operator_overload(overload, expr, [left, right]) : left.send(expr.operator.value, right)
+				overload = find_operator_overload operator
+				return overload.is_a?(Code::Func) ? call_operator_overload(overload, expr, [left, right]) : send_ruby_operator(expr, left, operator, right)
 			end
 
 			# `Duck + Flying` in a value composes. A bare type never reaches an instance's own `@operator +`.
-			if left.instance_of?(Code::Type) && right.is_a?(Code::Scope) && MEMBER_COMPOSITION_OPERATORS.include?(expr.operator.value)
-				return compose_type_values(left, expr.operator.value, right)
+			if left.instance_of?(Code::Type) && right.is_a?(Code::Scope) && MEMBER_COMPOSITION_OPERATORS.include?(operator)
+				return compose_type_values(left, operator, right)
 			end
 
 			maybe_instanced_left  = maybe_instance(left)
 			maybe_instanced_right = maybe_instance(right)
-			overload              = find_operator_overload expr.operator.value, maybe_instanced_left
+			overload              = find_operator_overload operator, maybe_instanced_left
 
 			if overload.is_a? Code::Func
 				call_operator_overload overload, expr, [left, right]
-			elsif left.is_a?(Code::Struct) && MEMBER_COMPOSITION_OPERATORS.include?(expr.operator.value)
-				compose_struct_values expr, left, right
-			elsif !maybe_instanced_left.respond_to?(expr.operator.value)
+			elsif left.is_a?(Code::Struct) && MEMBER_COMPOSITION_OPERATORS.include?(operator)
+				compose_struct_values expr, left, right, operator
+			elsif !maybe_instanced_left.respond_to?(operator)
 				raise Code::Undeclared_Infix_Operator.new(expr)
 			else
-				result = maybe_instanced_left.send expr.operator.value, maybe_instanced_right
+				result = send_ruby_operator expr, maybe_instanced_left, operator, maybe_instanced_right
 				# A Ruby-level operator (`Code::Array#+`) builds its result outside the interpreter, so it needs linking to its type like any `@ruby` return.
 				result.is_a?(Code::Array) ? adopt_type(result, 'Array') : result
 			end
@@ -3003,31 +3031,44 @@ module Code
 		end
 
 		# (a += b)  ==>  (a = (a + b)). Compound operators only ever consult a scope-level @operator overload (never the operand's own), since their built-in meaning is assignment, not a property of the operand's type.
-		def interp_compound_infix expr, left, right, subscript_receiver = nil, subscript_key = nil
+		def interp_compound_infix expr, left, right, target_receiver = nil, subscript_key = nil
 			# `X += 1` changes a constant the same as `X = X + 1` does
 			raise Code::Cannot_Reassign_Constant.new(expr.left) if expr.left.is_a?(Code::Identifier_Expr) && %i(IDENTIFIER Identifier).include?(Code.type_of_identifier(expr.left.value))
 
-			overload = find_operator_overload expr.operator.value
-			return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
-
 			base_op = expr.operator.value[..-2] # Trim the = from +=, -=, etc.
-			result  = if left.is_a?(::Numeric) && right.is_a?(::Numeric)
-				left.send base_op, right # plain numbers stay plain, as in #interp_arithmetic_infix
-			else
-				instanced_left = maybe_instance left
-				raise Code::Undeclared_Infix_Operator.new(expr) unless instanced_left.respond_to? base_op
+			lazy    = base_op == '||' || base_op == '&&'
 
-				instanced_left.send base_op, maybe_instance(right)
+			# An `@operator +=` of its own replaces the whole operation, so its result is not assigned.
+			overload = find_operator_overload expr.operator.value, (maybe_instance(left) unless left.is_a?(::Numeric))
+			if overload.is_a? Code::Func
+				right = interpret expr.right if lazy
+				return call_operator_overload(overload, expr, [left, right])
+			end
+
+			# `x += y` runs the same path as `x + y`, so it gets the same @operator overloads, compositions and errors.
+			result = if lazy
+				overload = find_operator_overload base_op
+				if overload.is_a? Code::Func
+					call_operator_overload overload, expr, [left, interpret(expr.right)]
+				else
+					return left if truthy?(left) == (base_op == '||')
+
+					interpret expr.right
+				end
+			elsif base_op == '&' || base_op == '|'
+				interp_bitwise_infix expr, left, right, base_op
+			else
+				interp_arithmetic_infix expr, left, right, base_op
 			end
 
 			# Assign back to left side -- a dot-target (`instance.member += ...`) goes through the same
 			# #assign_dot_member path plain `.`-assignment uses; #scope_for_identifier only understands
 			# plain Identifier_Exprs, so a dot-target used to silently fall through to `stack.last` and
 			# declare a bogus `nil`-named identifier there instead of touching the actual member.
-			if expr.left.is_a?(Code::Infix_Expr) && expr.left.operator&.value == '.'
-				assign_dot_member expr, expr.left, result
+			if expr.left.is_a?(Code::Infix_Expr) && DOT_ACCESS_OPERATORS.include?(expr.left.operator&.value)
+				assign_dot_member expr, expr.left, result, target_receiver
 			elsif expr.left.is_a? Code::Subscript_Expr
-				assign_subscript expr.left, result, subscript_receiver, subscript_key
+				assign_subscript expr.left, result, target_receiver, subscript_key
 			else
 				assignment_scope = scope_for_identifier expr.left
 				assignment_scope.declare expr.left.value, result
@@ -3370,7 +3411,7 @@ module Code
 		end
 
 		# `<x := 1> + <y := 2>`: two struct values compose by member name, with the rules of a declared `A + B <…>` (#interp_struct_composition).
-		def compose_struct_values expr, left, right
+		def compose_struct_values expr, left, right, operator = expr.operator.value
 			raise Code::Invalid_Composition_With_A_Non_Struct_type.new(expr) unless right.is_a? Code::Scope
 
 			operands = Temporary.new 'Composition Operands'
@@ -3378,7 +3419,7 @@ module Code
 			operands.declare 'Composed_Right', right
 
 			chain             = Code::Type_Expr.new
-			chain.expressions = [['+', 'Composed_Left'], [expr.operator.value, 'Composed_Right']].map do |op, name|
+			chain.expressions = [['+', 'Composed_Left'], [operator, 'Composed_Right']].map do |op, name|
 				composition            = Code::Composition_Expr.new
 				composition.operator   = Code::Lexeme.new :operator, op
 				composition.identifier = Code::Identifier_Expr.new.tap { |ident| ident.lexeme = Code::Lexeme.new :Identifier, name }
