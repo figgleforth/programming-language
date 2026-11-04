@@ -1714,4 +1714,67 @@ class Regression_Test < Base_Test
 		CODE
 		assert_instance_of Code::Func, out
 	end
+
+	# `xs[i] += 1` computed the new value, then declared it on the current scope under a nil name, so the Array did not change and no error was raised
+	def test_a_compound_operator_writes_through_a_subscript
+		out = Code.interp <<~CODE
+			numbers := [1, 2, 3]
+			numbers[1] += 10
+			numbers[0] *= 5
+			numbers[-1] -= 1
+
+			grid := [[1, 2], [3]]
+			grid[0][1] += 5
+
+			counts := {:x = 1}
+			counts[:x] += 4
+
+			<numbers, grid[0][1], counts[:x], numbers.sum()>
+		CODE
+		assert_equal [5, 12, 2], out.values[0].values
+		assert_equal 7, out.values[1]
+		assert_equal 5, out.values[2]
+		assert_equal 19, out.values[3]
+	end
+
+	# `xs[next_index()] += 1` evaluated the key two times, so it read one slot and wrote the next
+	def test_a_compound_operator_evaluates_a_subscript_one_time
+		out = Code.interp <<~CODE
+			calls := 0
+
+			next_index (;
+				calls += 1
+				calls - 1
+			)
+
+			numbers := [10, 20, 30]
+			numbers[next_index()] += 1
+
+			reads := 0
+
+			get_numbers (;
+				reads += 1
+				numbers
+			)
+
+			get_numbers()[1] += 2
+
+			<numbers, calls, reads>
+		CODE
+		assert_equal [11, 22, 30], out.values[0].values
+		assert_equal 1, out.values[1]
+		assert_equal 1, out.values[2]
+	end
+
+	# `d[:missing] += 1` reads nil, and nil has no `+`. It raised a raw NoMethodError, while `nil + 1` raises Undeclared_Infix_Operator.
+	def test_a_compound_operator_on_a_value_without_the_operator_raises
+		[
+			"counts := {:x = 1}\ncounts[:y] += 1",
+			"numbers := [1]\nnumbers[5] += 1",
+			"x := nil\nx += 1",
+			"s := 'a'\ns -= 1",
+		].each do |source|
+			assert_raises(Code::Undeclared_Infix_Operator, source) { Code.interp source }
+		end
+	end
 end

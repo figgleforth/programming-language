@@ -2115,12 +2115,11 @@ module Code
 		end
 
 		# `d[key] = value` on a Dictionary or Array -- `:=` on a subscript raises instead (Cannot_Declare_Subscript_Target below), it doesn't come through here.
-		def assign_subscript target, value
+		# Circumfix_Expr stores subscript args as an array; only the first is the key. A compound operator passes in the receiver and key that it already evaluated (#interp_infix).
+		def assign_subscript target, value, receiver = interpret(target.receiver), key = interpret(target.expression.expressions.first)
 			if target.expression.expressions.count > 1
 				raise Code::Too_Many_Subscript_Expressions.new(target)
 			end
-			receiver = interpret target.receiver
-			key      = interpret target.expression.expressions.first # Circumfix_Expr stores subscript args as an array; only the first is the key
 
 			if receiver.is_a? Code::Dictionary
 				receiver.proxy_set key, value
@@ -2768,7 +2767,14 @@ module Code
 			return interp_dot_infix expr if operator == '.' || operator == '.?'
 			return interp_logical_infix expr if LOGICAL_OPERATORS.include? operator
 
-			left  = interpret expr.left
+			# `xs[next_index()] += 1` evaluates the receiver and the key one time, so the read and the write reach the same slot.
+			if expr.left.is_a?(Code::Subscript_Expr) && COMPOUND_OPERATORS.include?(operator)
+				receiver = interpret expr.left.receiver
+				key      = interpret expr.left.expression.expressions.first
+				left     = interp_subscript expr.left, receiver, key
+			else
+				left = interpret expr.left
+			end
 			right = interpret expr.right
 
 			# A Code::Type_Alias is a type, not a value (`Five :: 5`, then `Five + 1`), so only the comparisons take one.
@@ -2782,7 +2788,7 @@ module Code
 			when COMPARISON_OPERATORS.include?(operator)
 				interp_comparison_infix expr, left, right
 			when COMPOUND_OPERATORS.include?(operator)
-				interp_compound_infix expr, left, right
+				interp_compound_infix expr, left, right, receiver, key
 			when RANGE_OPERATORS.include?(operator)
 				interp_range_infix expr, left, right
 			else
@@ -2997,7 +3003,7 @@ module Code
 		end
 
 		# (a += b)  ==>  (a = (a + b)). Compound operators only ever consult a scope-level @operator overload (never the operand's own), since their built-in meaning is assignment, not a property of the operand's type.
-		def interp_compound_infix expr, left, right
+		def interp_compound_infix expr, left, right, subscript_receiver = nil, subscript_key = nil
 			# `X += 1` changes a constant the same as `X = X + 1` does
 			raise Code::Cannot_Reassign_Constant.new(expr.left) if expr.left.is_a?(Code::Identifier_Expr) && %i(IDENTIFIER Identifier).include?(Code.type_of_identifier(expr.left.value))
 
@@ -3008,7 +3014,10 @@ module Code
 			result  = if left.is_a?(::Numeric) && right.is_a?(::Numeric)
 				left.send base_op, right # plain numbers stay plain, as in #interp_arithmetic_infix
 			else
-				maybe_instance(left).send base_op, maybe_instance(right)
+				instanced_left = maybe_instance left
+				raise Code::Undeclared_Infix_Operator.new(expr) unless instanced_left.respond_to? base_op
+
+				instanced_left.send base_op, maybe_instance(right)
 			end
 
 			# Assign back to left side -- a dot-target (`instance.member += ...`) goes through the same
@@ -3017,6 +3026,8 @@ module Code
 			# declare a bogus `nil`-named identifier there instead of touching the actual member.
 			if expr.left.is_a?(Code::Infix_Expr) && expr.left.operator&.value == '.'
 				assign_dot_member expr, expr.left, result
+			elsif expr.left.is_a? Code::Subscript_Expr
+				assign_subscript expr.left, result, subscript_receiver, subscript_key
 			else
 				assignment_scope = scope_for_identifier expr.left
 				assignment_scope.declare expr.left.value, result
@@ -5442,17 +5453,15 @@ module Code
 			end
 		end
 
-		def interp_subscript expr
+		def interp_subscript expr, receiver = interpret(expr.receiver), key = interpret(expr.expression.expressions.first)
 			if expr.expression.expressions.count > 1
 				raise Code::Too_Many_Subscript_Expressions.new(expr.expression)
 			end
 
-			receiver  = maybe_instance interpret expr.receiver
-			subscript = expr.expression.expressions.first
+			receiver = maybe_instance receiver
 
 			case receiver
 			when Code::Dictionary, Code::Array
-				key = interpret subscript
 				# `arr[1..3]` -- a Code::Range slice. Unwrap to the proxy ::Range; the result is a raw
 				# Ruby sub-array (or nil for an out-of-bounds start), so re-link it.
 				if key.is_a?(Code::Range)
@@ -5462,17 +5471,15 @@ module Code
 				receiver.proxy_get key
 			when Code::Struct
 				# `<4, 5>[1]` reads a member by its position, the same as `.1`.
-				index = interpret subscript
-				raise Code::Invalid_Array_Index.new(subscript) unless index.is_a? ::Integer
+				raise Code::Invalid_Array_Index.new(expr.expression.expressions.first) unless key.is_a? ::Integer
 
-				receiver.values[index]
+				receiver.values[key]
 			when Code::Nil
 				# todo: What should happen when subscripting nil? A warning of some kind maybe?
 				nil
 			when Code::String
-				index = interpret subscript
-				index = index.range if index.is_a?(Code::Range) # `"abc"[0..<2]`
-				receiver.value[index]
+				key = key.range if key.is_a?(Code::Range) # `"abc"[0..<2]`
+				receiver.value[key]
 			else
 				raise Code::Invalid_Subscript_Receiver.new expr.receiver
 			end
