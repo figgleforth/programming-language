@@ -85,7 +85,7 @@ Raylib {
 	Self.load_render_texture ( width: Number, height: Number -> Any; @ruby )
 	Self.render_texture_texture ( render_texture: Any -> Any; @ruby )
 	Self.load_shader ( vertex_path: String, fragment_path: String -> Any; @ruby ) # either path may be nil
-	Self.get_shader_location ( shader: Any, name: String -> Number; @ruby )
+	Self.get_shader_location ( shader: Any, name: String | Symbol -> Number; @ruby )
 	Self.set_shader_value_float ( shader: Any, location: Number, value: Number; @ruby )
 	Self.set_shader_value_texture ( shader: Any, location: Number, texture: Any; @ruby ) # binds a texture uniform -- for sampling a *different* texture than whatever's naturally being drawn
 	Self.begin_texture_mode ( render_texture: Any; @ruby )
@@ -102,7 +102,7 @@ Raylib {
 	# --- Input: Keyboard ---
 	Self.is_key_down? ( key: Symbol -> Bool; @ruby ) # e.g. Raylib.is_key_down?(:right)
 	Self.is_key_pressed? ( key: Symbol -> Bool; @ruby )
-	Self.key ( name: Symbol -> Number; @ruby ) # e.g. Raylib.key(:right) -> raylib's real KEY_RIGHT integer
+	Self.key ( name: String | Symbol -> Number; @ruby ) # e.g. Raylib.key(:right) -> raylib's real KEY_RIGHT integer
 
 	# --- Input: Mouse ---
 	# A button is a symbol -- :left, :right, :middle, :side, :extra, :forward, :back.
