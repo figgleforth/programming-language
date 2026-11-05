@@ -23,15 +23,14 @@ module Code
 			# Lets Ruby proxy methods (no interpreter reference otherwise) reach interpreter state, e.g. #find_table_type_for_schema. Not thread-safe across multiple interpreters; fine for one-per-process.
 			attr_accessor :current
 
-			# Drops the lex/parse/type-check/asset caches above, plus Declarator's own, for the given
-			# resolved paths (all of them when `paths` is nil) so a fresh Interpreter re-reads those
-			# files from prog. Used by Hot_Reloader on a file change -- everything else about a reload
+			# Drops the lex/parse/type-check/asset caches above, plus Declarator's own, so a fresh
+			# Interpreter reads each file again. Used by Hot_Reloader on a file change -- everything else about a reload
 			# is a brand-new Interpreter, which resets all instance state on its own; these class-level
 			# Hashes are the only thing that survives. Both classes extend Cached_By_Path (see
 			# ruby/shared/cached_by_path.rb), so this just delegates to each one's own generic reset.
-			def reset_file_caches! paths = nil
-				reset_cached_by_path! paths
-				Code::Declarator.reset_cached_by_path! paths
+			def reset_file_caches!
+				reset_cached_by_path!
+				Code::Declarator.reset_cached_by_path!
 			end
 		end
 

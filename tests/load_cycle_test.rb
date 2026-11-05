@@ -139,4 +139,18 @@ class Load_Cycle_Test < Base_Test
 		error = assert_raises(Code::Undeclared_Identifier) { Code.interp_file "#{dir}/v1.code" }
 		assert_includes plain(error.message), 'v1.code is still loading (v1.code → v2.code → v1.code)'
 	end
+
+	def test_a_load_that_fails_does_not_stay_marked_as_loading
+		dir = write_files(
+			main:   "result := helper()\n@load 'DIR/middle'\nresult",
+			middle: "@load 'DIR/broken'\nhelper (; 42 )",
+			broken: "y := ("
+		)
+		assert_raises(Code::Out_Of_Tokens) { Code.interp_file "#{dir}/main.code" }
+		assert_empty Code::Declarator.currently_loading_filepaths
+
+		File.write "#{dir}/broken.code", 'y := 2'
+		Code::Interpreter.reset_file_caches!
+		assert_equal 42, Code.interp_file("#{dir}/main.code")
+	end
 end

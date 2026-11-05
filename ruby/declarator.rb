@@ -135,8 +135,11 @@ module Code
 			end
 
 			self.class.currently_loading_filepaths << filepath
-			declared = Declarator.new(expressions).output
-			self.class.currently_loading_filepaths.delete filepath
+			begin
+				declared = Declarator.new(expressions).output
+			ensure
+				self.class.currently_loading_filepaths.delete filepath
+			end
 
 			self.class.cached_declarations_by_filepath[filepath] = declared
 		rescue Errno::ENOENT

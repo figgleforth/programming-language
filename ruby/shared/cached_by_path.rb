@@ -19,14 +19,8 @@ module Cached_By_Path
 		@cached_by_path_names
 	end
 
-	# Drops every registered cache's entries for the given resolved paths (all entries when
-	# `paths` is nil). Generic over whichever caches this particular class declared.
-	def reset_cached_by_path! paths = nil
-		hashes = cached_by_path_names.map { |name| public_send name }
-		if paths
-			paths.each { |path| hashes.each { |hash| hash.delete path } }
-		else
-			hashes.each(&:clear)
-		end
+	# Drops every entry of every cache this class declared.
+	def reset_cached_by_path!
+		cached_by_path_names.each { |name| public_send(name).clear }
 	end
 end

@@ -145,20 +145,6 @@ class Hot_Reload_Test < Base_Test
 		assert_includes on_body, "new EventSource('#{Code::DOM_HOT_RELOAD_URL}')"
 	end
 
-	def test_reset_file_caches_with_paths_only_drops_those_paths
-		fixture = File.expand_path 'tests/fixtures/test_module.code'
-		Code.interp "@load 'tests/fixtures/test_module.code'" # caches stdlib + the fixture
-		stdlib = Code::STANDARD_LIBRARY_PATH
-
-		assert Code::Interpreter.cached_expressions_by_filepath.key?(stdlib)
-		assert Code::Interpreter.cached_expressions_by_filepath.key?(fixture)
-
-		Code::Interpreter.reset_file_caches! [fixture]
-
-		assert Code::Interpreter.cached_expressions_by_filepath.key?(stdlib), 'stdlib entry should survive a targeted reset'
-		refute Code::Interpreter.cached_expressions_by_filepath.key?(fixture), 'the named path should be dropped'
-	end
-
 	# These boot a real WEBrick server (~2s total). CI runs them; locally they're removed outright so
 	# the IDE runner doesn't expand a skip block per test -- `CI=1 rake test` includes them.
 	CI_ONLY = %i[
