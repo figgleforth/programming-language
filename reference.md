@@ -1278,6 +1278,14 @@ for 1..10
 end
 ```
 
+Prefix operators and arithmetic bind tighter than a range, so each end of a range can be a calculation:
+
+```code
+-n..n         # (-n)..n
+i + 1..n      # (i + 1)..n
+1..n * 2      # 1..(n * 2)
+```
+
 A range is a real value with its own methods:
 
 ```code

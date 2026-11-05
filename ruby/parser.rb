@@ -1766,6 +1766,8 @@ module Code
 				elsif RANGE_OPERATORS.include? curr_lexeme.value
 					# A `.`/`.?` RHS is always a bare member name -- `a.b...c` is `(a.b)...c`, never `a.(b...c)`.
 					return expr if member_rhs
+					# An operand of a prefix or of arithmetic ends here, so `-n..n` is `(-n)..n`. The table's 80 cannot decide this, because `x := 1..n` must stay a range.
+					return expr if precedence >= precedence_for('+')
 					it = parse_endless_range_expr expr
 					return complete_expression it, precedence
 				else

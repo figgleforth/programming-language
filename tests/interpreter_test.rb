@@ -4241,6 +4241,31 @@ class Interpreter_Test < Base_Test
 		assert_equal 16,   Code.interp('(13 + 3) & ~3')
 	end
 
+	def test_a_prefix_operand_ends_before_a_range
+		assert_equal '-2..2',  Code.interp("n := 2\n(-n..n).to_s()").to_s
+		assert_equal '2..4',   Code.interp("n := 2\n(+n..4).to_s()").to_s
+		assert_equal '-3..3',  Code.interp("n := 2\n(~n..3).to_s()").to_s
+		assert_equal '-2..<2', Code.interp("n := 2\n(-n..<n).to_s()").to_s
+		assert_equal '-1..1',  Code.interp('(-1..1).to_s()').to_s
+		assert_equal 0,        Code.interp("n := 2\nsum := 0\nfor -n..n\n\tsum += it\nend\nsum")
+		assert_equal 5,        Code.interp("n := 2\nx := -n..n\nx.length()")
+	end
+
+	def test_an_arithmetic_operand_ends_before_a_range
+		assert_equal '2..3',  Code.interp("n := 3\n(1 + 1..n).to_s()").to_s
+		assert_equal '6..7',  Code.interp("n := 3\n(2 * n..7).to_s()").to_s
+		assert_equal '-6..7', Code.interp("n := 3\n(-n * 2..7).to_s()").to_s
+		assert_equal '1..4',  Code.interp("n := 3\n(1..n + 1).to_s()").to_s
+	end
+
+	def test_a_range_stays_whole_after_a_looser_operator
+		assert_equal 3,       Code.interp("x := 1..3\nx.length()")
+		assert_equal 3,       Code.interp("f (; return 1..3 )\nf().length()")
+		assert_equal 2,       Code.interp("a := [1]\na << 1..3\na.length()")
+		assert_equal '-1..1', Code.interp("n := 1\n(-(n)..n).to_s()").to_s
+		assert_equal 2,       Code.interp("(-(1..3).length() + 5)")
+	end
+
 	def test_pipeing_with_operator_overloads
 		out = Code.interp <<~CODE
 		    @operator -> @infix 300 ( left, right;
