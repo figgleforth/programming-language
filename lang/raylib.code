@@ -50,7 +50,7 @@ Raylib {
 	# --- Drawing ---
 	Self.begin_drawing (; @ruby )
 	Self.end_drawing (; @ruby )
-	Self.clear_background ( color: Array; @ruby )
+	Self.clear_background ( color: Array | Struct; @ruby )
 
 	# --- 2D Camera ---
 	# Everything drawn between begin/end is transformed by `camera` -- pan/zoom/rotate the world
@@ -59,17 +59,17 @@ Raylib {
 	Self.end_mode_2d (; @ruby )
 
 	# --- Shapes ---
-	Self.draw_circle ( x: Number, y: Number, radius: Number, color: Array; @ruby )
-	Self.draw_circle_lines ( x: Number, y: Number, radius: Number, color: Array; @ruby )
-	Self.draw_rectangle ( x: Number, y: Number, width: Number, height: Number, color: Array; @ruby )
-	Self.draw_rectangle_lines ( x: Number, y: Number, width: Number, height: Number, color: Array; @ruby )
+	Self.draw_circle ( x: Number, y: Number, radius: Number, color: Array | Struct; @ruby )
+	Self.draw_circle_lines ( x: Number, y: Number, radius: Number, color: Array | Struct; @ruby )
+	Self.draw_rectangle ( x: Number, y: Number, width: Number, height: Number, color: Array | Struct; @ruby )
+	Self.draw_rectangle_lines ( x: Number, y: Number, width: Number, height: Number, color: Array | Struct; @ruby )
 	# `rect` is [x, y, width, height], `origin` an [x, y] offset (in `rect`'s own space) that
 	# `rotation` (degrees) pivots around -- [0, 0] pivots around the rectangle's own top-left corner.
-	Self.draw_rectangle_pro ( rect: Array, origin: Array, rotation: Number, color: Array; @ruby )
-	Self.draw_line ( x1: Number, y1: Number, x2: Number, y2: Number, color: Array; @ruby )
+	Self.draw_rectangle_pro ( rect: Array, origin: Array, rotation: Number, color: Array | Struct; @ruby )
+	Self.draw_line ( x1: Number, y1: Number, x2: Number, y2: Number, color: Array | Struct; @ruby )
 
 	# --- Text ---
-	Self.draw_text ( text: String, x: Number, y: Number, size: Number, color: Array; @ruby )
+	Self.draw_text ( text: String, x: Number, y: Number, size: Number, color: Array | Struct; @ruby )
 	Self.measure_text ( text: String, size: Number -> Number; @ruby )
 	Self.draw_fps ( x: Number, y: Number; @ruby )
 
@@ -80,8 +80,8 @@ Raylib {
 	Self.get_texture_width ( texture: Any -> Number; @ruby )
 	Self.get_texture_height ( texture: Any -> Number; @ruby )
 	Self.set_texture_filter ( texture: Any, filter: Symbol; @ruby ) # e.g. :bilinear, :point, :trilinear
-	Self.gen_color_texture ( width: Number, height: Number, color: Array -> Any; @ruby ) # a placeholder texture, no image file needed -- flat color, so a UV-shift distortion shader has nothing to visibly displace on it
-	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array, color2: Array -> Any; @ruby ) # same, but a checkerboard -- has detail a distortion shader can actually show
+	Self.gen_color_texture ( width: Number, height: Number, color: Array | Struct -> Any; @ruby ) # a placeholder texture, no image file needed -- flat color, so a UV-shift distortion shader has nothing to visibly displace on it
+	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array | Struct, color2: Array | Struct -> Any; @ruby ) # same, but a checkerboard -- has detail a distortion shader can actually show
 	Self.load_render_texture ( width: Number, height: Number -> Any; @ruby )
 	Self.render_texture_texture ( render_texture: Any -> Any; @ruby )
 	Self.load_shader ( vertex_path: String, fragment_path: String -> Any; @ruby ) # either path may be nil
@@ -92,9 +92,9 @@ Raylib {
 	Self.end_texture_mode (; @ruby )
 	Self.begin_shader_mode ( shader: Any; @ruby )
 	Self.end_shader_mode (; @ruby )
-	Self.draw_texture ( texture: Any, x: Number, y: Number, color: Array; @ruby )
+	Self.draw_texture ( texture: Any, x: Number, y: Number, color: Array | Struct; @ruby )
 	# `source`/`dest` are [x, y, width, height] Arrays, `origin` an [x, y] Array.
-	Self.draw_texture_pro ( texture: Any, source: Array, dest: Array, origin: Array, rotation: Number, color: Array; @ruby )
+	Self.draw_texture_pro ( texture: Any, source: Array, dest: Array, origin: Array, rotation: Number, color: Array | Struct; @ruby )
 	Self.unload_texture ( texture: Any; @ruby )
 	Self.unload_render_texture ( render_texture: Any; @ruby )
 	Self.unload_shader ( shader: Any; @ruby )
@@ -163,7 +163,7 @@ Raylib {
 	Self.rl_set_texture ( texture: Any; @ruby ) # binds the texture rl_tex_coord's 0..1 UVs sample from
 	Self.rl_begin_quads (; @ruby )
 	Self.rl_end (; @ruby )
-	Self.rl_color ( color: Array; @ruby )
+	Self.rl_color ( color: Array | Struct; @ruby )
 	Self.rl_normal ( x: Number, y: Number, z: Number; @ruby )
 	Self.rl_tex_coord ( u: Number, v: Number; @ruby )
 	Self.rl_vertex ( x: Number, y: Number; @ruby )
