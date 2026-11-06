@@ -21,13 +21,14 @@ module Code
 
 		class << self
 			# Lets Ruby proxy methods (no interpreter reference otherwise) reach interpreter state, e.g. #find_table_type_for_schema. Not thread-safe across multiple interpreters; fine for one-per-process.
-			attr_accessor :current
+			attr_accessor :current # note; set in #initialize
 
 			# Drops the lex/parse/type-check/asset caches above, plus Declarator's own, so a fresh
 			# Interpreter reads each file again. Used by Hot_Reloader on a file change -- everything else about a reload
 			# is a brand-new Interpreter, which resets all instance state on its own; these class-level
 			# Hashes are the only thing that survives. Both classes extend Cached_By_Path (see
 			# ruby/shared/cached_by_path.rb), so this just delegates to each one's own generic reset.
+			# Called like `Code::Interpreter.reset_file_caches!`
 			def reset_file_caches!
 				reset_cached_by_path!
 				Code::Declarator.reset_cached_by_path!
@@ -2015,6 +2016,8 @@ module Code
 			pre  = expr.is Prefix_Expr # returns new value
 			post = expr.is Postfix_Expr # returns old value
 
+			raise Code::Cannot_Reassign_Constant.new(expr.expression) if expr.expression.is_a?(Code::Identifier_Expr) && %i(IDENTIFIER Identifier).include?(Code.type_of_identifier(expr.expression.value))
+
 			current_value = interpret expr.expression
 
 			valid_value = current_value.is_a?(::Numeric)
@@ -2410,6 +2413,15 @@ module Code
 				# the way an instance does. Plain `Global.x = v` still needs a prior declaration.
 				unless receiver.has?(property) || still_under_construction?(receiver) || (declare && receiver.is_a?(Code::Global))
 					raise Code::Cannot_Assign_Undeclared_Identifier.new(expr)
+				end
+
+				# Only `Self (;)` changes a capital member. A closure made there has its own frame when it runs, so it cannot. `:=` still declares one in a type body, and `Global.X := v` declares again, the same as `X := v`.
+				if %i(IDENTIFIER Identifier).include? Code.type_of_identifier(property)
+					frame          = stack.reverse_each.find { it.is_a?(Code::Func) || it.is_a?(Code::Type) || it.is_a?(Code::Route_Frame) }
+					global         = target.left.value == 'Global'
+					in_constructor = !global && frame.is_a?(Code::Func) && frame.name&.value == 'Self'
+					declares       = declare && (global || frame.is_a?(Code::Type))
+					raise Code::Cannot_Reassign_Constant.new(expr) unless in_constructor || declares
 				end
 
 				if declare
@@ -4486,7 +4498,7 @@ module Code
 				push_scope route.enclosing_scope
 			end
 
-			call_scope = Code::Scope.new "#{route.name || 'anonymous'}_route"
+			call_scope = Code::Route_Frame.new "#{route.name || 'anonymous'}_route"
 			push_scope server_instance if server_instance
 			push_scope call_scope
 

@@ -4904,6 +4904,98 @@ class Interpreter_Test < Base_Test
 		assert_equal 2, error.actual
 	end
 
+	def test_self_and_self_type_members_are_destructuring_targets
+		out = Code.interp <<~CODE
+			Thing {
+				a := 0
+				b := 0
+				Self.total := 0
+
+				fill (;
+					(self.a, Self.total, local) := <1, 2, 3>
+					(self.b,) := <4,>
+					local
+				)
+			}
+
+			thing := Thing()
+			local := thing.fill()
+			<thing.a, thing.b, Thing.total, local>
+		CODE
+		assert_equal [1, 4, 2, 3], out.values
+
+		out = Code.interp <<~CODE
+			Thing {
+				a,
+
+				fill (;
+					(local, self.a) := [1, 2, 3]
+					local
+				)
+			}
+
+			thing := Thing()
+			<thing.fill(), thing.a.values>
+		CODE
+		assert_equal 1, out.values.first
+		assert_equal [2, 3], out.values.last
+	end
+
+	def test_a_self_destructuring_target_follows_the_rules_of_a_self_write
+		assert_raises Code::Cannot_Assign_Undeclared_Identifier do
+			Code.interp <<~CODE
+				Thing {
+					fill (;
+						(self.missing, local) := <1, 2>
+					)
+				}
+
+				Thing().fill()
+			CODE
+		end
+
+		assert_raises Code::Type_Contract_Violation do
+			Code.interp <<~CODE
+				Thing {
+					a: String = ''
+
+					fill (;
+						(self.a, local) := <1, 2>
+					)
+				}
+
+				Thing().fill()
+			CODE
+		end
+
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp <<~CODE
+				Thing {
+					FOO := 0
+
+					fill (;
+						(self.FOO, local) := <1, 2>
+					)
+				}
+
+				Thing().fill()
+			CODE
+		end
+
+		out = Code.interp <<~CODE
+			Thing {
+				FOO := 0
+
+				Self (;
+					(self.FOO, local) := <1, 2>
+				)
+			}
+
+			Thing().FOO
+		CODE
+		assert_equal 1, out
+	end
+
 	def test_member_destructuring_targets
 		# `thing.member` reassigns an existing member, same as plain `thing.member = value`.
 		out = Code.interp <<~CODE
@@ -6674,5 +6766,18 @@ class Interpreter_Test < Base_Test
 		assert_equal ["test-page-0", "test-page-1"], out.values
 		assert_nil live_page_instance.callbacks['test-page-0'].target
 		assert_kind_of Code::Func, live_page_instance.inputs['test-page-1']
+	end
+
+	def test_a_spread_lambda_takes_a_type_in_either_casing
+		%w(Num NUM).each do |name|
+			out = Code.interp <<~CODE
+				#{name} :: Integer
+
+				param_type := [1, 2].map(n: #{name}; n * 2)
+				return_type := [1, 2].map(n -> #{name}; n * 2)
+				[param_type, return_type]
+			CODE
+			assert_equal [[2, 4], [2, 4]], out.values.map(&:values)
+		end
 	end
 end

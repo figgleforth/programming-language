@@ -217,6 +217,10 @@ module Code
 		attr_accessor :lexical_stack # see Interpreter#interp_func_body
 	end
 
+	# The frame of one run of a route or click handler (#interp_route_body). It is not a Func, so a method's checks do not apply, but the code in it is not in a type body either.
+	class Route_Frame < Scope
+	end
+
 	class Route < Func
 		attr_accessor :http_method, :path, :parts, :param_names
 

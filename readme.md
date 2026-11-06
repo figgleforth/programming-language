@@ -9,9 +9,9 @@ This readme is a short tour of the language. The reference is the complete descr
 
 
 > [!NOTE]
-> The goal is a language built for web development first where every construct you need, from routing to persistence, is provided as a first-class feature.
+> The goal is a language for web development, with routes, HTML, and a database built in.
 >
-> I wrote everything myself until late November 2025. Since then, I direct a single Claude Code agent to write features and tests, letting me iterate quickly.
+> I wrote everything myself until late November 2025. Since then, I direct a single Claude Code agent to write features and tests.
 >
 > I continue designing the language and write features when they interest me.
 >
@@ -26,9 +26,9 @@ bundle exec bin/program examples/hello_world.code   # Hello, Code!
 bundle exec rake test                               # About 2,000 tests
 ```
 
-### A full-stack app in one file
+### Example: a todo app
 
-Server, database, HTML, and click handlers that run on the server, with no JavaScript to write.
+The server, the database, the HTML, and the click handlers are in one file. The click handlers run on the server, so this file has no JavaScript.
 
 ```code
 @load 'lang/web/starter_html'     # the server, HTML, CSS, the database, and passwords
@@ -67,13 +67,11 @@ app := App()
 @start_server app
 ```
 
-This app can be written in any paradigm. See the tasks app as [components](examples/tasks/tasks-components.code), with a [page reload](examples/tasks/tasks-page-reload.code), and with a [live reload](examples/tasks/tasks-live-reload.code). [`lang/web/`](lang/web/readme.md) has a starter for each of the two ways to build HTML, and helps you choose.
+The tasks example has three versions: [components](examples/tasks/tasks-components.code), [page reload](examples/tasks/tasks-page-reload.code), and [live reload](examples/tasks/tasks-live-reload.code). [`lang/web/`](lang/web/readme.md) has a starter for each of the two ways to build HTML, and compares them.
 
 > For now, one single instance serves every visitor, so all visitors share its state.
 
-### Errors that point at the problem
-
-Each error shows the exact span, the location, and the error type.
+### Error messages
 
 ```
     1: x := 5
@@ -82,10 +80,6 @@ Each error shows the exact span, the location, and the error type.
                   ├─  e.code:2:10
                   └─  Undeclared_Identifier
 ```
-
-### Errors that suggest the fix
-
-Common mistakes come with the correction.
 
 ```
     2: f(mode: "fill")
@@ -125,13 +119,13 @@ y = 4                  # Cannot_Assign_Undeclared_Identifier
 ```
 
 ### Casing
-
+fix 6 
 The case of a name sets its role, and the interpreter enforces it.
 
 ```code
-Counter {}             # Capitalized: a type
-count := 0             # lowercase: a value or function
-MAX := 10              # UPPERCASE: a constant
+Counter {}             # Capitalized: a Type constant
+MAX := 10              # UPPERCASE:   a constant
+count := 0             # lowercase:   a value or function
 
 lower :: Integer       # Invalid_Type_Alias_Name
 ```
@@ -147,7 +141,7 @@ PI = 3                 # Cannot_Reassign_Constant
 
 ### Strings
 
-Backticks interpolate anything.
+Backticks interpolate any expression.
 
 ```code
 name := 'World'
@@ -216,7 +210,7 @@ Counter.count                 # 2
 
 ### Composition
 
-Add and remove the members of types, with no inheritance trees.
+`+` adds the members of a type, and `-` removes them. There is no inheritance.
 
 ```code
 Flying   { can_fly := true }
@@ -238,7 +232,7 @@ second (;
 
 ### Comparing
 
-Operators that ask what a type is made of.
+`==` compares values, and `===` compares types. `=>=`, `=<=`, and `=/=` compare what two types compose: superset, subset, and nothing shared.
 
 ```code
 4 == 5                             # false: other values
@@ -277,7 +271,7 @@ x = :five                     # Type_Contract_Violation
 
 ### Literal types
 
-A value can be a type.
+A literal value can be used as a type.
 
 ```code
 mode: "fill" | "line" = "fill"
@@ -290,7 +284,7 @@ s = 2                          # Type_Contract_Violation
 
 ### Structs
 
-Lightweight data in angle brackets, matched by shape.
+A struct is a list of members in angle brackets. A `<...>` type matches by members, not by name.
 
 ```code
 Ok      <status: 200, body: String>
@@ -329,7 +323,7 @@ tick.use_caller_scope = true  # resolve names where tick() is called,
 
 ### The context
 
-Every scope knows about itself through `@`, its "context."
+`@` is the context. It gives a scope's reflection data and the built-in functions.
 
 ```code
 Duck.@name              # 'Duck'
@@ -364,7 +358,7 @@ Card([H1('Welcome'), P('Hello!')]).to_s()
 
 The `class` and `style` attributes, and the escaping, come when a server renders the element.
 
-### Clicks run on the server
+### Click handlers
 
 Set `onclick` to a closure, and only the element with that `html_id` renders again.
 
@@ -387,9 +381,9 @@ Counter + Div {
 }
 ```
 
-### Every event, not only clicks
+### Other event handlers
 
-Typing, keys, changes, submits, and focus run on the server too, and each closure gets the element's own value.
+`oninput`, `onchange`, `onsubmit`, `onkeydown`, `onkeyup`, `onfocus`, and `onblur` also run on the server. Each closure gets the element's own value.
 
 ```code
 @load 'lang/web/starter_html2'
@@ -410,7 +404,7 @@ App + Server {
 
 A closure made in a route still reaches the members of its type, so `search = text` changes `App`'s `search`. `onchange` gets a checkbox's `true` or `false`, `onkeydown` and `onkeyup` get the key (`'Enter'`), and `onsubmit` stops the page from loading again. See [the events and a login on one page](examples/live/events_and_login.code).
 
-### Logins
+### Cookies and passwords
 
 Signed cookies and password hashes are built in.
 
@@ -442,7 +436,7 @@ Css_Lint_Visitor().lint(rule)   # duplicates, prefixes, 0px
 
 ### Database
 
-A struct is the schema, and the table follows.
+A named struct is the schema. Its members are the columns, and its name sets the table name.
 
 ```code
 @load 'lang/database.code'
@@ -460,7 +454,7 @@ users.delete(ada.id)
 
 ### Records
 
-Data, logic, and table under one name.
+Compose a struct, a type with methods, and a table into one type.
 
 ```code
 User_Logic { greet (; "Hi `name`" ) }
@@ -504,7 +498,7 @@ redirect('/login') unless logged_in
 
 ### Hoisting
 
-Functions, types, and imports are hoisted, so recursion just works.
+Functions, types, and `@load`s are hoisted, so a call can come before the declaration.
 
 ```code
 main()                       # 55
@@ -542,7 +536,7 @@ format = ( a, b; a )         # Type_Contract_Violation
 log ( x -> Nil; x )          # -> Nil always returns nil
 ```
 
-### Several values
+### Multiple return values
 
 Return a struct and unpack it by position.
 
@@ -554,9 +548,9 @@ split (-> <Bool, Any>;
 (ok, why) := split()         # false, 'reason'
 ```
 
-### Dynamic or typed
+### Gradual typing
 
-Start with open values and add types one value at a time, since nothing makes you type a whole file.
+A variable, param, or member is open, locked by inference, or locked by declaration. One file can use all three.
 
 ```code
 ###
@@ -619,7 +613,7 @@ String\<5> === String\<6>      # true: the same shape
 String\<5> == String\<6>       # false: other values
 
 tasks: Array\Task              # a label only: elements are not type-checked.
-things: Dict\Formatter         # useful for complex formatters and such!
+things: Dict\Formatter         # also a label only
 ```
 
 ### Numbers
@@ -765,7 +759,7 @@ end
 
 ### Loop verbs
 
-Name the result you want.
+A verb after the collection sets the result of the loop.
 
 ```code
 for [1, 2, 3] map             # [2, 4, 6]
@@ -789,7 +783,7 @@ end                           # [<1, 2>, <2, 3>, <3, nil>]
 
 ### While and until
 
-Chain branches into one loop, and steer it with `skip` and `stop`.
+`elwhile` adds a branch to the same loop. `skip` ends the pass, and `stop` ends the loop.
 
 ```code
 while x < 4
@@ -824,7 +818,7 @@ end
 
 ### Tagged nil
 
-Tag a nil with a reason, and it stays falsy while `when` tells them apart.
+A nil can carry a tag. It stays falsy, and `when` can match on the tag.
 
 ```code
 load_user (;
@@ -910,7 +904,7 @@ double ( @splat vec;          # writable
 )
 ```
 
-### Reopen any scope
+### Reopening a scope
 
 Add to a type or a single instance, after the fact, by pushing its scope on top of the stack, then popping it.
 
@@ -938,7 +932,7 @@ Mod := @load './my_module.code'
 Mod.Some_Type()
 ```
 
-### A standard library you can read
+### Standard library and `@ruby`
 
 The standard library is written in .code, and `@ruby` runs the built-in Ruby method right where it is written, so you can wrap or replace any built-in.
 
@@ -966,7 +960,7 @@ bin/program app.code
 bin/program run app.code         # the same
 ```
 
-### A server written in .code
+### HTTP server
 
 The HTTP server is written in the language, on two small socket types. It parses the bytes that have come so far, and waits for more when a request is not whole yet. Each error is a tagged nil that carries its reason. Ruby still does the sockets and finds the route.
 
@@ -985,7 +979,7 @@ brew.@tag.message                # 'Unknown method BREW'
 status_for(brew)                 # 501
 ```
 
-Apps run on it. One thread waits on every connection at once, so a slow client holds up no one, and a connection stays open for the next request.
+It is the default server. One thread waits on all connections, so a slow client does not block the others. A connection stays open for the next request.
 
 ```sh
 bin/program interpf app.code             # the .code server
@@ -993,7 +987,7 @@ bin/program interpf app.code -webrick    # Ruby's WEBrick, the same as CODE_SERV
 bin/program app.code                     # the .code server, with hot reload
 ```
 
-### Every stage, inspectable
+### Inspecting each stage
 
 See the output of each step with `-p`.
 

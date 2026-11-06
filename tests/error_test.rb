@@ -59,6 +59,167 @@ class Error_Test < Base_Test
 		end
 	end
 
+	def test_increment_and_decrement_cannot_change_a_constant
+		%w(Foo FOO).each do |name|
+			["#{name}++", "++#{name}", "#{name}--", "--#{name}"].each do |change|
+				assert_raises Code::Cannot_Reassign_Constant, change do
+					Code.interp <<~CODE
+						#{name} := 1
+						#{change}
+					CODE
+				end
+			end
+		end
+
+		assert_equal 2, Code.interp(<<~CODE)
+			count := 1
+			count++
+			count
+		CODE
+	end
+
+	def test_a_method_cannot_change_a_capital_member
+		%w(Foo FOO).each do |name|
+			["self.#{name} = 2", "self.#{name} += 1", "self.#{name} := 2", "Self.Static = 2", "Self.Static += 1", "Self.Static := 2"].each do |change|
+				assert_raises Code::Cannot_Reassign_Constant, change do
+					Code.interp <<~CODE
+						Thing {
+							#{name} := 1
+							Self.Static := 1
+
+							change (;
+								#{change}
+							)
+						}
+
+						Thing().change()
+					CODE
+				end
+			end
+		end
+	end
+
+	def test_a_function_called_from_self_cannot_change_a_capital_member
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp <<~CODE
+				Thing {
+					FOO := 1
+
+					Self (;
+						change()
+					)
+
+					change (;
+						self.FOO = 2
+					)
+				}
+
+				Thing()
+			CODE
+		end
+
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp <<~CODE
+				Thing {
+					FOO := 1
+
+					Self (;
+						change (;
+							self.FOO = 2
+						)
+						change()
+					)
+				}
+
+				Thing()
+			CODE
+		end
+	end
+
+	def test_a_closure_made_in_self_cannot_change_a_capital_member_later
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp <<~CODE
+				Thing {
+					FOO := 1
+					change := nil
+
+					Self (;
+						self.change = (;
+							self.FOO = 2
+						)
+					)
+				}
+
+				Thing().change()
+			CODE
+		end
+	end
+
+	def test_self_can_set_a_capital_member
+		%w(Foo FOO).each do |name|
+			assert_equal 3, Code.interp(<<~CODE)
+				Thing {
+					#{name},
+
+					Self (;
+						self.#{name} = 1
+						self.#{name} += 1
+
+						if true
+							self.#{name} = 3
+						end
+					)
+				}
+
+				Thing().#{name}
+			CODE
+		end
+
+		assert_equal 2, Code.interp(<<~CODE)
+			Thing {
+				Self.COUNT := 0
+
+				Self (;
+					Self.COUNT += 1
+				)
+			}
+
+			Thing()
+			Thing()
+			Thing.COUNT
+		CODE
+	end
+
+	def test_a_method_can_read_and_call_a_capital_member
+		assert_equal [1, 7], Code.interp(<<~CODE).values
+			Thing {
+				FOO := 1
+				Run := (; 7 )
+
+				read (;
+					[self.FOO, self.Run()]
+				)
+			}
+
+			Thing().read()
+		CODE
+	end
+
+	def test_global_dot_cannot_change_a_constant
+		assert_raises Code::Cannot_Reassign_Constant do
+			Code.interp <<~CODE
+				FOO := 1
+				Global.FOO = 2
+			CODE
+		end
+
+		assert_equal 2, Code.interp(<<~CODE)
+			FOO := 1
+			Global.FOO := 2
+			FOO
+		CODE
+	end
+
 	# A type name is a constant too: `=` never changes it, and neither does a compound operator
 	def test_cannot_reassign_a_type
 		assert_raises Code::Cannot_Reassign_Constant do

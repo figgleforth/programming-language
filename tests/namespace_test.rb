@@ -277,4 +277,32 @@ class Namespace_Test < Base_Test
 			assert_raises(Code::Name_Already_Declared) { Code.interp_file File.join(dir, 'main.code') }
 		end
 	end
+
+	def test_a_composition_reaches_a_type_in_a_named_load_in_either_casing
+		library = <<~CODE
+			Thing {
+				x := 1
+			}
+
+			THING {
+				x := 1
+			}
+		CODE
+		%w(Thing THING).each do |name|
+			source = <<~CODE
+				Lib := @load './library'
+
+				With_Body + Lib.#{name} {}
+
+				With_Members + Lib.#{name} <y: Int>
+
+				[With_Body().x, With_Members(1, 2).y]
+			CODE
+			Dir.mktmpdir do |dir|
+				File.write File.join(dir, 'library.code'), library
+				File.write File.join(dir, 'main.code'), source
+				assert_equal [1, 2], Code.interp_file(File.join(dir, 'main.code')).values
+			end
+		end
+	end
 end

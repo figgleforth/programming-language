@@ -225,8 +225,9 @@ instance := My_Class('some input')  # Initted with "some input"
 
 1. A name that starts with a capital letter is a constant: `PI` and `Point` are the same kind. By habit, UPPERCASE holds a value and Capitalized holds a type
 2. It is declared by `:=`, `::`, or its own construct (`Point {}`, `Point <x: Int>`, `COLORS [RED, BLUE]`). A typed one uses `=` the first time: `MAX: Int = 100`
-3. `=` and a compound operator (`+=`, `|=`, …) cannot change it, also through a dot (`Outer.Inner = 5`): each raises `Code::Cannot_Reassign_Constant`. To declare it again on purpose, use `:=`
-4. `Self` is the exception: it is the constructor's name, not a constant
+3. `=`, a compound operator (`+=`, `|=`, …), and `++`/`--` cannot change it, also through a dot (`Outer.Inner = 5`): each raises `Code::Cannot_Reassign_Constant`. To declare it again on purpose, use `:=`
+4. A type's own `Self (;)` can set its capital members through `self.` and `Self.`. Any other method can only read them. A closure made in `Self (;)` runs later, so it cannot set them either
+5. `Self` is the exception: it is the constructor's name, not a constant
 
 ```code
 PI := 3.14159
@@ -237,6 +238,18 @@ PI = 3              # raises Code::Cannot_Reassign_Constant
 Point {}
 Point = Other       # raises Code::Cannot_Reassign_Constant
 Point := Other      # works: declared again on purpose
+
+Config {
+    LIMIT,
+
+    Self ( limit;
+        self.LIMIT = limit    # works: in Self
+    )
+
+    raise_limit (;
+        self.LIMIT += 1       # raises Code::Cannot_Reassign_Constant
+    )
+}
 ```
 
 ## Comments

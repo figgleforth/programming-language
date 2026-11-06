@@ -848,6 +848,35 @@ class E2E_Server_Test < Minitest::Test
 	end
 
 	# A URL param is text. A typed one gets the text as its type, and text that is not that type gives a 404, not a 500.
+	def test_a_route_cannot_change_a_capital_member
+		start_app <<~CODE
+		    @load 'lang/web/server'
+
+		    Web_App + Server {
+		    	LIMIT := 1
+		    	count := 1
+
+		    	Self ( port := #{@port}; self.port = port )
+
+		    	get://limit (;
+		    		self.LIMIT = 2
+		    	)
+
+		    	get://count (;
+		    		self.count = 2
+		    		"`LIMIT` `count`"
+		    	)
+		    }
+
+		    app := Web_App()
+		CODE
+
+		get = ->(path) { Net::HTTP.get_response URI("http://localhost:#{@port}#{path}") }
+
+		assert_equal '500', get['/limit'].code
+		assert_equal '1 2', get['/count'].body
+	end
+
 	def test_typed_route_params_get_their_type_from_the_url
 		start_app <<~CODE
 		    @load 'lang/web/server'

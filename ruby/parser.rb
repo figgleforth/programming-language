@@ -188,7 +188,7 @@ module Code
 
 				return true if token.value == Code::FUNCTION_BODY_DELIMITER
 				next if token.type == :newline
-				next if %i[identifier Identifier].include? token.type
+				next if ANY_IDENTIFIER.include? token.type
 				next if PARAM_LIST_TOKEN_VALUES.include? token.value
 				return false
 			end
@@ -487,6 +487,9 @@ module Code
 				# note; A bare identifier immediately followed by `,` is special-cased here rather than going through #parse_expression, same fix #parse_struct already needed for `<...>`: #begin_expression's nil-init dispatch would otherwise interfere.
 				it.expressions << if curr?(ANY_IDENTIFIER, ',')
 					parse_identifier_expr
+				elsif opening == '(' && curr?(SELF_KEYWORDS, '.', ANY_IDENTIFIER, ',')
+					# `(self.x, y) := ...` -- the comma separates targets, so `self.x,` is not a nil-init here. It parses the same as `(y, self.x)`.
+					complete_expression parse_identifier_expr
 				else
 					parse_expression
 				end
@@ -971,7 +974,7 @@ module Code
 				parse_identifier_expr
 			end
 
-			while curr?('.') && peek.is(:Identifier)
+			while curr?('.', TYPE_IDENTIFIER)
 				dot_op         = eat('.')
 				right          = parse_identifier_expr
 				infix          = Code::Infix_Expr.new

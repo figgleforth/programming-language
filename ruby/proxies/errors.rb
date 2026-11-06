@@ -136,7 +136,7 @@ module Code
 
 	class Cannot_Reassign_Constant < Error
 		def detail_message
-			"A capitalized name (`Point`, `MAX`) is declared once, and `=` cannot change it. To declare it again on purpose, use `:=`."
+			"A capitalized name (`Point`, `MAX`) is declared once, and `=` cannot change it. To declare it again on purpose, use `:=`. Only its type's `Self (;)` can set a capital member."
 		end
 	end
 
