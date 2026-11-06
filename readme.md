@@ -3,15 +3,11 @@
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 
-### .code
-
-An expressive language to write scripts, servers, and lots of stuff in between.
-
-I wrote this code by hand from July 2023 to November 2025. Since then, I design the language, write the fun features, and use a single manually directed Claude Code agent to write the features I find boring, the tests, and the docs.
-
-About 2,000 tests keep my code and Claude's in check.
+Write scripts, servers, and lots of stuff in between.
 
 ---
+
+This readme is a short tour of the language. The reference is the complete description, and it is the page that is kept up to date.
 
 [Learn by example](examples/readme.md) · [Read the reference](reference.md) · [Edit the language](ruby/readme.md)
 
@@ -21,11 +17,17 @@ git clone https://github.com/figgleforth/programming-language.git
 cd programming-language
 bundle install
 bundle exec bin/program examples/hello_world.code   # Hello, Code!
+bundle exec rake test                               # About 2,000 tests
 ```
 
-> This readme is a short tour of the language. The reference is the complete description, and it is the page that is kept up to date.
+> I wrote everything myself until late November 2025. Since then, I direct a single Claude Code agent to write features, tests, and documentation. 
+
+> I continue designing the language and writing features when they interest me. 
+
+> Once the syntax and features are solid, I plan to rewrite everything in Odin by hand again.
 
 ---
+
 ### A full-stack app in one file
 
 Server, database, HTML, and click handlers that run on the server, with no JavaScript to write.
@@ -69,7 +71,7 @@ app := App()
 
 This app can be written in any paradigm. See the tasks app as [components](examples/tasks/tasks-components.code), with a [page reload](examples/tasks/tasks-page-reload.code), and with a [live reload](examples/tasks/tasks-live-reload.code). [`lang/web/`](lang/web/readme.md) has a starter for each of the two ways to build HTML, and helps you choose.
 
-> For now, one single instance serves every visitor, so all visitors share its state. A separate state for each visitor is [coming soon](#one-state-per-visitor).
+> For now, one single instance serves every visitor, so all visitors share its state.
 
 ### Errors that point at the problem
 
@@ -341,7 +343,6 @@ Widget {
 }                       # as long as it doesn't collide
 
 double(@puts 5)         # prints 5, returns 10
-add(@puts 1, 2)         # coming soon: prints 1, returns 3
 @declare 'count', 3     # a local here, a member in a type body
 @todo                   # stops with [TODO]
 @todo 'add auth'        # stops with "[TODO] add auth"
@@ -372,7 +373,7 @@ Set `onclick` to a closure, and only the element with that `html_id` renders aga
 ```code
 Counter + Div {
     html_id := 'counter'
-    count := 0                # coming soon: one count per visitor
+    count := 0
     button := Button('+1')
 
     Self (;
@@ -582,15 +583,12 @@ y = 'five'                 # Type_Contract_Violation
 y := 'five'                # declare again to change the type
 
 # Locked by declaration: `: Type` on a variable, param, return, or member
+# (for now, a member typed Int takes any number)
 z: Int | Nil               # starts as nil
 
 # Params lock too: a typed param, or one with a default
 f ( n: Number; n )         # n stays a Number inside the body
 g ( n := 0; n )            # n locks to the type of the value it gets
-g('x')                     # coming soon: an error, as with n: Number = 0
-
-P <n: Int>
-P(4.5)                     # coming soon: an error, since 4.5 is no Int
 ```
 
 ```code
@@ -598,7 +596,7 @@ add ( a: Number, b: Number;
     a + b
 )
 
-# Before the program runs: a wrong literal for a declared type, anywhere
+# Before the program runs: a wrong literal for a declared type
 x: String = 123            # Type_Mismatch
 
 never_called (;
@@ -608,8 +606,6 @@ never_called (;
 # While the program runs: everything else, at the line that breaks it
 s := 'oops'
 add(1, s)                  # Type_Contract_Violation
-
-# coming soon: a call above its function is checked before the run too
 ```
 
 ### Tagged types
@@ -697,7 +693,7 @@ Unique values, with set operators.
 ```code
 Set([1, 2, 2, 3])                # Set{1, 2, 3}
 Set([1, 2, 3]) & Set([2, 3, 4])  # Set{2, 3}
-Set([1, 2, 3]) ^ Set([2, 3, 4])  # Set{4, 1}
+Set([1, 2, 3]) ^ Set([2, 3, 4])  # Set{1, 4}
 ```
 
 ### Ranges
@@ -974,7 +970,7 @@ bin/program run app.code         # the same
 
 ### A server written in .code
 
-The HTTP server is written in the language, on two small socket types. It parses the bytes that have come so far, and waits for more when a request is not whole yet. Each error is a tagged nil that carries its reason.
+The HTTP server is written in the language, on two small socket types. It parses the bytes that have come so far, and waits for more when a request is not whole yet. Each error is a tagged nil that carries its reason. Ruby still does the sockets and finds the route.
 
 ```code
 @load 'lang/web/http'
@@ -1010,98 +1006,6 @@ bin/program declare "4 + 8" -p
 bin/program interp "4 + 8" -p
 
 bin/program parsef app.code -p   # lexf, parsef, declaref, interpf for files
-```
-
-## Coming soon
-
-### Changes that reach every tab
-
-An element watches the data it reads, and a write updates it in every open tab, with no click there.
-
-```code
-Task_Count + Small + Watchable {
-    render (; "`tasks.count()` tasks" )
-}
-
-# Coming soon: add a task in one tab, and the count changes in every tab.
-```
-
-### One state per visitor
-
-Today one component serves every visitor, so they all share its values.
-
-```code
-App + Server {
-    counter := Counter()
-    get:// (; Html(Body(counter)) )
-}
-
-# Today: two browsers click once each, and both see "Clicked 2 times".
-# Coming soon: each browser gets its own Counter, and each sees
-# "Clicked 1 times".
-```
-
-### All of the server in .code
-
-The code you write stays the same, and more of the server under it moves into the language.
-
-```code
-App + Server {
-    get:// (; 'Hello, World!' )
-}
-
-@start_server App()
-
-# Today: .code reads each request from a socket, parses it, and keeps the connection open,
-# then Ruby finds the route.
-# Coming soon: the route lookup in .code, so you can read and change every step.
-```
-
-### Checks before the run, in any order
-
-Today the check before the run sees only a function that is declared above the call.
-
-```code
-total := add(1, 'oops')    # today: an error only when this line runs
-                           # coming soon: an error before the run
-
-add ( a: Number, b: Number; a + b )
-```
-
-### Defaults that set the type
-
-A `:=` default will set the param's type, the same as `:=` does for a variable.
-
-```code
-g ( n := 0; n )
-
-g(5)                       # 5
-g('x')                     # today: 'x'
-                           # coming soon: Type_Contract_Violation
-```
-
-### Int means Int
-
-Today a struct member typed `Int` takes any number.
-
-```code
-P <n: Int>
-
-P(4)                       # ok
-P(4.5)                     # today: ok
-                           # coming soon: Type_Contract_Violation
-```
-
-### @puts in any argument
-
-Today `@puts` takes every argument after it, so it works only as the last one.
-
-```code
-add ( a, b; a + b )
-
-add(2, @puts 1)            # prints 1, returns 3
-add(@puts 1, 2)            # today: Missing_Argument
-                           # coming soon: prints 1, returns 3
 ```
 
 ## Next steps
