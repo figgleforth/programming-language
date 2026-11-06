@@ -22,9 +22,9 @@ bundle exec rake test                               # About 2,000 tests
 
 > I wrote everything myself until late November 2025. Since then, I direct a single Claude Code agent to write features, tests, and documentation. 
 
-> I continue designing the language and writing features when they interest me. 
+> I continue designing the language and writing features when they interest me, and Claude helps iterate on the syntax and the features quickly. 
 
-> Once the syntax and features are solid, I plan to rewrite everything in Odin by hand again.
+> Once the syntax and features feel good, I plan to rewrite everything in Odin by hand again.
 
 ---
 
@@ -39,7 +39,7 @@ db := @connect Sqlite.memory()
 Todo <id: Primary_Key, title: String>
 todos := db.find_or_create_table(Todo)
 
-List + Div {                      # composition, applied to markup
+List + Div {                      # composition
     html_id := 'list'
     input := Input()
     add := Button('Add')
