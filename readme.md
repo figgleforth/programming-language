@@ -3,13 +3,19 @@
 [![justforfunnoreally.dev badge](https://img.shields.io/badge/justforfunnoreally-dev-2B7FFF)](https://justforfunnoreally.dev)
 ![Status of project Ruby tests](https://github.com/figgleforth/programming-language/actions/workflows/tests.yml/badge.svg)
 
-Write scripts, servers, and lots of stuff in between.
-
----
-
 This readme is a short tour of the language. The reference is the complete description, and it is the page that is kept up to date.
 
 [Learn by example](examples/readme.md) · [Read the reference](reference.md) · [Edit the language](ruby/readme.md)
+
+
+> [!NOTE]
+> The goal is a language built for web development first where every construct you need, from routing to persistence, is provided as a first-class feature.
+>
+> I wrote everything myself until late November 2025. Since then, I direct a single Claude Code agent to write features and tests, letting me iterate quickly.
+>
+> I continue designing the language and write features when they interest me.
+>
+> Once the syntax and features reach some state, I plan to rewrite everything in Odin by hand again.
 
 ```sh
 # Needs Ruby 4.0.0 and Bundler.
@@ -19,14 +25,6 @@ bundle install
 bundle exec bin/program examples/hello_world.code   # Hello, Code!
 bundle exec rake test                               # About 2,000 tests
 ```
-
-> I wrote everything myself until late November 2025. Since then, I direct a single Claude Code agent to write features, tests, and documentation. 
-
-> I continue designing the language and writing features when they interest me, and Claude helps iterate on the syntax and the features quickly. 
-
-> Once the syntax and features feel good, I plan to rewrite everything in Odin by hand again.
-
----
 
 ### A full-stack app in one file
 
