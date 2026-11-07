@@ -1,0 +1,21 @@
+# Implemented by Claude
+#
+# An image on the GPU: `Texture('booth.png')`, or what the `Raylib` texture functions give back. It needs
+# `Raylib.init_window` first. `lang/raylib.code` loads this file.
+Texture {
+	id: Int        # the texture's id on the GPU
+	width: Int
+	height: Int
+	mipmaps: Int
+	format: Int    # raylib's PixelFormat value
+
+	Self ( path: String;
+		load(path)
+	)
+
+	load ( path: String; @ruby )
+
+	to_s (;
+		"Texture(id: `id`, width: `width`, height: `height`, mipmaps: `mipmaps`, format: `format`)"
+	)
+}

@@ -1,0 +1,73 @@
+# Implemented by Claude
+#
+# A panel of raygui controls beside a texture that holds data. Click, drag and type in each control. The
+# `paint` button changes one pixel of the image, and update_texture shows the change.
+
+@load 'lang/raygui'
+
+Raylib.init_window(640, 360, 'raygui')
+Raylib.set_target_fps(30)
+
+BLACK := [0, 0, 0, 255]
+WHITE := [255, 255, 255, 255]
+
+world := Raylib.gen_image_color(16, 16, BLACK)
+view  := Raylib.load_texture_from_image(world)
+
+speed        := 0.5
+running      := true
+weight       := 3
+weight_edit  := false
+name         := 'Ada'
+name_edit    := false
+behavior     := 0
+behavior_open := false
+paint_x      := 0
+
+until Raylib.window_should_close?()
+	Raylib.begin_drawing()
+	Raylib.clear_background([245, 245, 245])
+
+	# An open dropdown covers the controls below it, so they take no clicks while it is open.
+	Raygui.lock() if behavior_open
+
+	Raygui.panel([10, 10, 300, 340], 'Controls')
+
+	Raygui.label([20, 80, 60, 24], 'speed')
+	# between begin_drawing and end_drawing, each frame:
+	speed = Raygui.slider([80, 80, 170, 24], '', "`speed.round(2)`", speed, 0, 1)
+
+	running = Raygui.check_box([20, 115, 24, 24], 'running', running)
+
+	box := Raygui.spinner([80, 150, 120, 28], 'weight ', weight, 0, 10, weight_edit)
+	weight = box.value
+	weight_edit = !weight_edit if box.pressed
+
+	text := Raygui.text_box([80, 190, 200, 28], name, 32, name_edit)
+	name = text.text
+	name_edit = !name_edit if text.pressed
+	Raygui.label([20, 190, 60, 28], 'name')
+
+	if Raygui.button([20, 230, 120, 32], Raygui.icon_text(:brush_classic, 'paint'))
+		Raylib.image_draw_pixel(world, paint_x % 16, 8, WHITE)
+		Raylib.update_texture(view, world)
+		paint_x += 1
+	end
+
+	Raygui.progress_bar([20, 275, 280, 20], '', '', paint_x % 16, 0, 15)
+	Raygui.status_bar([10, 326, 300, 24], "`name`: weight `weight`, running `running`")
+
+	Raygui.unlock()
+
+	choice := Raygui.dropdown_box([20, 40, 280, 30], 'wander;gather;rest', behavior, behavior_open)
+	behavior = choice.active
+	behavior_open = !behavior_open if choice.pressed
+
+	Raylib.draw_texture_pro(view, [0, 0, 16, 16], [330, 30, 288, 288], [0, 0], 0, WHITE)
+
+	Raylib.end_drawing()
+end
+
+Raylib.unload_texture(view)
+Raylib.unload_image(world)
+Raylib.close_window()

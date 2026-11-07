@@ -1,0 +1,21 @@
+# Implemented by Claude
+#
+# An image in CPU memory: `Image('world.png')`, or what the `Raylib` image functions give back. Reads and
+# writes are cheap, and no window is needed. `Raylib.update_texture(texture, image)` shows it on a Texture.
+# `lang/raylib.code` loads this file.
+Image {
+	width: Int
+	height: Int
+	mipmaps: Int
+	format: Int    # raylib's PixelFormat value; compare it with `Raylib.pixel_format(:uncompressed_r8g8b8a8)`
+
+	Self ( path: String;
+		load(path)
+	)
+
+	load ( path: String; @ruby )
+
+	to_s (;
+		"Image(width: `width`, height: `height`, mipmaps: `mipmaps`, format: `format`)"
+	)
+}

@@ -768,4 +768,13 @@ module Code
 
 	class Null_Pointer_Dereference < Error
 	end
+
+	class Invalid_Pixels < Error
+	end
+
+	class Raylib_Load_Failed < Error
+	end
+
+	class Raygui_Text_Too_Long < Error
+	end
 end

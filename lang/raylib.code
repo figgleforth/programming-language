@@ -24,6 +24,9 @@
 #
 #   Raylib.close_window()
 
+@load 'lang/texture'
+@load 'lang/image'
+
 Vector2 <x: Number, y: Number>
 Pixel + Vector2 <>
 
@@ -74,28 +77,128 @@ Raylib {
 	Self.draw_fps ( x: Number, y: Number; @ruby )
 
 	# --- Textures / Shaders / Render targets ---
-	# A texture/render texture/shader value is opaque to Backend -- hold onto whatever these hand back
-	# and pass it straight into the next call, the same way you'd pass around a file handle.
-	Self.load_texture ( path: String -> Any; @ruby )
-	Self.get_texture_width ( texture: Any -> Number; @ruby )
-	Self.get_texture_height ( texture: Any -> Number; @ruby )
-	Self.set_texture_filter ( texture: Any, filter: Symbol; @ruby ) # e.g. :bilinear, :point, :trilinear
-	Self.gen_color_texture ( width: Number, height: Number, color: Array | Struct -> Any; @ruby ) # a placeholder texture, no image file needed -- flat color, so a UV-shift distortion shader has nothing to visibly displace on it
-	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array | Struct, color2: Array | Struct -> Any; @ruby ) # same, but a checkerboard -- has detail a distortion shader can actually show
+	# A texture is a Texture (lang/texture.code). A render texture or shader value is opaque to Backend --
+	# hold onto whatever these hand back and pass it straight into the next call, the same way you'd
+	# pass around a file handle.
+	Self.load_texture ( path: String -> Texture; @ruby )
+	Self.get_texture_width ( texture: Texture -> Number; @ruby )
+	Self.get_texture_height ( texture: Texture -> Number; @ruby )
+	Self.set_texture_filter ( texture: Texture, filter: Symbol; @ruby ) # e.g. :bilinear, :point, :trilinear
+	Self.gen_color_texture ( width: Number, height: Number, color: Array | Struct -> Texture; @ruby ) # a placeholder texture, no image file needed -- flat color, so a UV-shift distortion shader has nothing to visibly displace on it
+	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array | Struct, color2: Array | Struct -> Texture; @ruby ) # same, but a checkerboard -- has detail a distortion shader can actually show
 	Self.load_render_texture ( width: Number, height: Number -> Any; @ruby )
-	Self.render_texture_texture ( render_texture: Any -> Any; @ruby )
+	Self.render_texture_texture ( render_texture: Any -> Texture; @ruby )
 	Self.load_shader ( vertex_path: String, fragment_path: String -> Any; @ruby ) # either path may be nil
 	Self.get_shader_location ( shader: Any, name: String | Symbol -> Number; @ruby )
 	Self.set_shader_value_float ( shader: Any, location: Number, value: Number; @ruby )
-	Self.set_shader_value_texture ( shader: Any, location: Number, texture: Any; @ruby ) # binds a texture uniform -- for sampling a *different* texture than whatever's naturally being drawn
+	Self.set_shader_value_texture ( shader: Any, location: Number, texture: Texture; @ruby ) # binds a texture uniform -- for sampling a *different* texture than whatever's naturally being drawn
 	Self.begin_texture_mode ( render_texture: Any; @ruby )
 	Self.end_texture_mode (; @ruby )
 	Self.begin_shader_mode ( shader: Any; @ruby )
 	Self.end_shader_mode (; @ruby )
-	Self.draw_texture ( texture: Any, x: Number, y: Number, color: Array | Struct; @ruby )
+	Self.draw_texture ( texture: Texture, x: Number, y: Number, color: Array | Struct; @ruby )
 	# `source`/`dest` are [x, y, width, height] Arrays, `origin` an [x, y] Array.
-	Self.draw_texture_pro ( texture: Any, source: Array, dest: Array, origin: Array, rotation: Number, color: Array | Struct; @ruby )
-	Self.unload_texture ( texture: Any; @ruby )
+	Self.draw_texture_pro ( texture: Texture, source: Array, dest: Array, origin: Array, rotation: Number, color: Array | Struct; @ruby )
+	Self.unload_texture ( texture: Texture; @ruby )
+
+	# --- Texture pixels ---
+	# A list of pixels is flat, row by row: the pixel at (x, y) is at index `y * width + x`. Each pixel is a
+	# color. A Buffer of RGBA bytes, or an Image of the same size, is much faster for a big area. `rect` is
+	# [x, y, width, height]. The area must be inside the texture, and the pixels must fill it exactly, or
+	# these raise Invalid_Pixels. The read functions copy the whole texture back from the GPU, so call them
+	# rarely, and keep data you read often in an Image. A render texture's rows are stored bottom first.
+	Self.update_texture ( texture: Texture, pixels: Array | Buffer | Image; @ruby ) # every pixel
+	Self.update_texture_rec ( texture: Texture, rect: Array, pixels: Array | Buffer | Image; @ruby ) # the pixels in rect
+	Self.set_texture_pixel ( texture: Texture, x: Int, y: Int, color: Array | Struct; @ruby )
+	Self.get_texture_pixels ( texture: Texture -> Array; @ruby ) # a list of [r, g, b, a]
+	Self.get_texture_pixel ( texture: Texture, x: Int, y: Int -> Array; @ruby ) # [r, g, b, a]
+
+	# --- Images: load, make, save ---
+	# An Image is in CPU memory, and most of these need no window. The names match raylib's, so its
+	# cheatsheet explains each one. A point is [x, y] or a Vector2, and `rect` is [x, y, width, height].
+	Self.load_image ( path: String -> Image; @ruby ) # raises Raylib_Load_Failed when it cannot load the file
+	Self.load_image_raw ( path: String, width: Int, height: Int, format: Symbol, header_size: Int -> Image; @ruby )
+	Self.load_image_from_texture ( texture: Texture -> Image; @ruby ) # copies from the GPU; needs a window
+	Self.load_image_from_screen ( -> Image; @ruby ) # needs a window
+	Self.load_texture_from_image ( image: Image -> Texture; @ruby ) # needs a window
+	Self.is_image_valid? ( image: Image -> Bool; @ruby )
+	Self.unload_image ( image: Image; @ruby )
+	Self.export_image ( image: Image, path: String -> Bool; @ruby ) # the file type comes from the path: .png, .bmp, .qoi, ...
+	Self.export_image_as_code ( image: Image, path: String -> Bool; @ruby )
+	Self.pixel_format ( name: Symbol -> Int; @ruby ) # e.g. :uncompressed_r8g8b8a8, :uncompressed_r32, :uncompressed_grayscale
+
+	Self.gen_image_color ( width: Int, height: Int, color: Array | Struct -> Image; @ruby )
+	Self.gen_image_gradient_linear ( width: Int, height: Int, direction: Int, start_color: Array | Struct, end_color: Array | Struct -> Image; @ruby ) # direction in degrees, 0 is vertical
+	Self.gen_image_gradient_radial ( width: Int, height: Int, density: Number, inner: Array | Struct, outer: Array | Struct -> Image; @ruby )
+	Self.gen_image_gradient_square ( width: Int, height: Int, density: Number, inner: Array | Struct, outer: Array | Struct -> Image; @ruby )
+	Self.gen_image_checked ( width: Int, height: Int, checks_x: Int, checks_y: Int, color1: Array | Struct, color2: Array | Struct -> Image; @ruby )
+	Self.gen_image_white_noise ( width: Int, height: Int, factor: Number -> Image; @ruby ) # factor 0.0 .. 1.0: how many pixels are white
+	Self.gen_image_perlin_noise ( width: Int, height: Int, offset_x: Int, offset_y: Int, scale: Number -> Image; @ruby )
+	Self.gen_image_cellular ( width: Int, height: Int, tile_size: Int -> Image; @ruby ) # a bigger tile_size makes bigger cells
+	Self.gen_image_text ( width: Int, height: Int, text: String -> Image; @ruby ) # the text's bytes as grayscale pixels
+
+	Self.image_copy ( image: Image -> Image; @ruby )
+	Self.image_from_image ( image: Image, rect: Array -> Image; @ruby ) # a new image from a part of another
+	Self.image_from_channel ( image: Image, channel: Int -> Image; @ruby ) # one channel as grayscale: 0 r, 1 g, 2 b, 3 a
+	Self.image_text ( text: String, font_size: Int, color: Array | Struct -> Image; @ruby ) # needs a window for the default font
+
+	# --- Images: read ---
+	# get_image_color raises Invalid_Pixels outside the image. A draw outside the image is clipped.
+	Self.get_image_color ( image: Image, x: Int, y: Int -> Array; @ruby ) # [r, g, b, a]
+	Self.load_image_colors ( image: Image -> Array; @ruby ) # a list of [r, g, b, a], row by row
+	Self.get_image_buffer ( image: Image -> Buffer; @ruby ) # a copy of the pixels as RGBA bytes: `y * width * 4 + x * 4` is r
+	Self.load_image_palette ( image: Image, max_size: Int -> Array; @ruby ) # the different colors, a list of [r, g, b, a]
+	Self.get_image_alpha_border ( image: Image, threshold: Number -> Array; @ruby ) # threshold 0.0 .. 1.0; gives [x, y, width, height]
+
+	# --- Images: change in place ---
+	Self.image_format ( image: Image, format: Symbol; @ruby ) # see pixel_format
+	Self.image_to_pot ( image: Image, fill: Array | Struct; @ruby ) # to a power-of-two size
+	Self.image_crop ( image: Image, rect: Array; @ruby )
+	Self.image_alpha_crop ( image: Image, threshold: Number; @ruby )
+	Self.image_alpha_clear ( image: Image, color: Array | Struct, threshold: Number; @ruby )
+	Self.image_alpha_mask ( image: Image, alpha_mask: Image; @ruby )
+	Self.image_alpha_premultiply ( image: Image; @ruby )
+	Self.image_blur_gaussian ( image: Image, blur_size: Int; @ruby )
+	Self.image_kernel_convolution ( image: Image, kernel: Array; @ruby ) # a flat list of numbers; 9 values for 3 by 3
+	Self.image_resize ( image: Image, width: Int, height: Int; @ruby ) # smooth
+	Self.image_resize_nn ( image: Image, width: Int, height: Int; @ruby ) # nearest neighbor: keeps exact values, so use this for data
+	Self.image_resize_canvas ( image: Image, width: Int, height: Int, offset_x: Int, offset_y: Int, fill: Array | Struct; @ruby )
+	Self.image_mipmaps ( image: Image; @ruby )
+	Self.image_dither ( image: Image, r_bpp: Int, g_bpp: Int, b_bpp: Int, a_bpp: Int; @ruby )
+	Self.image_flip_vertical ( image: Image; @ruby )
+	Self.image_flip_horizontal ( image: Image; @ruby )
+	Self.image_rotate ( image: Image, degrees: Int; @ruby ) # -359 .. 359
+	Self.image_rotate_cw ( image: Image; @ruby )
+	Self.image_rotate_ccw ( image: Image; @ruby )
+	Self.image_color_tint ( image: Image, color: Array | Struct; @ruby )
+	Self.image_color_invert ( image: Image; @ruby )
+	Self.image_color_grayscale ( image: Image; @ruby )
+	Self.image_color_contrast ( image: Image, contrast: Int; @ruby ) # -100 .. 100
+	Self.image_color_brightness ( image: Image, brightness: Int; @ruby ) # -255 .. 255
+	Self.image_color_replace ( image: Image, color: Array | Struct, replace: Array | Struct; @ruby )
+
+	# --- Images: draw ---
+	# Left out on purpose: raylib 6.1-dev in raylib-bindings 0.8.4 draws nothing for ImageDrawRectanglePro,
+	# ImageDrawRectangleGradientEx, ImageDrawCircleGradient and ImageDrawImageEx.
+	Self.image_clear_background ( image: Image, color: Array | Struct; @ruby )
+	Self.image_draw_pixel ( image: Image, x: Int, y: Int, color: Array | Struct; @ruby )
+	Self.image_draw_line ( image: Image, x1: Int, y1: Int, x2: Int, y2: Int, color: Array | Struct; @ruby )
+	Self.image_draw_line_ex ( image: Image, start_point: Array | Struct, end_point: Array | Struct, thick: Int, color: Array | Struct; @ruby )
+	Self.image_draw_line_strip ( image: Image, points: Array, color: Array | Struct; @ruby )
+	Self.image_draw_triangle ( image: Image, v1: Array | Struct, v2: Array | Struct, v3: Array | Struct, color: Array | Struct; @ruby )
+	Self.image_draw_triangle_gradient ( image: Image, v1: Array | Struct, v2: Array | Struct, v3: Array | Struct, c1: Array | Struct, c2: Array | Struct, c3: Array | Struct; @ruby )
+	Self.image_draw_triangle_lines ( image: Image, v1: Array | Struct, v2: Array | Struct, v3: Array | Struct, color: Array | Struct; @ruby )
+	Self.image_draw_triangle_fan ( image: Image, points: Array, color: Array | Struct; @ruby ) # the first point is the center
+	Self.image_draw_triangle_strip ( image: Image, points: Array, color: Array | Struct; @ruby )
+	Self.image_draw_rectangle ( image: Image, x: Int, y: Int, width: Int, height: Int, color: Array | Struct; @ruby )
+	Self.image_draw_rectangle_lines ( image: Image, x: Int, y: Int, width: Int, height: Int, color: Array | Struct; @ruby )
+	Self.image_draw_rectangle_lines_ex ( image: Image, rect: Array, thick: Int, color: Array | Struct; @ruby )
+	Self.image_draw_circle ( image: Image, x: Int, y: Int, radius: Int, color: Array | Struct; @ruby )
+	Self.image_draw_circle_lines ( image: Image, x: Int, y: Int, radius: Int, color: Array | Struct; @ruby )
+	Self.image_draw_image ( image: Image, source: Image, x: Int, y: Int, tint: Array | Struct; @ruby )
+	Self.image_draw_image_rec ( image: Image, source: Image, source_rect: Array, position: Array | Struct, tint: Array | Struct; @ruby )
+	Self.image_draw_image_pro ( image: Image, source: Image, source_rect: Array, dest_rect: Array, origin: Array | Struct, rotation: Number, tint: Array | Struct; @ruby ) # in this raylib build, origin and rotation have no effect
+	Self.image_draw_text ( image: Image, text: String, x: Int, y: Int, font_size: Int, color: Array | Struct; @ruby ) # needs a window for the default font
 	Self.unload_render_texture ( render_texture: Any; @ruby )
 	Self.unload_shader ( shader: Any; @ruby )
 
@@ -160,7 +263,7 @@ Raylib {
 	# textured quad whose four corners don't form an axis-aligned rectangle. Every rl_vertex call
 	# uses whatever rl_color/rl_tex_coord/rl_normal was set most recently, the same "current state"
 	# style as OpenGL's own immediate mode. Always rl_begin_quads, four rl_vertex calls, rl_end.
-	Self.rl_set_texture ( texture: Any; @ruby ) # binds the texture rl_tex_coord's 0..1 UVs sample from
+	Self.rl_set_texture ( texture: Texture; @ruby ) # binds the texture rl_tex_coord's 0..1 UVs sample from
 	Self.rl_begin_quads (; @ruby )
 	Self.rl_end (; @ruby )
 	Self.rl_color ( color: Array | Struct; @ruby )

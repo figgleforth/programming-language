@@ -2,6 +2,8 @@
 #
 module Code
 	class Raylib < Instance
+		BYTES_PER_PIXEL = 4 # the pixels that a program reads and writes are always RGBA
+
 		def self.lib
 			return @lib if defined? @lib
 
@@ -26,6 +28,19 @@ module Code
 				physac_libpath: "#{gem_lib_path}physac.#{arch}.#{extension}"
 			)
 			@lib = ::Raylib
+		end
+
+		# raylib only logs a warning when a load fails, and gives back an empty struct. It fails when the file is missing, and a texture also fails before `init_window`.
+		def self.valid_texture raylib_texture, source
+			return raylib_texture if lib.IsTextureValid raylib_texture
+
+			raise Code::Raylib_Load_Failed, "Cannot load a texture from #{source}. A texture needs `Raylib.init_window` first, and a file path starts from the working directory (#{::Dir.pwd})."
+		end
+
+		def self.valid_image raylib_image, source
+			return raylib_image if lib.IsImageValid raylib_image
+
+			raise Code::Raylib_Load_Failed, "Cannot load an image from #{source}. A file path starts from the working directory (#{::Dir.pwd})."
 		end
 
 		# --- Window / lifecycle ---
@@ -146,26 +161,23 @@ module Code
 
 		# --- Textures / Shaders / Render targets ---
 		#
-		# Texture2D / RenderTexture2D / Shader / Image values are opaque to Code -- these methods
-		# hand back the raw FFI struct raylib itself returns and take it straight back in on the next
-		# call, the same way a file handle or socket would flow through untouched. Nothing here wraps
-		# them in a Code:: type; nothing needs to.
+		# A Texture2D is a Code::Texture: these methods wrap the FFI struct on the way out, and unwrap it on the way back in. RenderTexture2D / Shader / Image values are opaque to Code -- the raw FFI struct flows through untouched, the same way a file handle or socket would.
 
 		def proxy_load_texture path
-			self.class.lib.LoadTexture path
+			wrap_texture self.class.valid_texture(self.class.lib.LoadTexture(path), path)
 		end
 
 		def proxy_get_texture_width texture
-			texture.width
+			texture.proxy_width
 		end
 
 		def proxy_get_texture_height texture
-			texture.height
+			texture.proxy_height
 		end
 
 		# @param [::Symbol] filter
 		def proxy_set_texture_filter texture, filter
-			self.class.lib.SetTextureFilter texture, texture_filter_code(filter)
+			self.class.lib.SetTextureFilter texture.raylib_texture, texture_filter_code(filter)
 		end
 
 		# A placeholder texture built from a plain color -- no external image file needed. Combines
@@ -178,7 +190,7 @@ module Code
 			image   = self.class.lib.GenImageColor width, height, rgba(color)
 			texture = self.class.lib.LoadTextureFromImage image
 			self.class.lib.UnloadImage image
-			texture
+			wrap_texture texture
 		end
 
 		# Same idea, but a checkerboard instead of one flat color -- has actual internal detail, so a
@@ -187,7 +199,7 @@ module Code
 			image   = self.class.lib.GenImageChecked width, height, checks_x, checks_y, rgba(color1), rgba(color2)
 			texture = self.class.lib.LoadTextureFromImage image
 			self.class.lib.UnloadImage image
-			texture
+			wrap_texture texture
 		end
 
 		def proxy_load_render_texture width, height
@@ -197,7 +209,7 @@ module Code
 		# The drawable Texture2D backing a render target -- e.g. feeding one pass's output into the
 		# next pass as an ordinary texture.
 		def proxy_render_texture_texture render_texture
-			render_texture.texture
+			wrap_texture render_texture.texture
 		end
 
 		def proxy_load_shader vertex_path, fragment_path
@@ -239,7 +251,7 @@ module Code
 		# background to invert it). A real, separate raylib call from SetShaderValue -- it also binds
 		# the texture unit, not just writes a value.
 		def proxy_set_shader_value_texture shader, location, texture
-			self.class.lib.SetShaderValueTexture shader, location, texture
+			self.class.lib.SetShaderValueTexture shader, location, texture.raylib_texture
 		end
 
 		def proxy_begin_texture_mode render_texture
@@ -259,17 +271,381 @@ module Code
 		end
 
 		def proxy_draw_texture texture, x, y, color
-			self.class.lib.DrawTexture texture, x, y, rgba(color)
+			self.class.lib.DrawTexture texture.raylib_texture, x, y, rgba(color)
 		end
 
 		# `source`/`dest` are [x, y, width, height] Arrays, `origin` an [x, y] Array -- same "plain
 		# Code Array in, real raylib struct out" boundary conversion as colors get.
 		def proxy_draw_texture_pro texture, source, dest, origin, rotation, color
-			self.class.lib.DrawTexturePro texture, rectangle(source), rectangle(dest), vector2(origin), rotation, rgba(color)
+			self.class.lib.DrawTexturePro texture.raylib_texture, rectangle(source), rectangle(dest), vector2(origin), rotation, rgba(color)
+		end
+
+		# --- Texture pixels ---
+
+		def proxy_update_texture texture, pixels
+			write_texture_pixels texture, 0, 0, texture.proxy_width, texture.proxy_height, pixels
+		end
+
+		def proxy_update_texture_rec texture, rect, pixels
+			x, y, width, height = rect.values
+			write_texture_pixels texture, x, y, width, height, pixels
+		end
+
+		def proxy_set_texture_pixel texture, x, y, color
+			write_texture_pixels texture, x, y, 1, 1, [color]
+		end
+
+		# @return [::Array] one [r, g, b, a] Code::Array for each pixel, row by row
+		def proxy_get_texture_pixels texture
+			lib = self.class.lib
+			check_pixel_area texture, 0, 0, 0, 0
+			image = lib.LoadImageFromTexture texture.raylib_texture
+			list  = color_lists rgba_bytes(image)
+			lib.UnloadImage image
+			list
+		end
+
+		# @return [::Array] [r, g, b, a]
+		def proxy_get_texture_pixel texture, x, y
+			lib = self.class.lib
+			check_pixel_area texture, x, y, 1, 1
+			image = lib.LoadImageFromTexture texture.raylib_texture
+			color = lib.GetImageColor image, x, y
+			lib.UnloadImage image
+			[color.r, color.g, color.b, color.a]
+		end
+
+		# --- Images: load, make, save ---
+
+		def proxy_load_image path
+			wrap_image self.class.valid_image(self.class.lib.LoadImage(path), path)
+		end
+
+		# @param [::Symbol] format
+		def proxy_load_image_raw path, width, height, format, header_size
+			wrap_image self.class.valid_image(self.class.lib.LoadImageRaw(path, width, height, pixel_format_code(format), header_size), path)
+		end
+
+		def proxy_load_image_from_texture texture
+			wrap_image self.class.lib.LoadImageFromTexture(texture.raylib_texture)
+		end
+
+		def proxy_load_image_from_screen
+			wrap_image self.class.lib.LoadImageFromScreen
+		end
+
+		def proxy_load_texture_from_image image
+			wrap_texture self.class.lib.LoadTextureFromImage(image.raylib_image)
+		end
+
+		def proxy_is_image_valid? image
+			self.class.lib.IsImageValid image.raylib_image
+		end
+
+		# The cleared fields make a second unload safe, and make a later read raise, not read freed memory.
+		def proxy_unload_image image
+			raw = image.raylib_image
+			self.class.lib.UnloadImage raw
+			raw.data   = ::FFI::Pointer::NULL
+			raw.width  = 0
+			raw.height = 0
+		end
+
+		def proxy_export_image image, path
+			self.class.lib.ExportImage image.raylib_image, path
+		end
+
+		def proxy_export_image_as_code image, path
+			self.class.lib.ExportImageAsCode image.raylib_image, path
+		end
+
+		# @param [::Symbol] name
+		# @return [::Integer]
+		def proxy_pixel_format name
+			pixel_format_code name
+		end
+
+		def proxy_gen_image_color width, height, color
+			wrap_image self.class.lib.GenImageColor(width, height, rgba(color))
+		end
+
+		def proxy_gen_image_gradient_linear width, height, direction, start_color, end_color
+			wrap_image self.class.lib.GenImageGradientLinear(width, height, direction, rgba(start_color), rgba(end_color))
+		end
+
+		def proxy_gen_image_gradient_radial width, height, density, inner, outer
+			wrap_image self.class.lib.GenImageGradientRadial(width, height, density, rgba(inner), rgba(outer))
+		end
+
+		def proxy_gen_image_gradient_square width, height, density, inner, outer
+			wrap_image self.class.lib.GenImageGradientSquare(width, height, density, rgba(inner), rgba(outer))
+		end
+
+		def proxy_gen_image_checked width, height, checks_x, checks_y, color1, color2
+			wrap_image self.class.lib.GenImageChecked(width, height, checks_x, checks_y, rgba(color1), rgba(color2))
+		end
+
+		def proxy_gen_image_white_noise width, height, factor
+			wrap_image self.class.lib.GenImageWhiteNoise(width, height, factor)
+		end
+
+		def proxy_gen_image_perlin_noise width, height, offset_x, offset_y, scale
+			wrap_image self.class.lib.GenImagePerlinNoise(width, height, offset_x, offset_y, scale)
+		end
+
+		def proxy_gen_image_cellular width, height, tile_size
+			wrap_image self.class.lib.GenImageCellular(width, height, tile_size)
+		end
+
+		def proxy_gen_image_text width, height, text
+			wrap_image self.class.lib.GenImageText(width, height, text)
+		end
+
+		def proxy_image_copy image
+			wrap_image self.class.lib.ImageCopy(image.raylib_image)
+		end
+
+		def proxy_image_from_image image, rect
+			wrap_image self.class.lib.ImageFromImage(image.raylib_image, rectangle(rect))
+		end
+
+		def proxy_image_from_channel image, channel
+			wrap_image self.class.lib.ImageFromChannel(image.raylib_image, channel)
+		end
+
+		def proxy_image_text text, font_size, color
+			wrap_image self.class.lib.ImageText(text, font_size, rgba(color))
+		end
+
+		# --- Images: read ---
+
+		# @return [::Array] [r, g, b, a]
+		def proxy_get_image_color image, x, y
+			check_pixel_area image, x, y, 1, 1
+			color = self.class.lib.GetImageColor image.raylib_image, x, y
+			[color.r, color.g, color.b, color.a]
+		end
+
+		# @return [::Array] one [r, g, b, a] Code::Array for each pixel, row by row
+		def proxy_load_image_colors image
+			check_pixel_area image, 0, 0, 0, 0
+			color_lists rgba_bytes(image.raylib_image)
+		end
+
+		# A copy of the pixels as RGBA bytes, in any format the image has. A later change to the image does not reach the Buffer.
+		# @return [Code::Buffer]
+		def proxy_get_image_buffer image
+			check_pixel_area image, 0, 0, 0, 0
+			Code::Buffer.new.proxy_from_string rgba_bytes(image.raylib_image)
+		end
+
+		# @return [::Array] one [r, g, b, a] Code::Array for each color
+		def proxy_load_image_palette image, max_size
+			lib = self.class.lib
+			check_pixel_area image, 0, 0, 0, 0
+			count  = ::FFI::MemoryPointer.new :int
+			colors = lib.LoadImagePalette image.raylib_image, max_size, count
+			list   = color_lists colors.read_bytes(count.read_int * BYTES_PER_PIXEL)
+			lib.UnloadImagePalette colors
+			list
+		end
+
+		# @return [::Array] [x, y, width, height]
+		def proxy_get_image_alpha_border image, threshold
+			rect = self.class.lib.GetImageAlphaBorder image.raylib_image, threshold
+			[rect.x, rect.y, rect.width, rect.height]
+		end
+
+		# --- Images: change in place ---
+
+		# @param [::Symbol] format
+		def proxy_image_format image, format
+			self.class.lib.ImageFormat image_pointer(image), pixel_format_code(format)
+		end
+
+		def proxy_image_to_pot image, fill
+			self.class.lib.ImageToPOT image_pointer(image), rgba(fill)
+		end
+
+		def proxy_image_crop image, rect
+			self.class.lib.ImageCrop image_pointer(image), rectangle(rect)
+		end
+
+		def proxy_image_alpha_crop image, threshold
+			self.class.lib.ImageAlphaCrop image_pointer(image), threshold
+		end
+
+		def proxy_image_alpha_clear image, color, threshold
+			self.class.lib.ImageAlphaClear image_pointer(image), rgba(color), threshold
+		end
+
+		def proxy_image_alpha_mask image, alpha_mask
+			self.class.lib.ImageAlphaMask image_pointer(image), alpha_mask.raylib_image
+		end
+
+		def proxy_image_alpha_premultiply image
+			self.class.lib.ImageAlphaPremultiply image_pointer(image)
+		end
+
+		def proxy_image_blur_gaussian image, blur_size
+			self.class.lib.ImageBlurGaussian image_pointer(image), blur_size
+		end
+
+		# @param kernel [Code::Array] a flat list of numbers; its length must be a square (9 for 3 by 3)
+		def proxy_image_kernel_convolution image, kernel
+			values = kernel.values
+			side   = ::Integer.sqrt values.length
+			raise Code::Invalid_Pixels, "A kernel must be square, so its length must be a square number. It has #{values.length} values." unless side * side == values.length && side > 0
+
+			pointer = ::FFI::MemoryPointer.new :float, values.length
+			pointer.write_array_of_float values
+			self.class.lib.ImageKernelConvolution image_pointer(image), pointer, values.length
+		end
+
+		def proxy_image_resize image, width, height
+			self.class.lib.ImageResize image_pointer(image), width, height
+		end
+
+		def proxy_image_resize_nn image, width, height
+			self.class.lib.ImageResizeNN image_pointer(image), width, height
+		end
+
+		def proxy_image_resize_canvas image, width, height, offset_x, offset_y, fill
+			self.class.lib.ImageResizeCanvas image_pointer(image), width, height, offset_x, offset_y, rgba(fill)
+		end
+
+		def proxy_image_mipmaps image
+			self.class.lib.ImageMipmaps image_pointer(image)
+		end
+
+		def proxy_image_dither image, r_bpp, g_bpp, b_bpp, a_bpp
+			self.class.lib.ImageDither image_pointer(image), r_bpp, g_bpp, b_bpp, a_bpp
+		end
+
+		def proxy_image_flip_vertical image
+			self.class.lib.ImageFlipVertical image_pointer(image)
+		end
+
+		def proxy_image_flip_horizontal image
+			self.class.lib.ImageFlipHorizontal image_pointer(image)
+		end
+
+		def proxy_image_rotate image, degrees
+			self.class.lib.ImageRotate image_pointer(image), degrees
+		end
+
+		def proxy_image_rotate_cw image
+			self.class.lib.ImageRotateCW image_pointer(image)
+		end
+
+		def proxy_image_rotate_ccw image
+			self.class.lib.ImageRotateCCW image_pointer(image)
+		end
+
+		def proxy_image_color_tint image, color
+			self.class.lib.ImageColorTint image_pointer(image), rgba(color)
+		end
+
+		def proxy_image_color_invert image
+			self.class.lib.ImageColorInvert image_pointer(image)
+		end
+
+		def proxy_image_color_grayscale image
+			self.class.lib.ImageColorGrayscale image_pointer(image)
+		end
+
+		def proxy_image_color_contrast image, contrast
+			self.class.lib.ImageColorContrast image_pointer(image), contrast
+		end
+
+		def proxy_image_color_brightness image, brightness
+			self.class.lib.ImageColorBrightness image_pointer(image), brightness
+		end
+
+		def proxy_image_color_replace image, color, replace
+			self.class.lib.ImageColorReplace image_pointer(image), rgba(color), rgba(replace)
+		end
+
+		# --- Images: draw ---
+
+		def proxy_image_clear_background image, color
+			self.class.lib.ImageClearBackground image_pointer(image), rgba(color)
+		end
+
+		def proxy_image_draw_pixel image, x, y, color
+			self.class.lib.ImageDrawPixel image_pointer(image), x, y, rgba(color)
+		end
+
+		def proxy_image_draw_line image, x1, y1, x2, y2, color
+			self.class.lib.ImageDrawLine image_pointer(image), x1, y1, x2, y2, rgba(color)
+		end
+
+		def proxy_image_draw_line_ex image, start_point, end_point, thick, color
+			self.class.lib.ImageDrawLineEx image_pointer(image), vector2(start_point), vector2(end_point), thick, rgba(color)
+		end
+
+		def proxy_image_draw_line_strip image, points, color
+			self.class.lib.ImageDrawLineStrip image_pointer(image), vector2_list(points), points.values.length, rgba(color)
+		end
+
+		def proxy_image_draw_triangle image, v1, v2, v3, color
+			self.class.lib.ImageDrawTriangle image_pointer(image), vector2(v1), vector2(v2), vector2(v3), rgba(color)
+		end
+
+		def proxy_image_draw_triangle_gradient image, v1, v2, v3, c1, c2, c3
+			self.class.lib.ImageDrawTriangleGradient image_pointer(image), vector2(v1), vector2(v2), vector2(v3), rgba(c1), rgba(c2), rgba(c3)
+		end
+
+		def proxy_image_draw_triangle_lines image, v1, v2, v3, color
+			self.class.lib.ImageDrawTriangleLines image_pointer(image), vector2(v1), vector2(v2), vector2(v3), rgba(color)
+		end
+
+		def proxy_image_draw_triangle_fan image, points, color
+			self.class.lib.ImageDrawTriangleFan image_pointer(image), vector2_list(points), points.values.length, rgba(color)
+		end
+
+		def proxy_image_draw_triangle_strip image, points, color
+			self.class.lib.ImageDrawTriangleStrip image_pointer(image), vector2_list(points), points.values.length, rgba(color)
+		end
+
+		def proxy_image_draw_rectangle image, x, y, width, height, color
+			self.class.lib.ImageDrawRectangle image_pointer(image), x, y, width, height, rgba(color)
+		end
+
+		def proxy_image_draw_rectangle_lines image, x, y, width, height, color
+			self.class.lib.ImageDrawRectangleLines image_pointer(image), x, y, width, height, rgba(color)
+		end
+
+		def proxy_image_draw_rectangle_lines_ex image, rect, thick, color
+			self.class.lib.ImageDrawRectangleLinesEx image_pointer(image), rectangle(rect), thick, rgba(color)
+		end
+
+		def proxy_image_draw_circle image, x, y, radius, color
+			self.class.lib.ImageDrawCircle image_pointer(image), x, y, radius, rgba(color)
+		end
+
+		def proxy_image_draw_circle_lines image, x, y, radius, color
+			self.class.lib.ImageDrawCircleLines image_pointer(image), x, y, radius, rgba(color)
+		end
+
+		def proxy_image_draw_image image, source, x, y, tint
+			self.class.lib.ImageDrawImage image_pointer(image), source.raylib_image, x, y, rgba(tint)
+		end
+
+		def proxy_image_draw_image_rec image, source, source_rect, position, tint
+			self.class.lib.ImageDrawImageRec image_pointer(image), source.raylib_image, rectangle(source_rect), vector2(position), rgba(tint)
+		end
+
+		def proxy_image_draw_image_pro image, source, source_rect, dest_rect, origin, rotation, tint
+			self.class.lib.ImageDrawImagePro image_pointer(image), source.raylib_image, rectangle(source_rect), rectangle(dest_rect), vector2(origin), rotation, rgba(tint)
+		end
+
+		def proxy_image_draw_text image, text, x, y, font_size, color
+			self.class.lib.ImageDrawText image_pointer(image), text, x, y, font_size, rgba(color)
 		end
 
 		def proxy_unload_texture texture
-			self.class.lib.UnloadTexture texture
+			self.class.lib.UnloadTexture texture.raylib_texture
 		end
 
 		def proxy_unload_render_texture render_texture
@@ -462,7 +838,7 @@ module Code
 		# --- Low-level (rlgl) ---
 
 		def proxy_rl_set_texture texture
-			self.class.lib.rlSetTexture texture.id
+			self.class.lib.rlSetTexture texture.proxy_id
 		end
 
 		def proxy_rl_begin_quads
@@ -491,6 +867,119 @@ module Code
 		end
 
 		private
+
+		# @param [::Raylib::Texture] raylib_texture
+		# @return [Code::Texture]
+		def wrap_texture raylib_texture
+			texture                = Code::Texture.new
+			texture.raylib_texture = self.class.valid_texture raylib_texture, 'this call'
+			texture
+		end
+
+		# @param [::Raylib::Image] raylib_image
+		# @return [Code::Image]
+		def wrap_image raylib_image
+			image              = Code::Image.new
+			image.raylib_image = raylib_image
+			image
+		end
+
+		def image_pointer image
+			image.raylib_image.to_ptr
+		end
+
+		# @param [::Symbol] name
+		# @return [::Integer]
+		def pixel_format_code name
+			self.class.lib.const_get "PIXELFORMAT_#{name.to_s.upcase}"
+		end
+
+		# The pixels of a raylib image as RGBA bytes, whatever format the image has.
+		# @param [::Raylib::Image] raylib_image
+		# @return [::String]
+		def rgba_bytes raylib_image
+			lib    = self.class.lib
+			colors = lib.LoadImageColors raylib_image
+			bytes  = colors.read_bytes raylib_image.width * raylib_image.height * BYTES_PER_PIXEL
+			lib.UnloadImageColors colors
+			bytes
+		end
+
+		# @param [::String] bytes RGBA bytes
+		# @return [::Array] one [r, g, b, a] Code::Array for each pixel
+		def color_lists bytes
+			interpreter = Code::Interpreter.current
+			bytes.unpack('C*').each_slice(BYTES_PER_PIXEL).map { interpreter.wrap_prog_array it }
+		end
+
+		# A Code list of points -> a C array of raylib Vector2 values, which are two floats each.
+		def vector2_list points
+			coordinates = points.values.flat_map { it.values.first 2 }
+			pointer     = ::FFI::MemoryPointer.new :float, coordinates.length
+			pointer.write_array_of_float coordinates
+			pointer
+		end
+
+		# raylib reads width * height pixels from the pointer with no check, and a wrong area writes nothing or reads black, so both are checked first.
+		# @param target [Code::Texture | Code::Image]
+		def check_pixel_area target, x, y, width, height
+			format = target.proxy_format
+			raise Code::Invalid_Pixels, "A compressed #{target.name} (format #{format}) has no pixels to read or write." if format >= self.class.lib::PIXELFORMAT_COMPRESSED_DXT1_RGB
+
+			inside = x.is_a?(::Integer) && y.is_a?(::Integer) && width.is_a?(::Integer) && height.is_a?(::Integer) &&
+			         x >= 0 && y >= 0 && width >= 0 && height >= 0 && x + width <= target.proxy_width && y + height <= target.proxy_height
+			raise Code::Invalid_Pixels, "The area (x: #{x}, y: #{y}, width: #{width}, height: #{height}) is not inside the #{target.proxy_width} by #{target.proxy_height} #{target.name}." unless inside
+		end
+
+		# @param source [Code::Image] must be the size of the area
+		def write_texture_image texture, rect, width, height, source
+			lib = self.class.lib
+			check_pixel_area source, 0, 0, width, height
+			raise Code::Invalid_Pixels, "The area is #{width} by #{height}, but the Image is #{source.proxy_width} by #{source.proxy_height}." unless source.proxy_width == width && source.proxy_height == height
+
+			raw_texture = texture.raylib_texture
+			raw_image   = source.raylib_image
+			return lib.UpdateTextureRec raw_texture, rect, raw_image.data if raw_image.format == raw_texture.format
+
+			copy = lib.ImageCopy raw_image
+			lib.ImageFormat copy.to_ptr, raw_texture.format
+			lib.UpdateTextureRec raw_texture, rect, copy.data
+			lib.UnloadImage copy
+		end
+
+		# @param pixels [Code::Array | ::Array | Code::Buffer | Code::Image] one color for each pixel, RGBA bytes, or an image
+		def write_texture_pixels texture, x, y, width, height, pixels
+			check_pixel_area texture, x, y, width, height
+			return write_texture_image texture, self.class.lib::Rectangle.create(x, y, width, height), width, height, pixels if pixels.is_a? Code::Image
+
+			bytes = if pixels.is_a? Code::Buffer
+				pixels.io_buffer.get_string
+			else
+				list = pixels.is_a?(::Array) ? pixels : pixels.values
+				list.flat_map do
+					r, g, b, a = it.values
+					[r, g, b, a || 255]
+				end.pack 'C*'
+			end
+			expected = width * height * BYTES_PER_PIXEL
+			raise Code::Invalid_Pixels, "The area needs #{expected} bytes (#{width * height} pixels), but it got #{bytes.bytesize} bytes." unless bytes.bytesize == expected
+
+			lib  = self.class.lib
+			rect = lib::Rectangle.create x, y, width, height
+			raw  = texture.raylib_texture
+			if raw.format == lib::PIXELFORMAT_UNCOMPRESSED_R8G8B8A8
+				pointer = ::FFI::MemoryPointer.new :uint8, expected
+				pointer.put_bytes 0, bytes
+				lib.UpdateTextureRec raw, rect, pointer
+			else
+				# raylib wants the bytes in the texture's own format (a PNG with no alpha loads as R8G8B8), so an Image converts them. ImageFormat frees and replaces the Image's data, so the data must come from raylib.
+				image = lib.GenImageColor width, height, lib::Color.from_u8(0, 0, 0, 0)
+				image.data.put_bytes 0, bytes
+				lib.ImageFormat image.to_ptr, raw.format
+				lib.UpdateTextureRec raw, rect, image.data
+				lib.UnloadImage image
+			end
+		end
 
 		# @param [::Symbol] name
 		def texture_filter_code name
