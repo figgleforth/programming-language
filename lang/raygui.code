@@ -46,13 +46,29 @@
 
 Raygui {
 	# --- Global state ---
+
+	# Makes the controls take input again after disable.
 	Self.enable (; @ruby )
+
+	# Draws the next controls as disabled, and they take no input.
 	Self.disable (; @ruby )
-	Self.lock (; @ruby ) # controls still draw, but take no input; use it while a dropdown is open
+
+	# Makes the next controls take no input but draw as usual, which is useful while a dropdown is open.
+	Self.lock (; @ruby )
+
+	# Makes the controls take input again after lock.
 	Self.unlock (; @ruby )
+
+	# Gives true while the controls are locked.
 	Self.is_locked? ( -> Bool; @ruby )
-	Self.set_alpha ( alpha: Number; @ruby ) # 0.0 .. 1.0
-	Self.set_state ( state: Symbol; @ruby ) # :normal, :focused, :pressed, :disabled
+
+	# Sets how solid the next controls draw, from 0.0 to 1.0.
+	Self.set_alpha ( alpha: Number; @ruby )
+
+	# Sets the state of the next controls: :normal, :focused, :pressed or :disabled.
+	Self.set_state ( state: Symbol; @ruby )
+
+	# Gives the current state as a Symbol.
 	Self.get_state ( -> Symbol; @ruby )
 
 	# --- Style ---
@@ -60,67 +76,167 @@ Raygui {
 	# :combobox, :dropdownbox, :textbox, :valuebox, :listview, :colorpicker, :scrollbar, :statusbar.
 	# A property is a Symbol such as :base_color_normal, :text_color_focused, :border_width, :text_alignment,
 	# :text_size, :background_color. :default sets a property on every control.
-	Self.constant ( name: Symbol -> Int; @ruby ) # any raygui constant, e.g. :text_align_center
-	Self.set_style ( control: Symbol, property: Symbol, value: Int | Array | Struct; @ruby ) # a number, or a color
+
+	# Gives the number of any raygui constant, such as :text_align_center.
+	Self.constant ( name: Symbol -> Int; @ruby )
+
+	# Sets a style property of a control to a number or a color, and it stays until something changes it.
+	Self.set_style ( control: Symbol, property: Symbol, value: Int | Array | Struct; @ruby )
+
+	# Gives a style property as a number, where a color is one signed 32-bit number.
 	Self.get_style ( control: Symbol, property: Symbol -> Int; @ruby )
-	Self.get_style_color ( control: Symbol, property: Symbol -> Array; @ruby ) # [r, g, b, a]
-	Self.load_style ( path: String; @ruby ) # a .rgs file
+
+	# Gives a color style property as [r, g, b, a].
+	Self.get_style_color ( control: Symbol, property: Symbol -> Array; @ruby )
+
+	# Loads a whole style from a .rgs file.
+	Self.load_style ( path: String; @ruby )
+
+	# Puts back raygui's default style.
 	Self.load_style_default (; @ruby )
+
+	# Makes controls show their tooltip on hover.
 	Self.enable_tooltip (; @ruby )
+
+	# Makes controls show no tooltip.
 	Self.disable_tooltip (; @ruby )
-	Self.set_tooltip ( text: String; @ruby ) # the next controls show it on hover
+
+	# Sets the tooltip text of the next controls.
+	Self.set_tooltip ( text: String; @ruby )
 
 	# --- Icons and text ---
 	# An icon is a Symbol: the name of raygui's ICON_ constant, e.g. :file_save, :player_play, :arrow_left.
-	Self.icon_text ( icon: Symbol, text: String -> String; @ruby ) # a label for a control, with the icon in it
+
+	# Gives a label with an icon in it, to pass to a control as its text.
+	Self.icon_text ( icon: Symbol, text: String -> String; @ruby )
+
+	# Sets how many times bigger the icons in controls draw.
 	Self.set_icon_scale ( scale: Int; @ruby )
+
+	# Draws one icon with its top-left corner at (x, y), where `pixel_size` is the size of each icon pixel.
 	Self.draw_icon ( icon: Symbol, x: Int, y: Int, pixel_size: Int, color: Array | Struct; @ruby )
-	Self.load_icons ( path: String; @ruby ) # a .rgi file
+
+	# Loads a set of icons from a .rgi file.
+	Self.load_icons ( path: String; @ruby )
+
+	# Gives the width in pixels of text in the current style.
 	Self.get_text_width ( text: String -> Int; @ruby )
 
 	# --- Containers ---
-	Self.window_box ( rect: Array | Struct, title: String -> Bool; @ruby ) # true when the close button is clicked
+
+	# Draws a window with a title bar and a close button, and gives true when the close button is clicked.
+	Self.window_box ( rect: Array | Struct, title: String -> Bool; @ruby )
+
+	# Draws a border with its text set into the top edge, to mark a group of controls.
 	Self.group_box ( rect: Array | Struct, text: String; @ruby )
+
+	# Draws a horizontal line, with text in it when `text` is not empty.
 	Self.line ( rect: Array | Struct, text: String; @ruby )
+
+	# Draws a background panel, with a title bar when `text` is not nil.
 	Self.panel ( rect: Array | Struct, text: String; @ruby )
-	Self.scroll_panel ( rect: Array | Struct, text: String, content: Array | Struct, scroll: Array | Struct -> <scroll: Array, view: Array>; @ruby ) # draw inside `view`, offset by `scroll`
+
+	# Draws a panel with scroll bars over a larger `content` area, and gives the new `scroll` and the `view` to draw inside.
+	Self.scroll_panel ( rect: Array | Struct, text: String, content: Array | Struct, scroll: Array | Struct -> <scroll: Array, view: Array>; @ruby )
+
+	# Draws a bar that shows text.
 	Self.status_bar ( rect: Array | Struct, text: String; @ruby )
+
+	# Draws a gray box with text, to hold the place of a control that does not exist yet.
 	Self.dummy_rec ( rect: Array | Struct, text: String; @ruby )
-	Self.grid ( rect: Array | Struct, text: String, spacing: Number, subdivisions: Int -> Array; @ruby ) # [column, row] under the mouse, or [-1, -1]
+
+	# Draws a grid, and gives the [column, row] under the mouse, or [-1, -1] when the mouse is outside.
+	Self.grid ( rect: Array | Struct, text: String, spacing: Number, subdivisions: Int -> Array; @ruby )
 
 	# --- Basic controls ---
+
+	# Draws text.
 	Self.label ( rect: Array | Struct, text: String; @ruby )
-	Self.button ( rect: Array | Struct, text: String -> Bool; @ruby ) # true when it is clicked
+
+	# Draws a button, and gives true when it is clicked.
+	Self.button ( rect: Array | Struct, text: String -> Bool; @ruby )
+
+	# Draws text that works as a button, and gives true when it is clicked.
 	Self.label_button ( rect: Array | Struct, text: String -> Bool; @ruby )
+
+	# Draws a button that stays on or off, and gives the new value.
 	Self.toggle ( rect: Array | Struct, text: String, active: Bool -> Bool; @ruby )
-	Self.toggle_group ( rect: Array | Struct, text: String, active: Int -> Int; @ruby ) # `text` is 'one;two;three'; each `rect` is one item
+
+	# Draws a row of toggles from 'one;two;three', where `rect` is the size of one item, and gives the index of the active one.
+	Self.toggle_group ( rect: Array | Struct, text: String, active: Int -> Int; @ruby )
+
+	# Draws a sliding switch from 'off;on', and gives the index of the active item.
 	Self.toggle_slider ( rect: Array | Struct, text: String, active: Int -> Int; @ruby )
+
+	# Draws a check box with its text at the right, and gives the new value.
 	Self.check_box ( rect: Array | Struct, text: String, checked: Bool -> Bool; @ruby )
+
+	# Draws one item of 'one;two;three' and a button that moves to the next item, and gives the index of the active one.
 	Self.combo_box ( rect: Array | Struct, text: String, active: Int -> Int; @ruby )
-	Self.dropdown_box ( rect: Array | Struct, text: String, active: Int, edit_mode: Bool -> <active: Int, pressed: Bool>; @ruby ) # draw it after the controls it covers
+
+	# Draws a list that opens while `edit_mode` is true, so draw it after the controls it covers, and gives `active` and `pressed`.
+	Self.dropdown_box ( rect: Array | Struct, text: String, active: Int, edit_mode: Bool -> <active: Int, pressed: Bool>; @ruby )
+
+	# Draws a whole number with a button at each side, which takes typing while `edit_mode` is true, and gives `value` and `pressed`.
 	Self.spinner ( rect: Array | Struct, text: String, value: Int, min: Int, max: Int, edit_mode: Bool -> <value: Int, pressed: Bool>; @ruby )
+
+	# Draws a box for a whole number, which takes typing while `edit_mode` is true, and gives `value` and `pressed`.
 	Self.value_box ( rect: Array | Struct, text: String, value: Int, min: Int, max: Int, edit_mode: Bool -> <value: Int, pressed: Bool>; @ruby )
-	Self.value_box_float ( rect: Array | Struct, text: String, text_value: String, value: Number, edit_mode: Bool -> <text_value: String, value: Number, pressed: Bool>; @ruby ) # pass back the text_value you got
-	Self.text_box ( rect: Array | Struct, text: String, size: Int, edit_mode: Bool -> <text: String, pressed: Bool>; @ruby ) # `size` limits the text to size - 1 bytes
+
+	# Draws a box for a float, and gives `text_value`, the digits typed so far, which you must pass back, plus `value` and `pressed`.
+	Self.value_box_float ( rect: Array | Struct, text: String, text_value: String, value: Number, edit_mode: Bool -> <text_value: String, value: Number, pressed: Bool>; @ruby )
+
+	# Draws a box that takes typing while `edit_mode` is true, holds up to `size - 1` bytes, raises Raygui_Text_Too_Long when `text` is longer, and gives `text` and `pressed`.
+	Self.text_box ( rect: Array | Struct, text: String, size: Int, edit_mode: Bool -> <text: String, pressed: Bool>; @ruby )
+
+	# Draws a slider with a small handle and text at each side, and gives the new value.
 	Self.slider ( rect: Array | Struct, left_text: String, right_text: String, value: Number, min: Number, max: Number -> Number; @ruby )
+
+	# Draws a slider that fills from the left with text at each side, and gives the new value.
 	Self.slider_bar ( rect: Array | Struct, left_text: String, right_text: String, value: Number, min: Number, max: Number -> Number; @ruby )
+
+	# Draws a bar that shows how far `value` is from `min` to `max`, with text at each side, and gives the value back.
 	Self.progress_bar ( rect: Array | Struct, left_text: String, right_text: String, value: Number, min: Number, max: Number -> Number; @ruby )
 
 	# --- Lists and tabs ---
-	Self.list_view ( rect: Array | Struct, text: String, scroll_index: Int, active: Int -> <scroll_index: Int, active: Int>; @ruby ) # `active` is -1 with nothing chosen
+
+	# Draws a list from 'one;two;three' that scrolls, and gives `scroll_index` and `active`, where -1 means no item is chosen.
+	Self.list_view ( rect: Array | Struct, text: String, scroll_index: Int, active: Int -> <scroll_index: Int, active: Int>; @ruby )
+
+	# Draws a list from an Array of Strings, and gives `scroll_index`, `active`, and `focus`, the item under the mouse.
 	Self.list_view_ex ( rect: Array | Struct, items: Array, scroll_index: Int, active: Int, focus: Int -> <scroll_index: Int, active: Int, focus: Int>; @ruby )
-	Self.tab_bar ( rect: Array | Struct, text: String, scroll: Int, active: Int -> <scroll: Int, active: Int, result: Int>; @ruby ) # `result` is what raygui returns
+
+	# Draws tabs from 'one;two;three', and gives `scroll`, `active`, and `result`, which is the number raygui returns.
+	Self.tab_bar ( rect: Array | Struct, text: String, scroll: Int, active: Int -> <scroll: Int, active: Int, result: Int>; @ruby )
+
+	# Draws tabs from an Array of Strings, and gives `scroll`, `active`, `focus`, and `result`, which is the number raygui returns.
 	Self.tab_bar_ex ( rect: Array | Struct, items: Array, scroll: Int, active: Int, focus: Int -> <scroll: Int, active: Int, focus: Int, result: Int>; @ruby )
 
 	# --- Dialogs ---
-	Self.message_box ( rect: Array | Struct, title: String, message: String, buttons: String, active: Int -> <active: Int, result: Int>; @ruby ) # `buttons` is 'yes;no'; `result` is what raygui returns
-	Self.text_input_box ( rect: Array | Struct, title: String, message: String, text: String, size: Int, buttons: String, active: Int, secret: Bool -> <text: String, active: Int, secret: Any, result: Int>; @ruby ) # a nil `secret` means the text is not hidden
+
+	# Draws a dialog with a title, a message and buttons from 'yes;no', and gives `active` and `result`, the numbers raygui returns.
+	Self.message_box ( rect: Array | Struct, title: String, message: String, buttons: String, active: Int -> <active: Int, result: Int>; @ruby )
+
+	# Draws a dialog with a text box, where a nil `secret` shows the text, and `false` hides it behind a button, and gives `text`, `active`, `secret` and `result`.
+	Self.text_input_box ( rect: Array | Struct, title: String, message: String, text: String, size: Int, buttons: String, active: Int, secret: Bool -> <text: String, active: Int, secret: Any, result: Int>; @ruby )
 
 	# --- Color controls ---
-	Self.color_picker ( rect: Array | Struct, text: String, color: Array | Struct -> Array; @ruby ) # [r, g, b, a]
+
+	# Draws a color square and a hue bar, and gives the new color as [r, g, b, a].
+	Self.color_picker ( rect: Array | Struct, text: String, color: Array | Struct -> Array; @ruby )
+
+	# Draws a color square only, and gives the new color as [r, g, b, a].
 	Self.color_panel ( rect: Array | Struct, text: String, color: Array | Struct -> Array; @ruby )
+
+	# Draws a bar for alpha, and gives the new value from 0.0 to 1.0.
 	Self.color_bar_alpha ( rect: Array | Struct, text: String, alpha: Number -> Number; @ruby )
+
+	# Draws a bar for hue, and gives the new value from 0 to 360.
 	Self.color_bar_hue ( rect: Array | Struct, text: String, value: Number -> Number; @ruby )
-	Self.color_picker_hsv ( rect: Array | Struct, text: String, color: Array | Struct -> Array; @ruby ) # [hue, saturation, value]
+
+	# Draws a color square and a hue bar for [hue, saturation, value], and gives the new value in the same form.
+	Self.color_picker_hsv ( rect: Array | Struct, text: String, color: Array | Struct -> Array; @ruby )
+
+	# Draws a color square only for [hue, saturation, value], and gives the new value in the same form.
 	Self.color_panel_hsv ( rect: Array | Struct, text: String, color: Array | Struct -> Array; @ruby )
 }

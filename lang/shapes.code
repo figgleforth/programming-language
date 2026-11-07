@@ -1,0 +1,21 @@
+# Implemented by Claude
+#
+# The shapes that both `Raylib` and `Raygui` can read: Rect, Point and Color. Not part of the standard
+# library -- opt in with `@load 'lang/shapes'`. Each function that takes a rect, a point or a color also still
+# takes a plain Array.
+#
+#   @load 'lang/raygui'
+#   @load 'lang/shapes'
+#
+#   panel := Rect(10, 10, 300, 340)
+#   (header, body) := panel.inset(8).split_top(30)
+#   Raygui.panel(panel, 'Controls')
+#   Raygui.label(header, 'hello')
+#   Raylib.draw_texture_pro(view, Rect(0, 0, 16, 16), body, Point(0, 0), 0, Color(255, 255, 255))
+#
+#   Raylib's circle and line functions take plain numbers, and raygui has no input for those shapes.
+
+@load 'lang/math'
+
+# A color, with each channel from 0 to 255.
+Color <r: Int, g: Int, b: Int, a: Int = 255>

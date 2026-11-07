@@ -1242,6 +1242,33 @@ n.to_s()            # '42'
 n.clamp(0, 100)     # Clamp to range
 ```
 
+## Random
+
+`Random` is a random number generator with its own seed. Load it with `@load 'lang/random'`. Two generators with the same seed give the same numbers, so a run can be repeated to debug it. `Float.rand` and `Array#random` have no seed.
+
+```code
+@load 'lang/random'
+
+random := Random(42)        # with no seed, Random() picks one; read it from random.seed
+random.int(1, 6)            # both ends included
+random.float()              # 0.0 up to 1.0, with 1.0 left out
+random.float(10)            # 0.0 up to 10.0
+random.chance?(0.25)        # true one time in four
+random.pick(['a', 'b'])     # one item; nil for an empty list
+random.shuffle([1, 2, 3])   # a new list in a random order
+random.start(42)            # start again from a seed
+```
+
+`weighted_pick` gives an index, and a bigger weight is picked more often:
+
+```code
+random.weighted_pick([1, 0, 3])    # 0 or 2, and 2 comes three times as often
+random.weighted_pick([nil, 2])     # 1: nil counts as 0
+random.weighted_pick([0, nil])     # nil: no weight is above 0
+```
+
+A weight below 0, or one that is not a number, raises `Code::Invalid_Random`.
+
 ## Dates & Times
 
 `Date`, `Time`, and `Date_Time` are always available -- no `@load`.

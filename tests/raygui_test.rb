@@ -289,6 +289,20 @@ class Raygui_Test < Base_Test
 		assert_raises(Code::Type_Contract_Violation) { gui "Raygui.slider(#{RECT}, 'l', 'r', 'high', 0, 1)" }
 	end
 
+	def test_rect_point_and_color_work_where_a_list_works
+		out = gui <<~CODE
+			@load 'lang/shapes'
+
+			box := Rect(1, 2, 30, 40)
+			Raygui.panel(box, 'a')
+			scrolled := Raygui.scroll_panel(box, 't', box, Point(0, 0))
+			[Raygui.button(box, 'clicked'), Raygui.color_picker(box, 'a', Color(9, 9, 9)), scrolled.view]
+		CODE
+		assert_equal true, out.values[0]
+		assert_equal [1, 2, 3, 4], out.values[1].values
+		assert_equal [3.0, 4.0, 5.0, 6.0], out.values[2].values
+	end
+
 	def test_raygui_works_through_a_named_load
 		assert_equal 9.0, Code.interp("Lib := @load 'lang/raygui'\n\nLib.Raygui.slider(#{RECT}, 'l', 'r', 1, 0, 9)")
 	end

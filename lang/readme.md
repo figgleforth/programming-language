@@ -15,6 +15,10 @@ A few files do not load on their own. You must add an `@load` line for these you
 @load 'lang/iterable.code'      # Iterable: compose it into a type to give it `next`
 @load 'lang/raylib.code'        # 2D game and graphics support (needs the raylib-bindings gem)
 @load 'lang/raygui.code'        # buttons, sliders, panels and other controls; also loads raylib
+@load 'lang/grid.code'          # Grid: width, height, and one float in each cell
+@load 'lang/random.code'        # Random: a random number generator with its own seed
+@load 'lang/shapes.code'        # Rect, Point and Color, which raylib and raygui both read
+@load 'lang/math.code'          # vectors, Rectangle, and lerp
 ```
 
 A file like this costs nothing until you load it. This keeps a small program small, and a bigger program only as big as it needs to be.

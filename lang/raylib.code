@@ -18,7 +18,7 @@
 #       Raylib.begin_drawing()
 #       Raylib.clear_background([245, 245, 245])
 #       Raylib.draw_circle(400, 225, 40, [230, 41, 55])
-#       Raylib.draw_text('hello from Backend', 20, 20, 20, [0, 0, 0])
+#       Raylib.draw_text('hello raylib', 20, 20, 20, [0, 0, 0])
 #       Raylib.end_drawing()
 #   end
 #
@@ -37,185 +37,442 @@ Camera_2d <target: Vector2, offset: Vector2, rotation: Number, zoom: Number>
 
 Raylib {
 	# --- Window / lifecycle ---
-	# `set_config_flags` must be called before `init_window` -- it configures the window `init_window`
-	# is about to create, e.g. `Raylib.set_config_flags(Raylib.config_flag(:vsync_hint) | Raylib.config_flag(:msaa_4x_hint))`.
-	Self.config_flag ( name: Symbol -> Number; @ruby ) # e.g. :vsync_hint, :msaa_4x_hint, :window_resizable
+
+	# Gives the number for a window flag, such as :vsync_hint, :msaa_4x_hint or :window_resizable.
+	Self.config_flag ( name: Symbol -> Number; @ruby )
+
+	# Sets window flags, joined with `|`, and must come before init_window because they configure the window it makes.
 	Self.set_config_flags ( flags: Number; @ruby )
+
+	# Opens the window and starts graphics, which every draw and Texture function needs.
 	Self.init_window ( width: Number, height: Number, title: String; @ruby )
+
+	# Closes the window and stops graphics.
 	Self.close_window (; @ruby )
+
+	# Gives true after the player presses Escape or clicks the window's close button.
 	Self.window_should_close? ( -> Bool; @ruby )
+
+	# Sets the highest frames per second, and end_drawing waits to keep to it.
 	Self.set_target_fps ( fps: Number; @ruby )
+
+	# Gives the seconds that the last frame took.
 	Self.get_frame_time ( -> Number; @ruby )
-	Self.get_time ( -> Number; @ruby ) # seconds since init_window
+
+	# Gives the seconds since init_window.
+	Self.get_time ( -> Number; @ruby )
+
+	# Gives the width of the window in pixels.
 	Self.get_screen_width ( -> Number; @ruby )
+
+	# Gives the height of the window in pixels.
 	Self.get_screen_height ( -> Number; @ruby )
 
 	# --- Drawing ---
+
+	# Starts a frame, and each draw on the screen must come after it.
 	Self.begin_drawing (; @ruby )
+
+	# Ends the frame, shows it, reads new input, and waits for the target FPS.
 	Self.end_drawing (; @ruby )
+
+	# Fills the whole frame with one color.
 	Self.clear_background ( color: Array | Struct; @ruby )
 
 	# --- 2D Camera ---
-	# Everything drawn between begin/end is transformed by `camera` -- pan/zoom/rotate the world
-	# without recomputing every shape's own coordinates.
+
+	# Draws through `camera` until end_mode_2d, so a program can pan, zoom or turn the world and keep its coordinates.
 	Self.begin_mode_2d ( camera: Camera_2d; @ruby )
+
+	# Stops drawing through the camera.
 	Self.end_mode_2d (; @ruby )
 
 	# --- Shapes ---
+
+	# Draws a filled circle with its center at (x, y).
 	Self.draw_circle ( x: Number, y: Number, radius: Number, color: Array | Struct; @ruby )
+
+	# Draws the outline of a circle with its center at (x, y).
 	Self.draw_circle_lines ( x: Number, y: Number, radius: Number, color: Array | Struct; @ruby )
+
+	# Draws a filled rectangle with its top-left corner at (x, y).
 	Self.draw_rectangle ( x: Number, y: Number, width: Number, height: Number, color: Array | Struct; @ruby )
+
+	# Draws the outline of a rectangle with its top-left corner at (x, y).
 	Self.draw_rectangle_lines ( x: Number, y: Number, width: Number, height: Number, color: Array | Struct; @ruby )
-	# `rect` is [x, y, width, height], `origin` an [x, y] offset (in `rect`'s own space) that
-	# `rotation` (degrees) pivots around -- [0, 0] pivots around the rectangle's own top-left corner.
-	Self.draw_rectangle_pro ( rect: Array, origin: Array, rotation: Number, color: Array | Struct; @ruby )
+
+	# Draws a filled `rect` turned `rotation` degrees around `origin`, an [x, y] offset from its top-left corner.
+	Self.draw_rectangle_pro ( rect: Array | Struct, origin: Array | Struct, rotation: Number, color: Array | Struct; @ruby )
+
+	# Draws a line from (x1, y1) to (x2, y2).
 	Self.draw_line ( x1: Number, y1: Number, x2: Number, y2: Number, color: Array | Struct; @ruby )
 
 	# --- Text ---
+
+	# Draws text in the default font with its top-left corner at (x, y).
 	Self.draw_text ( text: String, x: Number, y: Number, size: Number, color: Array | Struct; @ruby )
+
+	# Gives the width in pixels of text in the default font.
 	Self.measure_text ( text: String, size: Number -> Number; @ruby )
+
+	# Draws the current FPS at (x, y).
 	Self.draw_fps ( x: Number, y: Number; @ruby )
 
 	# --- Textures / Shaders / Render targets ---
-	# A texture is a Texture (lang/texture.code). A render texture or shader value is opaque to Backend --
-	# hold onto whatever these hand back and pass it straight into the next call, the same way you'd
-	# pass around a file handle.
+	# A render texture or a shader is an opaque value: keep what a function gives back, and pass it to the next call.
+
+	# Loads an image file onto the GPU, and raises Raylib_Load_Failed when the file cannot load or no window is open.
 	Self.load_texture ( path: String -> Texture; @ruby )
+
+	# Gives the width of a texture in pixels, the same as `texture.width`.
 	Self.get_texture_width ( texture: Texture -> Number; @ruby )
+
+	# Gives the height of a texture in pixels, the same as `texture.height`.
 	Self.get_texture_height ( texture: Texture -> Number; @ruby )
-	Self.set_texture_filter ( texture: Texture, filter: Symbol; @ruby ) # e.g. :bilinear, :point, :trilinear
-	Self.gen_color_texture ( width: Number, height: Number, color: Array | Struct -> Texture; @ruby ) # a placeholder texture, no image file needed -- flat color, so a UV-shift distortion shader has nothing to visibly displace on it
-	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array | Struct, color2: Array | Struct -> Texture; @ruby ) # same, but a checkerboard -- has detail a distortion shader can actually show
+
+	# Sets how a texture samples its pixels when it is scaled, such as :point, :bilinear or :trilinear.
+	Self.set_texture_filter ( texture: Texture, filter: Symbol; @ruby )
+
+	# Makes a texture of one flat color, which a UV distortion shader cannot visibly change.
+	Self.gen_color_texture ( width: Number, height: Number, color: Array | Struct -> Texture; @ruby )
+
+	# Makes a checkerboard texture, which shows the effect of a UV distortion shader.
+	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array | Struct, color2: Array | Struct -> Texture; @ruby )
+
+	# Makes an off-screen target that begin_texture_mode can draw into.
 	Self.load_render_texture ( width: Number, height: Number -> Any; @ruby )
+
+	# Gives the Texture that holds what was drawn into a render texture.
 	Self.render_texture_texture ( render_texture: Any -> Texture; @ruby )
-	Self.load_shader ( vertex_path: String, fragment_path: String -> Any; @ruby ) # either path may be nil
+
+	# Loads a shader from two files, and a nil path uses raylib's default for that stage.
+	Self.load_shader ( vertex_path: String, fragment_path: String -> Any; @ruby )
+
+	# Gives the location of a uniform in a shader, for the set_shader_value functions.
 	Self.get_shader_location ( shader: Any, name: String | Symbol -> Number; @ruby )
+
+	# Sets a `uniform float` in a shader.
 	Self.set_shader_value_float ( shader: Any, location: Number, value: Number; @ruby )
-	Self.set_shader_value_texture ( shader: Any, location: Number, texture: Texture; @ruby ) # binds a texture uniform -- for sampling a *different* texture than whatever's naturally being drawn
+
+	# Sets a `uniform sampler2D` in a shader, so it can read another texture than the one being drawn.
+	Self.set_shader_value_texture ( shader: Any, location: Number, texture: Texture; @ruby )
+
+	# Sends each draw into a render texture until end_texture_mode.
 	Self.begin_texture_mode ( render_texture: Any; @ruby )
+
+	# Sends each draw back to the screen.
 	Self.end_texture_mode (; @ruby )
+
+	# Draws through a shader until end_shader_mode.
 	Self.begin_shader_mode ( shader: Any; @ruby )
+
+	# Stops drawing through the shader.
 	Self.end_shader_mode (; @ruby )
+
+	# Draws a whole texture with its top-left corner at (x, y), and `color` tints it, so white shows it unchanged.
 	Self.draw_texture ( texture: Texture, x: Number, y: Number, color: Array | Struct; @ruby )
-	# `source`/`dest` are [x, y, width, height] Arrays, `origin` an [x, y] Array.
-	Self.draw_texture_pro ( texture: Texture, source: Array, dest: Array, origin: Array, rotation: Number, color: Array | Struct; @ruby )
+
+	# Draws the `source` part of a texture into `dest`, turned `rotation` degrees around `origin`, an [x, y] offset from the corner of `dest`.
+	Self.draw_texture_pro ( texture: Texture, source: Array | Struct, dest: Array | Struct, origin: Array | Struct, rotation: Number, color: Array | Struct; @ruby )
+
+	# Frees a texture from the GPU.
 	Self.unload_texture ( texture: Texture; @ruby )
+
+	# Frees a render texture from the GPU.
+	Self.unload_render_texture ( render_texture: Any; @ruby )
+
+	# Frees a shader from the GPU.
+	Self.unload_shader ( shader: Any; @ruby )
 
 	# --- Texture pixels ---
 	# A list of pixels is flat, row by row: the pixel at (x, y) is at index `y * width + x`. Each pixel is a
 	# color. A Buffer of RGBA bytes, or an Image of the same size, is much faster for a big area. `rect` is
 	# [x, y, width, height]. The area must be inside the texture, and the pixels must fill it exactly, or
-	# these raise Invalid_Pixels. The read functions copy the whole texture back from the GPU, so call them
-	# rarely, and keep data you read often in an Image. A render texture's rows are stored bottom first.
-	Self.update_texture ( texture: Texture, pixels: Array | Buffer | Image; @ruby ) # every pixel
-	Self.update_texture_rec ( texture: Texture, rect: Array, pixels: Array | Buffer | Image; @ruby ) # the pixels in rect
+	# these raise Invalid_Pixels. A render texture's rows are stored bottom first.
+
+	# Replaces every pixel of a texture.
+	Self.update_texture ( texture: Texture, pixels: Array | Buffer | Image; @ruby )
+
+	# Replaces the pixels of a texture inside `rect`.
+	Self.update_texture_rec ( texture: Texture, rect: Array | Struct, pixels: Array | Buffer | Image; @ruby )
+
+	# Replaces one pixel of a texture.
 	Self.set_texture_pixel ( texture: Texture, x: Int, y: Int, color: Array | Struct; @ruby )
-	Self.get_texture_pixels ( texture: Texture -> Array; @ruby ) # a list of [r, g, b, a]
-	Self.get_texture_pixel ( texture: Texture, x: Int, y: Int -> Array; @ruby ) # [r, g, b, a]
+
+	# Gives a list of [r, g, b, a] for every pixel, and copies the whole texture from the GPU, so call it rarely.
+	Self.get_texture_pixels ( texture: Texture -> Array; @ruby )
+
+	# Gives [r, g, b, a] for one pixel, and copies the whole texture from the GPU, so keep data that you read often in an Image.
+	Self.get_texture_pixel ( texture: Texture, x: Int, y: Int -> Array; @ruby )
 
 	# --- Images: load, make, save ---
 	# An Image is in CPU memory, and most of these need no window. The names match raylib's, so its
-	# cheatsheet explains each one. A point is [x, y] or a Vector2, and `rect` is [x, y, width, height].
-	Self.load_image ( path: String -> Image; @ruby ) # raises Raylib_Load_Failed when it cannot load the file
+	# cheatsheet has more about each one. A point is [x, y] or a Vector2, and `rect` is [x, y, width, height].
+
+	# Loads an image file into CPU memory, and raises Raylib_Load_Failed when it cannot.
+	Self.load_image ( path: String -> Image; @ruby )
+
+	# Reads pixels from a file with no image format, in the given `format`, after it skips `header_size` bytes.
 	Self.load_image_raw ( path: String, width: Int, height: Int, format: Symbol, header_size: Int -> Image; @ruby )
-	Self.load_image_from_texture ( texture: Texture -> Image; @ruby ) # copies from the GPU; needs a window
-	Self.load_image_from_screen ( -> Image; @ruby ) # needs a window
-	Self.load_texture_from_image ( image: Image -> Texture; @ruby ) # needs a window
+
+	# Copies a texture from the GPU into a new Image, and needs a window.
+	Self.load_image_from_texture ( texture: Texture -> Image; @ruby )
+
+	# Copies the window's pixels into a new Image, and needs a window.
+	Self.load_image_from_screen ( -> Image; @ruby )
+
+	# Copies an Image onto the GPU as a new Texture, and needs a window.
+	Self.load_texture_from_image ( image: Image -> Texture; @ruby )
+
+	# Gives true when an image has pixels and a valid size and format.
 	Self.is_image_valid? ( image: Image -> Bool; @ruby )
+
+	# Frees an image, and a second call does nothing.
 	Self.unload_image ( image: Image; @ruby )
-	Self.export_image ( image: Image, path: String -> Bool; @ruby ) # the file type comes from the path: .png, .bmp, .qoi, ...
+
+	# Saves an image to a file whose extension sets the file type, such as .png, .bmp or .qoi, and gives true when it saved.
+	Self.export_image ( image: Image, path: String -> Bool; @ruby )
+
+	# Saves an image as a C header file that holds its pixels, and gives true when it saved.
 	Self.export_image_as_code ( image: Image, path: String -> Bool; @ruby )
-	Self.pixel_format ( name: Symbol -> Int; @ruby ) # e.g. :uncompressed_r8g8b8a8, :uncompressed_r32, :uncompressed_grayscale
 
+	# Gives the number for a pixel format, such as :uncompressed_r8g8b8a8, :uncompressed_r32 or :uncompressed_grayscale.
+	Self.pixel_format ( name: Symbol -> Int; @ruby )
+
+	# Makes an image of one color.
 	Self.gen_image_color ( width: Int, height: Int, color: Array | Struct -> Image; @ruby )
-	Self.gen_image_gradient_linear ( width: Int, height: Int, direction: Int, start_color: Array | Struct, end_color: Array | Struct -> Image; @ruby ) # direction in degrees, 0 is vertical
-	Self.gen_image_gradient_radial ( width: Int, height: Int, density: Number, inner: Array | Struct, outer: Array | Struct -> Image; @ruby )
-	Self.gen_image_gradient_square ( width: Int, height: Int, density: Number, inner: Array | Struct, outer: Array | Struct -> Image; @ruby )
-	Self.gen_image_checked ( width: Int, height: Int, checks_x: Int, checks_y: Int, color1: Array | Struct, color2: Array | Struct -> Image; @ruby )
-	Self.gen_image_white_noise ( width: Int, height: Int, factor: Number -> Image; @ruby ) # factor 0.0 .. 1.0: how many pixels are white
-	Self.gen_image_perlin_noise ( width: Int, height: Int, offset_x: Int, offset_y: Int, scale: Number -> Image; @ruby )
-	Self.gen_image_cellular ( width: Int, height: Int, tile_size: Int -> Image; @ruby ) # a bigger tile_size makes bigger cells
-	Self.gen_image_text ( width: Int, height: Int, text: String -> Image; @ruby ) # the text's bytes as grayscale pixels
 
+	# Makes a straight gradient, and a `direction` of 0 degrees runs it vertically.
+	Self.gen_image_gradient_linear ( width: Int, height: Int, direction: Int, start_color: Array | Struct, end_color: Array | Struct -> Image; @ruby )
+
+	# Makes a round gradient from the center, and `density` sets where it starts to change.
+	Self.gen_image_gradient_radial ( width: Int, height: Int, density: Number, inner: Array | Struct, outer: Array | Struct -> Image; @ruby )
+
+	# Makes a square gradient from the center, and `density` sets where it starts to change.
+	Self.gen_image_gradient_square ( width: Int, height: Int, density: Number, inner: Array | Struct, outer: Array | Struct -> Image; @ruby )
+
+	# Makes a checkerboard with `checks_x` and `checks_y` as the size of each square in pixels.
+	Self.gen_image_checked ( width: Int, height: Int, checks_x: Int, checks_y: Int, color1: Array | Struct, color2: Array | Struct -> Image; @ruby )
+
+	# Makes black and white noise, and `factor`, from 0.0 to 1.0, sets how many pixels are white.
+	Self.gen_image_white_noise ( width: Int, height: Int, factor: Number -> Image; @ruby )
+
+	# Makes grayscale Perlin noise, and a different offset gives a different part of the same noise.
+	Self.gen_image_perlin_noise ( width: Int, height: Int, offset_x: Int, offset_y: Int, scale: Number -> Image; @ruby )
+
+	# Makes grayscale cellular noise, and a bigger `tile_size` makes bigger cells.
+	Self.gen_image_cellular ( width: Int, height: Int, tile_size: Int -> Image; @ruby )
+
+	# Makes a grayscale image whose pixels are the bytes of `text`.
+	Self.gen_image_text ( width: Int, height: Int, text: String -> Image; @ruby )
+
+	# Makes a separate copy of an image.
 	Self.image_copy ( image: Image -> Image; @ruby )
-	Self.image_from_image ( image: Image, rect: Array -> Image; @ruby ) # a new image from a part of another
-	Self.image_from_channel ( image: Image, channel: Int -> Image; @ruby ) # one channel as grayscale: 0 r, 1 g, 2 b, 3 a
-	Self.image_text ( text: String, font_size: Int, color: Array | Struct -> Image; @ruby ) # needs a window for the default font
+
+	# Makes a new image from the `rect` part of another.
+	Self.image_from_image ( image: Image, rect: Array | Struct -> Image; @ruby )
+
+	# Makes a grayscale image from one channel of another: 0 is r, 1 is g, 2 is b, and 3 is a.
+	Self.image_from_channel ( image: Image, channel: Int -> Image; @ruby )
+
+	# Makes an image of text in the default font, and needs a window for that font.
+	Self.image_text ( text: String, font_size: Int, color: Array | Struct -> Image; @ruby )
 
 	# --- Images: read ---
-	# get_image_color raises Invalid_Pixels outside the image. A draw outside the image is clipped.
-	Self.get_image_color ( image: Image, x: Int, y: Int -> Array; @ruby ) # [r, g, b, a]
-	Self.load_image_colors ( image: Image -> Array; @ruby ) # a list of [r, g, b, a], row by row
-	Self.get_image_buffer ( image: Image -> Buffer; @ruby ) # a copy of the pixels as RGBA bytes: `y * width * 4 + x * 4` is r
-	Self.load_image_palette ( image: Image, max_size: Int -> Array; @ruby ) # the different colors, a list of [r, g, b, a]
-	Self.get_image_alpha_border ( image: Image, threshold: Number -> Array; @ruby ) # threshold 0.0 .. 1.0; gives [x, y, width, height]
+
+	# Gives [r, g, b, a] for one pixel, and raises Invalid_Pixels outside the image.
+	Self.get_image_color ( image: Image, x: Int, y: Int -> Array; @ruby )
+
+	# Gives a list of [r, g, b, a] for every pixel, row by row, which is slow for a big image.
+	Self.load_image_colors ( image: Image -> Array; @ruby )
+
+	# Gives a copy of the pixels as RGBA bytes, where the r byte of (x, y) is at `y * width * 4 + x * 4`.
+	Self.get_image_buffer ( image: Image -> Buffer; @ruby )
+
+	# Gives the square around (x, y) from one channel as a flat list, row by row, with nil for a pixel outside the image, and raises Invalid_Pixels when (x, y) is outside.
+	Self.get_image_neighbors ( image: Image, x: Int, y: Int, radius: Int = 1, channel: Int = 0 -> Array; @ruby )
+
+	# Gives a list of the different colors in an image, at most `max_size` of them.
+	Self.load_image_palette ( image: Image, max_size: Int -> Array; @ruby )
+
+	# Gives [x, y, width, height] around the pixels whose alpha is above `threshold`, from 0.0 to 1.0.
+	Self.get_image_alpha_border ( image: Image, threshold: Number -> Array; @ruby )
 
 	# --- Images: change in place ---
-	Self.image_format ( image: Image, format: Symbol; @ruby ) # see pixel_format
-	Self.image_to_pot ( image: Image, fill: Array | Struct; @ruby ) # to a power-of-two size
-	Self.image_crop ( image: Image, rect: Array; @ruby )
+
+	# Converts an image to another pixel format, such as :uncompressed_r8g8b8.
+	Self.image_format ( image: Image, format: Symbol; @ruby )
+
+	# Grows the canvas to a power-of-two size, and fills the new area with `fill`.
+	Self.image_to_pot ( image: Image, fill: Array | Struct; @ruby )
+
+	# Cuts an image down to `rect`.
+	Self.image_crop ( image: Image, rect: Array | Struct; @ruby )
+
+	# Cuts away the edges whose alpha is at or below `threshold`, from 0.0 to 1.0.
 	Self.image_alpha_crop ( image: Image, threshold: Number; @ruby )
+
+	# Replaces each pixel whose alpha is at or below `threshold` with `color`.
 	Self.image_alpha_clear ( image: Image, color: Array | Struct, threshold: Number; @ruby )
+
+	# Uses the brightness of `alpha_mask`, an image of the same size, as this image's alpha.
 	Self.image_alpha_mask ( image: Image, alpha_mask: Image; @ruby )
+
+	# Multiplies r, g and b of each pixel by its alpha.
 	Self.image_alpha_premultiply ( image: Image; @ruby )
+
+	# Blurs an image, and a bigger `blur_size` blurs it more.
 	Self.image_blur_gaussian ( image: Image, blur_size: Int; @ruby )
-	Self.image_kernel_convolution ( image: Image, kernel: Array; @ruby ) # a flat list of numbers; 9 values for 3 by 3
-	Self.image_resize ( image: Image, width: Int, height: Int; @ruby ) # smooth
-	Self.image_resize_nn ( image: Image, width: Int, height: Int; @ruby ) # nearest neighbor: keeps exact values, so use this for data
+
+	# Applies a square kernel, a flat list such as 9 numbers for 3 by 3, to all four channels, alpha too.
+	Self.image_kernel_convolution ( image: Image, kernel: Array; @ruby )
+
+	# Scales an image smoothly, which changes its values.
+	Self.image_resize ( image: Image, width: Int, height: Int; @ruby )
+
+	# Scales an image by the nearest neighbor, which keeps exact values, so use it for data.
+	Self.image_resize_nn ( image: Image, width: Int, height: Int; @ruby )
+
+	# Changes the canvas size with no scaling, places the old pixels at the offset, and fills the new area with `fill`.
 	Self.image_resize_canvas ( image: Image, width: Int, height: Int, offset_x: Int, offset_y: Int, fill: Array | Struct; @ruby )
+
+	# Adds smaller copies of an image, which a scaled texture can sample.
 	Self.image_mipmaps ( image: Image; @ruby )
+
+	# Reduces an image to the given bits for each channel, 16 or fewer in total, with Floyd-Steinberg dithering.
 	Self.image_dither ( image: Image, r_bpp: Int, g_bpp: Int, b_bpp: Int, a_bpp: Int; @ruby )
+
+	# Flips an image top to bottom.
 	Self.image_flip_vertical ( image: Image; @ruby )
+
+	# Flips an image left to right.
 	Self.image_flip_horizontal ( image: Image; @ruby )
-	Self.image_rotate ( image: Image, degrees: Int; @ruby ) # -359 .. 359
+
+	# Turns an image by `degrees`, from -359 to 359, and grows it to fit.
+	Self.image_rotate ( image: Image, degrees: Int; @ruby )
+
+	# Turns an image 90 degrees clockwise.
 	Self.image_rotate_cw ( image: Image; @ruby )
+
+	# Turns an image 90 degrees counter-clockwise.
 	Self.image_rotate_ccw ( image: Image; @ruby )
+
+	# Multiplies each pixel by `color`.
 	Self.image_color_tint ( image: Image, color: Array | Struct; @ruby )
+
+	# Inverts r, g and b of each pixel.
 	Self.image_color_invert ( image: Image; @ruby )
+
+	# Converts an image to grayscale, which also changes its pixel format.
 	Self.image_color_grayscale ( image: Image; @ruby )
-	Self.image_color_contrast ( image: Image, contrast: Int; @ruby ) # -100 .. 100
-	Self.image_color_brightness ( image: Image, brightness: Int; @ruby ) # -255 .. 255
+
+	# Changes the contrast, from -100 to 100.
+	Self.image_color_contrast ( image: Image, contrast: Int; @ruby )
+
+	# Changes the brightness, from -255 to 255.
+	Self.image_color_brightness ( image: Image, brightness: Int; @ruby )
+
+	# Replaces each pixel that is exactly `color` with `replace`.
 	Self.image_color_replace ( image: Image, color: Array | Struct, replace: Array | Struct; @ruby )
 
 	# --- Images: draw ---
-	# Left out on purpose: raylib 6.1-dev in raylib-bindings 0.8.4 draws nothing for ImageDrawRectanglePro,
-	# ImageDrawRectangleGradientEx, ImageDrawCircleGradient and ImageDrawImageEx.
+	# A draw outside the image is clipped. Left out on purpose: raylib 6.1-dev in raylib-bindings 0.8.4
+	# draws nothing for ImageDrawRectanglePro, ImageDrawRectangleGradientEx, ImageDrawCircleGradient and ImageDrawImageEx.
+
+	# Fills a whole image with one color.
 	Self.image_clear_background ( image: Image, color: Array | Struct; @ruby )
+
+	# Writes one pixel.
 	Self.image_draw_pixel ( image: Image, x: Int, y: Int, color: Array | Struct; @ruby )
+
+	# Draws a line from (x1, y1) to (x2, y2).
 	Self.image_draw_line ( image: Image, x1: Int, y1: Int, x2: Int, y2: Int, color: Array | Struct; @ruby )
+
+	# Draws a line between two points with a thickness in pixels.
 	Self.image_draw_line_ex ( image: Image, start_point: Array | Struct, end_point: Array | Struct, thick: Int, color: Array | Struct; @ruby )
+
+	# Draws lines that join a list of points in order.
 	Self.image_draw_line_strip ( image: Image, points: Array, color: Array | Struct; @ruby )
+
+	# Draws a filled triangle.
 	Self.image_draw_triangle ( image: Image, v1: Array | Struct, v2: Array | Struct, v3: Array | Struct, color: Array | Struct; @ruby )
+
+	# Draws a filled triangle with a color at each corner, blended across it.
 	Self.image_draw_triangle_gradient ( image: Image, v1: Array | Struct, v2: Array | Struct, v3: Array | Struct, c1: Array | Struct, c2: Array | Struct, c3: Array | Struct; @ruby )
+
+	# Draws the outline of a triangle.
 	Self.image_draw_triangle_lines ( image: Image, v1: Array | Struct, v2: Array | Struct, v3: Array | Struct, color: Array | Struct; @ruby )
-	Self.image_draw_triangle_fan ( image: Image, points: Array, color: Array | Struct; @ruby ) # the first point is the center
+
+	# Draws filled triangles that all share the first point in the list.
+	Self.image_draw_triangle_fan ( image: Image, points: Array, color: Array | Struct; @ruby )
+
+	# Draws filled triangles where each next point in the list makes one more triangle with the two before it.
 	Self.image_draw_triangle_strip ( image: Image, points: Array, color: Array | Struct; @ruby )
+
+	# Draws a filled rectangle with its top-left corner at (x, y).
 	Self.image_draw_rectangle ( image: Image, x: Int, y: Int, width: Int, height: Int, color: Array | Struct; @ruby )
+
+	# Draws the outline of a rectangle with its top-left corner at (x, y).
 	Self.image_draw_rectangle_lines ( image: Image, x: Int, y: Int, width: Int, height: Int, color: Array | Struct; @ruby )
-	Self.image_draw_rectangle_lines_ex ( image: Image, rect: Array, thick: Int, color: Array | Struct; @ruby )
+
+	# Draws the outline of `rect` with a thickness in pixels.
+	Self.image_draw_rectangle_lines_ex ( image: Image, rect: Array | Struct, thick: Int, color: Array | Struct; @ruby )
+
+	# Draws a filled circle with its center at (x, y).
 	Self.image_draw_circle ( image: Image, x: Int, y: Int, radius: Int, color: Array | Struct; @ruby )
+
+	# Draws the outline of a circle with its center at (x, y).
 	Self.image_draw_circle_lines ( image: Image, x: Int, y: Int, radius: Int, color: Array | Struct; @ruby )
+
+	# Draws all of `source` with its top-left corner at (x, y), tinted, and it blends by the alpha of `source`.
 	Self.image_draw_image ( image: Image, source: Image, x: Int, y: Int, tint: Array | Struct; @ruby )
-	Self.image_draw_image_rec ( image: Image, source: Image, source_rect: Array, position: Array | Struct, tint: Array | Struct; @ruby )
-	Self.image_draw_image_pro ( image: Image, source: Image, source_rect: Array, dest_rect: Array, origin: Array | Struct, rotation: Number, tint: Array | Struct; @ruby ) # in this raylib build, origin and rotation have no effect
-	Self.image_draw_text ( image: Image, text: String, x: Int, y: Int, font_size: Int, color: Array | Struct; @ruby ) # needs a window for the default font
-	Self.unload_render_texture ( render_texture: Any; @ruby )
-	Self.unload_shader ( shader: Any; @ruby )
+
+	# Draws the `source_rect` part of `source` at `position`, tinted.
+	Self.image_draw_image_rec ( image: Image, source: Image, source_rect: Array | Struct, position: Array | Struct, tint: Array | Struct; @ruby )
+
+	# Draws the `source_rect` part of `source` into `dest_rect`, tinted, and in this raylib build `origin` and `rotation` have no effect.
+	Self.image_draw_image_pro ( image: Image, source: Image, source_rect: Array | Struct, dest_rect: Array | Struct, origin: Array | Struct, rotation: Number, tint: Array | Struct; @ruby )
+
+	# Draws text in the default font, and needs a window for that font.
+	Self.image_draw_text ( image: Image, text: String, x: Int, y: Int, font_size: Int, color: Array | Struct; @ruby )
 
 	# --- Input: Keyboard ---
-	Self.is_key_down? ( key: Symbol -> Bool; @ruby ) # e.g. Raylib.is_key_down?(:right)
+	# A key is a Symbol: the name of raylib's KEY_ constant, such as :right, :a or :space.
+
+	# Gives true while a key is held down.
+	Self.is_key_down? ( key: Symbol -> Bool; @ruby )
+
+	# Gives true only on the frame that a key goes down.
 	Self.is_key_pressed? ( key: Symbol -> Bool; @ruby )
-	Self.key ( name: String | Symbol -> Number; @ruby ) # e.g. Raylib.key(:right) -> raylib's real KEY_RIGHT integer
+
+	# Gives raylib's number for a key.
+	Self.key ( name: String | Symbol -> Number; @ruby )
 
 	# --- Input: Mouse ---
 	# A button is a symbol -- :left, :right, :middle, :side, :extra, :forward, :back.
-	Self.get_mouse_position ( -> Pixel; @ruby ) # <x, y> struct
+
+	# Gives the mouse position in the window.
+	Self.get_mouse_position ( -> Pixel; @ruby )
+
+	# Gives the mouse's x position in the window.
 	Self.get_mouse_x ( -> Number; @ruby )
+
+	# Gives the mouse's y position in the window.
 	Self.get_mouse_y ( -> Number; @ruby )
-	Self.get_mouse_delta ( -> Pixel; @ruby ) # <x, y> moved since last frame
+
+	# Gives how far the mouse moved since the last frame.
+	Self.get_mouse_delta ( -> Pixel; @ruby )
+
+	# Gives how far the mouse wheel moved since the last frame.
 	Self.get_mouse_wheel_move ( -> Number; @ruby )
+
+	# Gives true while a mouse button is held down.
 	Self.is_mouse_button_down? ( button: Symbol -> Bool; @ruby )
+
+	# Gives true only on the frame that a mouse button goes down.
 	Self.is_mouse_button_pressed? ( button: Symbol -> Bool; @ruby )
+
+	# Gives true only on the frame that a mouse button comes up.
 	Self.is_mouse_button_released? ( button: Symbol -> Bool; @ruby )
 
 	# --- Input: Gamepad ---
@@ -224,54 +481,122 @@ Raylib {
 	# :left_trigger_1/2, :right_trigger_1/2, :left_thumb, :right_thumb (stick clicks), :middle_left,
 	# :middle, :middle_right (the center buttons). An axis is :left_x, :left_y, :right_x, :right_y,
 	# :left_trigger, :right_trigger.
+
+	# Gives true when a gamepad is connected.
 	Self.is_gamepad_available? ( gamepad: Number -> Bool; @ruby )
+
+	# Gives the name of a gamepad, or nil when it has none.
 	Self.get_gamepad_name ( gamepad: Number -> String; @ruby )
+
+	# Gives true while a gamepad button is held down.
 	Self.is_gamepad_button_down? ( gamepad: Number, button: Symbol -> Bool; @ruby )
+
+	# Gives true only on the frame that a gamepad button goes down.
 	Self.is_gamepad_button_pressed? ( gamepad: Number, button: Symbol -> Bool; @ruby )
+
+	# Gives true only on the frame that a gamepad button comes up.
 	Self.is_gamepad_button_released? ( gamepad: Number, button: Symbol -> Bool; @ruby )
+
+	# Gives the number of axes on a gamepad.
 	Self.get_gamepad_axis_count ( gamepad: Number -> Number; @ruby )
-	Self.get_gamepad_axis_movement ( gamepad: Number, axis: Symbol -> Number; @ruby ) # -1.0 .. 1.0
-	Self.set_gamepad_vibration ( gamepad: Number, left_motor: Number, right_motor: Number, duration: Number; @ruby ) # motor strength 0.0 .. 1.0, duration in seconds
+
+	# Gives the position of a gamepad axis, from -1.0 to 1.0.
+	Self.get_gamepad_axis_movement ( gamepad: Number, axis: Symbol -> Number; @ruby )
+
+	# Shakes a gamepad, with each motor from 0.0 to 1.0, for `duration` seconds.
+	Self.set_gamepad_vibration ( gamepad: Number, left_motor: Number, right_motor: Number, duration: Number; @ruby )
 
 	# --- Audio ---
-	# A sound/music value is opaque to Backend, same as a texture or shader -- hold onto whatever
-	# these hand back and pass it straight into the next call.
+	# A sound or music value is opaque: keep what a function gives back, and pass it to the next call.
+
+	# Starts audio, which each sound and music function needs.
 	Self.init_audio_device (; @ruby )
+
+	# Stops audio.
 	Self.close_audio_device (; @ruby )
+
+	# Gives true when audio has started.
 	Self.is_audio_device_ready? ( -> Bool; @ruby )
 
+	# Loads a whole sound file into memory, for a short sound.
 	Self.load_sound ( path: String -> Any; @ruby )
+
+	# Plays a sound from its start.
 	Self.play_sound ( sound: Any; @ruby )
+
+	# Stops a sound.
 	Self.stop_sound ( sound: Any; @ruby )
+
+	# Gives true while a sound plays.
 	Self.is_sound_playing? ( sound: Any -> Bool; @ruby )
-	Self.set_sound_volume ( sound: Any, volume: Number; @ruby ) # 1.0 is max
-	Self.set_sound_pitch ( sound: Any, pitch: Number; @ruby ) # 1.0 is base
+
+	# Sets the volume of a sound, where 1.0 is the highest.
+	Self.set_sound_volume ( sound: Any, volume: Number; @ruby )
+
+	# Sets the pitch of a sound, where 1.0 is its own pitch.
+	Self.set_sound_pitch ( sound: Any, pitch: Number; @ruby )
+
+	# Frees a sound.
 	Self.unload_sound ( sound: Any; @ruby )
 
+	# Opens a music file to read in small parts, for long audio.
 	Self.load_music_stream ( path: String -> Any; @ruby )
+
+	# Plays music from its start.
 	Self.play_music_stream ( music: Any; @ruby )
-	Self.update_music_stream ( music: Any; @ruby ) # call once per frame while playing, or it stops streaming
+
+	# Feeds the next part of the music, and must run each frame while it plays, or the music stops.
+	Self.update_music_stream ( music: Any; @ruby )
+
+	# Stops music.
 	Self.stop_music_stream ( music: Any; @ruby )
+
+	# Pauses music.
 	Self.pause_music_stream ( music: Any; @ruby )
+
+	# Continues paused music.
 	Self.resume_music_stream ( music: Any; @ruby )
-	Self.set_music_volume ( music: Any, volume: Number; @ruby ) # 1.0 is max
+
+	# Sets the volume of music, where 1.0 is the highest.
+	Self.set_music_volume ( music: Any, volume: Number; @ruby )
+
+	# Gives true while music plays.
 	Self.is_music_stream_playing? ( music: Any -> Bool; @ruby )
+
+	# Frees a music stream.
 	Self.unload_music_stream ( music: Any; @ruby )
 
 	# --- Low-level (rlgl) ---
 	# Immediate-mode vertex drawing, for shapes the higher-level draw_* calls can't express -- e.g. a
-	# textured quad whose four corners don't form an axis-aligned rectangle. Every rl_vertex call
-	# uses whatever rl_color/rl_tex_coord/rl_normal was set most recently, the same "current state"
-	# style as OpenGL's own immediate mode. Always rl_begin_quads, four rl_vertex calls, rl_end.
-	Self.rl_set_texture ( texture: Texture; @ruby ) # binds the texture rl_tex_coord's 0..1 UVs sample from
+	# textured quad whose four corners don't form an axis-aligned rectangle. Always rl_begin_quads, four
+	# rl_vertex calls, rl_end.
+
+	# Sets the texture that rl_tex_coord reads from.
+	Self.rl_set_texture ( texture: Texture; @ruby )
+
+	# Starts a list of quads, with four rl_vertex calls for each one.
 	Self.rl_begin_quads (; @ruby )
+
+	# Ends the list of vertices.
 	Self.rl_end (; @ruby )
+
+	# Sets the color of the next vertices.
 	Self.rl_color ( color: Array | Struct; @ruby )
+
+	# Sets the normal of the next vertices.
 	Self.rl_normal ( x: Number, y: Number, z: Number; @ruby )
+
+	# Sets the texture position of the next vertex, where 0 to 1 covers the whole texture.
 	Self.rl_tex_coord ( u: Number, v: Number; @ruby )
+
+	# Adds a vertex with the last color, texture position and normal.
 	Self.rl_vertex ( x: Number, y: Number; @ruby )
 
 	# --- Useful ---
+
+	# Gives the current frames per second.
 	Self.get_fps (-> Number; @ruby)
-	Self.get_random_value ( min: Number, max: Number -> Number; @ruby ) # both ends included
+
+	# Gives a random integer from `min` to `max`, with both ends included.
+	Self.get_random_value ( min: Number, max: Number -> Number; @ruby )
 }

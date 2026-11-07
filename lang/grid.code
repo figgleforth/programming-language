@@ -1,0 +1,68 @@
+# Implemented by Claude
+#
+# A grid with one float in each cell, for what fades or spreads, such as scent, influence and weights. Use an
+# Image for what stays exact, such as terrain and flags. Not part of the standard library -- opt in with
+# `@load 'lang/grid'`.
+#
+#   scent := Grid(512, 512)
+#   scent.add(10, 20, 1.0)
+#   scent.spread(0.25)
+#   scent.decay(0.99)
+#
+#   view := Raylib.gen_image_color(512, 512, [0, 0, 0, 255])
+#   scent.write_to_image(view)         # then Raylib.update_texture(texture, view)
+
+@load 'lang/image'
+
+Grid {
+	width: Int
+	height: Int
+
+	# Makes a Grid with every cell at `value`.
+	Self ( width: Int, height: Int, value: Number = 0.0;
+		start(width, height, value)
+	)
+
+	# Sets the size, and sets every cell to `value`.
+	start ( width: Int, height: Int, value: Number = 0.0 -> Grid; @ruby )
+
+	# Gives the value of one cell, and raises Invalid_Grid outside the Grid.
+	get ( x: Int, y: Int -> Float; @ruby )
+
+	# Sets the value of one cell, and raises Invalid_Grid outside the Grid.
+	set ( x: Int, y: Int, value: Number; @ruby )
+
+	# Adds to one cell, raises Invalid_Grid outside the Grid, and gives the new value.
+	add ( x: Int, y: Int, amount: Number -> Float; @ruby )
+
+	# Gives the square around (x, y) as a flat list, row by row, with nil for a cell outside the Grid.
+	neighbors ( x: Int, y: Int, radius: Int = 1 -> Array; @ruby )
+
+	# Sets every cell to one value.
+	fill ( value: Number -> Grid; @ruby )
+
+	# Multiplies every cell by `factor`, so 0.99 fades each cell by one percent.
+	decay ( factor: Number -> Grid; @ruby )
+
+	# Moves each cell toward the mean of its up to four neighbors, where `rate` is from 0.0 (no change) to 1.0 (all the way).
+	spread ( rate: Number -> Grid; @ruby )
+
+	# Gives the lowest value of all the cells.
+	min (-> Float; @ruby )
+
+	# Gives the highest value of all the cells.
+	max (-> Float; @ruby )
+
+	# Gives the sum of all the cells.
+	sum (-> Number; @ruby )
+
+	# Makes a Grid from one channel of an image: 0 is r, 1 is g, 2 is b, and 3 is a, with each byte scaled to `min` .. `max`.
+	Self.from_image ( image: Image, channel: Int = 0, min: Number = 0.0, max: Number = 1.0 -> Grid; @ruby )
+
+	# Writes every cell into an RGBA image of the same size, scaled so `min` is 0 and `max` is 255, into one channel or, with a nil channel, as gray.
+	write_to_image ( image: Image, channel: Int = nil, min: Number = 0.0, max: Number = 1.0 -> Grid; @ruby )
+
+	to_s (;
+		"Grid(width: `width`, height: `height`)"
+	)
+}

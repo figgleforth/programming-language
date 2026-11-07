@@ -284,6 +284,62 @@ class Image_Test < Base_Test
 		end
 	end
 
+	def test_get_image_neighbors_gives_the_square_of_one_channel_with_nil_outside
+		out = run_with_raylib <<~CODE
+			image := Raylib.gen_image_color(3, 3, [1, 2, 3, 4])
+			Raylib.image_draw_pixel(image, 1, 1, [50, 60, 70, 80])
+			[Raylib.get_image_neighbors(image, 1, 1), Raylib.get_image_neighbors(image, 0, 0, 1, 1), Raylib.get_image_neighbors(image, 1, 1, 0, 3)]
+		CODE
+		assert_equal [1, 1, 1, 1, 50, 1, 1, 1, 1], out.values[0].values
+		assert_equal [nil, nil, nil, nil, 2, 2, nil, 2, 60], out.values[1].values
+		assert_equal [80], out.values[2].values
+	end
+
+	def test_get_image_neighbors_reads_another_format_the_same_way
+		out = run_with_raylib <<~CODE
+			image := Raylib.gen_image_color(2, 2, [10, 20, 30, 255])
+			Raylib.image_format(image, :uncompressed_r8g8b8)
+			Raylib.get_image_neighbors(image, 0, 0, 1, 1)
+		CODE
+		assert_equal [nil, nil, nil, nil, 20, 20, nil, 20, 20], out.values
+	end
+
+	def test_get_image_neighbors_checks_its_arguments
+		["5, 0", "0, 0, -1", "0, 0, 1, 4"].each do |arguments|
+			assert_raises(Code::Invalid_Pixels, arguments) do
+				run_with_raylib "Raylib.get_image_neighbors(Raylib.gen_image_color(3, 3, [0, 0, 0]), #{arguments})"
+			end
+		end
+	end
+
+	def test_rect_point_and_color_work_where_a_list_works
+		out = run_with_raylib <<~CODE
+			@load 'lang/shapes'
+
+			WHITE := Color(255, 255, 255)
+			stamp := Raylib.gen_image_color(4, 4, Color(1, 2, 3))
+			image := Raylib.gen_image_color(8, 8, Color(0, 0, 0))
+
+			Raylib.image_draw_image_rec(image, stamp, Rect(0, 0, 4, 4), Point(2, 2), WHITE)
+			first := Raylib.get_image_color(image, 2, 2)
+
+			Raylib.image_draw_image_pro(image, stamp, Rect(0, 0, 4, 4), Rect(4, 4, 4, 4), Point(0, 0), 0, WHITE)
+			second := Raylib.get_image_color(image, 5, 5)
+
+			Raylib.image_draw_line_ex(image, Point(0, 0), Point(0, 7), 1, Color(9, 9, 9, 200))
+			third := Raylib.get_image_color(image, 0, 3)
+
+			Raylib.image_draw_rectangle_lines_ex(image, Rect(0, 0, 8, 8), 1, Color(7, 7, 7))
+			part := Raylib.image_from_image(image, Rect(0, 0, 2, 3))
+			Raylib.image_crop(part, Rect(0, 0, 1, 1))
+			[first, second, third, part.width, part.height]
+		CODE
+		assert_equal [1, 2, 3, 255], out.values[0].values
+		assert_equal [1, 2, 3, 255], out.values[1].values
+		assert_equal 9, out.values[2].values.first
+		assert_equal [1, 1], out.values.last(2)
+	end
+
 	def test_a_second_unload_is_safe_and_a_read_after_unload_raises
 		assert_raises Code::Invalid_Pixels do
 			run_with_raylib <<~CODE

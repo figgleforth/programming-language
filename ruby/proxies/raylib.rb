@@ -439,6 +439,36 @@ module Code
 			Code::Buffer.new.proxy_from_string rgba_bytes(image.raylib_image)
 		end
 
+		# One call in place of many get_image_color calls. The whole square around (x, y), row by row, with the center at its middle; a pixel outside the image is nil, so each index keeps its meaning at the edge.
+		# @return [::Array] (radius * 2 + 1) ** 2 values
+		def proxy_get_image_neighbors image, x, y, radius = 1, channel = 0
+			lib = self.class.lib
+			check_pixel_area image, x, y, 1, 1
+			raise Code::Invalid_Pixels, "`radius` must be 0 or more, but it is #{radius}." if radius < 0
+			raise Code::Invalid_Pixels, "`channel` must be 0 (r), 1 (g), 2 (b) or 3 (a), but it is #{channel}." unless channel >= 0 && channel <= 3
+		
+			raw    = image.raylib_image
+			width  = raw.width
+			height = raw.height
+			data   = raw.data
+			rgba   = raw.format == lib::PIXELFORMAT_UNCOMPRESSED_R8G8B8A8
+			list   = []
+			(y - radius..y + radius).each do |row|
+				inside_row = row >= 0 && row < height
+				(x - radius..x + radius).each do |column|
+					list << if !inside_row || column < 0 || column >= width
+						nil
+					elsif rgba
+						data.get_uint8 (row * width + column) * BYTES_PER_PIXEL + channel
+					else
+						color = lib.GetImageColor raw, column, row
+						[color.r, color.g, color.b, color.a][channel]
+					end
+				end
+			end
+			list
+		end
+		
 		# @return [::Array] one [r, g, b, a] Code::Array for each color
 		def proxy_load_image_palette image, max_size
 			lib = self.class.lib

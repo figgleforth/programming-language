@@ -13,10 +13,44 @@ Matrix :: Vector4
 Point  :: Vector2
 
 
-Rectangle <
-	position: Vector
-	size: Vector
->
+Rectangle_Logic {
+	# Gives true when a point is inside, where the left and top edges count, and the right and bottom edges do not.
+	contains? ( point: Vector2 -> Bool;
+		point.x >= x and point.x < x + width and point.y >= y and point.y < y + height
+	)
+
+	# Gives the middle of the rectangle.
+	center (-> Vector2;
+		Vector2(x + width / 2.0, y + height / 2.0)
+	)
+
+	# Gives a smaller rectangle, with `amount` taken from each side.
+	inset ( amount: Number -> Rectangle;
+		Rectangle(x + amount, y + amount, width - amount * 2, height - amount * 2)
+	)
+
+	# Cuts `amount` from the left side, and gives that part and the rest.
+	split_left ( amount: Number;
+		<taken := Rectangle(x, y, amount, height), rest := Rectangle(x + amount, y, width - amount, height)>
+	)
+
+	# Cuts `amount` from the right side, and gives that part and the rest.
+	split_right ( amount: Number;
+		<taken := Rectangle(x + width - amount, y, amount, height), rest := Rectangle(x, y, width - amount, height)>
+	)
+
+	# Cuts `amount` from the top side, and gives that part and the rest.
+	split_top ( amount: Number;
+		<taken := Rectangle(x, y, width, amount), rest := Rectangle(x, y + amount, width, height - amount)>
+	)
+
+	# Cuts `amount` from the bottom side, and gives that part and the rest.
+	split_bottom ( amount: Number;
+		<taken := Rectangle(x, y + height - amount, width, amount), rest := Rectangle(x, y, width, height - amount)>
+	)
+}
+
+Rectangle + Rectangle_Logic <x: Number, y: Number, width: Number, height: Number>
 Rect :: Rectangle
 
 lerp (a: Float, b: Float, t: Float -> Float;

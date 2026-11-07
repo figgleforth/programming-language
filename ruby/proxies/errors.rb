@@ -777,4 +777,10 @@ module Code
 
 	class Raygui_Text_Too_Long < Error
 	end
+
+	class Invalid_Grid < Error
+	end
+
+	class Invalid_Random < Error
+	end
 end

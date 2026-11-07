@@ -1,0 +1,44 @@
+# Implemented by Claude
+#
+# A random number generator with its own seed. Two generators with the same seed give the same numbers,
+# so a run can be repeated to debug it. Not part of the standard library -- opt in with `@load 'lang/random'`.
+#
+#   @load 'lang/random'
+#
+#   random := Random(42)
+#   random.int(1, 6)
+#   random.weighted_pick([1, 0, 3])    # 0 or 2, and 2 comes three times as often
+Random {
+	# The seed of this generator, which is useful to log when `Random()` picked it.
+	seed: Int
+
+	# Makes a generator, and with no seed it picks one.
+	Self ( seed: Int = nil;
+		start(seed)
+	)
+
+	# Starts again from a seed, and a nil seed picks a new one.
+	start ( seed: Int = nil -> Random; @ruby )
+
+	# Gives a random integer from `min` to `max`, with both ends included.
+	int ( min: Int, max: Int -> Int; @ruby )
+
+	# Gives a random float from 0.0 up to `max`, with `max` left out.
+	float ( max: Number = 1.0 -> Float; @ruby )
+
+	# Gives true with the given probability, from 0.0 to 1.0.
+	chance? ( probability: Number -> Bool; @ruby )
+
+	# Gives a random item of a list, or nil when the list is empty.
+	pick ( list: Array; @ruby )
+
+	# Gives a new list with the same items in a random order.
+	shuffle ( list: Array -> Array; @ruby )
+
+	# Picks an index, where a bigger weight is picked more often, a nil weight counts as 0, and with no weight above 0 it gives nil.
+	weighted_pick ( weights: Array -> Int; @ruby )
+
+	to_s (;
+		"Random(seed: `seed`)"
+	)
+}
