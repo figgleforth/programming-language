@@ -1896,7 +1896,8 @@ module Code
 				if scope.has?(expr.value) && !scope.respond_to?(proxy_method)
 					result = scope.get expr.value
 					# If the result is a function, duplicate it and set its enclosing_scope to the current scope. This ensures composed types (like `Thing | Record`) have functions that reference the correct type
-					return rebind_func_to_scope(result, scope) if result.is_a? Code::Func
+					# Bind to the scope that declares it, not the one that splats it, so a `@ruby` method reaches its own type's proxy.
+					return rebind_func_to_scope(result, scope.scope_that_declares(expr.value) || scope) if result.is_a? Code::Func
 					result
 				elsif scope.respond_to? proxy_method
 					# Prefer the instance's own owning Type first -- for a tagged variant (e.g. `Array\Web_Server`) this is a distinct Type from the plain global one, and holds the actual override. Only fall back to a blind by-name search of the stack (which only ever finds the plain global type, e.g. plain "Array") when the instance isn't linked to a Type that declares this method itself.

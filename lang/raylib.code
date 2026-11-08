@@ -133,12 +133,6 @@ Raylib {
 	# Sets how a texture samples its pixels when it is scaled, such as :point, :bilinear or :trilinear.
 	Self.set_texture_filter ( texture: Texture, filter: Symbol; @ruby )
 
-	# Makes a texture of one flat color, which a UV distortion shader cannot visibly change.
-	Self.gen_color_texture ( width: Number, height: Number, color: Array | Struct -> Texture; @ruby )
-
-	# Makes a checkerboard texture, which shows the effect of a UV distortion shader.
-	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array | Struct, color2: Array | Struct -> Texture; @ruby )
-
 	# Makes an off-screen target that begin_texture_mode can draw into.
 	Self.load_render_texture ( width: Number, height: Number -> Any; @ruby )
 
@@ -238,6 +232,12 @@ Raylib {
 
 	# Gives the number for a pixel format, such as :uncompressed_r8g8b8a8, :uncompressed_r32 or :uncompressed_grayscale.
 	Self.pixel_format ( name: Symbol -> Int; @ruby )
+
+	# Makes a checkerboard texture, which shows the effect of a UV distortion shader.
+	Self.gen_checked_texture ( width: Number, height: Number, checks_x: Number, checks_y: Number, color1: Array | Struct, color2: Array | Struct -> Texture; @ruby )
+
+	# Makes a texture of one flat color, which a UV distortion shader cannot visibly change.
+	Self.gen_color_texture ( width: Number, height: Number, color: Array | Struct -> Texture; @ruby )
 
 	# Makes an image of one color.
 	Self.gen_image_color ( width: Int, height: Int, color: Array | Struct -> Image; @ruby )
@@ -600,3 +600,23 @@ Raylib {
 	# Gives a random integer from `min` to `max`, with both ends included.
 	Self.get_random_value ( min: Number, max: Number -> Number; @ruby )
 }
+
+# The window flags, joined with `|`, such as Raylib.set_config_flags(Config_Flags.vsync_hint | Config_Flags.msaa_4x_hint).
+Config_Flags [
+	vsync_hint := Raylib.config_flag(:vsync_hint)                                # Waits for vsync.
+	fullscreen_mode := Raylib.config_flag(:fullscreen_mode)                      # Fullscreen.
+	window_resizable := Raylib.config_flag(:window_resizable)                    # The user can resize the window.
+	window_undecorated := Raylib.config_flag(:window_undecorated)                # No title bar or border.
+	window_transparent := Raylib.config_flag(:window_transparent)                # The framebuffer can be see-through.
+	msaa_4x_hint := Raylib.config_flag(:msaa_4x_hint)                            # 4x anti-aliasing.
+	window_hidden := Raylib.config_flag(:window_hidden)                          # The window starts hidden.
+	window_always_run := Raylib.config_flag(:window_always_run)                  # Keeps running when minimized.
+	window_minimized := Raylib.config_flag(:window_minimized)                    # The window starts minimized.
+	window_maximized := Raylib.config_flag(:window_maximized)                    # The window starts maximized.
+	window_unfocused := Raylib.config_flag(:window_unfocused)                    # The window starts without focus.
+	window_topmost := Raylib.config_flag(:window_topmost)                        # Always on top.
+	window_highdpi := Raylib.config_flag(:window_highdpi)                        # Scales for HighDPI (Retina) screens.
+	window_mouse_passthrough := Raylib.config_flag(:window_mouse_passthrough)    # Mouse clicks go through the window.
+	borderless_windowed_mode := Raylib.config_flag(:borderless_windowed_mode)    # Borderless windowed fullscreen.
+	interlaced_hint := Raylib.config_flag(:interlaced_hint)                      # Interlaced video (V3D only).
+]

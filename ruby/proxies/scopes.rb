@@ -59,6 +59,16 @@ module Code
 			get key
 		end
 
+		# The scope whose own declarations hold `key`: self, or a splatted scope, in the order #get uses.
+		def scope_that_declares key
+			key_str = key.to_s
+			return self if @declarations.key?(key_str) || @static_declarations.include?(key_str)
+
+			@writable_scopes.keys.reverse_each { found = it.scope_that_declares(key_str) and return found }
+			@readable_scopes.keys.reverse_each { found = it.scope_that_declares(key_str) and return found }
+			nil
+		end
+
 		def is compare
 			@name == compare
 		end

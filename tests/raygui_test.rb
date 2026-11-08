@@ -11,6 +11,9 @@ class Raygui_Test < Base_Test
 		BORDER_WIDTH      = 12
 		ICON_PLAYER_PLAY  = 131
 
+		# lang/raylib.code reads every window flag when it loads, for Config_Flags. # @pasted
+		{ FULLSCREEN_MODE: 2, WINDOW_RESIZABLE: 4, WINDOW_UNDECORATED: 8, WINDOW_TRANSPARENT: 16, MSAA_4X_HINT: 32, VSYNC_HINT: 64, WINDOW_HIDDEN: 128, WINDOW_ALWAYS_RUN: 256, WINDOW_MINIMIZED: 512, WINDOW_MAXIMIZED: 1024, WINDOW_UNFOCUSED: 2048, WINDOW_TOPMOST: 4096, WINDOW_HIGHDPI: 8192, WINDOW_MOUSE_PASSTHROUGH: 16384, BORDERLESS_WINDOWED_MODE: 32768, INTERLACED_HINT: 65536 }.each { |name, value| const_set "FLAG_#{name}", value }
+
 		module Color
 			def self.from_u8(*values) = values
 		end

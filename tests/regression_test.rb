@@ -2162,4 +2162,10 @@ class Regression_Test < Base_Test
 			assert_raises(RuntimeError, source) { Code.interp source }
 		end
 	end
+
+	# A function found through a splat was bound to the scope that splats it, so a static `@ruby` method looked for its proxy there.
+	def test_a_static_ruby_method_reached_through_a_splat_finds_its_proxy
+		assert_equal 4, Code.interp("{\n\t@splatr Buffer\n\tsize_of(:u32)\n}")
+		assert_equal 4, Code.interp("@splatr Buffer\nsize_of(:u32)")
+	end
 end

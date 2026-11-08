@@ -57,3 +57,16 @@ lerp (a: Float, b: Float, t: Float -> Float;
 	@assert (0.0..1.0).include?(t), 'lerp(a: Float, b: Float, t: Float -> Float;) expects t to be in range 0.0..1.0 but it is `t`'
 	a * (1.0 - t) + b * t # "better for floating point precision than `a+(b-a)*t`" — https://www.redblobgames.com/grids/hexagons/implementation.html#line-drawing
 )
+
+@operator / @infix (left: Vec2, right -> Vec2;
+	if right
+	when Number
+		Vec2(left.x/right, left.y/right)
+	when Vec2
+		Vec2(left.x/right.x, left.y/right.y)
+	else
+		left / right
+	else
+		@panic "Cannot divide `left` by a falsy value: \``right`\`"
+	end
+)

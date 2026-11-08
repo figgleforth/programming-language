@@ -14,6 +14,9 @@ class Texture_Test < Base_Test
 		PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 = 7
 		PIXELFORMAT_COMPRESSED_DXT1_RGB   = 14
 
+		# lang/raylib.code reads every window flag when it loads, for Config_Flags.
+		{ FULLSCREEN_MODE: 2, WINDOW_RESIZABLE: 4, WINDOW_UNDECORATED: 8, WINDOW_TRANSPARENT: 16, MSAA_4X_HINT: 32, VSYNC_HINT: 64, WINDOW_HIDDEN: 128, WINDOW_ALWAYS_RUN: 256, WINDOW_MINIMIZED: 512, WINDOW_MAXIMIZED: 1024, WINDOW_UNFOCUSED: 2048, WINDOW_TOPMOST: 4096, WINDOW_HIGHDPI: 8192, WINDOW_MOUSE_PASSTHROUGH: 16384, BORDERLESS_WINDOWED_MODE: 32768, INTERLACED_HINT: 65536 }.each { |name, value| const_set "FLAG_#{name}", value }
+
 		RAW_IMAGE  = ::Struct.new :data, :to_ptr, :width, :height
 		RAW_COLOR  = ::Struct.new :r, :g, :b, :a
 		RAW_COLORS = ::Struct.new :read_bytes_result do
