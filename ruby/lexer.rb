@@ -540,7 +540,7 @@ module Code
 					case [curr, peek, peek(2)]
 					in ['.', p, _] if identifier?(p) && p != '_'
 						eat_operator
-					in ['.', '<', _] | ['.', '.', _]
+					in ['.', '.', _]
 						eat_operator
 					in ['|', '|', '=']
 						eat_operator

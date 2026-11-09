@@ -56,6 +56,7 @@ module Code
 	SCOPE_KEYWORDS                    = %w(self Self Global) # every bare scope keyword you can dot into
 	DOT_ACCESS_OPERATORS              = %w(. .?)
 	TAG_OPERATOR                      = '\\'
+	STRUCTURAL_SYMBOLS                = %w(@ -> \\ :: ` :// ...) # symbols with a meaning of their own after an expression, so never an undeclared infix operator
 	TYPE_COMPOSITION_OPERATORS        = %w(| & ~ ^) # In a type position, on values: either, both, not, exactly one
 	MEMBER_COMPOSITION_OPERATORS      = %w(+ -) # In a declaration head and `Self +=`, on members: add, remove
 	ANY_IDENTIFIER                    = %i(identifier Identifier IDENTIFIER)

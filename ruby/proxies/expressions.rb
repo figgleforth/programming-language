@@ -177,6 +177,7 @@ module Code
 	# :operator, :left, :right
 	class Infix_Expr < Expression
 		attr_accessor :operator, :left, :right
+		attr_accessor :operator_namespace # the Identifier_Expr of `lib` in `a lib.<+> b`, whose operator it is; nil for a plain operator
 	end
 
 	# `Strumber :: String | Number` -- `left` is the alias name (an Identifier_Expr), `right` the type expression: an Identifier_Expr, or a Type_Expr with anonymous_composition.

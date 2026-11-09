@@ -2,15 +2,34 @@
 
 module Code
 	class Parser
-		attr_accessor :i, :input, :precedences
+		extend Cached_By_Path
+		cache_by_path :cached_operator_scopes_by_filepath # {filepath: Operator_Scope}, the top-level operators of a file, which a bare @load brings into the file that loads it
+
+		FIXITIES = %w(infix prefix postfix circumfix).freeze
+
+		# The operators that one scope declares: the symbols of each fixity, and a precedence for each [symbol, fixity]. A function body and a `{}` block each have one; a type body gives its operators to the scope around it, so `a <+> b` parses where the type is declared. `parent` is the scope around it. `namespaces` holds the scope of each named load (`lib := @load 'x'`), for `a lib.<+> b`.
+		Operator_Scope = ::Struct.new :parent, :fixities, :precedences, :namespaces, :declared_here do
+			def self.empty parent = nil
+				new parent, FIXITIES.to_h { [it, ::Set.new] }, {}, {}, {}
+			end
+
+			# Adds what `other` declares, except where this scope has its own. A file's own declarations win over what it loads.
+			def import other
+				other.fixities.each { |fixity, symbols| fixities[fixity].merge symbols }
+				other.precedences.each { |key, precedence| precedences[key] ||= precedence }
+			end
+		end
+
+		class << self
+			attr_accessor :scanning_filepaths
+		end
+		self.scanning_filepaths = ::Set.new
+
+		attr_accessor :i, :input
 
 		def initialize input = []
-			@precedences = PRECEDENCES.dup
-			# Track these so that they can be considered during parse-time
-			@custom_infix         = ::Set.new
-			@custom_prefix        = ::Set.new
-			@custom_postfix       = ::Set.new
-			@custom_circumfix     = ::Set.new
+			@root_operators       = Operator_Scope.empty # kept across #output calls, so a REPL line sees the operators of the lines before it, and an interpolation sees its file's
+			@operator_scope_at    = [] # the Operator_Scope of each lexeme, see #scan_operator_declarations
 			@input                = input
 			@i                    = 0 # index of current lexeme
 			@struct_nesting_depth = 0 # how many `<...>` structs #parse_struct is currently inside of -- see #split_glued_close_angles!
@@ -23,7 +42,7 @@ module Code
 		end
 
 		def output
-			scan_and_register_operator_overloads_before_parsing # This has to be done before parsing because overloaded operators have to set their precedence level, which if done at runtime would the behavior of #precedence_for that now depends on an updated prcedence table with new precedences added.
+			scan_operator_declarations # before parsing, because a fixity and a precedence change how the rest of the scope parses
 
 			expressions = []
 			while lexemes?
@@ -46,39 +65,128 @@ module Code
 			expr
 		end
 
-		def scan_and_register_operator_overloads_before_parsing
-			# The pattern:    @    operator   {user_operator}   @   {fixity}   {precedence_integer}
-			#                 t0   t1          user_operator    t3   fixity     prec
-			input.each_cons(6) do |t0, t1, user_operator, t3, fixity, prec|
-				next unless t0.value == '@' && t1.value == 'operator' && t3.value == '@'
+		# The top-level operators of the file at `path`, as `@load` would find it from `from_file`, or nil when it is not there (the interpreter raises Load_File_Not_Found then). A file still being scanned (a load cycle) gives an empty scope.
+		def self.operator_scope_for_file path, from_file
+			resolved = Declarator.resolve_load_filepath path, from_file
+			return nil unless ::File.exist? resolved
+			return cached_operator_scopes_by_filepath[resolved] if cached_operator_scopes_by_filepath.key? resolved
+			return Operator_Scope.empty if scanning_filepaths.include? resolved
 
-				fixities = %w(infix prefix postfix circumfix)
-				raise Operator_Overload_Fixity_Must_Be_One_Of.new(fixities) unless fixities.include? fixity.value
+			scanning_filepaths << resolved
+			begin
+				lexer             = Lexer.new ::File.read(resolved)
+				lexer.source_file = resolved
+				parser            = Parser.new lexer.output.reject { it.type == :comment }
+				parser.scan_operator_declarations
+				cached_operator_scopes_by_filepath[resolved] = parser.root_operators
+			ensure
+				scanning_filepaths.delete resolved
+			end
+		end
 
-				@precedences[user_operator.value] = case prec.value
-				when '('
-					# todo; Log a warning that precedence was omitted and a fallback is used.
-					precedence_for user_operator.value
-				else
-					raise Operator_Overload_Precedence_Must_Be_Integer.new prec unless prec.type == :number
-					prec.value.to_i
+		attr_reader :root_operators
+
+		# Finds each `@operator` declaration and gives it to the scope it is in: a function body (after the `;` of its param list), a `{}` block, or the file. Records the scope of each lexeme in @operator_scope_at. A bare `@load 'x'` brings in x's top-level operators, and a named one (`lib := @load 'x'`) puts them under `lib`. It runs over the lexemes once, so a declaration applies to its whole scope, above its own line too.
+		def scan_operator_declarations
+			@operator_scope_at = ::Array.new input.length
+			@root_operators.declared_here = {} # a conflict counts only between two declarations of this one scan, so a REPL line can declare an operator again
+			frames = [] # [kind, scope or nil]: :paren, :brace, :bracket; a scope once the frame is a function body or a block
+
+			current_scope = -> { frames.reverse_each { |_, scope| return scope if scope }; @root_operators }
+
+			input.each_with_index do |lexeme, index|
+				value = lexeme.value
+				if lexeme.type == :delimiter
+					case value
+					when '(' then frames << [:paren, nil]
+					when '[' then frames << [:bracket, nil]
+					when '{'
+						previous = index.positive? ? input[index - 1] : nil
+						type_body = previous && (TYPE_IDENTIFIER.include?(previous.type) || previous.value == '>' || (previous.type == :number && input[index - 2]&.value == TAG_OPERATOR))
+						frames << [:brace, type_body ? nil : Operator_Scope.empty(current_scope.call)]
+					when ')', ']', '}' then frames.pop
+					when ';'
+						# The `;` of a param list: what follows is the function's body, with a scope of its own.
+						frame    = frames.last
+						frame[1] = Operator_Scope.empty(current_scope.call) if frame && frame[0] == :paren && frame[1].nil?
+					end
 				end
 
-				case fixity.value
-				when 'infix' then @custom_infix << user_operator.value
-				when 'prefix' then @custom_prefix << user_operator.value
-				when 'postfix' then @custom_postfix << user_operator.value
-				when 'circumfix' then @custom_circumfix << user_operator.value
+				@operator_scope_at[index] = current_scope.call
+				next unless value == '@' && lexeme.type == :operator
+
+				word = input[index + 1]&.value
+				if word == 'operator'
+					register_operator_declaration index, current_scope.call
+				elsif word == 'load' && input[index + 2]&.type == :string
+					register_load_operators index, current_scope.call
 				end
 			end
 		end
 
+		# `@ operator <symbol> @ <fixity> [precedence] (...)` at `index`.
+		def register_operator_declaration index, scope
+			symbol, at, fixity_lexeme, precedence_lexeme = input[index + 2], input[index + 3], input[index + 4], input[index + 5]
+			return unless symbol && at&.value == '@' && fixity_lexeme
+
+			fixity = fixity_lexeme.value
+			raise Operator_Overload_Fixity_Must_Be_One_Of.new(FIXITIES) unless FIXITIES.include? fixity
+
+			scope.fixities[fixity] << symbol.value
+			return if precedence_lexeme.nil? || precedence_lexeme.value == '(' # no number: the precedence of the scope around it
+
+			raise Operator_Overload_Precedence_Must_Be_Integer.new precedence_lexeme unless precedence_lexeme.type == :number
+
+			key        = [symbol.value, fixity]
+			precedence = precedence_lexeme.value.to_i
+			earlier    = scope.declared_here&.[](key)
+			raise Code::Operator_Precedence_Conflict.new(precedence_lexeme, symbol: symbol.value, fixity:, precedence:, earlier_precedence: earlier) if earlier && earlier != precedence
+
+			(scope.declared_here ||= {})[key] = precedence
+			scope.precedences[key]            = precedence
+		end
+
+		# `@ load '<path>'` at `index`: a bare load brings the file's top-level operators into `scope`, and `name := @load '<path>'` puts them under `name`.
+		def register_load_operators index, scope
+			path_lexeme = input[index + 2]
+			loaded      = Parser.operator_scope_for_file path_lexeme.value, path_lexeme.source_file
+			return unless loaded
+
+			declaration = index >= 2 && input[index - 1].value == ':=' ? input[index - 2] : nil
+			if declaration && ANY_IDENTIFIER.include?(declaration.type)
+				scope.namespaces[declaration.value] = loaded
+			else
+				scope.import loaded
+			end
+		end
+
+		def operator_scope index = @i
+			@operator_scope_at[index] || @root_operators
+		end
+
+		# Is `symbol` declared with `fixity` in the scope of the lexeme at `index`, or in a scope around it?
+		def custom_fixity? symbol, fixity, index = @i
+			scope = operator_scope index
+			while scope
+				return true if scope.fixities[fixity].include? symbol
+				scope = scope.parent
+			end
+			false
+		end
+
 		# If the given operator doesn't exist then it returns Code::DEFAULT_OPERATOR_PRECEDENCE which binds somewhere around the equality operators. See Code::PRECEDENCES
 		# Neat reference for precedences: https://rosettacode.org/examples/Operator_precedence
+		# A declared precedence is looked for in the scope of the lexeme at `index`, then in each scope around it.
 		# @param operator [::String]
 		# @return precedence [Integer]
-		def precedence_for operator
-			@precedences[operator] || DEFAULT_OPERATOR_PRECEDENCE
+		def precedence_for operator, fixity = 'infix', index = @i
+			scope = operator_scope index
+			while scope
+				precedence = scope.precedences[[operator, fixity]]
+				return precedence if precedence
+				scope = scope.parent
+			end
+			(fixity == 'prefix' && PREFIX_PRECEDENCES[operator]) || PRECEDENCES[operator] || DEFAULT_OPERATOR_PRECEDENCE
 		end
 
 		# input[i - 1]
@@ -1606,7 +1714,7 @@ module Code
 			elsif curr?(TYPE_IDENTIFIER, '<') && (structured = try_parse_struct)
 				structured
 
-			elsif curr?('<') && curr_lexeme.type == :operator && !@custom_prefix.include?('<')
+			elsif curr?('<') && curr_lexeme.type == :operator && !custom_fixity?('<', 'prefix')
 				parse_struct
 
 			elsif curr?(TYPE_IDENTIFIER, '{') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, '<') || curr?(TYPE_IDENTIFIER, TAG_OPERATOR, TYPE_IDENTIFIER) || type_then_integer_tag_next?
@@ -1694,6 +1802,33 @@ module Code
 		end
 
 		# todo: Factor out the various branches of code in here?
+		# `lib.<+>` at `index`, after a value: a name, a `.`, and a symbol that is not one of the STRUCTURAL_SYMBOLS.
+		def qualified_operator_at? index
+			namespace, dot, symbol = input[index], input[index + 1], input[index + 2]
+			namespace && ANY_IDENTIFIER.include?(namespace.type) && dot&.value == '.' && dot.type == :operator &&
+				symbol&.type == :operator && SYMBOLIC_REGEX.match?(symbol.value) && !STRUCTURAL_SYMBOLS.include?(symbol.value)
+		end
+
+		# The precedence that the named load `namespace` gives `symbol`, as an infix.
+		def qualified_precedence namespace, symbol
+			scope = operator_scope
+			while scope
+				loaded = scope.namespaces[namespace]
+				if loaded
+					return loaded.precedences[[symbol, 'infix']] || PRECEDENCES[symbol] || DEFAULT_OPERATOR_PRECEDENCE
+				end
+				scope = scope.parent
+			end
+			PRECEDENCES[symbol] || DEFAULT_OPERATOR_PRECEDENCE
+		end
+
+		# A symbol between two values that no `@operator` declares (`v </> 2`). It parses as an infix, so the interpreter can raise Undeclared_Operator; before, it split the line into three statements, and the result was `v`.
+		def undeclared_infix_symbol? lexeme
+			lexeme.type == :operator && SYMBOLIC_REGEX.match?(lexeme.value) && !STRUCTURAL_SYMBOLS.include?(lexeme.value) &&
+				!PREFIX.include?(lexeme.value) && !POSTFIX.include?(lexeme.value) && !CIRCUMFIX.include?(lexeme.value) && !RANGE_OPERATORS.include?(lexeme.value) &&
+				!custom_fixity?(lexeme.value, 'prefix') && !custom_fixity?(lexeme.value, 'postfix') && !custom_fixity?(lexeme.value, 'circumfix')
+		end
+
 		def complete_expression expr, precedence = STARTING_PRECEDENCE, member_rhs: false
 			return expr unless expr
 
@@ -1718,9 +1853,9 @@ module Code
 			# string literally spelled `'return'`) matched too -- `"hi".end_with?('!')` parsed `'!'` as
 			# the `!` prefix operator applied to nothing, not the string value "!". A string's content
 			# should never be reinterpreted as an operator, so it's excluded here regardless of value.
-			prefix    = !expr.is_a?(Code::Operator_Overload_Expr) && !expr.is_a?(Code::String_Expr) && (PREFIX.include?(expr.value) || (expr.is_a?(Code::Operator_Expr) && @custom_prefix.include?(expr.value)))
-			infix     = INFIX.include?(curr_lexeme.value) || @custom_infix.include?(curr_lexeme.value)
-			postfix   = POSTFIX.include?(curr_lexeme.value) || @custom_postfix.include?(curr_lexeme.value)
+			prefix    = !expr.is_a?(Code::Operator_Overload_Expr) && !expr.is_a?(Code::String_Expr) && (PREFIX.include?(expr.value) || (expr.is_a?(Code::Operator_Expr) && custom_fixity?(expr.value, 'prefix', [@i - 1, 0].max)))
+			infix     = INFIX.include?(curr_lexeme.value) || custom_fixity?(curr_lexeme.value, 'infix') || undeclared_infix_symbol?(curr_lexeme)
+			postfix   = POSTFIX.include?(curr_lexeme.value) || custom_fixity?(curr_lexeme.value, 'postfix')
 			circumfix = CIRCUMFIX.include?(curr_lexeme.value)
 
 			# `::` is not in INFIX, because its right side is a type expression, not a value.
@@ -1729,10 +1864,27 @@ module Code
 				return complete_expression parse_type_alias(expr), precedence
 			end
 
+			# `a lib.<+> b`: the `<+>` that the named load `lib` declares.
+			if !prefix && !member_rhs && qualified_operator_at?(@i)
+				namespace_lexeme, symbol_lexeme = input[@i], input[@i + 2]
+				operator_precedence             = qualified_precedence namespace_lexeme.value, symbol_lexeme.value
+				return expr if operator_precedence <= precedence
+
+				eat
+				eat '.'
+				it                    = Code::Infix_Expr.new
+				it.left               = expr
+				it.operator_namespace = copy_location Code::Identifier_Expr.new(namespace_lexeme), namespace_lexeme
+				it.operator           = eat
+				it.right              = parse_expression operator_precedence
+				set_expr_location it, expr, it.right || it.operator
+				return complete_expression it, precedence
+			end
+
 			if prefix
 				expr = Code::Prefix_Expr.new.tap do |it|
 					it.operator   = expr
-					it.expression = parse_expression(PREFIX_PRECEDENCES[it.operator.value] || precedence_for(it.operator.value))
+					it.expression = parse_expression(precedence_for(it.operator.value, 'prefix'))
 					# `it.expression` can be nil -- a bare `return`/`not` with nothing following.
 					set_expr_location it, it.operator, it.expression || it.operator
 				end
@@ -1774,7 +1926,7 @@ module Code
 					it = parse_endless_range_expr expr
 					return complete_expression it, precedence
 				else
-					while (INFIX.include?(curr_lexeme.value) || @custom_infix.include?(curr_lexeme.value)) && curr?(:operator)
+					while (INFIX.include?(curr_lexeme.value) || custom_fixity?(curr_lexeme.value, 'infix') || undeclared_infix_symbol?(curr_lexeme)) && curr?(:operator)
 						# A `>>`/`>>>`/etc token might really be two or more `<...>` structs closing back-to-back (`Array\<String>>`), glued at the lexer level -- split it into individual `>` tokens whenever a lone `>` would stop this very loop anyway (i.e. we're already at or below `>`'s own precedence) AND we're actually somewhere inside a `<...>` struct right now. Both conditions matter: the precedence check alone would also misfire on an ordinary top-level `8 >> 2 >> 1` (that recurses into its own right-hand side at `>>`'s own high precedence, satisfying the precedence check on its own); gating on `@struct_nesting_depth` keeps a genuine `>>`/`>>=` completely unaffected everywhere outside a struct.
 						split_glued_close_angles! if @struct_nesting_depth > 0 && curr_lexeme.value.length > 1 && curr_lexeme.value.chars.all? { |char| char == '>' } && precedence_for('>') <= precedence
 
@@ -1809,7 +1961,7 @@ module Code
 					end
 				end
 
-			elsif postfix && precedence_for(curr_lexeme.value) > precedence
+			elsif postfix && precedence_for(curr_lexeme.value, 'postfix') > precedence
 				expr = Code::Postfix_Expr.new.tap do |it|
 					it.expression = expr
 					it.operator   = eat(%i(operator identifier))

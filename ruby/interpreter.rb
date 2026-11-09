@@ -12,6 +12,7 @@ module Code
 
 		# Parsed ASTs by resolved filepath, kept class-level (not per-instance) for the same reason: `lang/global.code` (and everything it transitively @loads) is immutable source, identical for every Interpreter in the process, so re-lexing/re-parsing it fresh on every `Code.interp` call was pure waste -- it used to be instance-level, meaning a brand-new Interpreter (which every `Code.interp` call constructs) never saw a warm cache. Doesn't cache the *interpretation* of that AST (each Interpreter still builds its own fresh Standard_Library scope from it), only the lex+parse step, so per-instance isolation (mutating a builtin in one test can't leak into another) is unaffected.
 		cache_by_path :cached_expressions_by_filepath # {filepath: [Code::Expression]}
+		cache_by_path :cached_parsers_by_filepath # {filepath: Code::Parser}, kept for the operators of the file, which its string interpolation needs
 
 		# Resolved filepaths whose AST has already passed type-checking at least once, kept class-level alongside the cache above. Type-checking is a pure function of the AST (no interpreter state involved) -- a cached, never-changing file that already passed once will always pass, so re-walking it on every subsequent load is pure waste, same as re-parsing was.
 		cache_by_path :type_checked_filepaths # {filepath: true}
@@ -32,6 +33,7 @@ module Code
 			def reset_file_caches!
 				reset_cached_by_path!
 				Code::Declarator.reset_cached_by_path!
+				Code::Parser.reset_cached_by_path!
 			end
 		end
 
@@ -171,7 +173,9 @@ module Code
 				@declarations = declarator.output
 			end
 
+			hoisted = hoist_operator_overloads input
 			input.each.inject(nil) do |result, expr|
+				next result if hoisted&.key? expr
 				# already ran ahead of turn via #resolve_forward_declaration -- don't run it twice. Keeping the running `result` (not a bare `next`, which resets it to nil) matters when the skipped statement is the *last* one -- the program's own reported result would otherwise silently become nil instead of the true last value.
 				# Keyed by scope too: parsed files are cached, so the same expression object runs again when a file loads into another scope (`strings := @load 'lang/string'`).
 				if @forced_declarations.include? Forced_Declaration.new(expression_object_id: expr.object_id, scope_object_id: (@loading_files.last&.scope || global).object_id)
@@ -303,10 +307,11 @@ module Code
 				register_source resolved_path, code
 				@lexer.source_file = resolved_path
 				@lexer.input       = code
-				@parser.input      = @lexer.output.reject do |lexeme|
+				# A parser of its own, so an operator's precedence and fixity end at the end of the file that declares them.
+				file_parser = self.class.cached_parsers_by_filepath[resolved_path] = Parser.new(@lexer.output.reject do |lexeme|
 					%I(comment).include? lexeme.type
-				end
-				cached_expressions = self.class.cached_expressions_by_filepath[resolved_path] = @parser.output
+				end)
+				cached_expressions = self.class.cached_expressions_by_filepath[resolved_path] = file_parser.output
 			end
 
 			push_scope into_scope
@@ -1995,9 +2000,10 @@ module Code
 				parsed                 = @parsed_interpolations[expr] ||= begin
 					# /m so a sub-expression containing a real newline (e.g. `` `arr.join("\n")` ``) still matches.
 					result.scan(/(?<!\\)`(.*?)(?<!\\)`/m).flatten.map do |sub|
-						# Reuses the interpreter's own @parser (not a fresh Code.parse) so it still knows about @operator declarations registered elsewhere in the program -- #input= resets the cursor but not @custom_infix/etc.
-						parser.input = Lexer.new(sub).output
-						[sub, parser.output.first]
+						# The parser of the file that holds the string (not a fresh Code.parse), so it knows that file's @operator declarations -- #input= resets the cursor but not @custom_infix/etc.
+						file_parser       = self.class.cached_parsers_by_filepath[expr.lexeme&.source_file] || parser
+						file_parser.input = Lexer.new(sub).output
+						[sub, file_parser.output.first]
 					end
 				end
 
@@ -2060,26 +2066,23 @@ module Code
 			when '++'
 				# increment value of original, return new value
 				interp_increment_decrement_pre_or_postfix expr
-			when '-'
-				-value_operand(expr)
-			when '+'
-				+value_operand(expr)
-			when '~'
-				~value_operand(expr)
+			when '-', '+', '~'
+				operand  = value_operand expr
+				overload = find_operator_overload expr.operator.value, [operand.is_a?(::Numeric) ? operand : maybe_instance(operand)], 'prefix'
+				return call_operator_overload(overload, expr, [operand]) if overload
+
+				operand.send(expr.operator.value == '~' ? :~ : :"#{expr.operator.value}@")
 			when '!', 'not'
 				!truthy?(interpret(expr.expression))
 			when 'return'
 				returned = expr.expression ? interpret(expr.expression) : nil
 				Code::Return.new returned
 			else
-				overload_func = find_in_stack expr.operator.value
-				if overload_func.is_a? Code::Func
-					call           = Code::Call_Expr.new
-					call.arguments = [expr.expression]
-					interp_func_body overload_func, call
-				else
-					raise Code::Unhandled_Prefix.new(expr)
-				end
+				operand  = interpret expr.expression
+				overload = find_operator_overload expr.operator.value, [maybe_instance(operand)], 'prefix'
+				raise Code::Unhandled_Prefix.new(expr) unless overload
+
+				call_operator_overload overload, expr, [operand]
 			end
 		end
 
@@ -2104,15 +2107,11 @@ module Code
 			else
 				# 1) look up the opreator (expr.operator.value) as it should be a normal func in the scope.
 				# 2) call it with expr.expression as its argument. It should only take one argument.
-				postfix_overloaded_func = find_in_stack expr.operator.value
+				operand  = interpret expr.expression
+				overload = find_operator_overload expr.operator.value, [maybe_instance(operand)], 'postfix'
+				raise Code::Undeclared_Operator.new(expr.operator, fixity: 'postfix') unless overload
 
-				if !postfix_overloaded_func
-					raise "Could not find #{expr.operator.value} declared anywhere man!"
-				end
-
-				call           = Code::Call_Expr.new
-				call.arguments = [expr.expression]
-				interp_func_body postfix_overloaded_func, call
+				call_operator_overload overload, expr, [operand]
 			end
 		end
 
@@ -2754,23 +2753,172 @@ module Code
 
 		# A type's own @operator overload takes precedence over a same-named global one. Checks the operand's own declarations first, then its enclosing Type (for shorthand-constructed instances that never got the type's declarations copied onto themselves, see #interp_type_call), and only falls back to a global operator (excluding Type/Instance scopes, see the comment at the call site in #interp_infix) if neither applies.
 
-		def find_operator_overload operator, operand = nil
-			if operand.is_a?(Code::Instance) && operand.has?(operator)
-				return operand.get operator
+		# The `@operator` declaration of `operator` that fits `operands` (one for a prefix or a postfix, two for an infix), or nil, so the built-in operator runs. The search: the left operand's type, then the right operand's type (only a declaration with a typed right param, as `2 * money` needs), then the stack, nearest scope first. It goes on to the next place only when nothing fits in this one.
+		# @return [Code::Func, nil]
+		def find_operator_overload operator, operands, fixity = 'infix'
+			left, right = operands
+
+			list = operator_declarations_on left, operator
+			if list
+				entry = choose_operator_overload list, operands, fixity
+				return entry.func if entry
 			end
 
-			# Only an Instance gets its Type's overload. A tagged variant (`Array\X`) or a nested Type also has a Type as its enclosing_scope, but it is not a value of that Type.
-			if operand.is_a?(Code::Instance) && operand.enclosing_scope.is_a?(Code::Type) && operand.type_member?(operator)
-				return operand.enclosing_scope.get operator
+			if operands.length == 2
+				list = operator_declarations_on right, operator
+				if list
+					entry = choose_operator_overload list, operands, fixity, right_param_typed: true
+					return entry.func if entry
+				end
 			end
 
 			return nil unless @scoped_operator_names&.include? operator
 
 			stack.reverse_each do |scope|
 				next if scope.is_a?(Code::Type)
-				return scope.declarations[operator] if scope.declarations.key?(operator)
+				next unless scope.declarations.key? operator
+
+				entry = choose_operator_overload scope.declarations[operator], operands, fixity
+				return entry.func if entry
 			end
 			nil
+		end
+
+		# The declarations of `operator` that `operand` has, on itself or on its type. Only an Instance gets its Type's: a tagged variant (`Array\X`) or a nested Type also has a Type as its enclosing_scope, but it is not a value of that Type.
+		def operator_declarations_on operand, operator
+			return nil unless operand.is_a? Code::Instance
+			return operand.get operator if operand.has? operator
+
+			operand.enclosing_scope.get operator if operand.enclosing_scope.is_a?(Code::Type) && operand.type_member?(operator)
+		end
+
+		# The declaration in `list` that fits `operands` best, or nil. A param fits by its contract; an untyped one fits any value, and a nil fits only an untyped param or a contract that names Nil. With more than one fit, the most specific wins: for each param, from the left, an exact type before a type the value composes, before an untyped param. With an equal fit, the first one declared wins.
+		# @param list [Code::Operator_Overloads, Code::Func] a plain Func is an operator declared some other way, and it fits everything, as before
+		def choose_operator_overload list, operands, fixity, right_param_typed: false
+			return Code::Operator_Overloads::Entry.new(key: nil, func: list, fixity:, cacheable: false) if list.is_a? Code::Func
+			return nil unless list.is_a? Code::Operator_Overloads
+
+			cache_key = [fixity, right_param_typed, *operands.map { operand_type_key it }] if list.cacheable?
+			if cache_key
+				cached = list.cached_choice cache_key
+				return (cached == :none ? nil : cached) if cached
+			end
+
+			best, best_score = nil, nil
+			list.entries.each_value do |entry|
+				next unless entry.fixity == fixity
+				params = entry.func.parameters
+				next unless params.length == operands.length
+				next if right_param_typed && !params[1].type
+
+				score = []
+				fits  = params.each_with_index.all? do |param, i|
+					fit = operand_fit param, operands[i]
+					score << fit if fit
+					fit
+				end
+				next unless fits
+
+				best, best_score = entry, score if best_score.nil? || (score <=> best_score) == 1
+			end
+
+			list.cache_choice cache_key, best if cache_key
+			best
+		end
+
+		# How well `value` fits `param`: 2 for its exact type, 1 for a type it composes (or any other contract it satisfies), 0 for an untyped param, nil when it does not fit.
+		def operand_fit param, value
+			type_expr = param.type
+			return 0 unless type_expr
+
+			if type_expr.is_a? Code::Struct_Expr
+				return nil if nil_value? value
+				return struct_shape_mismatch(interp_struct(type_expr, allow_spread: false), value).nil? ? 1 : nil
+			end
+
+			if type_expr.is_a?(Code::Func_Expr) || type_expr.is_a?(Code::Func_Signature_Expr)
+				return describe_param_type(param).matches?(value) ? 1 : nil
+			end
+
+			type = annotation_type_name type_expr
+			return (contract_names_nil?(type) ? 1 : nil) if nil_value? value
+
+			signature = resolve_func_signature type if type.is_a? ::String
+			return (signature.matches?(value) ? 1 : nil) if signature
+			return nil unless type_contract_satisfied? value, type
+
+			exact = type.is_a?(::String) && [type, find_contract_type(type).then { it.name if it.is_a? Code::Type }].include?(type_name_to_string(value))
+			exact ? 2 : 1
+		rescue Code::Undeclared_Identifier
+			nil # a type that is not declared here fits no value
+		end
+
+		# Does a contract allow a nil on purpose, by naming Nil (`Nil`, `Number | Nil`)?
+		def contract_names_nil? type, node = (type.is_a?(Code::Type_Alias) ? type.tree : type)
+			case node
+			when ::String then node == 'Nil'
+			when Code::Type_Alias::Node then contract_names_nil?(type, node.left) || contract_names_nil?(type, node.right)
+			when Code::Type_Alias::Tagged then node.name == 'Nil'
+			when Code::Type_Alias::Literal then node.value.nil?
+			else false
+			end
+		end
+
+		# What an operand's fit depends on, for the cache: its type, not its value.
+		def operand_type_key value
+			case value
+			when nil, Code::Nil then :nil
+			when Code::Type then [value.class, value.types&.hash]
+			else value.class
+			end
+		end
+
+		# The entry for one `@operator` declaration: its key is the fixity and its param types, each as the type it names (`Int` is `Integer`), so the same param types replace whatever the param names and the return type are.
+		def operator_overload_entry fixity, func
+			cacheable = true
+			types     = func.parameters.map do |param|
+				text, plain = param_type_key param
+				cacheable &&= plain
+				text
+			end
+			Code::Operator_Overloads::Entry.new key: "#{fixity}(#{types.join ','})", func:, fixity:, cacheable:
+		end
+
+		# A param's type as key text, and whether a fit to it depends only on an operand's type.
+		def param_type_key param
+			type_expr = param.type
+			return ['_', true] unless type_expr
+			return [type_expr.to_s, false] if type_expr.is_a? Code::Struct_Expr
+			return [describe_param_type(param).to_s, false] if type_expr.is_a?(Code::Func_Expr) || type_expr.is_a?(Code::Func_Signature_Expr)
+
+			type = annotation_type_name type_expr
+			return [canonical_type_text(type.tree), false] if type.is_a? Code::Type_Alias
+			return [type.to_s, false] unless type.is_a? ::String
+			return ['Self', false] if type == 'Self'
+
+			found = begin
+				find_contract_type type
+			rescue Code::Undeclared_Identifier
+				nil
+			end
+			return [found.name || type, true] if found.is_a?(Code::Type) && !found.is_a?(Code::Type_Alias)
+
+			[type, false]
+		end
+
+		# A composed type as text in one order, so `A | B` and `B | A` are one key.
+		def canonical_type_text node
+			case node
+			when Code::Type_Alias::Node
+				left, right = canonical_type_text(node.left), canonical_type_text(node.right)
+				left, right = [left, right].sort if %w(| & ^).include? node.operator
+				"(#{left} #{node.operator} #{right})"
+			when Code::Type_Alias::Tagged, Code::Type_Alias::Literal, Code::Type_Alias::Shape then node.text
+			when ::String
+				found = find_contract_type(node) rescue nil
+				found.is_a?(Code::Type) && !found.is_a?(Code::Type_Alias) && found.name ? found.name : node
+			else node.to_s
+			end
 		end
 
 		# Second-level dispatcher for infix operators, mirroring #interpret's own shape: each branch hands off to one interp_*_infix callback. The first group dispatches before operand evaluation — the assignment family treats the left side as a target rather than a value, `@` (the unpack marker) isn't a value at all, and logical operators must stay lazy to short-circuit. Every remaining operator evaluates each operand exactly once, here, and passes the values down so no callback re-interprets an operand (side effects run once).
@@ -2782,6 +2930,7 @@ module Code
 				return interp_context_declaration expr
 			end
 
+			return interp_qualified_infix expr if expr.operator_namespace
 			return interp_infix_assignment expr if operator == '='
 			return interp_infix_declaration expr if operator == ':='
 			return interp_dot_infix expr if operator == '.' || operator == '.?'
@@ -2826,7 +2975,9 @@ module Code
 		# Calls an @operator overload as a regular two-argument function. `values` carries the operands when the caller already evaluated them; nil lets #interp_func_body evaluate the raw expressions once itself (only the lazy logical path needs that).
 		def call_operator_overload overload, expr, values
 			call           = Code::Call_Expr.new
-			call.arguments = [expr.left, expr.right]
+			call.arguments = expr.is_a?(Code::Infix_Expr) ? [expr.left, expr.right] : [expr.expression]
+			# The call has the location of the operator's expression, so an error in it (a return type) shows where.
+			%i(line_start column_start line_end column_end source_file).each { call.send "#{it}=", expr.send(it) }
 			interp_func_body overload, call, arg_values: values
 		end
 
@@ -2839,8 +2990,13 @@ module Code
 				return interp_bitwise_infix expr, left, right
 			end
 
-			overload = find_operator_overload expr.operator.value
-			return call_operator_overload(overload, expr, nil) if overload.is_a? Code::Func
+			# A declaration is picked by its operands' values, so with one in reach both sides run first, and the operator is no longer lazy.
+			if @scoped_operator_names&.include? expr.operator.value
+				left, right = interpret(expr.left), interpret(expr.right)
+				overload    = find_operator_overload expr.operator.value, [left, right]
+				return call_operator_overload(overload, expr, [left, right]) if overload
+				return %w(&& and).include?(expr.operator.value) ? (truthy?(left) ? right : left) : (truthy?(left) ? left : right)
+			end
 
 			# The value of the side that decided the result, as in Ruby, but with the language's own #truthy? (a tagged nil is falsy too).
 			left = interpret expr.left
@@ -2854,8 +3010,8 @@ module Code
 
 		# `&` and `|`. `operator` is the base operator when this runs for a compound one (`x &= y`).
 		def interp_bitwise_infix expr, left, right, operator = expr.operator.value
-			overload = find_operator_overload operator, maybe_instance(left)
-			return call_operator_overload(overload, expr, [left, right]) if overload.is_a? Code::Func
+			overload = find_operator_overload operator, [maybe_instance(left), right]
+			return call_operator_overload(overload, expr, [left, right]) if overload
 			raise Code::Undeclared_Infix_Operator.new(expr) unless left.respond_to? operator
 
 			send_ruby_operator expr, left, operator, right
@@ -2872,8 +3028,8 @@ module Code
 		def interp_arithmetic_infix expr, left, right, operator = expr.operator.value
 			# Two plain numbers stay plain, as they already do for a comparison: a number is boxed into a Code::Number only when it is used as an object (`4.abs()`). Only an @operator in scope applies to them.
 			if left.is_a?(::Numeric) && right.is_a?(::Numeric)
-				overload = find_operator_overload operator
-				return overload.is_a?(Code::Func) ? call_operator_overload(overload, expr, [left, right]) : send_ruby_operator(expr, left, operator, right)
+				overload = find_operator_overload operator, [left, right]
+				return overload ? call_operator_overload(overload, expr, [left, right]) : send_ruby_operator(expr, left, operator, right)
 			end
 
 			# `Duck + Flying` in a value composes. A bare type never reaches an instance's own `@operator +`.
@@ -2883,9 +3039,9 @@ module Code
 
 			maybe_instanced_left  = maybe_instance(left)
 			maybe_instanced_right = maybe_instance(right)
-			overload              = find_operator_overload operator, maybe_instanced_left
+			overload              = find_operator_overload operator, [maybe_instanced_left, right]
 
-			if overload.is_a? Code::Func
+			if overload
 				call_operator_overload overload, expr, [left, right]
 			elsif left.is_a?(Code::Struct) && MEMBER_COMPOSITION_OPERATORS.include?(operator)
 				compose_struct_values expr, left, right, operator
@@ -3018,15 +3174,15 @@ module Code
 
 			else
 				# note; ==, !=, <, >, <=, >=, <=> aren't given fixed set-comparison semantics above, so — same as arithmetic — check for a user-declared @operator overload (on left itself, or falling back to left.enclosing_scope for shorthand-constructed instances, or a same-named global operator) before falling back to Ruby's own #==/#<=>/etc.
-				overload = find_operator_overload expr.operator.value, left
+				overload = find_operator_overload expr.operator.value, [left, right]
 
 				# note; A type declaring `@operator ==` but no `@operator !=` of its own (the common case lang/struct.code's Member/Struct are exactly this) used to fall straight through to Ruby's own #!= for `!=`, which is identity-based and ignores the custom == entirely, two structurally-equal Members compared unequal with `!=` even though `==` correctly said they were equal. `!=` now derives from a declared `==` overload (negated) when it has no overload of its own, matching how most languages auto-derive != from ==.
-				if !overload.is_a?(Code::Func) && expr.operator.value == '!='
-					overload      = find_operator_overload '==', left
+				if !overload && expr.operator.value == '!='
+					overload      = find_operator_overload '==', [left, right]
 					negate_result = true
 				end
 
-				if overload.is_a? Code::Func
+				if overload
 					result = call_operator_overload overload, expr, [left, right]
 					negate_result ? !truthy?(result) : result
 				elsif %w(== !=).include?(operator) && [left, right].all? { it.instance_of? Code::Instance }
@@ -3051,21 +3207,28 @@ module Code
 			lazy    = base_op == '||' || base_op == '&&'
 
 			# An `@operator +=` of its own replaces the whole operation, so its result is not assigned.
-			overload = find_operator_overload expr.operator.value, (maybe_instance(left) unless left.is_a?(::Numeric))
-			if overload.is_a? Code::Func
-				right = interpret expr.right if lazy
+			# `||=` and `&&=` run their right side only when they need it, so a declaration of the compound operator is looked for with the right side run only when the symbol has one.
+			right_ran = !lazy
+			if lazy && (@scoped_operator_names&.include?(expr.operator.value) || operator_declarations_on(maybe_instance(left), expr.operator.value))
+				right, right_ran = interpret(expr.right), true
+			end
+			overload = find_operator_overload expr.operator.value, [(left.is_a?(::Numeric) ? left : maybe_instance(left)), right]
+			if overload
 				return call_operator_overload(overload, expr, [left, right])
 			end
 
 			# `x += y` runs the same path as `x + y`, so it gets the same @operator overloads, compositions and errors.
 			result = if lazy
-				overload = find_operator_overload base_op
-				if overload.is_a? Code::Func
-					call_operator_overload overload, expr, [left, interpret(expr.right)]
+				if @scoped_operator_names&.include?(base_op)
+					right, right_ran = interpret(expr.right), true unless right_ran
+					overload         = find_operator_overload base_op, [left, right]
+				end
+				if overload
+					call_operator_overload overload, expr, [left, right]
 				else
 					return left if truthy?(left) == (base_op == '||')
 
-					interpret expr.right
+					right_ran ? right : interpret(expr.right)
 				end
 			elsif base_op == '&' || base_op == '|'
 				interp_bitwise_infix expr, left, right, base_op
@@ -3088,8 +3251,8 @@ module Code
 		end
 
 		def interp_range_infix expr, start, finish
-			overload = find_operator_overload expr.operator.value
-			return call_operator_overload(overload, expr, [start, finish]) if overload.is_a? Code::Func
+			overload = find_operator_overload expr.operator.value, [start, finish]
+			return call_operator_overload(overload, expr, [start, finish]) if overload
 
 			# `xs[2..]` (endless, nil `.right`) / `xs[..3]` (beginless, nil `.left`) -- see the parser.
 			# The Ruby `::Range` gets a nil end/start; `.to_a`/`for` over an endless one loops forever,
@@ -3108,12 +3271,24 @@ module Code
 			finish_intrinsic_instance Code::Range.new(ruby_range), 'Range'
 		end
 
+		# `a lib.<+> b`: only the declarations that `lib` has, its own or its type's, with no fallback to the built-in, since the program asked for lib's.
+		def interp_qualified_infix expr
+			left, right = interpret(expr.left), interpret(expr.right)
+			namespace   = maybe_instance interpret(expr.operator_namespace)
+			list        = namespace.is_a?(Code::Scope) ? (namespace.declarations[expr.operator.value] || operator_declarations_on(namespace, expr.operator.value)) : nil
+			entry       = list && choose_operator_overload(list, [left, right], 'infix')
+			raise Code::Undeclared_Operator.new(expr.operator, namespace: expr.operator_namespace.value) unless entry
+
+			call_operator_overload entry.func, expr, [left, right]
+		end
+
 		# A user-declared @operator with no built-in category of its own. The operand's own overload wins over a global one (#find_operator_overload). Reachable with no overload in scope when the operator is declared inside some other scope (the parser's pre-scan registers it file-wide) — that used to silently evaluate to nil; now it raises.
 		def interp_custom_infix expr, left, right
-			overload = find_operator_overload expr.operator.value, maybe_instance(left)
-			unless overload.is_a? Code::Func
+			overload = find_operator_overload expr.operator.value, [maybe_instance(left), right]
+			unless overload
 				return compose_struct_values(expr, left, right) if expr.operator.value == '~' && left.is_a?(Code::Struct)
-				raise Code::Undeclared_Infix_Operator.new(expr)
+				raise Code::Undeclared_Infix_Operator.new(expr) if INFIX.include? expr.operator.value
+				raise Code::Undeclared_Operator.new(expr.operator) # the operator, not the whole expression, so the error points at it
 			end
 
 			call_operator_overload overload, expr, [left, right]
@@ -3188,7 +3363,9 @@ module Code
 			scope     = Temporary.new 'Inline Scope'
 			last_expr = nil
 			push_then_pop scope do
+				hoisted = hoist_operator_overloads expr.expressions
 				expr.expressions.each do |it|
+					next if hoisted&.key? it
 					last_expr = interpret it
 					break if last_expr.is_a? Code::Return
 				end
@@ -4212,8 +4389,10 @@ module Code
 				raise Code::Assert_Triggered.new(expr) unless interpret(body.first) == true # Just to be explicit.
 			end
 
-			result = nil
+			result  = nil
+			hoisted = hoist_operator_overloads body
 			body.compact.each do |e|
+				next if hoisted&.key? e
 				result = interpret e
 				break if result.is_a? Code::Return
 			end
@@ -4697,6 +4876,13 @@ module Code
 				right.declarations.each do |key, value|
 					initter         = curr_scope.has? 'Self'
 
+					# Two lists of `@operator` declarations join, and for the same param types the leftmost wins, the same rule as a member.
+					own = curr_scope.declarations[key]
+					if value.is_a?(Code::Operator_Overloads) && own.is_a?(Code::Operator_Overloads)
+						curr_scope[key] = own.joined_with value, curr_scope
+						next
+					end
+
 					curr_scope[key] = dup_composed_value(value) unless curr_scope.has?(key)
 				end
 
@@ -4796,7 +4982,7 @@ module Code
 					# An instance's methods live on its type. They come in bound to the instance, so `Tasks | Task | tasks_table <>` gives a `Tasks.find` that still runs on `tasks_table`.
 					if operand.is_a?(Code::Instance) && operand.enclosing_scope.is_a?(Code::Type)
 						type_methods = operand.enclosing_scope.declarations.select do |name, value|
-							value.is_a?(Code::Func) && name != 'Self' && !declarations.key?(name)
+							(value.is_a?(Code::Func) || value.is_a?(Code::Operator_Overloads)) && name != 'Self' && !declarations.key?(name)
 						end
 						declarations = declarations.merge(type_methods).to_h { |name, value| [name, rebind_func_to_scope(value, operand)] }
 					end
@@ -4813,7 +4999,13 @@ module Code
 				when '+'
 					# Union -- leftmost source wins a name collision, same as #interp_composition's own `unless curr_scope.has?(key)`.
 					operand_members.each do |member|
-						next if member_index.call(member[0])
+						existing = member_index.call(member[0])
+						if existing
+							# Two lists of `@operator` declarations join, and the leftmost wins for the same param types, as in #interp_composition.
+							earlier = members[existing][3]
+							members[existing][3] = earlier.joined_with(member[3], earlier.owner) if earlier.is_a?(Code::Operator_Overloads) && member[3].is_a?(Code::Operator_Overloads)
+							next
+						end
 						members << member
 					end
 
@@ -4843,7 +5035,7 @@ module Code
 			end
 
 			# A method composed in from a Type (`User | User_Logic <name: String>`) is not a data slot, so it goes after the data members, and positional arguments fill the data members in order.
-			data_members, method_members = members.partition { |member| !member[3].is_a?(Code::Func) }
+			data_members, method_members = members.partition { |member| !member[3].is_a?(Code::Func) && !member[3].is_a?(Code::Operator_Overloads) }
 			members                      = data_members + method_members
 
 			names, type_names, types, values = members.empty? ? [[], [], [], []] : members.transpose
@@ -5257,9 +5449,13 @@ module Code
 					when_scope.declare 'it', it_value # condition declared above, representing the base conditional, which is different from the when case's condition.
 					push_scope when_scope # note; The when condition depends on having it's own scope with `it` declared. So the Temporary When scope must be pushed by this point.
 
-					when_value = interpret when_case.condition
+					# `when _` matches every value, the same as a bare `when it`. It is never read as a name, so it does not need a declaration.
+					wildcard   = when_case.condition.is_a?(Code::Identifier_Expr) && when_case.condition.value == '_' && !when_case.condition.scope_operator
+					when_value = interpret when_case.condition unless wildcard
 
-					matched_case = if !bare_it?(when_case.condition) && references_it?(when_case.condition)
+					matched_case = if wildcard
+						true
+					elsif !bare_it?(when_case.condition) && references_it?(when_case.condition)
 						truthy? when_value
 					else
 						bare_type   = when_value.is_a?(Code::Type) && !when_value.is_a?(Code::Instance)
@@ -5804,6 +6000,18 @@ module Code
 			struct
 		end
 
+		# Runs each `@operator` declaration in `expressions` first, so an operator works above its own line in its scope, the same as its precedence does. Gives the ones it ran, for the walk to skip, or nil when there are none.
+		def hoist_operator_overloads expressions
+			@expressions_with_operators ||= {}.compare_by_identity
+			return nil unless @expressions_with_operators.fetch(expressions) { @expressions_with_operators[expressions] = expressions.any? { it.is_a? Code::Operator_Overload_Expr } }
+
+			expressions.each_with_object({}.compare_by_identity) do |expr, hoisted|
+				next unless expr.is_a? Code::Operator_Overload_Expr
+				interp_operator_overload expr
+				hoisted[expr] = true
+			end
+		end
+
 		# @param expr [Code::Operator_Overload_Expr]
 		def interp_operator_overload expr
 			# expr attrs:  func_expr(Func_Expr)  fixity(Lexeme)  precedence(Int)  value(String)
@@ -5811,7 +6019,19 @@ module Code
 
 			# Recorded so #find_operator_overload searches the stack only for an operator that a scope there can hold. A type's own operator is found through its operand instead.
 			(@scoped_operator_names ||= ::Set.new) << expr.value unless stack.last.is_a? Code::Type
-			stack.last.declare expr.value, interpret(expr.func_expr)
+
+			scope    = stack.last
+			func     = interpret expr.func_expr
+			existing = scope.declarations[expr.value]
+			# A list that this scope got from another one (composition, the type of an instance) is copied first, so the other one does not change.
+			list = if existing.is_a? Code::Operator_Overloads
+				existing.owner.equal?(scope) ? existing : existing.copy_for(scope)
+			else
+				Code::Operator_Overloads.new expr.value, scope
+			end
+			list.add operator_overload_entry(expr.fixity.value, func)
+			scope.declare expr.value, list
+			func
 		end
 
 		# note: This is the entry point for all expressions. This is called in a loop until all expressions are evaluated, or the program crashes.
@@ -5900,6 +6120,12 @@ module Code
 					throw :skip
 				when 'stop'
 					throw :stop
+				else
+					# A symbol on its own (`</>`) that nothing declares.
+					symbol = expr.value
+					if SYMBOLIC_REGEX.match?(symbol) && !STRUCTURAL_SYMBOLS.include?(symbol) && [INFIX, PREFIX, POSTFIX, CIRCUMFIX, RANGE_OPERATORS].none? { it.include? symbol } && !stack.any? { |scope| !scope.is_a?(Code::Type) && scope.declarations.key?(symbol) }
+						raise Code::Undeclared_Operator.new(expr)
+					end
 				end
 
 			when Code::Struct_Expr

@@ -801,7 +801,7 @@ handle ( line;
 	end
 )
 ```
-4. A bare `when it` matches everything — a catch-all.
+4. A bare `when it` or `when _` matches everything — a catch-all. Put it last in its group. `_` here is never a name, so it needs no declaration.
 5. A case that uses `it` in an expression is a condition of its own: `when it > 3`, `when it =>= Number`, `when it.@tag.reason == 'closed'`. It matches when the expression is truthy, and nothing is compared.
 6. On `for`, `else` runs only when nothing matched. On `if`, each group of cases belongs to its branch: the cases after the body see only truthy values, and `else` takes every falsy value (see below). Each `elif` has its own `when` group.
 7. One `end` closes the whole block — a `when` clause has none of its own.
@@ -2178,9 +2178,43 @@ Duck.@composed_types.include?(Flying)    # true — the set holds the string 'Fl
 ## Operator Overloading
 
 1. Declare with `@operator`, a symbol or identifier, a fixity (`@infix`, `@prefix`, `@postfix`), a precedence number, and a function body
-2. Overloads are stored as regular functions in the declaring scope, so one can be scoped to a single function without leaking out
-3. Precedence controls how overloaded operators combine with each other and with built-ins
-4. A type's own overload always wins over a same-named one declared elsewhere — dispatch checks the left operand's type first, falling back to scope only if it has none
+2. Overloads are stored in the declaring scope, so one can be scoped to a single function without leaking out. An operator is hoisted in its scope: it works above its own line
+3. Precedence controls how overloaded operators combine with each other and with built-ins. A precedence is scoped too: one declared in a function applies only inside that function, also above its line. It is for the symbol, not for each declaration, so two declarations of one symbol and fixity in one scope with different numbers raise `Operator_Precedence_Conflict`. An inner scope can give its own number. A declaration with no number keeps the precedence the symbol already has
+4. One symbol can have more than one declaration, one for each set of param types. A declaration fits when each operand fits its param. An untyped param fits any value, and a `nil` fits only an untyped param or a contract that names `Nil`
+5. The search for a declaration that fits: the left operand's type, then the right operand's type (only a declaration whose right param is typed, so `3 * money` can live in `Money`), then each scope from the current one out to the top. It goes to the next place only when nothing fits in this one
+6. In one place, the most specific declaration wins: for each param, from the left, an exact type before a type the value composes, before an untyped param. With an equal fit, the first one declared wins
+7. When no declaration fits anywhere, the built-in operator runs. So `9 / 3` still divides after a `/` for `Vec2`, and the body of that `/` can use `/` on numbers
+8. A second declaration with the same param types replaces the first, whatever its return type and param names. An alias is the type it names, so `Int` and `Integer` are the same
+9. Composition joins the declarations of each operand. For the same param types, the leftmost operand wins, the same as a member
+10. A new symbol must be declared before a program can use it. `v </> 2` with no `@operator </>` in this scope or a scope around it raises `Undeclared_Operator`
+11. A type body gives its operators' fixity and precedence to the scope where the type is declared, so `a <+> b` parses there
+12. A bare `@load` brings the loaded file's top-level operators into the scope that loads it. A named load keeps them under its name: `a lib.<+> b` uses the `<+>` of `lib := @load 'lib'`, and only that one, so with no fit it raises
+
+```code
+V2 <x: Number, y: Number>
+
+@operator / @infix ( left: V2, right: Number -> V2;
+    V2(left.x / right, left.y / right)   # `/` on two numbers: no declaration fits, so the built-in runs
+)
+
+@operator / @infix ( left: V2, right: V2 -> V2;
+    V2(left.x / right.x, left.y / right.y)
+)
+
+V2(4, 8) / 2          # <x = 2, y = 4>
+V2(4, 8) / V2(2, 4)   # <x = 2, y = 2>
+9 / 3                 # 3
+
+Money {
+    amount := 0
+    Self ( amount := 0; self.amount = amount )
+
+    @operator * @infix ( left: Money, right: Number -> Money; Money(left.amount * right) )
+    @operator * @infix ( left: Number, right: Money -> Money; Money(left * right.amount) )
+}
+
+(3 * Money(5)).amount   # 15 -- found through the right operand's type
+```
 
 ```code
 # Redefine + only inside this function — everywhere else, + still adds

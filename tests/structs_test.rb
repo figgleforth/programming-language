@@ -875,7 +875,8 @@ class Structs_Test < Base_Test
 			assert_equal 'x', out
 		end
 
-		assert_raises Code::Type_Contract_Violation do
+		# A declaration that does not fit its operands is skipped, so with no other `~` for them, the operator is not there.
+		assert_raises Code::Undeclared_Infix_Operator do
 			Code.interp "Thing {
 				@operator ~ @infix ( left, right: <name: String>; right.name )
 			}

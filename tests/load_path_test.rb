@@ -90,4 +90,26 @@ class Load_Path_Test < Base_Test
 			assert_equal '<div><p>hi</p></div>', from_elsewhere { Code.interp_file File.join(dir, 'main.code') }
 		end
 	end
+	# One parser read every file, so a precedence that one file gave an operator also applied in the files parsed after it.
+	def test_a_precedence_ends_at_the_end_of_its_file
+		files = {
+			"main"   => "@load ./first\n@load ./second\n<first, second>",
+			"first"  => "@operator <+> @infix 900 ( left, right; left + right )\nfirst := 1 <+> 2 * 3",
+			"second" => "@operator <+> @infix ( left, right; left + right )\nsecond := 1 <+> 2 * 3",
+		}
+		with_files files do |dir|
+			result = Code.interp_file File.join(dir, "main.code")
+			assert_equal 9, result.values[0], "(1 <+> 2) * 3 in the file that gives 900"
+			assert_equal 7, result.values[1], "1 <+> (2 * 3) in a file that gives no number"
+		end
+	end
+
+	# A string in a loaded file is parsed with the operators of that file.
+	def test_a_string_in_a_loaded_file_knows_the_operators_of_its_file
+		files = {
+			"main" => "@load ./lib\nshown",
+			"lib"  => "@operator <+> @infix 900 ( left, right; left + right )\nshown := \"`1 <+> 2 * 3`\"",
+		}
+		with_files(files) { |dir| assert_equal "9", Code.interp_file(File.join(dir, "main.code")) }
+	end
 end

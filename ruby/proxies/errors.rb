@@ -297,6 +297,25 @@ module Code
 	class Undeclared_Infix_Operator < Error
 	end
 
+	# `v </> 2`, or a `</>` on its own, where no `@operator </>` is declared in this scope or one around it. `expression` is the operator's Lexeme, or the Operator_Expr of a lone symbol.
+	class Undeclared_Operator < Undeclared_Infix_Operator
+		attr_reader :fixity, :namespace
+
+		def initialize expression = nil, highlighted_expression = nil, fixity: 'infix', namespace: nil
+			@fixity    = fixity
+			@namespace = namespace
+			super expression, highlighted_expression
+		end
+
+		def detail_message
+			operator = expression.value
+			return "#{Ascii.bold namespace} declares no #{Ascii.bold operator} that takes these operands" if namespace
+
+			params   = fixity == 'infix' ? 'left, right' : 'value'
+			"#{Ascii.bold operator} is not a declared operator here. Declare it in this scope, or in a scope around it: @operator #{operator} @#{fixity} ( #{params}; ... )"
+		end
+	end
+
 	# `1 + "a"`: the left side has the operator, but it cannot take this right side.
 	class Invalid_Infix_Operands < Error
 		attr_reader :operator, :left_type, :right_type
@@ -606,6 +625,21 @@ module Code
 	end
 
 	class Operator_Overload_Precedence_Must_Be_Integer < Error
+	end
+
+	# Two declarations of one symbol and fixity in one scope give different precedences. The parser groups by the symbol before the program runs, so one scope can have only one. `expression` is the second precedence number.
+	class Operator_Precedence_Conflict < Error
+		attr_reader :symbol, :fixity, :precedence, :earlier_precedence
+
+		def initialize expression = nil, highlighted_expression = nil, symbol: nil, fixity: nil, precedence: nil, earlier_precedence: nil
+			@symbol, @fixity, @precedence, @earlier_precedence = symbol, fixity, precedence, earlier_precedence
+			super expression, highlighted_expression
+		end
+
+		def detail_message
+			return nil unless symbol
+			"#{Ascii.bold symbol} @#{fixity} is declared with precedence #{earlier_precedence} in this scope already, so it cannot also have #{precedence}. Give each declaration the same number, or leave the number out"
+		end
 	end
 
 	class Unsupported_Feature < Error

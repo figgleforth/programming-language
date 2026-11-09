@@ -64,9 +64,9 @@ lerp (a: Float, b: Float, t: Float -> Float;
 		Vec2(left.x/right, left.y/right)
 	when Vec2
 		Vec2(left.x/right.x, left.y/right.y)
+	when _
+		@panic "Cannot divide \``left`\` by \``right`\`"
 	else
-		left / right
-	else
-		@panic "Cannot divide `left` by a falsy value: \``right`\`"
+		@panic "Cannot divide \``left`\` by a falsy value: \``right`\`"
 	end
 )

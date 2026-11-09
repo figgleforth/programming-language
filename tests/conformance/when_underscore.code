@@ -1,0 +1,24 @@
+# `when _` matches every value, the same as a bare `when it`.
+kind_of ( value;
+	if value
+	when Number
+		'number'
+	when String
+		'string'
+	when _
+		'something else'
+	else
+	when nil\<reason: String>
+		'a reason'
+	when _
+		'falsy'
+	end
+)
+
+@out kind_of(4)                          # out: number
+@out kind_of('a')                        # out: string
+@out kind_of([1, 2])                     # out: something else
+@out kind_of(nil\<reason := 'no column'>) # out: a reason
+@out kind_of(nil)                        # out: falsy
+@out kind_of(false)                      # out: falsy
+

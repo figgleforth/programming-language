@@ -384,6 +384,25 @@ class Error_Test < Base_Test
 		end
 	end
 
+	# A symbol that no `@operator` declares split the line into three statements, so `v </> 2` gave `v` with no error.
+	def test_an_undeclared_symbol_between_two_values_raises
+		error = assert_raises(Code::Undeclared_Operator) { Code.interp "v := 5\nv </> 2" }
+		assert_equal "</>", error.expression.value
+		assert_kind_of Code::Undeclared_Infix_Operator, error
+		assert_equal [2, 3], [error.expression.line_start, error.expression.column_start], "the error points at the operator, not at v"
+	end
+
+	# A symbol on its own gave nil.
+	def test_an_undeclared_symbol_on_its_own_raises
+		assert_raises(Code::Undeclared_Operator) { Code.interp "</>" }
+	end
+
+	# A built-in symbol that an operand cannot take keeps the plain error.
+	def test_a_built_in_symbol_on_the_wrong_operand_keeps_the_plain_error
+		error = assert_raises(Code::Undeclared_Infix_Operator) { Code.interp "nil + 1" }
+		refute_kind_of Code::Undeclared_Operator, error
+	end
+
 	# The parser's pre-scan registers a custom operator file-wide, but the overload itself is a regular declaration — using the operator outside the scope that declares it finds no overload. Used to silently evaluate to nil.
 	def test_undeclared_infix_operator
 		assert_raises Code::Undeclared_Infix_Operator do

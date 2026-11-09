@@ -25,6 +25,7 @@ require_relative 'proxies/expressions'
 require_relative 'proxies/scopes'
 require_relative 'proxies/func_signature'
 require_relative 'proxies/type_alias'
+require_relative 'proxies/operator_overloads'
 require_relative 'proxies/return'
 
 require_relative 'proxies/string'
